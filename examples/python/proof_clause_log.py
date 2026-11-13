@@ -54,6 +54,9 @@ _SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
     (SET_OPERATORS[z3.Z3_OP_SET_UNION], z3.SetUnion), (SET_OPERATORS[z3.Z3_OP_SET_INTERSECT], z3.SetIntersect),
     (SET_OPERATORS[z3.Z3_OP_SET_DIFFERENCE], z3.SetDifference),
     (SET_OPERATORS[z3.Z3_OP_SET_COMPLEMENT], z3.SetComplement))}
+# The hints of Z3's nonlinear solver: nla carries the literals of a lemma and
+# a polynomial refutation, nla-unsupported nothing. Neither is checked yet.
+_NONLINEAR_HINTS = ("nla", "nla-unsupported")
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -715,13 +718,19 @@ class _Terms:
         """Return (name, [(coefficient, literal)]) for a theory hint or None for rup."""
         if sexpr == "rup":
             return None
-        if isinstance(sexpr, str):
+        if isinstance(sexpr, str) and sexpr not in _NONLINEAR_HINTS:
             if sexpr not in self.hints:
                 raise ProofExportError("undefined proof hint in the clause log: %s" % sexpr)
             sexpr = self.hints[sexpr]
+        if sexpr in _NONLINEAR_HINTS:
+            return sexpr, []  # logged by its name alone when it lists no literal
         if not sexpr or not isinstance(sexpr[0], str):
             raise ProofExportError("malformed proof hint in the clause log")
         name, arguments = sexpr[0], sexpr[1:]
+        if name in _NONLINEAR_HINTS:
+            # The nonlinear solver's lemma: nothing of the hint is read, the
+            # logged clause stands for it (_Replay.infer).
+            return name, []
         if name in _COEFFICIENT_HINTS:
             if len(arguments) % 2:
                 raise ProofExportError("%s hint needs coefficient-literal pairs" % name)
@@ -927,7 +936,13 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
     arith axioms relate to their operands, abs, a read of an array, and an
-    array's default value.
+    array's default value. So is a product of two or more nonconstant
+    factors, the term as it is written: Z3's simplex solver has one
+    variable for it, and its linear lemmas never use what a product is of
+    ((* x y) and (* y x) are two atoms here; Z3's rewriter orders the
+    factors before the solver sees them). The input has such products over
+    Int only (proof_certificate._require_linear_arithmetic); the log may
+    state one over Real, of to_real terms, in a step Lean checks.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -961,7 +976,10 @@ def _linear(expr, terms=None, scale=Fraction(1)):
             elif variable is None:
                 variable = child
             else:
-                raise ProofExportError("nonlinear multiplication is not supported")
+                # A second nonconstant factor: the product is an atom, its
+                # numeral factors included.
+                terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
+                return terms, Fraction(0)
         terms, constant = _linear(variable, terms, scale * factor)
     elif kind == z3.Z3_OP_DIV:
         divisor = constant_value(expr.arg(1))
@@ -1717,6 +1735,16 @@ class _Replay:
         if hint is None:
             return self.rup(literals, dependencies)
         name, pairs = hint
+        if name in _NONLINEAR_HINTS:
+            # A lemma of the nonlinear solver (nla_core): Lean has no proof
+            # of it, so the node stands for the logged clause and a
+            # refutation that uses it is rejected (_require_certified); one
+            # that does not leaves it out of the certificate.
+            declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [name])
+            lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+            self.uncertified[lemma] = ("the refutation uses a lemma of the nonlinear solver, "
+                                       "which is not certified: %s" % name)
+            return lemma, list(literals)
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
             if name == "alldiff" and not _distinct_gate(lemma_literals):

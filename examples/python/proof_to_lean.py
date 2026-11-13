@@ -1501,6 +1501,11 @@ class _Graph:
                        if self.kind(node) == z3.Z3_OP_DISTINCT and self.arguments(node)
                        and self.is_term(self.arguments(node)[0]))
 
+    @functools.cached_property
+    def integer_products(self):
+        """Whether some Int node is a product of two or more nonconstant factors (_is_product)."""
+        return any(self.decl(node).range == "Int" and _is_product(self, node) for node in range(len(self.nodes)))
+
     def conclusion(self, node):
         return self.arguments(node)[-1]
 
@@ -6084,8 +6089,16 @@ def _theory_tactic(graph):
     under a second; grind still covers goals omega does not read
     (congruences and uninterpreted atoms). Both produce kernel-checked
     proofs.
+
+    With a product of Int terms in the certificate (_is_product), grind is
+    given Int.mul_eq_zero: Z3's rewriter splits (= (* x y) 0) into (or (= x
+    0) (= y 0)), which grind proves over Rat, a field, on its own but not
+    over Int. (Omega takes a product of two terms as an atom, each way of
+    writing it a different one; grind normalizes polynomials.)
     """
-    return "first | omega | grind (splits := 64)" if graph.numeric in ("Int", _MIXED) else "grind (splits := 64)"
+    if graph.numeric not in ("Int", _MIXED):
+        return "grind (splits := 64)"
+    return "first | omega | grind (splits := 64)" + (" [Int.mul_eq_zero]" if graph.integer_products else "")
 
 
 def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
@@ -8939,7 +8952,10 @@ def _linear_term(graph, node, scale, terms):
     Variables, ite terms, integer div, mod, and rem, abs, and to_int are
     the atoms of the linear form; each is opaque to Farkas reasoning, an
     ite tied to its branches by gate clauses and a div, mod, rem, or to_int
-    to its operands by the solver's arith axioms.
+    to its operands by the solver's arith axioms. A product of two or more
+    nonconstant factors is an atom too, the node as it stands (Z3's simplex
+    solver has one variable for it); nothing ties it to its factors here,
+    and Lean, whose * it is, normalizes polynomials in grind.
     """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
@@ -8958,16 +8974,20 @@ def _linear_term(graph, node, scale, terms):
     if kind == z3.Z3_OP_UMINUS:
         return _linear_term(graph, arguments[0], -scale, terms)
     if kind == z3.Z3_OP_MUL:
-        variable = None
+        variable, factors = None, scale
         for arg in arguments:
             factor_terms = {}
             factor = _linear_term(graph, arg, Fraction(1), factor_terms)
             if factor_terms:
                 if variable is not None:
-                    raise ReconstructionError("nonlinear multiplication in a theory lemma")
+                    # A second nonconstant factor: the product is an atom,
+                    # its numeral factors included.
+                    terms[node] = terms.get(node, Fraction(0)) + scale
+                    return Fraction(0)
                 variable = arg
             else:
-                scale *= factor
+                factors *= factor
+        scale = factors
         if variable is None:
             return scale
         return _linear_term(graph, variable, scale, terms)
@@ -8981,6 +9001,16 @@ def _linear_term(graph, node, scale, terms):
         # has t's linear form, over t's Int atoms (see _cast_facts).
         return _linear_term(graph, arguments[0], scale, terms)
     raise ReconstructionError("unsupported arithmetic term in a theory lemma")
+
+
+def _is_product(graph, node):
+    """Whether a node is a product of two or more nonconstant factors, an atom of the linear forms.
+
+    A factor is constant when it is a numeral expression, as (+ 1 2) and
+    (* 2 3): one whose linear form has no atom (_linear_term).
+    """
+    return (graph.kind(node) == z3.Z3_OP_MUL and graph.is_arith(node)
+            and sum(_numeral_expression_value(graph, arg) is None for arg in graph.arguments(node)) > 1)
 
 
 def _integer_divisor(graph, node):

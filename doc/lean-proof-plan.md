@@ -3884,6 +3884,72 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Products of Int terms as atoms of the linear forms (2026-11-13)
+
+Every product of two nonconstant terms was rejected ("nonlinear
+multiplication is not supported"), the largest class of rejections in
+z3test's `regressions/smt2` after strings and bit-vectors: 78 unsat
+queries. A product is a variable of Z3's simplex solver, and many
+refutations use nothing else of it: bounds on `(* m n)` against each other,
+a product named by a variable, a parity conflict over one.
+
+- **Int products are accepted in every integer fragment** (`qf_lia`,
+  `qf_uflia`, `qf_lira`, `qf_uflira`, arrays included), by both exporters.
+  In the linear forms of the replay and of the reconstructor
+  (`proof_clause_log._linear`, `proof_to_lean._linear_term`) a product of
+  two or more nonconstant factors is an atom, the term as written, so
+  `farkas`, `bound`, `implied-eq`, and `cut` lemmas over products are
+  re-derived and proved as before. Lean's `*` is the product; `grind`
+  normalizes polynomials, so the two ways of writing a product that the
+  rewriter identifies are one term there. With an Int product in the
+  certificate `grind` is given `Int.mul_eq_zero`, for the rewriter's split
+  of `(= (* m n) 0)`.
+- **Real products stay rejected, with a reason.** Real is `Rat` in Lean,
+  which is faithful for linear constraints only: `(= (* x x) 2.0)` has a
+  real solution and no rational one, so a theorem over `Rat` would not say
+  that the input is unsatisfiable. The message is "nonlinear multiplication
+  is supported over Int only: a product of Real terms is not certified"; the
+  reconstructor parses the input with the same check. Certifying them needs
+  a statement over the reals (an ordered field the theorem quantifies over,
+  or a real closed one), not a change of tactics.
+- **The nonlinear solver's own reasoning is not certified.** Its lemmas
+  (hints `nla`, which carries a polynomial refutation, and
+  `nla-unsupported`) become nodes nothing certifies: a refutation that uses
+  one is rejected ("the refutation uses a lemma of the nonlinear solver,
+  which is not certified: nla"), one that does not leaves it out (before,
+  the first such hint in a log rejected it: "unsupported clause-log hint").
+  Clauses the log assumes on nlsat's word (`; assumed`, `nlsat-assumed`)
+  are tied to the assertions by a cnf lemma like any assumed clause; simplex
+  conflicts over bounds the nonlinear solver propagated arrive as
+  coefficient-free `cut` or `bound` lemmas; the rewriter splits a factored
+  product by the signs of its factors (`(>= (+ (* -2 m) (* -3 m n)) 0)` to
+  cases on `m` and `n`). Lean must prove each, and mostly does not: such an
+  input is not certified.
+
+Measured: of the 78 queries, 14 verify (nl9, nl12, nl37 q0 and q4, nl40,
+nl46, nl48, nl49, two queries each), 41 are rejected for a product of Real
+terms, 18 use a lemma of the nonlinear solver, 2 fail in Lean on the
+rewriter's sign split (nl38), 3 are outside for other reasons. Of the 235 unsatisfiable seeds 1-600 of
+`random_product_instance` (linear over three products with their factors
+in random orders), 182 verify, 2 use an `nla` lemma, and 51 fail in Lean.
+The failing lemmas, a seed counted once for each kind it fails on (some
+fail on two): a sign-split rewrite in 34 seeds, a `cut` in 12, a cnf lemma
+of an assumed clause in 8, a `bound` in 3. Tests:
+`test_proof_to_lean_nonlinear.py` (26 documented inputs, 11 of them through
+the legacy core too, 10 rejected inputs, 7 pinned seeds).
+
+The rewriter distributes `to_real` over a product, so `(to_real (* m n))`
+is the Real product `(* (to_real m) (to_real n))` in the log, a second
+variable of the simplex solver next to `(* m n)` that only the nonlinear
+solver relates to it. An input with both is refuted with `nla` lemmas and
+assumed nlsat clauses on the way, and is certified only when the trimmed
+refutation avoids them (the test accepts both outcomes); with the product
+under `to_real` everywhere the refutation is linear and stable.
+
+Next: replay the `nla` hint's polynomial refutation in Lean (products of
+premises, then a linear combination `grind` closes), sign facts for the
+rewriter's splits, and squares (`0 <= m m`) for the cuts.
+
 ### is_int of nested Real chains related to its normal form (2026-11-09)
 
 The rewriter's normal form of `(is_int t)` is `(= (to_real (to_int t'))

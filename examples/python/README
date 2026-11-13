@@ -142,7 +142,10 @@ arithmetic on its own: Int variables and numerals, sums, differences,
 negation, multiplication by a numeral, Int-valued ite, integer div and mod
 by a nonzero numeral (negative too), Z3's rem by a nonzero numeral, and
 abs, and the same atoms over Int
-terms; both cores certify it, and a consumer of parse_assertions or
+terms. A product of two or more nonconstant Int terms, (* m n) or (* m (+ n
+1)), is accepted in every integer fragment as one more atom of the linear
+forms (see "Products of Int terms" below); a product of Real terms is
+rejected. Both cores certify the fragment, and a consumer of parse_assertions or
 parse_legacy_assertions accepts it explicitly (integer=True, as the
 exporter and the reconstructor do), because its cut steps are certified by
 Lean alone rather than re-derived in Python first. The qf_uflia fragment is the
@@ -221,7 +224,7 @@ several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
 reconstructor, which parses the input itself. Quantifiers,
-nonlinear terms, bit-vectors, and arrays are rejected. Definitions are expanded by Z3's parser.
+products of Real terms, powers, and bit-vectors are rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
@@ -742,9 +745,15 @@ become exact Rat literals, and the theorem reads
 Real variables are encoded as Rat. This is sound for the supported fragment:
 a system of linear constraints with rational coefficients has a real solution
 if and only if it has a rational one, so unsatisfiability over Rat is
-unsatisfiability over the reals. The exporter rejects nonlinear terms, which
-is the precondition of that argument; extending the fragment must revisit
-this encoding. A Real ite becomes Lean's ite over Rat with the classical
+unsatisfiability over the reals. The exporter rejects products of Real terms
+("nonlinear multiplication is supported over Int only"), which is the
+precondition of that argument: (= (* x x) 2.0) has a real solution and no
+rational one, so a theorem over Rat would not say that such an input is
+unsatisfiable. The reconstructor parses the input with the same check, so no
+certificate states a product of Real terms as a hypothesis; extending the
+fragment must revisit this encoding. A product of Int terms is not affected:
+the Int terms take the same values in a real solution and in the rational
+one the argument gives. A Real ite becomes Lean's ite over Rat with the classical
 decidability instance for its condition, so the term definitions that contain
 one are noncomputable; the argument above still applies, because under each
 fixed valuation of the conditions the constraints are linear. A Real abs is
@@ -873,6 +882,37 @@ first | omega | grind (splits := 64), except euf th-lemmas (below): omega
 decides linear integer arithmetic (ite over Int included) and produces a
 kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
+Products of Int terms. A product of two or more nonconstant Int terms is
+Lean's Int product, and in the exporter's and the reconstructor's linear
+forms it is an atom, the term as written (proof_clause_log._linear,
+proof_to_lean._linear_term and _is_product): Z3's simplex solver has one
+variable for it, so its farkas, bound, implied-eq, and cut lemmas over
+products are linear combinations, re-derived over the atoms as before and
+proved by omega (which takes a product of two terms as an atom) or grind
+(which normalizes polynomials, so (* m n) and (* n m), two atoms here, are
+one term there; Z3's rewriter orders the factors before the solver sees
+them, and the rewrite between the two forms is a Lean lemma). With such a
+product in the certificate grind is given Int.mul_eq_zero, for the
+rewriter's split of (= (* m n) 0) into (or (= m 0) (= n 0)). What Z3 knows
+about a product from its factors is not certified: a lemma of its
+nonlinear solver (hint nla, with a polynomial refutation, or
+nla-unsupported) becomes a node nothing certifies, and a refutation that
+uses it is rejected ("the refutation uses a lemma of the nonlinear solver,
+which is not certified"); a clause the log assumes on nlsat's word
+("; assumed", hint nlsat-assumed) is tied to the assertions by a cnf lemma
+like any other assumed clause, a simplex conflict resting on a bound the
+nonlinear solver propagated is logged as a coefficient-free cut or bound,
+and the rewriter splits a factored product by the signs of its factors;
+Lean has to prove each of those, and where it does not the input is not
+certified. Z3's rewriter distributes to_real over a product, so (to_real
+(* m n)) is the Real product of (to_real m) and (to_real n) in the log, a
+second variable of the simplex solver next to (* m n), which the nonlinear
+solver alone relates to it: an input whose refutation needs the two to
+agree is certified only when the trimmed log holds no lemma of that solver
+(and Lean proves what is left), while one with the product under to_real
+throughout has a linear refutation. Through the legacy core such steps are
+(_ th-lemma arith assumed nlsat) or unsupported nla, which the exporter
+rejects. Division, div, and mod by a product, and powers, stay rejected.
 An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
 mod, abs, ite, or application atoms gets a first attempt over the atoms
 generalized to integers: the definitions outside the atoms are unfolded,
@@ -1610,8 +1650,8 @@ test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
-arrays), and test_proof_to_lean_enum.py enumeration datatypes and arrays
-of them end to end;
+arrays), test_proof_to_lean_enum.py enumeration datatypes and arrays
+of them, and test_proof_to_lean_nonlinear.py products of Int terms end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than

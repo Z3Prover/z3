@@ -1866,11 +1866,37 @@ class TestFragmentClassification(unittest.TestCase):
                                             r"\(qf_uflira\).*accept the fragment explicitly"):
                     parse(source, z3.Context())
 
+    def test_products_of_int_terms_are_classified(self):
+        # A product of nonconstant Int terms is an atom of the linear forms
+        # in every integer fragment (see test_proof_to_lean_nonlinear.py).
+        for source, fragment in [
+            ("(declare-const x Int)(declare-const y Int)(assert (> (* x y) 1))", "qf_lia"),
+            ("(declare-const x Int)(assert (> (* x (ite (> x 0) x 1) (abs x)) 1))", "qf_lia"),
+            ("(declare-const x Real)(declare-const n Int)(assert (< x (to_real (* n n))))", "qf_lira"),
+            ("(declare-const y Real)(declare-const n Int)(assert (> (* n (to_int y)) 1))", "qf_lira"),
+            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (* x (f x)) (f (* x x))))", "qf_uflia"),
+            ("(declare-const a (Array Int Int))(declare-const i Int)(assert (> (select a (* i i)) (* i 2)))",
+             "qf_uflia"),
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), fragment)
+
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
+        nonlinear = "^nonlinear multiplication is supported over Int only: a product of Real terms is not certified$"
         for source, message in [
-            ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
+            # Real is Rat in Lean, which is faithful for linear constraints only.
+            ("(declare-const x Real)(assert (> (* x x) 1.0))", nonlinear),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
-            ("(declare-const y Real)(assert (> (to_int (* y y)) 1))", "nonlinear"),
+            ("(declare-const y Real)(assert (> (to_int (* y y)) 1))", nonlinear),
+            ("(declare-const x Real)(declare-const y Real)(assert (< (abs (* x y)) 1.0))", nonlinear),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", nonlinear),
+            ("(declare-const p Bool)(declare-const x Real)(assert (> (* x (ite p x 1.0)) 2.0))", nonlinear),
+            ("(declare-const x Real)(declare-const n Int)(assert (> (* x (to_real n)) 1.0))", nonlinear),
+            ("(declare-const m Int)(declare-const n Int)(assert (> (* (to_real m) (to_real n)) 1.0))", nonlinear),
+            ("(declare-const x Real)(declare-const y Real)(assert (> (/ x (* x y)) 1.0))", "division"),
+            ("(declare-const x Real)(assert (> (^ x 2.0) 1.0))", r"unsupported arithmetic operator: \^"),
+            # A power stays out over Int too (Z3 names the Int one **).
+            ("(declare-const x Int)(assert (> (^ x 2) 1))", r"unsupported arithmetic operator: \*\*"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
             # total in Lean, by a term nonlinear; so is Z3's rem.
             ("(declare-const x Int)(assert (> (div x 0) 1))", "integer div is supported only by a nonzero constant"),
@@ -1882,13 +1908,9 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-const x Int)(assert (> (rem x 0) 1))", "integer rem is supported only by a nonzero constant"),
             ("(declare-const x Int)(declare-const y Int)(assert (> (rem x y) 1))",
              "integer rem is supported only by a nonzero constant"),
-            # abs over Real is in the fragment, but not of a nonlinear term.
-            ("(declare-const x Real)(declare-const y Real)(assert (< (abs (* x y)) 1.0))", "nonlinear"),
-            ("(declare-const x Real)(declare-const n Int)(assert (< x (to_real (* n n))))", "nonlinear"),
-            ("(declare-const x Int)(declare-const y Int)(assert (> (* x y) 1))", "nonlinear"),
-            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", "nonlinear"),
+            ("(declare-const x Int)(declare-const y Int)(assert (> (mod x (* y y)) 1))",
+             "integer mod is supported only by a nonzero constant"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (/ 1.0 (f x)) 1.0))", "division"),
-            ("(declare-const p Bool)(declare-const x Real)(assert (> (* x (ite p x 1.0)) 2.0))", "nonlinear"),
             ("(declare-const p Bool)(declare-const x Real)(assert (> (/ 1.0 (ite p x 1.0)) 2.0))", "division"),
         ]:
             with self.subTest(source=source):
@@ -2309,8 +2331,12 @@ class TestFragmentClassification(unittest.TestCase):
             with self.subTest(premises=premises, conclusion=conclusion, integer=integer):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     parameters(unsupported, premises, conclusion, integer=integer)
+        # (arith assumed nlsat labels a clause nlsat decided; with arith
+        # unsupported nla it is what the legacy core's proof holds of a
+        # refutation that rests on the nonlinear solver, see
+        # test_proof_to_lean_nonlinear.py.)
         for raw in (["arith", "unsupported", "nla"], ["arith", "unsupported", "1"], ["unsupported"],
-                    ["unsupported", "arith"]):
+                    ["unsupported", "arith"], ["arith", "assumed", "nlsat"], ["arith", "assumed"]):
             with self.subTest(parameters=raw):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
                     parameters(_FakeDecl(raw), 4, false, integer=True)
@@ -3747,7 +3773,11 @@ class TestClauseLogReplay(unittest.TestCase):
             (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(farkas 1 $11 1 $17 1 $21)"), "do not refute"),
             (_LRA_LOG.replace("(assume $23)\n", "(assume $23)\n(infer (not $23) rup)\n"), "not derivable"),
             (_LRA_LOG.replace("(declare-fun z () Real)", "(declare-fun w () Real)"), "absent from the input"),
-            (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(nla 1 $11)"), "unsupported clause-log hint"),
+            (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(simplex 1 $11)"), "unsupported clause-log hint"),
+            # A lemma of the nonlinear solver the refutation uses (see
+            # test_proof_to_lean_nonlinear.py for one it does not use).
+            (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(nla 1 $11)"),
+             "lemma of the nonlinear solver, which is not certified: nla"),
             ("(assume $9)", "undeclared or fresh symbol"),
         ]
         for log, message in cases:

@@ -143,6 +143,21 @@ _PSEUDO_BOOLEAN = {z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST, z3.Z3_OP_PB_LE, z3
 # (an opaque Int atom, which Z3's arithmetic solver bounds by two axioms),
 # and is_int tests a Real term (an integer numeral Z3 coerces to Real is
 # read as a Real numeral, see _parse_snapshot).
+# A product of two or more nonconstant Int terms, (* m n) or (* m (+ n 1)),
+# is accepted as one more opaque atom of the linear forms: Z3's simplex
+# solver has a variable for it, so its farkas, bound, implied-eq, and cut
+# lemmas are linear combinations over the products, which the checks here
+# re-derive and Lean proves (its Int * is the product, and grind normalizes
+# polynomials). What Z3's nonlinear solver adds about a product from its
+# factors (nla lemmas, bounds it propagates) is not certified:
+# proof_clause_log rejects a refutation that uses such a lemma. A product of
+# Real terms stays rejected in the input: Real variables are Rat in Lean,
+# which is faithful for linear constraints (a system with rational
+# coefficients has a real solution exactly when it has a rational one) but
+# not for polynomial ones ((= (* x x) 2.0) has a real solution and no
+# rational one), so a theorem over Rat would not say that the input is
+# unsatisfiable. An Int product has the same value under a real and a
+# rational solution, which agree on the Int terms.
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
@@ -585,8 +600,13 @@ def integer_divisor(expr):
 
 
 def _require_linear_arithmetic(expr):
-    """Reject Real or Int terms outside the linear fragment with constant coefficients.
+    """Reject Real or Int terms outside the arithmetic fragment: linear forms over atoms.
 
+    A product by constants scales a linear form; one of several nonconstant
+    factors is an atom over Int and rejected over Real, where the Rat
+    encoding is faithful for linear constraints only (see the comment above
+    _ARITH_PREDICATES). Division by a term stays rejected (x / 0 is
+    uninterpreted in SMT-LIB and 0 in Lean), and so does a power.
     Real division is accepted by a nonzero constant, integer div, mod, and rem
     by a nonzero constant, abs over Int or Real, to_real of an Int term
     (the injection, linear in its argument), and to_int of a Real term (the
@@ -603,8 +623,9 @@ def _require_linear_arithmetic(expr):
         # atoms of linear forms.
         pass
     elif kind == z3.Z3_OP_MUL:
-        if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
-            raise ProofExportError("nonlinear multiplication is not supported")
+        if not z3.is_int(expr) and sum(1 for child in expr.children() if constant_value(child) is None) > 1:
+            raise ProofExportError("nonlinear multiplication is supported over Int only: a product of Real terms "
+                                   "is not certified")
     elif kind == z3.Z3_OP_DIV:
         divisor = constant_value(expr.arg(1))
         if divisor is None or divisor == 0:
