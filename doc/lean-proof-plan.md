@@ -3884,6 +3884,97 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### The rewriter's sign split of a factored product (2026-11-13)
+
+Z3's rewriter decides a comparison of a polynomial with zero by the signs
+of its factors (`arith_rewriter.cpp`, `factor_le_ge_eq`): with `f` a factor
+of every monomial of `p` and `p = f * g`, `(>= p 0)` becomes `(or (= (>= f
+0) (>= g 0)) (= f 0) (= g 0))`, `g` rewritten the same way and the linear
+comparisons normalized with their integer rounding, so `(>= (+ (* -2 m) (*
+-3 (* n m))) 0)` is logged as `(or (= 0 m) (= (<= 0 m) (<= n -1)))`. The
+step reaches the certificate as a rewrite of the assertion, as a cnf lemma
+tying a clause logged in the rewritten form to its assertion (a conjunct
+`(< 0 (* m n))` next to `(>= m 0)` is assumed as `(>= n 0)`), or as a
+theory clause between the leaves of such a lemma. Lean proved none of
+them: a product is an opaque atom to omega, and grind does not relate its
+sign to its factors'. It was the largest class of Lean failures over
+products: 31 of the 39 failing seeds 1-600 of `random_product_instance`,
+and z3test's nl38.
+
+- **The proof redoes the factoring, not the rewriter's choices**
+  (`proof_to_lean._sign_cases`). From `s - t` of a comparison over a
+  product, the atoms every nonconstant monomial shares are factored out:
+  `s - t = c * (f1 * (... * fn)) + d`, the last factor the quotient
+  polynomial unless it is the constant `c`. That identity is proved by
+  grind's ring normalization over the folded atoms before any hypothesis
+  is in scope. The factors are split by `Int.lt_trichotomy`; in every case
+  the sign of the product follows from those of its factors (`Int.mul_pos`,
+  `Int.mul_pos_of_neg_of_neg`, `Int.mul_neg_of_pos_of_neg`,
+  `Int.mul_neg_of_neg_of_pos`; `Int.mul_eq_zero` once a factor is zero, the
+  factors after it unsplit), and with the identity, the signs, and `0 <= a
+  * a` for every square the goal compares, the step is linear arithmetic
+  over the atoms and the products as written: `first | omega | grind`, the
+  certificate's tactic for theory steps. At most five factors are split.
+- **Where it is tried**, always as the first attempt, the existing proofs
+  after it: a rewrite step, for the comparisons of its left side over a
+  product that the right side does not keep (`_sign_split`; a rewrite the
+  normalized-rewrite path takes is left to it); a cnf lemma that is one
+  theory fact, after the polynomial refutation; a theory clause over the
+  leaves of a cnf lemma (`_sign_split_clause`, `_theory_clause_proof`).
+  Certificates without an Int product are untouched.
+- **Which comparisons of a rewrite are factored.** The right side keeps a
+  comparison when it has one over the same monomials up to a common factor
+  that compares them with zero exactly if the left one does, once
+  normalized as the rewriter does (`_compares_with_zero`: divided by the
+  gcd of the coefficients, the constant rounded, so `(<= (* 2 (* m n)) 1)`
+  is `(<= (* m n) 0)`). The rewriter splits only comparisons with zero,
+  so `(>= (* m n) 7)` kept on the right side says nothing about a `(<= (*
+  m n) 0)` beside it on the left, which is factored. A rewrite that only
+  normalizes its product comparisons gets no attempt.
+- **What the proof reads.** Comparisons of Int terms under `and`, `or`,
+  `not`, `=`, `=>`, `xor`, and `ite` of formulas. Any other formula there
+  (a predicate application, a `distinct`, a comparison of other terms) is
+  an atom of the step's propositional structure and stays folded, as the
+  atoms of the linear forms do; a step in which the rewriter also changed
+  such a formula fails the attempt and keeps its other proofs.
+- **Monomials equated with zero are not split.** `(= (* m n) 0)` to `(or
+  (= m 0) (= n 0))` is `Int.mul_eq_zero`, which the step's own grind is
+  given: one line where the split of five factors is 63 leaves (a rewrite
+  of four such equations over five variables took 124 kB and 1.9 s of Lean
+  with the split, 17 kB and 0.5 s without). A step gets an attempt only if
+  it factors some other comparison; then the equations are factored with it.
+
+Nothing is trusted: the factoring is a hint for Lean, which checks the
+identity, the case split, and every leaf; a step that needs more than the
+signs (`(= (* m m) 3)` to `false`) fails the attempt and the fallbacks, as
+before.
+
+Measured: of the 78 nonlinear unsat queries of z3test's `regressions/smt2`,
+26 verify (24 before; new: nl38, both queries). Of the 460 unsatisfiable
+seeds 1-1200 of `random_product_instance`, 441 verify (375 before: 222 of
+235 in 1-600, 194 before; 219 of 225 in 601-1200, 181 before), none that
+verified fails. The 19 others: 2 use an `nla` lemma without a refutation,
+17 fail in Lean (a `cut`, `bound`, or `implied-eq` over products; a
+rewrite or cnf lemma that needs more than signs, as "3 is no square" or `m
+n = -1`; a rewrite the replay ties to another assertion). Tests:
+`test_proof_to_lean_sign_split.py` (15 documented inputs, 12 of them
+through the legacy proof object too, 3 pinned logs, 10 pinned seeds, one
+input outside, and a pinned log whose split attempt fails in Lean and
+whose other proofs hold: the file verifies, and does not with the split as
+the only proof of its steps).
+
+Next: factors that are ites (the gate facts of the ite next to the split,
+`(> (* (ite p m 1) n) 0)`); an atom the rewriter renames next to the
+product (`(abs n)` to its ite: the split takes the two for different
+atoms, fails, and the bridged proof after it holds); theory clauses of cnf
+lemmas with a leaf that is no comparison of Int terms (no attempt);
+squares of sums. The legacy core's rewrite steps go through the same
+function: 12 of the 15 documented inputs verify through the legacy proof
+object (none before), `factors_of_the_quotient` and `five_factors` fail in
+Lean there as before, and `square_against_its_root` is rejected by the
+exporter (`arith assumed nlsat`); of 24 probe inputs 11 fail at the base
+and verify, none that verified fails. No sweep of the legacy path was run.
+
 ### Lemmas of the nonlinear solver by polynomial refutations (2026-11-13)
 
 A refutation that used a lemma of Z3's nonlinear solver was rejected by
@@ -3939,7 +4030,8 @@ Measured on the 78 nonlinear unsat queries of z3test's `regressions/smt2`:
 rejected for a product of Real terms, 4 use a lemma without a refutation
 (nl13, nl19), 6 fail in Lean (nl17 and nl18 q2 on an implied equality over
 a square, nl37 q2 and q5 on "no square is 2", nl38 on the rewriter's sign
-split), 3 are outside for other reasons. Four of the six (nl17, nl18 q2,
+split, which verifies since the section above), 3 are outside for other
+reasons. Four of the six (nl17, nl18 q2,
 nl37 q2 and q5), and the input `(= (* m m) 2)`, were rejected by the
 exporter before, at their first `nla` lemma; those lemmas now have
 refutations, so the inputs are exported and fail in Lean on another step,
@@ -3999,7 +4091,8 @@ a product named by a variable, a parity conflict over one.
   cases on `m` and `n`). Lean must prove each, and mostly does not: such an
   input is not certified. (Since the section above: the lemmas, the
   assumed clauses, and the conflicts with a polynomial refutation are
-  certified; the sign splits are not.)
+  certified; since "The rewriter's sign split of a factored product", the
+  sign splits too.)
 
 Measured: of the 78 queries, 14 verify (nl9, nl12, nl37 q0 and q4, nl40,
 nl46, nl48, nl49, two queries each), 41 are rejected for a product of Real

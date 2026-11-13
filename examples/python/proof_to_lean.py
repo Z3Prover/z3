@@ -184,6 +184,10 @@ _FARKAS_COMBINATION_COEFFICIENT = 10000
 # cut_lemma_02_002, whose bounds span 19 atoms each; the wide division
 # seed's bounds span at most four.
 _FARKAS_COMBINATION_ATOMS = 8
+# The most factors whose signs the proof of a step over Int products splits
+# on (_sign_cases): three cases each, the factors after a zero one unsplit.
+# A product of five factors takes 31 splits and 63 leaves (0.6 s of Lean).
+_SIGN_SPLIT_FACTORS = 5
 # Resource limits of the searches z3 makes for the split of an Int lattice
 # lemma (_split_certificate), first with the split's coefficients bounded by
 # one, then unbounded (_SPLIT_MAGNITUDES). Bounded, each of the 188
@@ -5720,24 +5724,28 @@ def _polynomial_certificate(graph, node):
         except ReconstructionError:
             lemma = None  # a cnf lemma over both sorts, or over a term the linear forms do not read
         if lemma is not None:
-            def factors(atom):
-                if graph.kind(atom) != z3.Z3_OP_MUL:
-                    return None
-                parts = []
-                for argument in graph.arguments(atom):
-                    terms = {}
-                    constant = _linear_term(graph, argument, Fraction(1), terms)
-                    parts.append((terms, constant))
-                return parts
-
             try:
-                facts = [(bound[4], expand_polynomial(bound[5][0], bound[5][1], factors)) for bound in lemma[1]]
+                facts = [(bound[4], expand_polynomial(bound[5][0], bound[5][1],
+                                                      lambda atom: _product_parts(graph, atom)))
+                         for bound in lemma[1]]
             except (ProofExportError, ReconstructionError):
                 facts = []  # too many monomials, or a factor the linear forms do not read
             refutation = polynomial_refutation(facts)
             if refutation is not None:
                 graph.polynomial_certificates[node] = lemma + (refutation,)
     return graph.polynomial_certificates[node]
+
+
+def _product_parts(graph, atom):
+    """The linear forms (terms, constant) of the factors of a product atom, None for another atom (expand_polynomial)."""
+    if graph.kind(atom) != z3.Z3_OP_MUL:
+        return None
+    parts = []
+    for argument in graph.arguments(atom):
+        terms = {}
+        constant = _linear_term(graph, argument, Fraction(1), terms)
+        parts.append((terms, constant))
+    return parts
 
 
 def _product_combination(graph, node):
@@ -5808,6 +5816,313 @@ def _product_combination(graph, node):
             "".join("fun _p%d => " % position for position in range(premises)),
             _combination_absurd(nonnegative, combination, "_sum")),
     ]
+
+
+# The connectives a step proved by the signs of its factors may have around its comparisons (_sign_split).
+_SIGN_SPLIT_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IFF, z3.Z3_OP_EQ, z3.Z3_OP_IMPLIES,
+                           z3.Z3_OP_XOR, z3.Z3_OP_ITE, z3.Z3_OP_TRUE, z3.Z3_OP_FALSE)
+_SIGN_STATEMENTS = {-1: "%s < ((0 : Int))", 0: "%s = ((0 : Int))", 1: "((0 : Int)) < %s"}
+_SIGN_LEMMAS = {(1, 1): "Int.mul_pos", (-1, -1): "Int.mul_pos_of_neg_of_neg",
+                (1, -1): "Int.mul_neg_of_pos_of_neg", (-1, 1): "Int.mul_neg_of_neg_of_pos"}
+
+
+def _comparison_polynomial(graph, formula):
+    """The polynomial of left - right of a comparison of Int terms, its product atoms multiplied out, or None."""
+    arguments = graph.arguments(formula)
+    if ((graph.kind(formula) not in _ARITH_PREDICATE_NAMES and graph.kind(formula) != z3.Z3_OP_EQ)
+            or len(arguments) != 2
+            or not all(graph.is_arith(argument) and graph.is_int(argument) for argument in arguments)):
+        return None
+    terms = {}
+    try:
+        constant = (_linear_term(graph, arguments[0], Fraction(1), terms)
+                    + _linear_term(graph, arguments[1], Fraction(-1), terms))
+        polynomial = expand_polynomial(terms, constant, lambda atom: _product_parts(graph, atom))
+    except (ProofExportError, ReconstructionError):
+        return None  # a term the linear forms do not read, or too many monomials
+    if any(value.denominator != 1 for value in polynomial.values()):
+        return None
+    return polynomial
+
+
+def _common_factors(polynomial):
+    """Factor the atoms every nonconstant monomial shares out of a polynomial, or None when there is none.
+
+    Returns (factors, quotient, constant) with polynomial = the product of
+    factors (atoms, repeated as often as every monomial has them) * quotient
+    + constant.
+    """
+    monomials = {monomial: value for monomial, value in polynomial.items() if monomial}
+    common = None
+    for monomial in monomials:
+        common = Counter(monomial) if common is None else common & Counter(monomial)
+    if not common:
+        return None
+    quotient = {tuple(sorted((Counter(monomial) - common).elements())): value
+                for monomial, value in monomials.items()}
+    return sorted(common.elements()), quotient, polynomial.get((), Fraction(0))
+
+
+def _polynomial_shape(polynomial):
+    """The nonconstant monomials of a polynomial up to a common factor: what normalizing a comparison keeps."""
+    monomials = sorted((monomial, value) for monomial, value in polynomial.items() if monomial)
+    return tuple((monomial, value / monomials[0][1]) for monomial, value in monomials)
+
+
+def _compares_with_zero(kind, polynomial):
+    """Whether a comparison of Int terms, normalized as Z3's rewriter does, compares its monomials with zero.
+
+    Those are the comparisons the rewriter splits by the signs of their
+    factors (factor_le_ge_eq asks for a zero right side). kind is the
+    comparison's (Z3_OP_LE, GE, LT, GT, or EQ) and the polynomial that of
+    left - right, g v + d with g the gcd of its coefficients: the
+    rewriter divides by g and rounds the constant, g v + d <= 0 to v <=
+    floor(-d / g) and g v + d >= 0 to v >= ceil(-d / g), a strict comparison
+    being the negation of the opposite one ((<= (* 2 (* m n)) 1) is (<= (* m
+    n) 0)); an equation keeps its constant.
+    """
+    coefficients = [abs(int(value)) for monomial, value in polynomial.items() if monomial]
+    if not coefficients:
+        return False
+    divisor, constant = functools.reduce(math.gcd, coefficients), polynomial.get((), Fraction(0))
+    if kind == z3.Z3_OP_EQ:
+        return constant == 0
+    if kind in (z3.Z3_OP_LE, z3.Z3_OP_GT):
+        return -divisor < constant <= 0
+    return 0 <= constant < divisor
+
+
+def _polynomial_text(graph, polynomial):
+    """An Int polynomial over atoms of the linear forms as a Lean sum of multiples of products of the folded atoms."""
+    summands = []
+    for monomial, value in sorted(polynomial.items()):
+        summands.append("((%d : Int))" % value)
+        if monomial:
+            # The product of the atoms as Lean reads a binary (* a b): omega takes it for the same atom.
+            product = functools.reduce(lambda right, atom: "(%s * %s)" % (_term(graph, atom), right),
+                                       reversed(monomial[:-1]), _term(graph, monomial[-1]))
+            summands[-1] = "(%s * %s)" % (summands[-1], product)
+    return "(%s)" % " + ".join(summands)
+
+
+def _sign_split(graph, node, rewrite=False):
+    """Tactic lines proving a step over Int comparisons of products by the signs of their factors, or None.
+
+    Z3's rewriter decides a comparison of a polynomial with zero by the
+    signs of its factors (arith_rewriter.cpp, factor_le_ge_eq: with f a
+    factor of every monomial of p and p = f * g, p >= 0 becomes (or (= (>= f
+    0) (>= g 0)) (= f 0) (= g 0)), p <= 0 and p = 0 alike, g rewritten the
+    same way and the linear comparisons normalized, over Int with their
+    rounding): (>= (+ (* -2 m) (* -3 (* n m))) 0) becomes (or (= 0 m) (= (<=
+    0 m) (<= n -1))). Neither omega, to which a product is an opaque atom,
+    nor grind proves that.
+
+    The proof (_sign_cases) redoes the factoring, not the rewriter's
+    choices. In a rewrite step it factors every comparison of the rewritten
+    side (the left) over a product that the other side does not keep; in a
+    cnf lemma that is one theory fact (an assertion over a product implies
+    a clause over its factors, when Z3 logs the clause in the rewriter's
+    form) every comparison over a product. The proof reads comparisons of
+    Int terms under propositional connectives; any other formula there (a
+    predicate application next to the product) is an atom it leaves folded. A
+    step that needs more than the signs ((= (* m m) 3) to false) fails the
+    attempt at its first leaf, and Lean falls through to the proofs of
+    _grind_lemma, as for any other structural attempt.
+    """
+    if not graph.integer_products:
+        return None
+    conclusion = graph.conclusion(node)
+    polynomials, outside = {}, {conclusion}
+
+    def comparisons(root):
+        """The comparisons of Int terms under the connectives of a formula, or None for a term.
+
+        Any other formula under the connectives (a predicate application,
+        an ite of formulas, a distinct, a comparison of other terms) is an
+        atom of the goal's propositional structure: its definition stays
+        folded, as the atoms of the linear forms do.
+        """
+        found, pending, seen = [], [root], set()
+        while pending:
+            formula = pending.pop()
+            if formula in seen:
+                continue
+            seen.add(formula)
+            arguments = graph.arguments(formula)
+            if graph.is_term(formula):
+                return None
+            if arguments and graph.is_term(arguments[0]):
+                polynomial = _comparison_polynomial(graph, formula)
+                if polynomial is not None:
+                    polynomials[formula] = polynomial
+                    outside.add(formula)
+                    found.append(formula)
+            elif graph.kind(formula) in _SIGN_SPLIT_CONNECTIVES or (
+                    graph.kind(formula) == z3.Z3_OP_UNINTERPRETED and not arguments):
+                outside.add(formula)
+                pending.extend(arguments)
+        return sorted(found)
+
+    def shape(atom):
+        return _polynomial_shape(polynomials[atom]), _compares_with_zero(graph.kind(atom), polynomials[atom])
+
+    if rewrite:
+        left, right = _equivalence(graph, conclusion, "rewrite")
+        rewritten, kept = comparisons(left), comparisons(right)
+        if rewritten is None or kept is None:
+            return None
+        # A comparison the rewriter only normalized keeps its monomials up
+        # to a common factor, and compares them with zero only if it did
+        # before: (>= (* m n) 7) kept on the right side says nothing about
+        # a (<= (* m n) 0) on the left, which the rewriter split.
+        shapes = {shape(atom) for atom in kept}
+        candidates = [atom for atom in rewritten if shape(atom) not in shapes]
+    else:
+        candidates = comparisons(conclusion)
+        if candidates is None:
+            return None
+    lines = _sign_cases(graph, polynomials, outside, [
+        atom for atom in candidates if any(len(monomial) > 1 for monomial in polynomials[atom])])
+    # _grind_lemma unfolds the goal outside its opaque atoms before any
+    # attempt when it has such atoms: the proof starts from the folded goal.
+    return lines and ["show %s" % _formula(graph, conclusion)] + lines
+
+
+def _sign_split_clause(graph, structure):
+    """Tactic lines proving a theory clause of a cnf lemma by the signs of the factors of its products, or None.
+
+    A clause over the leaves of a cnf lemma (_theory_clauses) may relate a
+    product to its factors, as the rewriter's sign split does when Z3 logs
+    a conjunct's clause in its rewritten form: 0 < m * n and 0 <= m give 0
+    <= n. Every leaf of the clause must be a comparison of Int terms; those
+    over products are factored (_sign_cases).
+    """
+    if not graph.integer_products:
+        return None
+    leaves, pending = set(), [structure]
+    while pending:
+        current = pending.pop()
+        if current[0] == "leaf":
+            leaves.add(current[1])
+        pending.extend(_structure_children(current))
+    polynomials = {leaf: _comparison_polynomial(graph, leaf) if leaf >= 0 else None for leaf in leaves}
+    if not leaves or None in polynomials.values():
+        return None  # a pair leaf of a distinct, or a leaf that is no comparison of Int terms
+    return _sign_cases(graph, polynomials, set(leaves), [
+        leaf for leaf in sorted(leaves) if any(len(monomial) > 1 for monomial in polynomials[leaf])])
+
+
+def _sign_cases(graph, polynomials, outside, candidates):
+    """Tactic lines proving a goal over comparisons of Int terms by the signs of the factors of its products, or None.
+
+    polynomials maps every comparison s ~ t of the goal to the polynomial
+    of s - t (_comparison_polynomial), outside holds the other definitions
+    of the goal above its comparisons, and candidates are the comparisons
+    to factor. From each one whose nonconstant monomials share an atom,
+    those atoms are factored out: s - t = c * (f1 * (... * fn)) + d, the
+    last factor the quotient polynomial unless it is the constant c. That
+    identity of polynomials over the folded atoms is proved by grind's ring
+    normalization before any hypothesis is in scope (as in
+    _product_combination). Then the factors are split by Int.lt_trichotomy,
+    three cases each; in every case the sign of each product follows from
+    those of its factors (Int.mul_pos and its three variants;
+    Int.mul_eq_zero once a factor is zero, the factors after it unsplit),
+    and with the identities, the factors' signs, and the products' signs in
+    scope the goal is linear arithmetic over the atoms and the products as
+    written: the certificate's own tactic for theory steps
+    (_theory_tactic). None without a product to factor or with more than
+    _SIGN_SPLIT_FACTORS factors to split on, and None when every candidate
+    equates one monomial with zero: (= (* m n) 0) is (or (= m 0) (= n 0)) by
+    Int.mul_eq_zero, which the step's own grind is given (_theory_tactic)
+    and which costs one line where the split of five factors costs 63 leaves.
+    """
+    if all(graph.kind(atom) == z3.Z3_OP_EQ and len(polynomials[atom]) == 1 for atom in candidates):
+        return None
+    outside = set(outside)
+    for atom in polynomials:
+        for side in graph.arguments(atom):
+            outside |= _linear_structure(graph, side)
+    expressions, products, lines, names = [], [], [], []
+    squares = {monomial[0] for polynomial in polynomials.values() for monomial in polynomial
+               if len(monomial) == 2 and monomial[0] == monomial[1]}
+    for atom in candidates:
+        factored = _common_factors(polynomials[atom])
+        if factored is None:
+            continue
+        factors, quotient, constant = factored
+        texts = [_term(graph, factor) for factor in factors]
+        coefficient = 1
+        if set(quotient) == {()}:
+            coefficient = quotient[()]
+        else:
+            texts.append(_polynomial_text(graph, quotient))
+            squares.update(monomial[0] for monomial in quotient if len(monomial) == 2 and monomial[0] == monomial[1])
+        if len(texts) < 2:
+            continue  # a linear comparison: nothing to factor
+        for text in texts:
+            if text not in expressions:
+                expressions.append(text)
+        product = texts[-1]
+        for text in reversed(texts[:-1]):
+            product = "(%s * %s)" % (text, product)
+        sides = graph.arguments(atom)
+        structure = _linear_structure(graph, sides[0]) | _linear_structure(graph, sides[1])
+        names.append("_i%d" % len(products))
+        lines.append("have %s : %s - %s = ((%d : Int)) * %s + ((%d : Int)) := by delta %s; grind" % (
+            names[-1], _term(graph, sides[0]), _term(graph, sides[1]), coefficient, product, constant,
+            " ".join(_definition_names(graph, structure))))
+        products.append(([expressions.index(text) for text in texts], product))
+    if not products or len(expressions) > _SIGN_SPLIT_FACTORS:
+        return None
+    # The identities are stated folded and reverted, so the unfold rewrites
+    # them as it rewrites the goal; the atoms of the linear forms stay folded.
+    lines += ["revert " + " ".join(names), "unfold " + " ".join(_definition_names(graph, outside)),
+              "intro " + " ".join(names)]
+    # The square of an atom the goal compares is nonnegative, whatever the atom's sign.
+    lines += ["have _q%d : ((0 : Int)) <= (%s * %s) := (Int.le_total ((0 : Int)) %s).elim "
+              "(fun _h => Int.mul_nonneg _h _h) (fun _h => Int.mul_nonneg_of_nonpos_of_nonpos _h _h)" % (
+                  position, _term(graph, atom), _term(graph, atom), _term(graph, atom))
+              for position, atom in enumerate(sorted(squares))]
+    # grind for the leaves omega cannot close: a product written in another
+    # order than in the comparison factored, or a product in the quotient.
+    tactic = "(%s)" % _theory_tactic(graph)
+
+    def sign(factors, signs):
+        """The sign of a product of factors under the signs split so far and its proof, or None while undecided."""
+        zero = next((position for position, factor in enumerate(factors) if signs.get(factor) == 0), None)
+        if zero is not None:
+            proof = "_s%d" % factors[zero]
+            if zero < len(factors) - 1:
+                proof = "(Int.mul_eq_zero.mpr (Or.inl %s))" % proof
+            return 0, functools.reduce(lambda inner, _: "(Int.mul_eq_zero.mpr (Or.inr %s))" % inner,
+                                       range(zero), proof)
+        if any(factor not in signs for factor in factors):
+            return None
+        value, proof = signs[factors[-1]], "_s%d" % factors[-1]
+        for factor in reversed(factors[:-1]):
+            proof = "(%s _s%d %s)" % (_SIGN_LEMMAS[signs[factor], value], factor, proof)
+            value *= signs[factor]
+        return value, proof
+
+    def cases(signs, indent):
+        decided = [sign(factors, signs) for factors, _ in products]
+        pad = " " * indent
+        if None not in decided:
+            for position, ((value, proof), (_, product)) in enumerate(zip(decided, products)):
+                lines.append("%shave _e%d : %s := %s" % (pad, position, _SIGN_STATEMENTS[value] % product, proof))
+            lines.append(pad + tactic)
+            return
+        split = next(factor for (factors, _), value in zip(products, decided) if value is None
+                     for factor in factors if factor not in signs)
+        lines.append("%srcases Int.lt_trichotomy %s ((0 : Int)) with _s%d | _s%d | _s%d" % (
+            pad, expressions[split], split, split, split))
+        for value in (-1, 0, 1):
+            first = len(lines)
+            cases({**signs, split: value}, indent + 2)
+            lines[first] = "%s· %s" % (pad, lines[first][indent + 2:])
+
+    cases({}, 0)
+    return lines
 
 
 def _sum_identity(graph, name, combination, total, sides):
@@ -7761,17 +8076,22 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     if refutation is None:
         # A clause over products that Z3 assumed on its nonlinear solver's
         # word (nlsat) holds by what the products denote: by a polynomial
-        # refutation when its literals are bounds over Int terms.
+        # refutation when its literals are bounds over Int terms. Else by
+        # the signs of the factors: an assertion over a product next to
+        # the clause its rewritten form gives over the factors.
         return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
-                            opaque_tactic=_opaque_tactic(graph, node), structural=_product_combination(graph, node))
+                            opaque_tactic=_opaque_tactic(graph, node),
+                            structural=_product_combination(graph, node) or _sign_split(graph, node))
     # The goal is the clause's definition, which the refutation's hypothesis
     # unifies with (its structure is named by that definition); nothing is
     # unfolded before the attempt, and the fallback unfolds everything. A
     # pair written the other way is the same equality reoriented (eq_comm,
     # the definition of a node side unfolded by unification).
+    # The theory clauses come after the leaf bridges.
+    bridged = len(bridges) - len(clauses or ())
     attempt = ["have %s : %s := %s" % (name, _render_structure(bridge), "eq_comm" if definitions is None else
-                                       "by unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph)))
-               for (bridge, definitions), name in zip(bridges, names)]
+                                       _theory_clause_proof(graph, bridge, definitions, position >= bridged))
+               for position, ((bridge, definitions), name) in enumerate(zip(bridges, names))]
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
     if clauses and sum(len(line) + 1 for line in attempt) > _STRUCTURAL_REWRITE_CHARS:
@@ -7782,6 +8102,22 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
         attempt = None
     return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
+
+
+def _theory_clause_proof(graph, structure, definitions, clause):
+    """The proof of a bridge or theory clause of a cnf lemma: the theory tactic over the unfolded leaves.
+
+    A theory clause (_theory_clauses) over products of Int terms is first
+    proved by the signs of their factors (_sign_split_clause), which the
+    theory tactic does not find. The lines of that proof are indented past
+    any column the `have` may start at.
+    """
+    unfolded = "unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph))
+    split = _sign_split_clause(graph, structure) if clause else None
+    if split is None:
+        return "by " + unfolded
+    pad = "\n" + " " * 16
+    return "by%sfirst%s  | (%s)%s  | (%s)" % (pad, pad, (pad + "     ").join(split), pad, unfolded)
 
 
 def _cnf_refutation(graph, memo, structure, bridges, budget=1):
@@ -8145,8 +8481,10 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
                 and _normalizable_rewrite(graph, node, outside, atoms)):
             lines, term = _normalized_rewrite(graph, node, outside, atoms, atom_indices, variable_indices)
         else:
+            # The rewriter's sign split of a factored product: by the signs of the factors first.
             lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices,
-                                       opaque_tactic=_opaque_rewrite_tactic(graph))
+                                       opaque_tactic=_opaque_rewrite_tactic(graph),
+                                       structural=_sign_split(graph, node, rewrite=True))
         return lines, set(), term
     proof, atoms = _structural_equivalence(graph, left, right, atom_indices)
     if proof is None:

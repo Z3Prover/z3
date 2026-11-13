@@ -937,12 +937,35 @@ the reconstructor rejects an nla th-lemma for which it finds none. A
 certificate from a log with such lemmas keeps only the steps the
 refutation uses. Outside the search: a lemma that concludes an equality
 (its denial is a disequality), an equality stated as two bounds, the
-square of a sum, what holds over the integers only (no square is 2), and
-the rewriter's split of a factored product by the signs of its factors;
+square of a sum, and what holds over the integers only (no square is 2);
 Lean has to prove those unaided, and where it does not the input is not
 certified (an input whose nla lemmas all have refutations is exported
 whatever its other steps need, so such an input fails in Lean rather than
-in the exporter). Z3's rewriter distributes to_real over a product, so (to_real
+in the exporter). Z3's rewriter decides a comparison of a polynomial with
+zero by the signs of its factors: (>= (+ (* -2 m) (* -3 (* n m))) 0)
+becomes (or (= 0 m) (= (<= 0 m) (<= n -1))), in a rewrite step, in a cnf
+lemma tying a clause logged in that form to its assertion, or in a theory
+clause between the leaves of such a lemma. Lean proves these by the same
+signs (proof_to_lean._sign_split and _sign_cases): the atoms every
+nonconstant monomial of the comparison shares are factored out, the
+identity s - t = c * (f1 * (... * fn)) + d is proved by grind's ring
+normalization over the folded atoms, the factors (at most five) are split
+by Int.lt_trichotomy, the sign of the product follows in every case
+(Int.mul_pos and its three variants, Int.mul_eq_zero), and with that, the
+factors' signs, and 0 <= a * a for the squares the step compares, omega
+(else grind) closes the step as linear arithmetic over the atoms and the
+products as written. In a rewrite step the comparisons factored are those
+of the left side that the right side does not keep: one over the same
+monomials up to a common factor that is compared with zero exactly if the
+left one is (after the rewriter's division by the gcd and rounding), so
+(>= (* m n) 7) kept next to a split (<= (* m n) 0) does not hide it. A
+formula of the step that is no comparison of Int terms and no connective
+(a predicate application, a distinct) stays folded as an atom. A step
+whose only products are monomials equated with zero gets no split: (= (*
+m n) 0) is (or (= m 0) (= n 0)) by Int.mul_eq_zero, which grind is given.
+The attempt goes first and the proofs the step had
+stay as its fallbacks; a step that needs more than the signs ((= (* m m)
+3) to false) still fails in Lean. Z3's rewriter distributes to_real over a product, so (to_real
 (* m n)) is the Real product of (to_real m) and (to_real n) in the log, a
 second variable of the simplex solver next to (* m n), which the nonlinear
 solver alone relates to it: an input whose refutation needs the two to
@@ -1689,8 +1712,9 @@ test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
 arrays), test_proof_to_lean_enum.py enumeration datatypes and arrays
-of them, test_proof_to_lean_nonlinear.py products of Int terms, and
-test_proof_to_lean_nla.py the lemmas of the nonlinear solver end to end;
+of them, test_proof_to_lean_nonlinear.py products of Int terms,
+test_proof_to_lean_nla.py the lemmas of the nonlinear solver, and
+test_proof_to_lean_sign_split.py the rewriter's sign splits end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than

@@ -283,8 +283,9 @@ def random_product_instance(seed, constraints=8):
     kept when its linear abstraction, one fresh variable per product, is
     unsatisfiable: then the input is, and a refutation needs nothing about
     products but that reordering their factors does not change them. (Z3
-    may still use its nonlinear solver or its rewriter's sign splits on the
-    way; such refutations are not certified.)
+    may still use its nonlinear solver on the way, whose steps are certified
+    only in part, see test_proof_to_lean_nla.py, or its rewriter's sign
+    splits, see test_proof_to_lean_sign_split.py.)
     """
     generator = random.Random(seed)
     products = []
@@ -334,10 +335,10 @@ def random_product_instance(seed, constraints=8):
 
 
 # Seeds of random_product_instance whose refutations verify. Of the seeds
-# 1-300, 86 of the 110 unsatisfiable ones verify; the others rest on the
-# nonlinear solver (its lemmas, the bounds it propagates, clauses nlsat
-# assumed) or on the rewriter's split of a factored product by the signs of
-# its factors, and fail in the exporter or in Lean.
+# 1-300, 104 of the 110 unsatisfiable ones verify (86 before the lemmas of
+# the nonlinear solver and the rewriter's split of a factored product by
+# the signs of its factors were proved); the others rest on the nonlinear
+# solver (bounds it propagates, clauses nlsat assumed) and fail in Lean.
 PRODUCT_SEEDS = (3, 11, 20, 33, 44, 62, 164)
 
 
