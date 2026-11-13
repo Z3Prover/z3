@@ -389,7 +389,7 @@ namespace {
         ENSURE(!nf.is_satisfied() && mf.memberships().empty());
     }
 
-    static void tst_ncontains_deferred_literal_scope() {
+    static void tst_ncontains_literal_with_pending_equation_scope() {
         fixture fx;
         expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
         expr_ref y(fx.m.mk_fresh_const("y", fx.s), fx.m);
@@ -402,26 +402,23 @@ namespace {
         auto& dm = fx.tree.dep_mgr();
         ef.add_equation(x, y);
         nf.add_ncontains(h, needle);
-        nf.add_ncontains(h, ab, dm.mk_leaf(7));
         seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
         ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::proceed);
-        ENSURE(nf.qhead() == 2 && mf.memberships().empty());
+        ENSURE(nf.qhead() == 1 && mf.memberships().empty());
         fx.trail.push_scope();
-        ef.remove_equation_trailed(0);
-        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::noop);
-        fx.root->facet_as<seq::assumption_facet>(fx.assumption_id).block_model_completion();
+        nf.add_ncontains(h, ab, dm.mk_leaf(7));
         ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::proceed);
+        ENSURE(!ef.is_satisfied());
         ENSURE(!nf.ncontains()[1].active() && mf.memberships().size() == 1);
         ENSURE(dm.contains(mf.memberships()[0].m_dep, 7));
         ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::noop);
         fx.trail.pop_scope(1);
-        ENSURE(!ef.is_satisfied() && nf.ncontains()[1].active());
-        ENSURE(nf.qhead() == 2 && mf.memberships().empty());
-        ENSURE(!fx.root->facet_as<seq::assumption_facet>(fx.assumption_id).model_completion_blocked());
+        ENSURE(!ef.is_satisfied() && nf.ncontains().size() == 1);
+        ENSURE(nf.qhead() == 1 && mf.memberships().empty());
         ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::noop);
     }
 
-    static void tst_ncontains_completion_without_candidate_scope() {
+    static void tst_ncontains_completion_after_literal_lowering_scope() {
         fixture fx;
         expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
         expr_ref y(fx.m.mk_fresh_const("y", fx.s), fx.m);
@@ -435,7 +432,8 @@ namespace {
         ef.add_equation(x, y);
         nf.add_ncontains(h, needle, fx.tree.dep_mgr().mk_leaf(7));
         seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
-        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::proceed);
+        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::satisfied);
+        ENSURE(nf.is_satisfied() && mf.memberships().size() == 1);
         fx.trail.push_scope();
         ef.remove_equation_trailed(0);
         expr_ref length(fx.u.str.mk_length(h), fx.m);
@@ -445,15 +443,13 @@ namespace {
         seq::eq_tree::edge edge;
         bool more = false, committed = false;
         ENSURE(!completion.split(*fx.root, 0, edge, more, committed));
-        ENSURE(more && committed && af.model_completion_blocked());
-        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::satisfied);
+        ENSURE(!more && !committed && !af.model_completion_blocked());
+        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::noop);
         ENSURE(mf.memberships().size() == 1);
         ENSURE(fx.tree.dep_mgr().contains(mf.memberships()[0].m_dep, 7));
-        ENSURE(!completion.split(*fx.root, 0, edge, more, committed));
-        ENSURE(!more && !committed);
         fx.trail.pop_scope(1);
-        ENSURE(!af.model_completion_blocked() && mf.memberships().empty());
-        ENSURE(!nf.is_satisfied() && nf.qhead() == 1 && !ef.is_satisfied());
+        ENSURE(!af.model_completion_blocked() && mf.memberships().size() == 1);
+        ENSURE(nf.is_satisfied() && nf.qhead() == 1 && !ef.is_satisfied());
     }
 
     static void tst_ncontains_character_projection_scope() {
@@ -510,8 +506,8 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_joint_witness();
     tst_ncontains_cross_boundary_conflict();
     tst_ncontains_substitution_scope();
-    tst_ncontains_deferred_literal_scope();
-    tst_ncontains_completion_without_candidate_scope();
+    tst_ncontains_literal_with_pending_equation_scope();
+    tst_ncontains_completion_after_literal_lowering_scope();
     tst_ncontains_character_projection_scope();
     std::cout << "seq_ncontains_facet: all tests passed\n";
 }

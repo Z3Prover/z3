@@ -176,6 +176,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter, *m_ambient);
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::replace_all_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_replace_all_id(id); }, m, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());
@@ -199,6 +200,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::mem_var_bounds_propagation, m, m_seq, m_autil, *m_ambient));
         m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, false));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
+        m_tree.add_propagation_plugin(alloc(seq::replace_all_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
 
@@ -219,6 +221,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::replace_all_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::model_completion_split, m, m_seq, true));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
         m_tree.add_completion_plugin(alloc(seq::mem_witness_split, m, m_seq, m_rewriter));
@@ -565,7 +568,25 @@ namespace smt {
             enqueue_axiom(n);
         if (m_seq.str.is_ubv2s(n))
             add_ubv_string(n);
-        if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {
+        expr* ra_in = nullptr, *ra_pat = nullptr, *ra_repl = nullptr;
+        zstring ra_str;
+        if (m_seq.str.is_replace_all(n, ra_in, ra_pat, ra_repl) && m_seq.str.is_string(ra_pat, ra_str) && ra_str.length() > 0) {
+            seq::eq_tree::dep_tracker dep = nullptr;
+            expr_ref_vector result = tokenize(dep, n);
+            expr_ref_vector input = tokenize(dep, ra_in);
+            expr_ref_vector repl = tokenize(dep, ra_repl);
+            m_ambient->replace_all_facet(*m_root).add(result, input, ra_pat, repl, dep);
+            // Untokenized: the root substitution would make the axiom conditional.
+            expr_ref_vector units(m);
+            m_seq.str.get_concat_units(ra_repl, units);
+            expr_ref rel = seq::replace_all_length_relation(m_seq, m_autil, n, ra_in, ra_pat, units);
+            if (rel) {
+                expr_ref_vector clause(m);
+                clause.push_back(rel);
+                m_ax.add_axiom_clause(clause);
+            }
+        }
+        else if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {
             ctx.push_trail(value_trail<unsigned>(m_num_unhandled));
             ++m_num_unhandled;
         }

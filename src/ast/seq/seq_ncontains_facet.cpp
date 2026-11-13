@@ -261,11 +261,11 @@ namespace seq {
                 continue;
             }
 
-            // Let word substitutions and cheap refutations settle before constructing a witness language.
+            // Concrete needles admit a regular exclusion language.
             bool concrete_needle = all_of(nc.m_needle, [&](expr* token) {
                 return u.str.is_unit(token) && m.is_value(token);
             });
-            if (concrete_needle && ef.is_satisfied()) {
+            if (concrete_needle) {
                 expr_ref literal(u.str.mk_concat(nc.m_needle, nc.m_needle[0]->get_sort()), m);
                 expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
                 expr_ref needle(u.re.mk_to_re(literal), m);

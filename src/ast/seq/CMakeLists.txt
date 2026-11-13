@@ -12,6 +12,7 @@ z3_add_component(ast_seq
     seq_power_facet.cpp
     seq_profile_abs.cpp
     seq_regex_live.cpp
+    seq_replace_all_facet.cpp
     seq_req_facet.cpp
     seq_skolem.cpp
     seq_view.cpp
