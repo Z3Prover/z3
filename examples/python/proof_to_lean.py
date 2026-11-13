@@ -33,8 +33,9 @@ import z3
 from proof_certificate import (
     RECOGNIZER_KINDS, SET_OPERATORS, ProofExportError, _rounded, array_leaf_sorts, array_sort_name,
     bound_combination_refutes,
-    enumeration_constructors, integer_tightened, is_carrier_sort, is_enumeration_sort, linear_combination_refutes,
-    numeral_value, parse_assertions, pseudo_boolean_parameters, query_snapshot, MAP_ARITY, map_parameters,
+    enumeration_constructors, expand_polynomial, integer_tightened, is_carrier_sort, is_enumeration_sort,
+    linear_combination_refutes, numeral_value, parse_assertions, polynomial_refutation, pseudo_boolean_parameters,
+    query_snapshot, MAP_ARITY, map_parameters,
 )
 
 
@@ -106,7 +107,11 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # datatype: the case splits and constructor clashes of the datatype solver over
 # an enumeration, a clause of equalities between its terms and constructors,
 # proved by grind from the enumeration fields (_enumeration_helpers).
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith", "pb", "array", "datatype")
+# nla: a lemma of the nonlinear solver, a clause of bounds and equalities over
+# Int terms with products whose literals have a polynomial refutation, found
+# again here and proved from the products of the bounds (_product_combination).
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith", "pb", "array", "datatype",
+                               "nla")
 _FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia", "qf_uflira")
 # The arithmetic sorts and their Lean carriers: Real variables are valued in
 # Rat (see the exporter README for the soundness argument), Int variables in
@@ -1338,6 +1343,8 @@ class _Graph:
     floors: bool = False  # whether the certificate has a to_int or an is_int
     # The arithmetic sort of each qf_lira theory step, by node (_lemma_numeric).
     lemma_sorts: dict = field(default_factory=dict, compare=False, repr=False)
+    # The polynomial refutation of each Int theory step over products, by node (_polynomial_certificate).
+    polynomial_certificates: dict = field(default_factory=dict, compare=False, repr=False)
     # The family and index of each uninterpreted function a map applies, by
     # the map's declaration (_map_application), once the symbols are numbered.
     map_heads: dict = field(default_factory=dict, compare=False, repr=False)
@@ -5692,6 +5699,117 @@ def _farkas_combination(graph, node):
     ]
 
 
+def _polynomial_certificate(graph, node):
+    """The polynomial refutation of an Int th-lemma over products, or None: (premises, bounds, refutation).
+
+    The bounds are those the premises and negated clause literals state
+    (_lemma_bounds); each is the fact 0 <= form, or form = 0 for an
+    equality, whose form is a polynomial over the atoms of the linear forms
+    that are no products once the product atoms are multiplied out. The
+    refutation (proof_certificate.polynomial_refutation) multiplies pairs of
+    these facts and sums the products to a negative constant. A lemma with a
+    disequality or another literal outside _lemma_bounds, without a product,
+    or without a refutation within the search's bounds has none. The search
+    calls z3, so the answer is kept per node.
+    """
+    if node not in graph.polynomial_certificates:
+        graph.polynomial_certificates[node] = None
+        try:
+            lemma = (_lemma_bounds(graph, node) if graph.integer_products and _lemma_numeric(graph, node) == "Int"
+                     else None)
+        except ReconstructionError:
+            lemma = None  # a cnf lemma over both sorts, or over a term the linear forms do not read
+        if lemma is not None:
+            def factors(atom):
+                if graph.kind(atom) != z3.Z3_OP_MUL:
+                    return None
+                parts = []
+                for argument in graph.arguments(atom):
+                    terms = {}
+                    constant = _linear_term(graph, argument, Fraction(1), terms)
+                    parts.append((terms, constant))
+                return parts
+
+            try:
+                facts = [(bound[4], expand_polynomial(bound[5][0], bound[5][1], factors)) for bound in lemma[1]]
+            except (ProofExportError, ReconstructionError):
+                facts = []  # too many monomials, or a factor the linear forms do not read
+            refutation = polynomial_refutation(facts)
+            if refutation is not None:
+                graph.polynomial_certificates[node] = lemma + (refutation,)
+    return graph.polynomial_certificates[node]
+
+
+def _product_combination(graph, node):
+    """Tactic lines proving an Int th-lemma over products by its polynomial refutation, or None.
+
+    For an nla th-lemma (_check_th_lemma requires the refutation), for a
+    cut or a coefficient-free farkas or bound (_lattice_step) over products
+    (a simplex conflict that rests on a bound the nonlinear solver
+    propagated, 0 <= (* m m) say, is logged as one), and for a cnf lemma
+    whose literals are such bounds (_cnf_lemma). The proof is that of
+    _farkas_combination with products among the summands: every fact 0 <=
+    upper - lower of the lemma (_lemma_bounds) is proved by a core lemma,
+    the product of two nonnegative facts is nonnegative by Int.mul_nonneg,
+    the square of an atom by a case split on its sign, and a product with
+    an equality's upper - lower = 0 is zero by Int.mul_eq_zero; the
+    products scaled by their integer multipliers sum to a negative constant,
+    an identity of polynomials over the folded atoms that grind's ring
+    normalization proves before any hypothesis is in scope. Lean checks the
+    attempt like any other proof; one that does not elaborate falls through
+    to the caller's generalized and unfolded proofs.
+    """
+    parameters = graph.decl(node).parameters
+    if parameters[0] not in ("nla", "cnf") and not _lattice_step(graph, node):
+        return None
+    certificate = _polynomial_certificate(graph, node)
+    if certificate is None:
+        return None
+    premises, bounds, refutation = certificate
+    sides = set()
+
+    def render(derivation):
+        """(expression, proof, zero): the proof shows expression = 0 when zero, 0 <= expression otherwise."""
+        if derivation[0] == "fact":
+            lower, upper, tightened, proof, equality, _, structure = bounds[derivation[1]]
+            sides.update(structure)
+            expression = "(%s - %s)" % (upper, "(%s + 1)" % lower if tightened else lower)
+            if equality:
+                return expression, "(Int.sub_eq_zero_of_eq (Eq.symm %s))" % proof, True
+            return expression, "(Int.sub_nonneg_of_le %s)" % proof, False
+        if derivation[0] == "atom":
+            return _term(graph, derivation[1]), None, False
+        if derivation[0] == "square":
+            atom = _term(graph, derivation[1])
+            return "(%s * %s)" % (atom, atom), (
+                "((Int.le_total ((0 : Int)) %s).elim (fun _s => Int.mul_nonneg _s _s) "
+                "(fun _s => Int.mul_nonneg_of_nonpos_of_nonpos _s _s))" % atom), False
+        left, left_proof, left_zero = render(derivation[1])
+        right, right_proof, right_zero = render(derivation[2])
+        expression = "(%s * %s)" % (left, right)
+        if left_zero or right_zero:
+            return expression, "(Int.mul_eq_zero.mpr (%s %s))" % (
+                "Or.inl" if left_zero else "Or.inr", left_proof if left_zero else right_proof), True
+        return expression, "(Int.mul_nonneg %s %s)" % (left_proof, right_proof), False
+
+    scale = functools.reduce(math.lcm, (multiplier.denominator for multiplier, _ in refutation), 1)
+    summands, proofs = [], []
+    for multiplier, derivation in refutation:
+        expression, proof, zero = render(derivation)
+        summands.append("((%d : Int)) * %s" % (multiplier * scale, expression))
+        proofs.append("(Int.le_of_eq (Eq.symm (Int.mul_eq_zero.mpr (Or.inr %s))))" % proof if zero
+                      else "(Int.mul_nonneg (by decide) %s)" % proof)
+    combination, nonnegative = _balanced_sum(summands, proofs)
+    # The refutation sums to -1 (polynomial_refutation), so the scaled one to -scale.
+    return [
+        "have _sum : %s = ((%d : Int)) := by %sgrind" % (
+            combination, -scale, "delta %s; " % " ".join(_definition_names(graph, sides)) if sides else ""),
+        "exact %sClassical.byContradiction fun _hn => %s" % (
+            "".join("fun _p%d => " % position for position in range(premises)),
+            _combination_absurd(nonnegative, combination, "_sum")),
+    ]
+
+
 def _sum_identity(graph, name, combination, total, sides):
     """The tactic line stating that a combination of facts sums to its constant.
 
@@ -7641,8 +7759,11 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
             bridges = bridges + clauses
             refutation, names, _ = _cnf_refutation(graph, memo, structure, bridges, _THEORY_CLAUSE_BUDGET)
     if refutation is None:
+        # A clause over products that Z3 assumed on its nonlinear solver's
+        # word (nlsat) holds by what the products denote: by a polynomial
+        # refutation when its literals are bounds over Int terms.
         return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
-                            opaque_tactic=_opaque_tactic(graph, node))
+                            opaque_tactic=_opaque_tactic(graph, node), structural=_product_combination(graph, node))
     # The goal is the clause's definition, which the refutation's hypothesis
     # unifies with (its structure is named by that definition); nothing is
     # unfolded before the attempt, and the fallback unfolds everything. A
@@ -9161,6 +9282,22 @@ def _check_th_lemma(graph, node):
                 continue
             _atom_constraint(graph, atom)
         return
+    if parameters[0] == "nla":
+        # A lemma of Z3's nonlinear solver: bounds and equalities over Int
+        # terms with products, no premises. The exporter kept nothing of the
+        # hint's polynomial refutation; one is searched for again over the
+        # literals (products of two of the facts they deny, the squares of
+        # the atoms, and a linear combination, checked in exact arithmetic),
+        # and a lemma without one is rejected: Lean has no other proof of it.
+        if premises or not literals or _lemma_numeric(graph, node) != "Int":
+            raise ReconstructionError("nla th-lemma must be a clause over Int terms without premises at node %d"
+                                      % node)
+        for literal in literals:
+            _linear_constraint(graph, literal)
+        if _polynomial_certificate(graph, node) is None:
+            raise ReconstructionError("nla th-lemma without a polynomial refutation of its literals at node %d"
+                                      % node)
+        return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
     coefficients = [Fraction(parameter) for parameter in parameters[1:]]
@@ -9983,6 +10120,7 @@ def reconstruct(source, certificate):
                 lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                                            opaque_tactic=_opaque_tactic(graph, node),
                                            structural=(_farkas_combination(graph, node)
+                                                       or _product_combination(graph, node)
                                                        or _split_combination(graph, node)))
             lines.extend(lemma)
             th_lemmas[node] = term

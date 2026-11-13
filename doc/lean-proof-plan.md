@@ -3884,6 +3884,79 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Lemmas of the nonlinear solver by polynomial refutations (2026-11-13)
+
+A refutation that used a lemma of Z3's nonlinear solver was rejected by
+name, and the clauses that solver leaves in the log under other names (a
+conflict nlsat found, logged as an assumed clause; a simplex conflict over
+a bound it propagated, logged as a coefficient-free `cut` or `bound`) went
+to Lean without the fact about the products they rest on and failed there.
+
+- **Polynomial refutations.** A clause that holds by what its products
+  denote has one: the facts its literals deny (`0 <= p`, strict bounds
+  tightened, or `p = 0`, products multiplied out over the other atoms), the
+  square of every atom, an equality times an atom, and products of two of
+  these, as many rounds deep as the degree of the literals, sum with
+  nonnegative multipliers to a negative constant. This is the kind of
+  evidence Z3 itself looks for (`nla_lemma.cpp`, `prove`); the search here
+  takes its main derived facts and two of its limits (384 facts, 512
+  monomials) but is not the same one: Z3 also weakens a fact with a
+  negative constant, takes disequalities, and gives up above 64 given
+  facts, so a lemma Z3 has evidence for may have no refutation here. The
+  hint's own refutation is not read: it is over the solver's columns,
+  which the log does not tie to terms.
+  `proof_certificate.polynomial_refutation` searches again, z3 solving for
+  the multipliers, and checks the sum in exact arithmetic.
+- **Exporter.** An `nla` or `nla-unsupported` lemma is an `nla` th-lemma
+  when the logged clause or the clause of the hint's literals has a
+  refutation (`_Replay._nonlinear_lemma`); the logged clause may have lost
+  the literals false at the base level and is then derived by unit
+  propagation. Z3's trimmer takes the logged clause for an axiom and drops
+  those unit clauses, so `trim_clause_log` returns the trimmed text with
+  the log it was cut from (`TrimmedLog`), and `build_certificate` replays
+  that one, with a warning and within the same time limit, when the
+  trimmed one lacks them (`TrimmedAwayError`); any caller that trims and
+  replays, z3test's `proof_lean.py` included, gets the fallback. An
+  assumed clause with a refutation is an `nla` th-lemma instead of a cnf
+  bridge to the assertions. A lemma without one is rejected when used, as
+  before. Certificates from logs with such lemmas are compact.
+- **Reconstructor.** `nla` is a th-lemma hint: a clause over Int terms
+  without premises for which the reconstructor finds a refutation itself
+  (`_check_th_lemma`, `_polynomial_certificate`); one without is rejected.
+  `_product_combination` writes the proof as `_farkas_combination` does,
+  with products among the summands (`Int.mul_nonneg`, `Int.mul_eq_zero`,
+  a case split for a square, grind's ring normalization for the sum's
+  identity). The same attempt goes first for a `cut` or a coefficient-free
+  `farkas` or `bound` over products, and for a cnf lemma whose literals are
+  bounds.
+
+Nothing is trusted: the multipliers come from a solver, the sum is checked
+in Python, and Lean checks the proof; a clause without a refutation is
+rejected or left to the tactics it had.
+
+Measured on the 78 nonlinear unsat queries of z3test's `regressions/smt2`:
+24 verify (14 before; new: nl10, nl11, nl32 q2 and q3, nl36, nl39), 41 are
+rejected for a product of Real terms, 4 use a lemma without a refutation
+(nl13, nl19), 6 fail in Lean (nl17 and nl18 q2 on an implied equality over
+a square, nl37 q2 and q5 on "no square is 2", nl38 on the rewriter's sign
+split), 3 are outside for other reasons. Four of the six (nl17, nl18 q2,
+nl37 q2 and q5), and the input `(= (* m m) 2)`, were rejected by the
+exporter before, at their first `nla` lemma; those lemmas now have
+refutations, so the inputs are exported and fail in Lean on another step,
+which the exporter does not foresee. Nothing unsound is accepted, but a
+harness that counts rejections and Lean failures sees five rejections
+turn into failures. Of the 235 unsatisfiable seeds
+1-600 of `random_product_instance`, 194 verify (182 before), 2 use a lemma
+without a refutation, 39 fail in Lean (31 on a sign-split rewrite, 4 on a
+`cut`, 5 on a cnf lemma, one seed on two of these). Tests:
+`test_proof_to_lean_nla.py` (18 documented inputs, 3 pinned logs, 5 pinned
+seeds, the search itself).
+
+Next: a lemma that concludes an equality (split the disequality, two
+refutations; nl17, nl18, and `nla-unsupported` lemmas like `m = -1 -> m n +
+n = 0`), an equality stated as two bounds (nl13), the literals of an
+`nlsat-assumed` hint (the assumed clause lost them; nl37), squares of sums.
+
 ### Products of Int terms as atoms of the linear forms (2026-11-13)
 
 Every product of two nonconstant terms was rejected ("nonlinear
@@ -3924,7 +3997,9 @@ a product named by a variable, a parity conflict over one.
   coefficient-free `cut` or `bound` lemmas; the rewriter splits a factored
   product by the signs of its factors (`(>= (+ (* -2 m) (* -3 m n)) 0)` to
   cases on `m` and `n`). Lean must prove each, and mostly does not: such an
-  input is not certified.
+  input is not certified. (Since the section above: the lemmas, the
+  assumed clauses, and the conflicts with a polynomial refutation are
+  certified; the sign splits are not.)
 
 Measured: of the 78 queries, 14 verify (nl9, nl12, nl37 q0 and q4, nl40,
 nl46, nl48, nl49, two queries each), 41 are rejected for a product of Real

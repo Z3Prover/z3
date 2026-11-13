@@ -30,10 +30,31 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
-    linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
-    map_parameters, require_subset,
+    expand_polynomial, integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
+    linear_combination_refutes, numeral_value, polynomial_refutation, RECOGNIZER_KINDS, SET_OPERATORS,
+    enumeration_constructors, map_parameters, require_subset,
 )
+
+
+class TrimmedAwayError(ProofExportError):
+    """A trimmed log lacks clauses the replay needs; the untrimmed log may have them (_Replay._nonlinear_lemma)."""
+
+
+class TrimmedLog(str):
+    """The text of a trimmed clause log (trim_clause_log), with the log it was cut from as `untrimmed`.
+
+    Z3's trimmer keeps what the empty clause depends on and takes a lemma
+    of the nonlinear solver for an axiom, while the replay derives the
+    logged clause from the lemma and the unit clauses that make the
+    lemma's other literals false: the trimmed log need not have those, and
+    build_certificate then replays the untrimmed one.
+    """
+
+    def __new__(cls, text, untrimmed):
+        log = super().__new__(cls, text)
+        log.untrimmed = untrimmed
+        return log
+
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 # The sort a log term's arguments take, for their numerals: an arithmetic
@@ -55,8 +76,15 @@ _SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
     (SET_OPERATORS[z3.Z3_OP_SET_DIFFERENCE], z3.SetDifference),
     (SET_OPERATORS[z3.Z3_OP_SET_COMPLEMENT], z3.SetComplement))}
 # The hints of Z3's nonlinear solver: nla carries the literals of a lemma and
-# a polynomial refutation, nla-unsupported nothing. Neither is checked yet.
+# a polynomial refutation over the solver's columns, nla-unsupported the
+# literals alone or nothing. The literals are read (_Terms.hint): the lemma
+# they deny is the logged clause before it lost the literals false at the
+# base level. The refutation is not: the lemma, or the logged clause, is
+# certified when a polynomial refutation of its literals is found again
+# (_Replay._nonlinear_lemma, polynomial_facts), and not otherwise.
 _NONLINEAR_HINTS = ("nla", "nla-unsupported")
+# The th-lemma of a clause whose literals have a polynomial refutation.
+_POLYNOMIAL_HINT = "nla"
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -259,7 +287,10 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
     Trimming only shortens the replay. When the trimmer reports an error (it
     rejects an inference it cannot derive by unit propagation) or writes a
     dependency graph the replay cannot use, the untrimmed log is returned
-    with a warning, and the replay checks every step of it instead. timeout
+    with a warning, and the replay checks every step of it instead. A
+    trimmed log is returned as a TrimmedLog, which keeps the untrimmed text
+    for the replay that needs a clause the trimmer dropped
+    (build_certificate). timeout
     (seconds) and memory (megabytes) bound the trimmer, by default
     _TIME_LIMIT and _MEMORY_LIMIT; it stopping at the time limit raises
     subprocess.TimeoutExpired, at the memory limit ProofExportError.
@@ -279,7 +310,7 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
         if run.stderr.strip():
             warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
         try:
-            return _dependency_core(run.stdout)
+            return TrimmedLog(_dependency_core(run.stdout), text)
         except ProofExportError as error:
             warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
                           % error, RuntimeWarning)
@@ -728,9 +759,17 @@ class _Terms:
             raise ProofExportError("malformed proof hint in the clause log")
         name, arguments = sexpr[0], sexpr[1:]
         if name in _NONLINEAR_HINTS:
-            # The nonlinear solver's lemma: nothing of the hint is read, the
-            # logged clause stands for it (_Replay.infer).
-            return name, []
+            # The nonlinear solver's lemma: coefficient-literal pairs, then
+            # nla's polynomial refutation, a symbol that is not read. The
+            # literals are those the lemma denies, of which the logged
+            # clause may have lost the ones false at the base level
+            # (_Replay.infer); when they are not read either (a term the
+            # replay does not build), the logged clause stands for the lemma.
+            try:
+                return name, [(_number(arguments[index]), self.build(arguments[index + 1]))
+                              for index in range(0, len(arguments) - 1, 2)]
+            except ProofExportError:
+                return name, []
         if name in _COEFFICIENT_HINTS:
             if len(arguments) % 2:
                 raise ProofExportError("%s hint needs coefficient-literal pairs" % name)
@@ -1114,6 +1153,58 @@ def check_linear_hint(name, pairs):
     return False
 
 
+def polynomial_facts(literals):
+    """The facts that hold when every literal of a clause over Int atoms is false, as polynomials, or None.
+
+    Each is (equality, polynomial) for 0 <= polynomial or polynomial = 0
+    (proof_certificate.polynomial_refutation), a strict bound tightened and
+    the products multiplied out over the atoms of the linear forms that are
+    no products (_linear). A clause with a literal that is no bound or
+    equality over Int terms (a disequality's complement is an equality; an
+    equality's is not a fact of this kind) has none.
+    """
+    products, pending, facts = {}, [_strip(literal)[0] for literal in literals], []
+    if any(atom.num_args() != 2 or not z3.is_int(atom.arg(0)) for atom in pending):
+        return None
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() not in products:
+            products[expr.get_id()] = expr if expr.decl().kind() == z3.Z3_OP_MUL else None
+            pending.extend(expr.children())
+
+    def factors(atom):
+        product = products.get(atom)
+        return None if product is None else [_linear(child) for child in product.children()]
+
+    try:
+        for literal in literals:
+            relation, terms, constant = _constraint(_complement(literal))  # sum(terms) + constant <= 0, or = 0
+            polynomial = expand_polynomial(terms, constant, factors)
+            facts.append((relation == "=", {monomial: -value for monomial, value in polynomial.items()}))
+    except ProofExportError:
+        return None
+    return facts
+
+
+def _same_constraint(first, second):
+    """Whether two literals state one linear constraint: an equality either way round, a bound and its tightening."""
+    if first.get_id() == second.get_id():
+        return True
+    if z3.is_not(first) and z3.is_not(second):
+        first, second = first.arg(0), second.arg(0)
+    try:
+        relation, terms, constant = _constraint(first)
+        other, other_terms, other_constant = _constraint(second)
+    except ProofExportError:
+        return False
+    if relation != other:
+        return False
+    if terms == other_terms and constant == other_constant:
+        return True
+    return (relation == "=" and constant == -other_constant
+            and terms == {atom: -value for atom, value in other_terms.items()})
+
+
 def check_arith_hint(pairs):
     """Shape-check the arithmetic solver's axiom hints: every literal is a linear arithmetic atom.
 
@@ -1394,6 +1485,7 @@ class _Replay:
         self.logged_clauses = {}
         self.trimmed = False
         self.uncertified = {}    # proof node of an axiom nothing certifies -> why (_require_certified)
+        self.nonlinear = False   # whether the nonlinear solver left a lemma in the log (_nonlinear_lemma)
         self.default_maps = set()  # those of them that state the default value of a map
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
@@ -1541,6 +1633,12 @@ class _Replay:
         if source is not None:
             assertion, conjunct, path = source
             return self._derive_assumption(assertion, path, conjunct, formula)
+        # A clause Z3 assumed on its nonlinear solver's word (nlsat) is no
+        # assertion's: when its literals have a polynomial refutation it is a
+        # theorem about the products, an nla th-lemma as in infer.
+        lemma = self._polynomial_lemma(literals)
+        if lemma is not None:
+            return lemma
         candidates = self._candidate_sources(formula)
         # A conjunct a model shows consistent with the clause's negation does
         # not imply the clause, nor does any conjunct below it: such
@@ -1729,6 +1827,9 @@ class _Replay:
         original assertions, never taken from the hint. A bare smt hint
         claims the logged clause is a theory tautology, and so does a
         datatype hint (an enumeration's case split or constructor clash).
+        An nla or nla-unsupported hint marks a lemma of the nonlinear
+        solver, certified by a polynomial refutation found again or not at
+        all (_nonlinear_lemma).
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """
@@ -1736,15 +1837,7 @@ class _Replay:
             return self.rup(literals, dependencies)
         name, pairs = hint
         if name in _NONLINEAR_HINTS:
-            # A lemma of the nonlinear solver (nla_core): Lean has no proof
-            # of it, so the node stands for the logged clause and a
-            # refutation that uses it is rejected (_require_certified); one
-            # that does not leaves it out of the certificate.
-            declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [name])
-            lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
-            self.uncertified[lemma] = ("the refutation uses a lemma of the nonlinear solver, "
-                                       "which is not certified: %s" % name)
-            return lemma, list(literals)
+            return self._nonlinear_lemma(name, pairs, literals)
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
             if name == "alldiff" and not _distinct_gate(lemma_literals):
@@ -1810,6 +1903,79 @@ class _Replay:
             return self.rup(literals, None if dependencies is None else dependencies + [entry])
         finally:
             self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+
+    def _polynomial_lemma(self, literals):
+        """An nla th-lemma node for a clause whose literals have a polynomial refutation, or None.
+
+        The clause is then a theorem about the products of its Int terms:
+        the reconstructor finds the refutation again and Lean proves the
+        clause from the products of the bounds it denies.
+        """
+        facts = polynomial_facts(literals)
+        if facts is None:
+            return None
+        self._check_deadline()
+        if polynomial_refutation(facts) is None:
+            return None
+        self.nonlinear = True
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [_POLYNOMIAL_HINT])
+        return self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+
+    def _nonlinear_lemma(self, name, pairs, literals):
+        """Justify a clause the nonlinear solver (nla_core) inferred: hint nla or nla-unsupported.
+
+        The lemma is the logged clause, or the clause of the complements of
+        the hint's literals, of which the logged one may have lost those
+        false at the base level; it is then derived from the lemma by unit
+        propagation over the whole clause database. When the literals of
+        either have a polynomial refutation (products of two of the facts
+        they deny and a linear combination, the evidence Z3 itself looks
+        for; it is found again, the hint's is not read) the lemma is an nla
+        th-lemma (_polynomial_lemma). Otherwise Lean has no proof of it: the
+        node stands for the logged clause, a refutation that uses it is
+        rejected (_require_certified), and one that does not leaves it out
+        of the certificate.
+        """
+        self.nonlinear = True
+        candidates = [list(literals)]
+        if pairs and all(z3.is_bool(literal) for _, literal in pairs):
+            # A literal the lemma rests on twice (an equality, as its two
+            # bounds) is listed twice, and one may be written another way
+            # than in the logged clause ((= x 1) for (= 1 x)): the logged
+            # literal is kept, for the unit propagation.
+            complements = {}
+            for _, literal in pairs:
+                complement = _complement(literal)
+                complement = next((logged for logged in literals if _same_constraint(logged, complement)),
+                                  complement)
+                complements[complement.get_id()] = complement
+            candidates.append(list(complements.values()))
+        for lemma_literals in candidates:
+            lemma = self._polynomial_lemma(lemma_literals)
+            if lemma is None:
+                continue
+            if {self.literal_key(literal) for literal in lemma_literals} == {
+                    self.literal_key(literal) for literal in literals}:
+                return lemma, lemma_literals
+            entry = self.add_clause(lemma, lemma_literals)
+            try:
+                return self.rup(literals)
+            except ProofExportError as error:
+                # Z3's trimmer takes the logged clause for an axiom, so a
+                # trimmed log need not keep the unit clauses that make the
+                # other literals false; the untrimmed log has them
+                # (build_certificate replays it).
+                if self.trimmed:
+                    raise TrimmedAwayError(
+                        "the trimmed log lacks the unit clauses under a lemma of the nonlinear solver "
+                        "(the untrimmed log has them): %s" % error) from None
+            finally:
+                self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [name])
+        lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+        self.uncertified[lemma] = ("the refutation uses a lemma of the nonlinear solver, "
+                                   "which is not certified: %s" % name)
+        return lemma, list(literals)
 
     def rup(self, literals, dependencies=None):
         """Derive a clause by unit propagation, as hypotheses, resolutions, and a lemma."""
@@ -2059,15 +2225,33 @@ class _Replay:
         # unused clauses mention default values over an index sort the
         # certificate cannot carry (the gates of the default values the array
         # solver introduces for maps over any index sort). If the refutation
-        # uses one of the latter, the reconstructor rejects it.
+        # uses one of the latter, the reconstructor rejects it. So does one
+        # with lemmas of the nonlinear solver: the clauses it leaves unused
+        # (assumed on nlsat's word, or tied to the assertions by a cnf
+        # lemma) need not have a proof Lean finds.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed or terms.uncertified_defaults or bool(self.uncertified))
+                                    compact=(self.trimmed or terms.uncertified_defaults or bool(self.uncertified)
+                                             or self.nonlinear))
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):
     """Rebuild a clause log as an unverified z3-native-proof-dag bundle.
 
     timeout (seconds, default _TIME_LIMIT) bounds the replay's wall-clock
-    time; exceeding it raises ProofExportError.
+    time; exceeding it raises ProofExportError. When text is a TrimmedLog
+    without the unit clauses a lemma of the nonlinear solver rests on
+    (TrimmedAwayError), the log it was cut from is replayed instead, with a
+    warning and within the same time; a trimmed log given as a plain string
+    raises the error.
     """
-    return _Replay(source, fragment, assertions, context, timeout).run(text)
+    replay = _Replay(source, fragment, assertions, context, timeout)
+    try:
+        return replay.run(text)
+    except TrimmedAwayError as error:
+        untrimmed = getattr(text, "untrimmed", None)
+        if untrimmed is None:
+            raise
+        warnings.warn("replaying the untrimmed log: %s" % error, RuntimeWarning)
+        second = _Replay(source, fragment, assertions, context, timeout)
+        second.deadline = replay.deadline
+        return second.run(untrimmed)

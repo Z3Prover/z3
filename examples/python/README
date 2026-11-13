@@ -894,17 +894,55 @@ one term there; Z3's rewriter orders the factors before the solver sees
 them, and the rewrite between the two forms is a Lean lemma). With such a
 product in the certificate grind is given Int.mul_eq_zero, for the
 rewriter's split of (= (* m n) 0) into (or (= m 0) (= n 0)). What Z3 knows
-about a product from its factors is not certified: a lemma of its
-nonlinear solver (hint nla, with a polynomial refutation, or
-nla-unsupported) becomes a node nothing certifies, and a refutation that
-uses it is rejected ("the refutation uses a lemma of the nonlinear solver,
-which is not certified"); a clause the log assumes on nlsat's word
-("; assumed", hint nlsat-assumed) is tied to the assertions by a cnf lemma
-like any other assumed clause, a simplex conflict resting on a bound the
-nonlinear solver propagated is logged as a coefficient-free cut or bound,
-and the rewriter splits a factored product by the signs of its factors;
-Lean has to prove each of those, and where it does not the input is not
-certified. Z3's rewriter distributes to_real over a product, so (to_real
+about a product from its factors is certified by polynomial refutations. A
+clause that holds by what its products denote has one: the bounds and
+equalities its literals deny (strict bounds tightened, products multiplied
+out over the atoms that are none), the square of every atom, an equality
+times an atom, and products of two of these, as many rounds deep as the
+degree of the literals, sum with nonnegative multipliers (any, for a
+product with an equality) to a negative constant. Z3's nonlinear solver
+looks for one as the evidence of an nla lemma (nla_lemma.cpp); the hint's
+is not read (it is over the solver's columns, which the log does not
+name). proof_certificate.polynomial_refutation searches again, z3 solving
+for the multipliers, and checks the sum in exact arithmetic (the search
+follows Z3's in the facts listed above but is narrower: Z3 also weakens a
+fact with a negative constant and takes disequalities, so a lemma Z3 has
+evidence for may have no refutation here); the
+exporter runs it to decide what is certified, the reconstructor runs it
+again over the certificate's clause, and Lean proves the clause from it
+(proof_to_lean._product_combination): each fact by a core lemma from the
+negated clause, each product by Int.mul_nonneg (Int.mul_eq_zero with an
+equality), each square by a case split on the atom's sign, the sum of the
+scaled products equal to the constant by grind's ring normalization over
+the atoms left folded, and the contradiction by decide. Three kinds of
+clauses are proved this way. A lemma of the nonlinear solver (hint nla or
+nla-unsupported) is an nla th-lemma when the logged clause, or the clause
+of the hint's literals, has a refutation; the logged clause may have lost
+the literals false at the base level, and is then derived from the lemma
+by unit propagation (Z3's trimmer takes the logged clause for an axiom and
+drops those unit clauses, so proof_clause_log.trim_clause_log returns the
+trimmed text together with the log it was cut from, and build_certificate
+replays that one, with a warning and within the same time limit, when the
+trimmed one lacks them). A clause the log assumes on nlsat's word
+("; assumed", hint nlsat-assumed) is an nla th-lemma too when its literals
+have a refutation, and otherwise tied to the assertions by a cnf lemma
+like any other assumed clause, which gets the same proof when its literals
+are bounds (a conflict of asserted bounds). A simplex conflict resting on
+a bound the nonlinear solver propagated is logged as a coefficient-free
+cut or bound, and gets the proof as its first attempt. A lemma of the
+nonlinear solver without a refutation within the search becomes a node
+nothing certifies, and a refutation that uses it is rejected ("the
+refutation uses a lemma of the nonlinear solver, which is not certified");
+the reconstructor rejects an nla th-lemma for which it finds none. A
+certificate from a log with such lemmas keeps only the steps the
+refutation uses. Outside the search: a lemma that concludes an equality
+(its denial is a disequality), an equality stated as two bounds, the
+square of a sum, what holds over the integers only (no square is 2), and
+the rewriter's split of a factored product by the signs of its factors;
+Lean has to prove those unaided, and where it does not the input is not
+certified (an input whose nla lemmas all have refutations is exported
+whatever its other steps need, so such an input fails in Lean rather than
+in the exporter). Z3's rewriter distributes to_real over a product, so (to_real
 (* m n)) is the Real product of (to_real m) and (to_real n) in the log, a
 second variable of the simplex solver next to (* m n), which the nonlinear
 solver alone relates to it: an input whose refutation needs the two to
@@ -1651,7 +1689,8 @@ test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
 arrays), test_proof_to_lean_enum.py enumeration datatypes and arrays
-of them, and test_proof_to_lean_nonlinear.py products of Int terms end to end;
+of them, test_proof_to_lean_nonlinear.py products of Int terms, and
+test_proof_to_lean_nla.py the lemmas of the nonlinear solver end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than

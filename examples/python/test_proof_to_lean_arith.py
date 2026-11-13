@@ -451,7 +451,10 @@ class TestArithmeticValidation(unittest.TestCase):
             proof_to_lean.reconstruct(self.source, certificate)
         for parameters, message in [
             ([], "unsupported native proof rule"),
-            (["nla"], "unsupported native proof rule"),
+            (["nla-unsupported"], "unsupported native proof rule"),
+            # A lemma of the nonlinear solver is one over products of Int terms.
+            (["nla"], "nla th-lemma must be a clause over Int terms without premises"),
+            (["nla", "1"], "takes no coefficients"),
             (["farkas", "-1", "2", "1"], "nonnegative"),
             (["euf", "1"], "takes no coefficients"),
             ([1, 2], "must be strings"),

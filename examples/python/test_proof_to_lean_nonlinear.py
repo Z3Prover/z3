@@ -9,11 +9,12 @@
 # the exporter and the reconstructor re-derive and Lean proves (its Int * is
 # the product, and grind normalizes polynomials, so (* m n) and (* n m) are
 # one term there). What Z3's nonlinear solver derives about a product from
-# its factors is not certified: a refutation that uses an nla lemma is
-# rejected by the exporter, and a clause the solver assumed on nlsat's word
-# is tied to the assertions by a lemma Lean has to prove, like any other
-# assumed clause. A product of Real terms stays rejected: Real is Rat in
-# Lean, which is faithful for linear constraints only.
+# its factors is certified only when a polynomial refutation of the lemma is
+# found again (test_proof_to_lean_nla.py): a refutation that uses an nla
+# lemma without one is rejected by the exporter, and a clause the solver
+# assumed on nlsat's word is tied to the assertions by a lemma Lean has to
+# prove, like any other assumed clause. A product of Real terms stays
+# rejected: Real is Rat in Lean, which is faithful for linear constraints only.
 # Validation without Lean, and end-to-end checks that need the z3 executable
 # and the pinned Lean toolchain.
 ############################################
@@ -151,16 +152,17 @@ _LEGACY_NONLINEAR = "^th-lemma without a replayable theory hint: arith (unsuppor
 
 _REAL_PRODUCT = "^nonlinear multiplication is supported over Int only: a product of Real terms is not certified$"
 _NONLINEAR_LEMMA = "^the refutation uses a lemma of the nonlinear solver, which is not certified: %s$"
-# Inputs Z3 refutes that the exporter rejects, each with its message: those
-# that rest on what the nonlinear solver knows about a product (a polynomial
-# refutation, nla, or a lemma without one, nla-unsupported), products of
-# Real terms (Real is Rat in Lean: (= (* x x) 2.0) has a real solution and
-# no rational one, so a theorem over Rat would not say the input is
-# unsatisfiable), and divisions by a product.
+# Inputs Z3 refutes that the exporter rejects, each with its message: one
+# that rests on a lemma of the nonlinear solver without a polynomial
+# refutation the pipeline finds (m = -1 is stated as two bounds, and the
+# lemma concludes an equality: m n + n = 0), products of Real terms (Real is
+# Rat in Lean: (= (* x x) 2.0) has a real solution and no rational one, so a
+# theorem over Rat would not say the input is unsatisfiable), and divisions
+# by a product.
 REJECTED_INPUTS = {
-    "square_is_two": (_INTS + "(assert (= (* m m) 2))\n", _NONLINEAR_LEMMA % "nla"),
-    "substituted_factor": (_INTS + "(assert (> (- (* m n) k) 0))\n(assert (= m 1))\n(assert (= n k))\n",
-                           _NONLINEAR_LEMMA % "nla-unsupported"),
+    "equality_as_two_bounds": (_INTS + "(assert (> (+ (* m n) k) 0))\n(assert (<= m (- 1)))\n"
+                               "(assert (>= m (- 1)))\n(assert (>= n k))\n(assert (<= n k))\n",
+                               _NONLINEAR_LEMMA % "nla-unsupported"),
     "real_product": (_REALS + "(assert (> (* x y) 2.0))\n(assert (< (* x y) 1.0))\n", _REAL_PRODUCT),
     "real_square": (_REALS + "(assert (< (* x x) 0.0))\n", _REAL_PRODUCT),
     "real_product_under_a_function": ("(declare-fun f (Real) Real)\n" + _REALS
@@ -190,8 +192,12 @@ PRODUCT_AND_ITS_REAL_IMAGE = ("(declare-const x Real)\n" + _INTS + "(assert (> (
 # log assumes its clause without a hint the replay could check. The replay
 # ties an assumed clause to the assertions by a cnf lemma, whatever assumed
 # it, so the certificate states (m > 0 and n > 0 and m n < 0) -> false as a
-# lemma for Lean, which does not prove it: the input is not certified.
+# lemma for Lean (proved from the product of the two bounds:
+# test_proof_to_lean_nla.py).
 ASSUMED_BY_NLSAT = _INTS + "(assert (> m 0))\n(assert (> n 0))\n(assert (< (* m n) 0))\n" + _CHECK
+# No square is 2: every refutation rests on the nonlinear solver, and on the
+# integers (the reals have a root).
+SQUARE_IS_TWO = _INTS + "(assert (= (* m m) 2))\n" + _CHECK
 
 # A clause log with an nla lemma the refutation does not use (the lemma is
 # valid, 0 <= m m; the conflict is linear over the product).
@@ -217,12 +223,16 @@ _UNUSED_NLA_LOG = """\
 (declare-fun rup () Proof)
 (infer rup)
 """
-# The log of a negative square with the solver's lemma 0 <= m m under a hint
-# of the nonlinear solver (%s), which the refutation uses.
-_NEGATIVE_SQUARE = "(declare-const m Int)\n(assert (< (* m m) 0))\n" + _CHECK
+# The log of a negative square of a sum with the solver's lemma 0 <= (m + n)^2
+# under a hint of the nonlinear solver (%s), which the refutation uses. The
+# lemma has no polynomial refutation among the products the pipeline tries
+# (two of the lemma's facts, the squares of the atoms): it is not certified.
+_NEGATIVE_SQUARE = ("(declare-const m Int)\n(declare-const n Int)\n"
+                    "(assert (< (+ (* m m) (* 2 m n) (* n n)) 0))\n" + _CHECK)
 _USED_NLA_LOG = """\
 (declare-fun m () Int)
-(define-const $6 Int (* m m))
+(declare-fun n () Int)
+(define-const $6 Int (+ (* m m) (* 2 m n) (* n n)))
 (define-const $9 Bool (<= 0 $6))
 (assume (not $9))
 (declare-fun |(polynomial-refutation (premises 1))| () Proof)
@@ -232,11 +242,12 @@ _USED_NLA_LOG = """\
 (declare-fun rup () Proof)
 (infer rup)
 """
-# The same lemma weakened (0 <= m m or 5 <= m m, hint %s), which the empty
-# clause depends on through a farkas step and unit propagation only.
+# The same lemma weakened (0 <= (m + n)^2 or 5 <= (m + n)^2, hint %s), which
+# the empty clause depends on through a farkas step and unit propagation only.
 _CHAINED_NLA_LOG = """\
 (declare-fun m () Int)
-(define-const $6 Int (* m m))
+(declare-fun n () Int)
+(define-const $6 Int (+ (* m m) (* 2 m n) (* n n)))
 (define-const $9 Bool (<= 0 $6))
 (assume (not $9))
 (define-const $10 Bool (not $9))
@@ -417,10 +428,7 @@ class TestProductValidation(unittest.TestCase):
     def test_rejected_inputs(self):
         for name, (source, message) in REJECTED_INPUTS.items():
             with self.subTest(name=name), warnings.catch_warnings():
-                # The nonlinear solver's last lemma on square_is_two is the empty clause, a theory
-                # axiom without premises, which Z3's trimmer refuses: the replay then reads the
-                # untrimmed log, with a warning. Nowhere else is that fallback expected.
-                warnings.simplefilter("ignore" if name == "square_is_two" else "error", RuntimeWarning)
+                warnings.simplefilter("error", RuntimeWarning)  # no fallback to an untrimmed log
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     _export(source)
         # The reconstructor reads the input itself: no certificate makes a
@@ -443,7 +451,7 @@ class TestProductValidation(unittest.TestCase):
         # test_legacy_unsupported_conflicts_are_left_to_lean_over_int). No square is 2 and no
         # linear fact says so: every refutation of this input has such a step.
         with self.assertRaisesRegex(proof_certificate.ProofExportError, _LEGACY_NONLINEAR):
-            proof_certificate.export_certificate(REJECTED_INPUTS["square_is_two"][0])
+            proof_certificate.export_certificate(SQUARE_IS_TWO)
         # These the legacy core settles with its nonlinear solver today, although it need not: a
         # refutation with such a step is rejected by its label, one without is exported (and
         # checked by Lean like any other), and nothing else may happen.
@@ -478,8 +486,9 @@ class TestProductValidation(unittest.TestCase):
         certificate = self.replay(_UNUSED_NLA, _UNUSED_NLA_LOG)
         self.assertEqual({hint[0] for hint in _hints(certificate)}, {"farkas"})
         proof_to_lean.reconstruct(_UNUSED_NLA, certificate)
-        # Used, it rejects the refutation, whichever way the hint is logged:
-        # with a polynomial refutation, with literals alone, or by its name.
+        # Used, and without a polynomial refutation the replay finds, it
+        # rejects the refutation, whichever way the hint is logged: with a
+        # polynomial refutation of Z3's, with literals alone, or by its name.
         for name, hint in [("nla", "(nla 1 $10 |(polynomial-refutation (premises 1))|)"),
                            ("nla-unsupported", "(nla-unsupported 1 $10)"), ("nla-unsupported", "nla-unsupported")]:
             with self.subTest(hint=hint):
@@ -488,7 +497,7 @@ class TestProductValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, _NONLINEAR_LEMMA % "nla-unsupported"):
             self.replay(_NEGATIVE_SQUARE, (_USED_NLA_LOG % "nla-unsupported").replace(
                 "(infer $9 $14)", "(infer $9 nla-unsupported)"))
-        # So does a lemma that is the empty clause itself (the log of square_is_two ends with
+        # So does a lemma that is the empty clause itself (the log of SQUARE_IS_TWO ends with
         # one), and one the empty clause depends on through other steps only.
         for name in proof_clause_log._NONLINEAR_HINTS:
             for use, log in [("empty clause", (_USED_NLA_LOG % ("(%s 1 $10)" % name)).replace(
@@ -502,9 +511,20 @@ class TestProductValidation(unittest.TestCase):
             self.replay(_NEGATIVE_SQUARE, _USED_NLA_LOG % "(nlsat 1 $10)")
         # A certificate that states such a lemma anyway is rejected by the reconstructor.
         tampered = copy.deepcopy(certificate)
-        next(d for d in tampered["declarations"] if d["name"] == "th-lemma")["parameters"] = ["nla"]
+        next(d for d in tampered["declarations"] if d["name"] == "th-lemma")["parameters"] = ["nla-unsupported"]
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "th-lemma without a supported theory hint"):
             proof_to_lean.reconstruct(_UNUSED_NLA, tampered)
+        # nla is the name of a lemma with a polynomial refutation, which the reconstructor
+        # looks for itself: a lemma without a product, relabelled nla, has none.
+        linear = "(declare-const m Int)\n(assert (> (* 2 m) 3))\n(assert (< (* 3 m) 5))\n" + _CHECK
+        tampered = copy.deepcopy(_export(linear))
+        lemmas = [d for d in tampered["declarations"] if d["name"] == "th-lemma"]
+        self.assertTrue(lemmas)
+        for declaration in lemmas:
+            declaration["parameters"] = ["nla"]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                    "^nla th-lemma without a polynomial refutation of its literals at node"):
+            proof_to_lean.reconstruct(linear, tampered)
 
     def test_a_clause_assumed_by_nlsat_is_a_lemma_for_lean(self):
         certificate = _export(ASSUMED_BY_NLSAT)

@@ -4086,6 +4086,11 @@ class TestClauseLogDependencies(unittest.TestCase):
             core = proof_clause_log.trim_clause_log("unused", log)
         self.assertEqual(run.call_count, 1)
         self.assertIn("(deps 5 3)", core)
+        # The trimmed text keeps the log it was cut from, for the replay that needs a clause the
+        # trimmer dropped (build_certificate; test_proof_to_lean_nla.py).
+        self.assertIsInstance(core, proof_clause_log.TrimmedLog)
+        self.assertEqual(core, proof_clause_log._dependency_core(_DEPENDENCY_LOG))
+        self.assertIs(core.untrimmed, log)
 
     def test_trimming_failures_fall_back_to_the_untrimmed_log_with_a_warning(self):
         # Trimming only shortens the replay; a trimmer error (an inference it

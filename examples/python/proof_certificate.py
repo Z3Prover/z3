@@ -149,8 +149,10 @@ _PSEUDO_BOOLEAN = {z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST, z3.Z3_OP_PB_LE, z3
 # lemmas are linear combinations over the products, which the checks here
 # re-derive and Lean proves (its Int * is the product, and grind normalizes
 # polynomials). What Z3's nonlinear solver adds about a product from its
-# factors (nla lemmas, bounds it propagates) is not certified:
-# proof_clause_log rejects a refutation that uses such a lemma. A product of
+# factors (nla lemmas, bounds it propagates, clauses nlsat decides) is
+# certified when a polynomial refutation of the clause is found again
+# (polynomial_refutation); proof_clause_log rejects a refutation that uses
+# a lemma of that solver without one. A product of
 # Real terms stays rejected in the input: Real variables are Rat in Lean,
 # which is faithful for linear constraints (a system with rational
 # coefficients has a real solution exactly when it has a rational one) but
@@ -1757,6 +1759,143 @@ def bound_combination_refutes(constraints):
     return False
 
 
+# Two bounds of Z3's own search for a polynomial refutation (nla_lemma.cpp,
+# prove): the facts it derives and the monomials of one. The resource limit
+# of the solver call that looks for the linear combination is deterministic,
+# unlike a timeout.
+_POLYNOMIAL_FACTS = 384
+_POLYNOMIAL_MONOMIALS = 512
+_POLYNOMIAL_RLIMIT = 20000000
+
+
+def multiply_polynomials(left, right):
+    """The product of two polynomials, each a map from a monomial (a sorted tuple of atoms) to its coefficient."""
+    product = {}
+    for first, coefficient in left.items():
+        for second, factor in right.items():
+            monomial = tuple(sorted(first + second))
+            product[monomial] = product.get(monomial, Fraction(0)) + coefficient * factor
+    return {monomial: value for monomial, value in product.items() if value}
+
+
+def expand_polynomial(terms, constant, factors):
+    """The polynomial of the linear form sum(terms) + constant, its product atoms multiplied out.
+
+    factors(atom) is None for an atom that is no product, and the linear
+    forms (terms, constant) of the factors of one that is (a product of two
+    or more nonconstant factors is an atom of the linear forms, see
+    proof_clause_log._linear). A polynomial of more than
+    _POLYNOMIAL_MONOMIALS monomials is rejected.
+    """
+    polynomial = {(): Fraction(constant)} if constant else {}
+    for atom, coefficient in terms.items():
+        parts = factors(atom)
+        product = {(atom,): Fraction(1)} if parts is None else {(): Fraction(1)}
+        for part_terms, part_constant in parts or ():
+            product = multiply_polynomials(product, expand_polynomial(part_terms, part_constant, factors))
+            if len(product) > _POLYNOMIAL_MONOMIALS:
+                raise ProofExportError("a product of more than %d monomials" % _POLYNOMIAL_MONOMIALS)
+        for monomial, value in product.items():
+            polynomial[monomial] = polynomial.get(monomial, Fraction(0)) + coefficient * value
+    return {monomial: value for monomial, value in polynomial.items() if value}
+
+
+def polynomial_refutation(facts):
+    """Refute polynomial facts by products of two of them and a linear combination, or return None.
+
+    facts are (equality, polynomial) pairs stating 0 <= polynomial, or
+    polynomial = 0 for an equality, over atoms that take integer (or any
+    ordered ring's) values. The search follows that of Z3's nonlinear solver
+    for the evidence of an nla lemma (nla_lemma.cpp, prove) in its main
+    derived facts: the given ones, the square of every atom, an equality
+    times an atom, and, in as many rounds as the degree of the facts, the
+    product of a fact derived in the last round with one of the first, as
+    long as its degree is at most theirs. It is not the same search: Z3
+    also weakens a fact with a negative constant, takes disequalities, and
+    gives up above 64 given facts, so a lemma Z3 has evidence for may have
+    no refutation here. A product is nonnegative when both
+    factors are, and zero when one is. z3 looks for multipliers,
+    nonnegative but for an equality's, that sum the derived facts to the
+    constant -1 with every monomial cancelled; nothing it returns is trusted:
+    the sum is checked here.
+
+    Returns the (multiplier, derivation) pairs of the sum. A derivation is
+    ("fact", position), ("square", atom), or ("product", derivation,
+    derivation), in which an equality may be multiplied by ("atom", atom).
+    Facts of degree one have no polynomial refutation that is not a linear
+    one, the business of the linear checks: None.
+    """
+    degree = max((len(monomial) for _, polynomial in facts for monomial in polynomial), default=0)
+    if degree < 2:
+        return None
+    atoms = sorted({atom for _, polynomial in facts for monomial in polynomial for atom in monomial})
+    derived = [(("fact", position), equality, polynomial) for position, (equality, polynomial) in enumerate(facts)]
+    derived += [(("square", atom), False, {(atom, atom): Fraction(1)}) for atom in atoms]
+    for position, (equality, polynomial) in enumerate(facts):
+        if equality:
+            derived += [(("product", ("fact", position), ("atom", atom)), True,
+                         multiply_polynomials(polynomial, {(atom,): Fraction(1)})) for atom in atoms]
+    derived = derived[:_POLYNOMIAL_FACTS]
+    seen = {(equality, frozenset(polynomial.items())) for _, equality, polynomial in derived}
+    seeds, begin = len(derived), 0
+    for _ in range(degree):
+        refutation = _polynomial_combination(derived)
+        if refutation is not None:
+            return refutation
+        end = len(derived)
+        for first, first_equality, first_polynomial in derived[begin:end]:
+            for second, second_equality, second_polynomial in derived[:seeds]:
+                if len(derived) >= _POLYNOMIAL_FACTS:
+                    break
+                if (max(map(len, first_polynomial), default=0)
+                        + max(map(len, second_polynomial), default=0) > degree):
+                    continue
+                equality = first_equality or second_equality
+                polynomial = multiply_polynomials(first_polynomial, second_polynomial)
+                key = (equality, frozenset(polynomial.items()))
+                if polynomial and len(polynomial) <= _POLYNOMIAL_MONOMIALS and key not in seen:
+                    seen.add(key)
+                    derived.append((("product", first, second), equality, polynomial))
+        if end == len(derived):
+            return None
+        begin = end
+    return _polynomial_combination(derived)
+
+
+def _polynomial_combination(derived):
+    """Multipliers summing derived facts (polynomial_refutation) to the constant -1, by z3, or None."""
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("rlimit", _POLYNOMIAL_RLIMIT)
+    multipliers = [z3.Real("m%d" % position, context) for position in range(len(derived))]
+    rows = {}
+    for position, (_, equality, polynomial) in enumerate(derived):
+        if not equality:
+            solver.add(multipliers[position] >= 0)
+        for monomial, value in polynomial.items():
+            rows.setdefault(monomial, []).append(multipliers[position] * z3.RealVal(str(value), context))
+    if () not in rows:
+        return None
+    for monomial, summands in rows.items():
+        solver.add(z3.Sum(summands) == (0 if monomial else -1))
+    if solver.check() != z3.sat:
+        return None
+    model = solver.model()
+    total, refutation = {}, []
+    for (derivation, equality, polynomial), multiplier in zip(derived, multipliers):
+        value = model.eval(multiplier, model_completion=True)
+        value = Fraction(value.numerator_as_long(), value.denominator_as_long())
+        if value < 0 and not equality:
+            return None
+        if value:
+            refutation.append((value, derivation))
+            for monomial, factor in polynomial.items():
+                total[monomial] = total.get(monomial, Fraction(0)) + value * factor
+    if {monomial: value for monomial, value in total.items() if value} != {(): Fraction(-1)}:
+        return None
+    return refutation
+
+
 def _certificate_from_proof(source, assertions, proof, query=0):
     if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
             or not z3.is_false(proof.arg(proof.num_args() - 1))):
@@ -1870,6 +2009,8 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None, quer
     try:
         text = proof_clause_log.run_clause_log(executable, commands, timeout, memory)
         text = proof_clause_log.trim_clause_log(executable, text, timeout, memory)
+        # A trimmed log that dropped the unit clauses a lemma of the
+        # nonlinear solver rests on is replayed untrimmed (build_certificate).
         certificate = proof_clause_log.build_certificate(source, fragment, assertions, text, context, timeout)
         certificate["query"] = index
         return certificate
