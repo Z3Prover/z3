@@ -393,6 +393,24 @@ static void test_sequence_field_occurs_check() {
     check_datatype_commands(input.c_str(), "unsat\nsat\n");
 }
 
+static void test_sequence_field_occurs_check_terminates() {
+    // The occurs check visits every sequence equivalence class once.
+    // Here the sequence solver relates (stmts t) to a concatenation that contains it.
+    char const* prelude =
+        "(declare-sort E)\n"
+        "(declare-datatypes ((S 0)) (((leaf (val E)) (block (stmts (Seq S))))))\n"
+        "(declare-const s S)\n"
+        "(declare-const t S)\n"
+        "(assert ((_ is block) t))\n"
+        "(assert ((_ is block) s))\n"
+        "(assert (= s (seq.nth (stmts t) 2)))\n"
+        "(assert (>= (seq.len (stmts s)) 5))\n"
+        "(check-sat)\n"
+        "(assert (= s (block (seq.unit s))))\n"
+        "(check-sat)\n";
+    check_datatype_commands(prelude, "sat\nunsat\n");
+}
+
 static void test_nested_sequence_field_occurs_check() {
     for (unsigned depth : {2, 3}) {
         std::string field = "Tree", unit = "t", leaf = "leaf";
@@ -620,6 +638,7 @@ void tst_parametric_datatype() {
     test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
+    test_sequence_field_occurs_check_terminates();
     test_nested_sequence_field_occurs_check();
     test_mixed_container_occurs_check();
     test_nested_container_covariance();
