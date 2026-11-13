@@ -13,7 +13,7 @@ if(NOT tidy_version_status EQUAL 0 OR NOT tidy_version STREQUAL LLVM_PACKAGE_VER
 endif()
 
 add_library(Z3TidyModule MODULE Z3Module.cpp EvaluationOrderCheck.cpp
-  AstArgumentOrderCheck.cpp CharSignednessCheck.cpp RandomOrderCheck.cpp)
+  AstArgumentOrderCheck.cpp AstTupleOrderCheck.cpp CharSignednessCheck.cpp RandomOrderCheck.cpp)
 target_compile_features(Z3TidyModule PRIVATE cxx_std_17)
 target_include_directories(Z3TidyModule SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
 target_compile_options(Z3TidyModule PRIVATE -Wall -Wextra)

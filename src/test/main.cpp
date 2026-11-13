@@ -55,6 +55,7 @@
     X(rational) \
     X(inf_rational) \
     X(ast) \
+    X(ast_id_recycling) \
     X(optional) \
     X(bit_vector) \
     X(fixed_bit_vector) \

@@ -20,6 +20,30 @@ The check follows known allocator entry points and visible wrapper definitions.
 It can miss indirect and out-of-line calls, and may warn about calls that only
 allocate conditionally. Use `NOLINT(z3-ast-argument-order)` for justified exceptions.
 
+## AST tuple destruction order
+
+`z3-ast-tuple-order` warns about `std::tuple` with two or more elements that own
+AST references, directly or through owning containers and by-value wrappers:
+
+```cpp
+std::tuple<func_decl_ref, expr_ref, expr_dependency_ref> definition;
+```
+
+libstdc++ and libc++ destroy tuple elements in different orders. Releasing AST
+references in different orders can change recycled IDs and subsequent solver
+behavior. Use a named struct, whose members are destroyed in reverse declaration
+order. Numeric comparison tuples, raw pointers, and non-owning reference tuples
+such as `std::tie` are accepted. Type aliases, deduced tuples, and tuple factories
+are checked too.
+
+The check recognizes Z3 AST reference types, standard owning containers and
+visible wrapper fields/bases. It cannot infer ownership implemented only by
+custom destructor code or hidden behind raw pointers. It skips expression checks
+inside template instantiations to avoid reporting container internals, so some
+dependent tuple constructions can be missed.
+It warns conservatively without proving that references are the last owners.
+Use `NOLINT(z3-ast-tuple-order)` for justified exceptions. No automatic fixes are offered.
+
 ## Random draw order
 
 `z3-random-order` warns when separate arguments or operands may consume random
