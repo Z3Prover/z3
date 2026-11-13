@@ -23,6 +23,7 @@ Notes:
 #include "ast/converters/generic_model_converter.h"
 #include "solver/solver2tactic.h"
 #include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -106,6 +107,8 @@ public:
         ptr_vector<expr>            assumptions;
         ref<generic_model_converter> fmc;
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+        if (in->proofs_enabled() && !assumptions.empty())
+            throw tactic_exception("solver2tactic does not support simultaneous generation of proofs and unsat cores");
         ref<solver> local_solver = m_solver->translate(m, m_params);
         local_solver->assert_expr(clauses);
         TRACE(solver2tactic, tout << "clauses asserted\n";);
@@ -118,8 +121,7 @@ public:
             throw;
         }
         TRACE(solver2tactic, tout << "check sat result " << r << "\n";);
-        proof* pr = local_solver->get_proof();
-        if (pr) in->set(proof2proof_converter(m, pr));
+        proof_ref pr(local_solver->get_proof(), m);
         local_solver->collect_statistics(m_st);
         switch (r) {
         case l_true: 
@@ -136,6 +138,21 @@ public:
             result.push_back(in.get());
             break;
         case l_false: {
+            if (in->proofs_enabled()) {
+                if (!pr || !m.is_false(m.get_fact(pr)))
+                    throw tactic_exception("solver2tactic did not produce a proof of false");
+                expr_safe_replace sub(m);
+                // formulas in goal are 1-1 with clauses
+                SASSERT(clauses.size() == in->size());
+                for (unsigned i = 0; i < in->size(); ++i) {
+                    if (!in->pr(i) || m.get_fact(in->pr(i)) != in->form(i))
+                        throw tactic_exception("solver2tactic input proof does not match its assertion");
+                    sub.insert(m.mk_asserted(clauses.get(i)), in->pr(i));
+                }
+                expr_ref tmp(pr.get(), m);
+                sub(tmp);
+                pr = to_app(tmp);
+            }
             in->reset();
             expr_dependency_ref lcore(m);
             if (in->unsat_core_enabled()) {
@@ -154,7 +171,7 @@ public:
             if (!m.inc()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            if (!in->unsat_core_enabled()) {
+            if (!in->proofs_enabled() && !in->unsat_core_enabled()) {
                 model_converter_ref mc;
                 mc = local_solver->get_model_converter();                
                 mc = concat(fmc.get(), mc.get());            
