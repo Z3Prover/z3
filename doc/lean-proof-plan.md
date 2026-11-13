@@ -2759,6 +2759,90 @@ arrays next to the sets; Lean), the pinned seeds `GENERIC_DEFAULT_SEEDS`
 `test_default_values_of_maps_are_rejected` (now inputs that name a default
 value), and `test_the_generic_index_is_proved_off_the_stored_indices`.
 
+### subset over sets (2026-11-12)
+
+`(subset a b)` over two sets was rejected by the exporter ("unsupported
+propositional operator: subset"). It is certified through the clause log
+now, for sets of one sort that are not indexed by arrays (as the set
+operators).
+
+- Lean reads it as `_subset a b`, `forall i, a i -> b i`: the statement of
+  the theorem says what the input says, not what Z3 makes of it.
+- Z3's rewriter makes `(= (setminus a b) empty)` of it, the map of `and`
+  over `a` and the complement of `b` compared with the constant array of
+  false (`array_rewriter::mk_set_subset`), and the log holds only that. The
+  replay ties it to the assertion by a rewrite, which Lean proves from the
+  theorem `_subset_eq : _subset a b = (_map2 And a (_map1 Not b) =
+  _const_array I False)` (function extensionality, kernel-checked, stated
+  in certificates with a constant array) instantiated at each subset a
+  step reaches (`_sb` facts, `_array_helpers`).
+- The rewriter then simplifies that difference member by member like any
+  map, so `_pointwise_map_facts` reads each subset's difference as a
+  Boolean function of its sets' leaves and states, by its truth table: the
+  subset itself when the difference is empty in every row (`(subset a a)`,
+  `(subset (intersection a b) a)`: `_pws`), its negation at any index when
+  it is full in every row (`(subset full empty)`: `_pwsn`; over an
+  uninterpreted index sort the inhabitant is the value of the
+  interpretation's first constant, `_m.elems 0`, unless the interpretation
+  states `nonempty`), and otherwise one of
+  - its negation at a stored index when the difference is full in every
+    row of that index (`(subset full (store s 1 false))`: the rewriter
+    pulls the store out of the map and compares it with the empty set
+    there);
+  - its negation at an index that is none of the stored ones when the
+    difference is full in every row off them (`(subset full (store empty 0
+    true))`, which the rewriter decides by the default values): such an
+    index exists over Int and Real (`_int_unbounded`, `_rat_unbounded` at
+    the list of the stored indices);
+  - `_pwsv : _subset a b = (p -> q)` when both sets are maps of constant
+    arrays alone, of Boolean values other than `true` and `false`
+    (`(subset (const p) (const (not p)))`, which the rewriter folds to `(not
+    p)`): the subset is that implication at any index;
+
+  and next to any of these three, that the difference as `_subset_eq`
+  writes it is the set of the step with that function (`(subset a empty)`
+  is left as `(= a empty)`, `(subset (complement a) a)` as `(= (complement
+  a) empty)`; the rewriter does not pull a store out from under a union, so
+  `(subset (union (store a 0 true) (store b 1 true)) empty)` fails at 0 and
+  keeps its equality). The tables only choose the facts; Lean checks each.
+- After an assertion that simplifies to false Z3 logs the others as
+  written; the replay builds `(subset a b)` itself, and the array solver's
+  own axiom of it, `(subset a b)` against `(= (setminus a b) empty)` as two
+  `array` lemmas, passes the array lemma check (a subset atom next to an
+  equality) and is proved from `_subset_eq`.
+
+Measured on this iteration's macOS build with `random_subset_instance`
+(`test_proof_to_lean_subset.py`; all rejected before): of the 1105
+unsatisfiable seeds of 1-5000, 1104 verify in Lean; the 400 seeds 1-400 of
+its unsimplified variant (a false assertion first) all verify. Seed 1089
+fails in a rewrite between two set equalities: the replay ties the clause
+of `(subset full s0)` to the assertion `(= s0 full)`, equivalent to it and
+earlier in the input, which fails the same way with `(= (setminus full s0)
+empty)` written out. Before the facts off the stored indices and next to a
+stored index were stated, seeds 1791, 2233, and 2769 failed too (pinned).
+The existing set and constant-array generators reconstruct to the same
+text as before (457 and 133 unsatisfiable seeds).
+
+Still rejected: a subset over an uninterpreted or Bool index sort that the
+rewriter does not decide (its equality needs a constant array over that
+sort, which the certificate does not carry: "invalid constant array
+declaration"; one the rewriter decides, true or false, leaves no constant
+array and verifies, unless a false assertion before it has Z3 log it as
+written), sets indexed by arrays,
+by bit-vectors, or by an enumeration ("unsupported sort"), and every array
+input on the legacy core. Known to be accepted and then fail in Lean
+(`grind` failed, a rejected certificate): a subset over a store of a
+Boolean value other than `true` and `false` that the rewriter folds to a
+formula over the value (`(subset (store empty 0 p) empty)` is `(not p)`:
+no fact reads the subset by cases of `p` at the stored index), and the
+rewrite of seed 1089. Tests (`test_proof_to_lean_subset.py`):
+`SUBSET_INPUTS` (41 documented inputs), `REJECTED_SUBSET_INPUTS`,
+`SUBSET_SEEDS` and `UNSIMPLIFIED_SUBSET_SEEDS` (Lean),
+`TestSubsetValidation` (the declaration, the log, the replay's terms, the
+facts of each kind, tampered certificates), and
+`test_subset_facts_are_needed` (Lean rejects twelve of the inputs without
+their facts).
+
 ### Sets compared member by member (2026-11-11)
 
 Z3's rewriter simplifies a map of connectives over sets as it simplifies
@@ -2904,7 +2988,8 @@ rewrite where Z3's rewriter decides an equality of sets by map identities
 (`(setminus s1 s1)` is empty, `(not (not s))` is `s`, flattened and sorted
 `and`s), which had no theorem (14 of them exported before as well; they
 verify since "Sets compared member by member" above).
-`subset` itself is still rejected as an operator. Tests
+`subset` itself is still rejected as an operator (certified since
+2026-11-12, see "subset over sets" above). Tests
 (`test_proof_to_lean_array.py`): six documented inputs in
 `SET_COMBINATOR_INPUTS` and the pinned seeds `SET_SEEDS` (Lean),
 `test_the_replay_reads_set_operators`,

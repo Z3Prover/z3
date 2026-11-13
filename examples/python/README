@@ -171,7 +171,8 @@ predicates may take arrays as arguments, functions may return them,
 constant arrays ((as const (Array I E)) v) and default values (default a)
 are supported over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
-setminus, complement); maps of xor, = and distinct, Int and Real +, -, and
+setminus, complement) and are compared by subset; maps of xor, = and
+distinct, Int and Real +, -, and
 comparisons, ite, and uninterpreted functions and predicates of up to three
 arguments apply over elements of an uninterpreted sort, Int, Real, or Bool.
 Only the clause log certifies them (the legacy core
@@ -1382,6 +1383,26 @@ rewriter makes of them. The solver also introduces default values of maps
 over any index sort in gate clauses; an untrimmed log's certificate keeps
 only the nodes the refutation uses when it has such defaults over an
 uninterpreted index, which the reconstructor would otherwise reject.
+(subset a b) over two sets is _subset a b, forall i, a i -> b i. Z3's rewriter
+makes (= (setminus a b) empty) of it, which the theorem _subset_eq relates
+to the subset (_subset a b = (_map2 And a (_map1 Not b) = _const_array I
+False), by function extensionality); each step reaching a subset gets that
+fact, and, since the rewriter simplifies the difference member by member,
+the facts that apply of: the subset itself where the difference is empty at
+every member; its negation where it is full at every member, at a stored
+index, or at every index off the stored ones (one exists over Int and
+Real); the implication between the values of two constant arrays; and the
+equality of the difference with the set the rewriter leaves. Written out
+after a false assertion, the subset comes with the array solver's axiom
+relating it to that equality, two array lemmas proved the same way. A
+subset over an uninterpreted or Bool index sort verifies only when the
+rewriter decides it, true or false: otherwise (and when Z3 logs it as
+written) its equality needs a constant array over that sort, which the
+reconstructor rejects. A subset over a
+store of a Boolean value other than true and false that the rewriter folds
+to a formula over that value ((subset (store empty 0 p) empty)) is accepted
+and fails in Lean.
+
 Z3 logs a map of a built-in with its signature, ((_ map (<= (Int Int) Bool))
 a b), and declares a mapped function before the map, so the trimmer reads
 map logs back; the replay checks a logged signature against the

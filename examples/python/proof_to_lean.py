@@ -1364,6 +1364,12 @@ class _Graph:
         """The uninterpreted sorts proper, all rendered as _m.U."""
         return tuple(sort for sort in self.sorts if not _array_components(sort))
 
+    @functools.cached_property
+    def subset_rewrite(self):
+        """Whether _subset_eq is stated: a subset next to a constant array (_SUBSET_REWRITE)."""
+        kinds = {decl.kind for decl in self.declarations}
+        return z3.Z3_OP_SET_SUBSET in kinds and z3.Z3_OP_CONST_ARRAY in kinds
+
     def is_array(self, node):
         """Whether node is a term of an array sort."""
         return bool(self.arrays) and self.decl(node).range in self.arrays
@@ -1659,6 +1665,13 @@ def _declaration(raw, sorts):
             # (is_int t) is (= (to_real (to_int t)) t), qf_lira only.
             if name != "is_int" or domain != ("Real",):
                 raise ReconstructionError("invalid is_int declaration")
+        elif kind == z3.Z3_OP_SET_SUBSET:
+            # (subset a b) over two sets of one sort, not indexed by arrays
+            # (as the set operators, see above).
+            components = _array_components(domain[0]) if len(domain) == 2 and domain[0] in sorts else None
+            if (name != "subset" or components is None or domain[1] != domain[0] or components[1] != "Bool"
+                    or _array_components(components[0]) is not None):
+                raise ReconstructionError("invalid subset declaration")
         elif kind in _PSEUDO_BOOLEAN:
             expected_name, _, weighted = _PSEUDO_BOOLEAN[kind]
             if (name != expected_name or any(argument != "Bool" for argument in domain)
@@ -2497,6 +2510,9 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         if kind == z3.Z3_OP_IS_INT:
             # SMT-LIB's definition, (= (to_real (to_int t)) t).
             return "(((Rat.floor %s : Int) : Rat) = %s)" % (args[0], args[0])
+        if kind == z3.Z3_OP_SET_SUBSET:
+            # Every member of the first set is one of the second (_SUBSET_DEFINITION).
+            return "(_subset %s %s)" % tuple(args)
         if kind == z3.Z3_OP_DISTINCT:
             pairs = ["(Not (%s = %s))" % (left, right)
                      for index, left in enumerate(args) for right in args[index + 1:]]
@@ -4251,6 +4267,30 @@ def _map_identities(graph, node, inline):
     return helpers
 
 
+# (subset a b): every member of a is one of b. Z3's rewriter makes (=
+# (setminus a b) empty) of it, the map of and over a and the complement of b
+# compared with the constant array of false (array_rewriter::mk_set_subset
+# and mk_set_difference); _subset_eq is that step, by function
+# extensionality. It is stated after _SET_DEFINITIONS in a certificate with
+# a constant array (_Graph.subset_rewrite: _const_array is defined there, and
+# without one no equality with the empty set is left, the rewriter decided
+# the subset).
+_SUBSET_DEFINITION = [
+    "def _subset {I : Type} (a b : I -> Prop) : Prop := forall _i : I, a _i -> b _i",
+]
+_SUBSET_REWRITE = """
+private theorem _subset_eq {I : Type} (a b : I -> Prop) :
+    _subset a b = (_map2 And a (_map1 Not b) = _const_array I False) := by
+  apply propext
+  constructor
+  . intro _h
+    funext _i
+    exact propext (Iff.intro (fun _p => _p.2 (_h _i _p.1)) False.elim)
+  . intro _h _i _a
+    exact Classical.byContradiction (fun _n => Eq.mp (congrFun _h _i) (And.intro _a _n))
+""".strip().split("\n")
+
+
 # The facts of one read go through at most this many stores that Z3's
 # rewriter does not skip (the store's index or the read's is no value, or
 # they are one value) into the maps and set operators below them
@@ -4521,6 +4561,11 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             read_facts(_stored_rows(graph, row), read, "_n%d_%%d" % node, "_nm%d_%%d" % node)
         if graph.is_array(node) and _set_function(graph, node) is not None:
             helpers.extend(_map_identities(graph, node, inline))
+        if kind == z3.Z3_OP_SET_SUBSET and graph.subset_rewrite and not congruence:
+            # What Z3's rewriter makes of it (_subset_eq); grind chains it
+            # with the _t facts of the map and the constant array.
+            helpers.append("  have _sb%d := _subset_eq %s %s" % (
+                node, inline(graph.arguments(node)[0]), inline(graph.arguments(node)[1])))
         if congruence:
             if kind == z3.Z3_OP_ARRAY_EXT:
                 helpers.append("  have _xc%d := _array_diff_comm %s %s %s" % (
@@ -4676,6 +4721,15 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
     comparison of the same text uses it (_Graph.pointwise_theorems). The
     tables only choose the facts: Lean checks each.
 
+    A (subset a b) the step reaches is compared the same way: the rewriter
+    makes (= (setminus a b) empty) of it and simplifies that difference
+    member by member, so the function of the difference chooses the facts:
+    that the subset holds, that it fails (at any index, at a stored one,
+    or at one off the stored ones), that it is the implication between the
+    values of constant arrays, and that the difference as _subset_eq writes
+    it is the set the rewriter's equality is left with (see the loop over
+    subsets).
+
     With members_read (a cnf lemma, whose clause the solver assumed about
     members while the assertion it is tied to equates sets), each such
     equality also implies that its sides' members agree at every index the
@@ -4697,8 +4751,9 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
         return graph.is_array(node) and _array_components(graph.decl(node).range)[1] == "Bool"
 
     sets = [node for node in sorted(reachable) if boolean_set(node)]
+    subsets = [node for node in sorted(reachable) if graph.kind(node) == z3.Z3_OP_SET_SUBSET]
     mapped = any(_pointwise_function(graph, node) is not None for node in sets)
-    if len(sets) > _POINTWISE_SETS or not (mapped or (members_read and any(
+    if len(sets) > _POINTWISE_SETS or not (mapped or subsets or (members_read and any(
             graph.kind(node) == z3.Z3_OP_STORE for node in sets))):
         return [], []
     # Per set: its leaves, its truth table over them, and the number of maps
@@ -4765,15 +4820,24 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
             return "(_select %s %s)" % (inline(node), at)
         return inline(node) if kind == "value" else "(%s = %s)" % (at, inline(node))
 
-    def auxiliary(left, right, statement):
+    def auxiliary(left, right, statement, third=None, at="_i"):
         """The auxiliary theorem of two sets applied to their leaves' members at _i, stated unless it was before.
 
         None if the two have one member formula (sets of one function may).
+        With third, a set too, the statement is over the members of the
+        three, and None if the third's member formula is the difference of
+        the others' as written; with at, the theorem is applied to the
+        members at that index.
         """
-        leaves = sorted(set(tables[left][0]) | set(tables[right][0]))
+        nodes = (left, right) if third is None else (left, right, third)
+        leaves = sorted(set().union(*(tables[node][0] for node in nodes)))
         names = {leaf: "_p%d" % position for position, leaf in enumerate(leaves)}
-        sides = (member(left, names), member(right, names))
-        if sides[0] == sides[1]:
+        sides = tuple(member(node, names) for node in nodes)
+        if third is None:
+            trivial = sides[0] == sides[1]
+        else:
+            trivial = "(And %s (Not %s))" % sides[:2] == sides[2]
+        if trivial:
             return None
         stated = ["%s :" % (" (%s : Prop)" % " ".join(names[leaf] for leaf in leaves) if leaves else ""),
                   "    %s := by grind" % (statement % sides)]
@@ -4781,7 +4845,7 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
         if theorem is None:
             theorem = graph.pointwise_theorems[tuple(stated)] = "%s_pw%d" % (name, len(theorems) // 3)
             theorems.extend(["", "private theorem %s%s" % (theorem, stated[0]), stated[1]])
-        return "(%s)" % " ".join([theorem] + [leaf_member(leaf, "_i") for leaf in leaves])
+        return "(%s)" % " ".join([theorem] + [leaf_member(leaf, at) for leaf in leaves])
 
     # A step without a map or set operator (a cnf lemma that reaches a store)
     # gets the members of its equalities' sides alone, below.
@@ -4814,6 +4878,88 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
                          "(fun _i => %s (Iff.of_eq (congrFun _h _i)))" % (
                              node, inline(left), inline(right), _nonempty(index),
                              auxiliary(left, right, "Not (Iff %s %s)")))
+    for node in subsets:
+        # (subset a b) is (= (setminus a b) empty) for the rewriter, which
+        # simplifies the difference member by member like any map: the
+        # function of the difference chooses the fact. Empty in every row,
+        # the subset holds; full in every row, it fails at any index (the
+        # index sort inhabited as for _pwn); full in every row of a stored
+        # index (a store pulled out of the map is compared with the empty
+        # set there: (subset full (store s 1 false)) is false), it fails at
+        # that index. Whenever it is neither empty nor full, the difference
+        # as _subset_eq writes it (_array_helpers states that fact) equals
+        # the first set of the step with its function, which the rewriter's
+        # equality compares with the empty set.
+        left, right = graph.arguments(node)
+        sort = graph.decl(left).range
+        leaves = tuple(sorted(set(tables[left][0]) | set(tables[right][0])))
+        if len(leaves) > _POINTWISE_LEAVES:
+            continue  # (each set is over at most that many; the two together may be over more)
+        rows = range(1 << len(leaves))
+        full = (1 << len(rows)) - 1
+        difference = (_expanded_table(tables[left][1], tables[left][0], leaves)
+                      & ~_expanded_table(tables[right][1], tables[right][0], leaves) & full)
+        index = _array_components(sort)[0]
+        # An inhabitant of the index sort. Over a carrier the interpretation
+        # states one only next to an extensionality witness
+        # (_carrier_inhabited); it always has the constants' values (elems).
+        inhabited = ("(Nonempty.intro (_m.elems 0))" if index in graph.carriers and not _carrier_inhabited(graph)
+                     else _nonempty(index))
+        if difference == 0:
+            proof = auxiliary(left, right, "(%s -> %s)")
+            facts.append("have _pws%d : _subset %s %s := fun _i => %s" % (
+                node, inline(left), inline(right), "fun _h => _h" if proof is None else proof))
+            continue
+        if difference == full:
+            # (grind does not prove the negated implication as one statement.)
+            proof = auxiliary(left, right, "(And %s (Not %s))")
+            facts.append("have _pwsn%d : _subset %s %s -> False := fun _h => Nonempty.elim %s "
+                         "(fun _i => %s.2 (_h _i %s.1))" % (node, inline(left), inline(right), inhabited, proof, proof))
+            continue
+        positions = [position for position, leaf in enumerate(leaves) if leaf[0] == "index"]
+        stored = next((position for position in positions if all(
+            (difference >> row) & 1 for row in rows if (row >> position) & 1)), None)
+        if stored is not None:
+            proof = "(%s rfl)" % auxiliary(left, right, "(_p%d -> (And %%s (Not %%s)))" % stored,
+                                           at=inline(leaves[stored][1]))
+            facts.append("have _pwsn%d : _subset %s %s -> False := fun _h => %s.2 (_h %s %s.1)" % (
+                node, inline(left), inline(right), proof, inline(leaves[stored][1]), proof))
+        elif (positions and graph.subset_rewrite and index in _UNBOUNDED and all(
+                (difference >> row) & 1 for row in rows if not any((row >> position) & 1 for position in positions))):
+            # Full off the stored indices, whatever the other leaves are
+            # ((subset full (store empty 0 true)), which the rewriter decides
+            # by the default values): it fails at an index that is none of
+            # them, which exists over Int and Real (_UNBOUNDED_THEOREMS,
+            # stated next to a constant array).
+            proof = "(%s %s)" % (
+                auxiliary(left, right, "(%s(And %%s (Not %%s)))" % "".join(
+                    "(Not _p%d) -> " % position for position in positions)),
+                " ".join("(fun _e => _f (_e ▸ %sList.Mem.head _%s))" % ("List.Mem.tail _ (" * count, ")" * count)
+                         for count in range(len(positions))))
+            facts.append("have _pwsn%d : _subset %s %s -> False := fun _h => Exists.elim (%s ([%s] : List %s)) "
+                         "(fun _i _f => %s.2 (_h _i %s.1))" % (
+                             node, inline(left), inline(right), _UNBOUNDED[index],
+                             ", ".join(inline(leaves[position][1]) for position in positions),
+                             _component_type(index), proof, proof))
+        elif leaves and all(leaf[0] == "value" for leaf in leaves):
+            # Maps of constant arrays alone, of Boolean values other than
+            # true and false: the rewriter folds the subset to a formula
+            # over the values ((subset (const p) (const (not p))) to (not
+            # p)), which the subset is at any index.
+            names = {leaf: leaf_member(leaf, "_i") for leaf in leaves}
+            facts.append("have _pwsv%d : _subset %s %s = (%s -> %s) := propext (Iff.intro "
+                         "(fun _h => Nonempty.elim %s (fun _i => _h _i)) (fun _h _ => _h))" % (
+                             node, inline(left), inline(right), member(left, names), member(right, names), inhabited))
+        # The difference as _subset_eq writes it is the set the rewriter's
+        # equality is left with (next to a failure at a stored index too: the
+        # rewriter does not pull a store out from under a union).
+        key = (sort,) + _essential_table(leaves, difference)
+        same = next((candidate for candidate in sets if keys[candidate] == key), None)
+        if same is not None and graph.subset_rewrite:
+            proof = auxiliary(left, right, "(Iff (And %s (Not %s)) %s)", same)
+            facts.append("have _pws%d : _map2 And %s (_map1 Not %s) = %s := funext (fun _i => %s)" % (
+                node, inline(left), inline(right), inline(same),
+                "rfl" if proof is None else "propext %s" % proof))
     if not members_read:
         return theorems, facts
     # The sides of each equality at the indices the lemma reads from sets of its sort.
@@ -8747,6 +8893,11 @@ def _check_th_lemma(graph, node):
         components = {component for sort in graph.arrays for component in _array_components(sort)}
         for literal in literals:
             atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
+            if graph.kind(atom) == z3.Z3_OP_SET_SUBSET:
+                # The array solver's own axiom of a subset it was given as
+                # written (after an assertion that folds to false): (subset
+                # a b) against (= (setminus a b) empty), one clause each way.
+                continue
             if (graph.kind(atom) != z3.Z3_OP_EQ
                     or graph.decl(graph.arguments(atom)[0]).range not in components | set(graph.sorts)):
                 raise ReconstructionError("array th-lemma literals must be equalities over arrays and their sorts "
@@ -9555,8 +9706,13 @@ def reconstruct(source, certificate):
             lines.extend(_ENUMERATION_CONSTANT_DEFINITIONS + [""])
             if not graph.generic:
                 lines.extend(_ENUMERATION_DEFAULT_DEFINITIONS + [""])
-    if any(decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES for decl in graph.declarations):
+    if graph.subset_rewrite or any(decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES
+                                   for decl in graph.declarations):
         lines.extend(_SET_DEFINITIONS + [""])
+    if any(decl.kind == z3.Z3_OP_SET_SUBSET for decl in graph.declarations):
+        lines.extend(_SUBSET_DEFINITION + [""])
+        if graph.subset_rewrite:
+            lines.extend(_SUBSET_REWRITE + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
     if graph.floors:

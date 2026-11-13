@@ -32,7 +32,7 @@ from proof_certificate import (
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
     integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
     linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
-    map_parameters,
+    map_parameters, require_subset,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -582,6 +582,15 @@ class _Terms:
             # it (sets of one index sort).
             result = _SET_HEADS[head][0](*arguments)
             map_parameters(result)
+            return result
+        if (head == "subset" and count == 2 and is_array_sort(arguments[0].sort())
+                and arguments[0].sort().range().kind() == z3.Z3_BOOL_SORT
+                and arguments[1].sort().eq(arguments[0].sort())):
+            # Logged as written in the assertions after one that simplifies
+            # to false, like the set operators; otherwise the log holds the
+            # rewriter's (= (setminus a b) empty) over maps.
+            result = z3.IsSubset(arguments[0], arguments[1])
+            require_subset(result)
             return result
         if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
             # The array solver's default value of an array, the value it
