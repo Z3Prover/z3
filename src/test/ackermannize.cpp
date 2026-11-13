@@ -283,9 +283,53 @@ static void test_ackermannize_bv_multiple_assertions() {
     Z3_del_context(ctx);
 }
 
+static void test_ackermannize_bv_model_select_under_uf() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx,
+        "(declare-fun f ((_ BitVec 4)) (_ BitVec 4))"
+        "(declare-fun a () (Array (_ BitVec 1) (_ BitVec 2)))"
+        "(assert (= (= #b0000 (f (concat (select a #b1) (select a #b0))))"
+        "           (= #b00 (select a #b0))))",
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, fmls);
+
+    Z3_tactic ack = Z3_mk_tactic(ctx, "ackermannize_bv");
+    Z3_tactic_inc_ref(ctx, ack);
+    Z3_tactic smt = Z3_mk_tactic(ctx, "smt");
+    Z3_tactic_inc_ref(ctx, smt);
+    Z3_tactic t = Z3_tactic_and_then(ctx, ack, smt);
+    Z3_tactic_inc_ref(ctx, t);
+    Z3_solver s = Z3_mk_solver_from_tactic(ctx, t);
+    Z3_solver_inc_ref(ctx, s);
+
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, fmls); ++i)
+        Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, fmls, i));
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+
+    Z3_model mdl = Z3_solver_get_model(ctx, s);
+    Z3_model_inc_ref(ctx, mdl);
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, fmls); ++i) {
+        Z3_ast val = nullptr;
+        ENSURE(Z3_model_eval(ctx, mdl, Z3_ast_vector_get(ctx, fmls, i), true, &val));
+        ENSURE(Z3_get_bool_value(ctx, val) == Z3_L_TRUE);
+    }
+
+    Z3_model_dec_ref(ctx, mdl);
+    Z3_solver_dec_ref(ctx, s);
+    Z3_tactic_dec_ref(ctx, t);
+    Z3_tactic_dec_ref(ctx, smt);
+    Z3_tactic_dec_ref(ctx, ack);
+    Z3_ast_vector_dec_ref(ctx, fmls);
+    Z3_del_context(ctx);
+}
+
 void tst_ackermannize() {
     test_ackermannize_bv_basic();
     test_ackermannize_bv_zero_limit();
     test_ackr_bound_probe();
     test_ackermannize_bv_multiple_assertions();
+    test_ackermannize_bv_model_select_under_uf();
 }

@@ -1,0 +1,22 @@
+{
+  "pull_request": 11676,
+  "head_sha": "b1a52d4c3633e93ca69e627fd760da88590dd0b9",
+  "base_sha": "d72de58d9e36009f1397377cd185342474c8ecfb",
+  "path_prefix": "fstar/audits/pr-11676/b1a52d4c3633e93ca69e627fd760da88590dd0b9/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43311308543",
+  "files": [
+    {
+      "name": "AckrLoop.fst",
+      "sha256": "2054760ae9e1e0e1c081b3b01b724711fe39304efc7c7e6da6a875c3b7b5b7c6"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "568df7d03a174edd8b662078d334770f634f615b5e29e0b0a96bec0d9c0d7b29"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "0890c2193bd099ee6ddebc40826d5a589f45317b1e7e0cb6daf507bf167a01fd"
+    }
+  ]
+}
