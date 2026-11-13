@@ -724,12 +724,12 @@ namespace lp {
         get_core_solver().solve();
         lp_status st = get_core_solver().m_r_solver.get_status();
         TRACE(lar_solver, tout << st << "\n";);
-        SASSERT(st == lp_status::CANCELLED ||
-                get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
+
         if (st == lp_status::UNBOUNDED || st == lp_status::CANCELLED) {
             return false;
         }
         else {
+            SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
             term_max = term.apply(get_core_solver().r_x());
             return true;
         }
