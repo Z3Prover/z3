@@ -320,19 +320,6 @@ bool asserted_formulas::simplify_replace_contains() {
 
     seq_util seq(m);
     arith_util arith(m);
-    auto is_observation = [&](expr* e, expr*& haystack, expr*& query) {
-        if (seq.str.is_contains(e, haystack, query))
-            return true;
-        expr *language = nullptr, *left = nullptr, *right = nullptr;
-        expr *word = nullptr, *full = nullptr;
-        if (!seq.str.is_in_re(e, haystack, language) || !seq.re.is_concat(language, left, right))
-            return false;
-        if (seq.re.is_full_seq(left) && seq.re.is_concat(right, word, full) &&
-            seq.re.is_full_seq(full) && seq.re.is_to_re(word, query))
-            return true;
-        return seq.re.is_full_seq(right) && seq.re.is_concat(left, full, word) &&
-            seq.re.is_full_seq(full) && seq.re.is_to_re(word, query);
-    };
     obj_hashtable<expr> blocked;
     obj_hashtable<expr> replacements;
     obj_map<expr, ptr_vector<expr>> parents;
@@ -370,7 +357,7 @@ bool asserted_formulas::simplify_replace_contains() {
             replacements.insert(arg);
             expr* haystack = nullptr, *query = nullptr;
             zstring character, text;
-            if (is_observation(e, haystack, query) && haystack == arg &&
+            if (seq.str.is_contains(e, haystack, query) && haystack == arg &&
                 seq.str.is_string(query, character) && character.length() == 1 &&
                 seq.str.is_string(needle, text) && !text.contains(character) &&
                 seq.str.is_string(replacement, text) && !text.contains(character)) {
@@ -409,12 +396,7 @@ bool asserted_formulas::simplify_replace_contains() {
         app* p = to_app(predicate);
         expr* replaced = p->get_arg(0);
         // A single-character observation is unchanged when neither replacement operand contains it.
-        expr_ref preserved(m);
-        expr* source = to_app(replaced)->get_arg(0);
-        if (seq.str.is_contains(predicate))
-            preserved = seq.str.mk_contains(source, p->get_arg(1));
-        else
-            preserved = seq.re.mk_in_re(source, p->get_arg(1));
+        expr_ref preserved(seq.str.mk_contains(to_app(replaced)->get_arg(0), p->get_arg(1)), m);
         sub.insert(predicate, preserved);
     }
     if (sub.empty())
