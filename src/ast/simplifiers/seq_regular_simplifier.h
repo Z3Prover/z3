@@ -27,6 +27,7 @@ public:
     static bool has_string_terms(ast_manager& m, expr* e);
     seq_regular_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& s, bool automatic = false);
     char const* name() const override { return "seq-regular"; }
+    bool supports_proofs() const override { return true; }
     void reduce() override;
     void updt_params(params_ref const& p) override;
     void collect_param_descrs(param_descrs& r) override;

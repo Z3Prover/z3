@@ -254,6 +254,7 @@
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \
+    X(seq_regular) \
     X(term_enumeration) \
     X(lcube) \
     X(lp_evidence) \

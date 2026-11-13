@@ -615,66 +615,128 @@ class regular_compiler {
         }
         return false;
     }
+    dependent_expr rewrite(dependent_expr const& d, expr* result) {
+        proof_ref pr(d.pr(), m);
+        if (pr && d.fml() != result) {
+            proof_ref step(m.mk_rewrite(d.fml(), result), m);
+            pr = m.mk_modus_ponens(pr, step);
+        }
+        return dependent_expr(m, result, pr, d.dep());
+    }
+    void aggregate(vector<dependent_expr> const& inputs, vector<dependent_expr>& results) {
+        std::map<unsigned, expr*> pending;
+        std::unordered_map<expr*, dependent_expr> groups;
+        auto add = [&](dependent_expr const& d) {
+            expr *source = nullptr, *language = nullptr;
+            VERIFY(u.str.is_in_re(d.fml(), source, language));
+            auto it = groups.find(source);
+            if (it == groups.end())
+                groups.emplace(source, d);
+            else {
+                auto const& previous = it->second;
+                expr_ref intersection(meet(to_app(previous.fml())->get_arg(1), language), m);
+                expr_ref result(u.re.mk_in_re(source, intersection), m);
+                expr_ref conjunction(m.mk_and(previous.fml(), d.fml()), m);
+                proof_ref pr(m);
+                if (previous.pr() && d.pr()) {
+                    expr_ref not_previous(m.mk_not(previous.fml()), m);
+                    expr_ref not_current(m.mk_not(d.fml()), m);
+                    expr_ref clause(m.mk_or(not_previous, not_current, conjunction), m);
+                    proof_ref axiom(m.mk_def_axiom(clause), m);
+                    proof* premises[] = {axiom, previous.pr(), d.pr()};
+                    pr = m.mk_unit_resolution(3, premises, conjunction);
+                }
+                expr_dependency_ref dep(m.mk_join(previous.dep(), d.dep()), m);
+                dependent_expr combined(m, conjunction, pr, dep);
+                it->second = rewrite(combined, result);
+            }
+            pending[source->get_id()] = source;
+        };
+        for (auto const& d : inputs) {
+            if (m.is_false(d.fml())) {
+                results.reset();
+                results.push_back(d);
+                return;
+            }
+            expr *source = nullptr, *language = nullptr;
+            if (u.str.is_in_re(d.fml(), source, language))
+                add(d);
+            else if (!m.is_true(d.fml()))
+                results.push_back(d);
+        }
+        // AST depth orders parents after their children, independent of allocation IDs.
+        std::unordered_map<expr*, unsigned> depths;
+        auto term_depth = [&](expr* t) {
+            ptr_vector<expr> stack;
+            stack.push_back(t);
+            while (!stack.empty()) {
+                tick();
+                expr* cur = stack.back();
+                if (depths.count(cur)) { stack.pop_back(); continue; }
+                unsigned d = 0;
+                bool ready = true;
+                if (is_app(cur)) for (expr* arg : *to_app(cur)) {
+                    if (!depths.count(arg)) { stack.push_back(arg); ready = false; break; }
+                    d = std::max(d, depths[arg] + 1);
+                }
+                if (ready) { depths[cur] = d; stack.pop_back(); }
+            }
+            return depths[t];
+        };
+        while (!pending.empty()) {
+            auto chosen = pending.begin();
+            unsigned deepest = term_depth(chosen->second);
+            for (auto it = std::next(chosen); it != pending.end(); ++it) {
+                unsigned d = term_depth(it->second);
+                if (d > deepest) { chosen = it; deepest = d; }
+            }
+            expr* source = chosen->second;
+            pending.erase(chosen);
+            dependent_expr current(groups.at(source));
+            expr* language = to_app(current.fml())->get_arg(1);
+            if (u.re.is_empty(language)) {
+                results.reset();
+                results.push_back(rewrite(current, m.mk_false()));
+                return;
+            }
+            if (u.re.is_full_seq(language)) {
+                groups.erase(source);
+                continue;
+            }
+            expr *parent, *inverse;
+            if (preimage(source, language, parent, inverse)) {
+                expr_ref result(u.re.mk_in_re(parent, inverse), m);
+                dependent_expr next = rewrite(current, result);
+                groups.erase(source);
+                add(next);
+            }
+        }
+        for (auto const& [source, d] : groups) {
+            expr* language = to_app(d.fml())->get_arg(1);
+            results.push_back(rewrite(d, membership(source, language)));
+        }
+    }
     expr* translate(expr* e, bool defer = false, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
         if (m.is_true(e) || m.is_false(e)) return e;
         if (m.is_and(e) || m.is_or(e)) {
             bool conjunction = m.is_and(e);
-            expr_ref_vector children(m), rest(m);
-            std::map<unsigned, expr*> pending;
-            std::unordered_map<expr*, expr*> groups;
+            expr_ref_vector children(m);
+            vector<dependent_expr> inputs, results;
             for (expr* arg : *to_app(e)) {
                 expr* child = translate(arg, conjunction, depth + 1);
-                expr *s, *r;
-                if (conjunction && u.str.is_in_re(child, s, r)) {
-                    auto it = groups.find(s);
-                    groups[s] = it == groups.end() ? r : meet(it->second, r);
-                    pending[s->get_id()] = s;
-                }
-                else rest.push_back(child);
+                if (conjunction)
+                    inputs.push_back(dependent_expr(m, child, nullptr, nullptr));
+                else
+                    children.push_back(child);
             }
-            // AST depth orders parents after their children, independent of allocation IDs.
-            std::unordered_map<expr*, unsigned> depths;
-            auto term_depth = [&](expr* t) {
-                ptr_vector<expr> stack;
-                stack.push_back(t);
-                while (!stack.empty()) {
-                    tick();
-                    expr* cur = stack.back();
-                    if (depths.count(cur)) { stack.pop_back(); continue; }
-                    unsigned d = 0;
-                    bool ready = true;
-                    if (is_app(cur)) for (expr* arg : *to_app(cur)) {
-                        if (!depths.count(arg)) { stack.push_back(arg); ready = false; break; }
-                        d = std::max(d, depths[arg] + 1);
-                    }
-                    if (ready) { depths[cur] = d; stack.pop_back(); }
-                }
-                return depths[t];
-            };
-            while (!pending.empty()) {
-                auto chosen = pending.begin();
-                unsigned deepest = term_depth(chosen->second);
-                for (auto it = std::next(chosen); it != pending.end(); ++it) {
-                    unsigned d = term_depth(it->second);
-                    if (d > deepest) { chosen = it; deepest = d; }
-                }
-                expr* s = chosen->second;
-                pending.erase(chosen);
-                expr* r = groups[s];
-                if (u.re.is_empty(r)) return keep(m.mk_false());
-                if (u.re.is_full_seq(r)) { groups.erase(s); continue; }
-                expr *parent, *inverse;
-                if (preimage(s, r, parent, inverse)) {
-                    groups.erase(s);
-                    auto it = groups.find(parent);
-                    groups[parent] = it == groups.end() ? inverse : meet(it->second, inverse);
-                    pending[parent->get_id()] = parent;
-                }
+            if (conjunction) {
+                aggregate(inputs, results);
+                for (auto const& d : results)
+                    children.push_back(d.fml());
             }
-            for (auto const& [s, r] : groups) rest.push_back(membership(s, r));
-            return boolean(conjunction, rest);
+            return boolean(conjunction, children);
         }
         expr *source, *language, *child;
         if (atom(e, source, language)) {
@@ -689,6 +751,18 @@ class regular_compiler {
         }
         if (m.is_not(e, child)) return neg(translate(child, false, depth + 1));
         return e;
+    }
+    void translate_assertion(dependent_expr const& d, vector<dependent_expr>& results) {
+        if (m.is_and(d.fml())) {
+            unsigned index = 0;
+            for (expr* arg : *to_app(d.fml())) {
+                proof_ref pr(d.pr() ? m.mk_and_elim(d.pr(), index) : nullptr, m);
+                translate_assertion(dependent_expr(m, arg, pr, d.dep()), results);
+                ++index;
+            }
+        }
+        else
+            results.push_back(rewrite(d, translate(d.fml(), true)));
     }
 public:
     regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages):
@@ -743,13 +817,20 @@ public:
         }
         return true;
     }
-    expr_ref compile(expr* e) {
-        if (is_root_regular(e))
-            return expr_ref(e, m);
-        expr_ref result(translate(normalize(e)), m);
-        if (!is_root_regular(result))
-            throw failure::unsupported;
-        return result;
+    void compile(vector<dependent_expr>& formulas) {
+        bool root_regular = true;
+        for (auto const& d : formulas)
+            root_regular &= is_root_regular(d.fml());
+        if (root_regular)
+            return;
+        vector<dependent_expr> inputs, results;
+        for (auto const& d : formulas)
+            translate_assertion(rewrite(d, normalize(d.fml())), inputs);
+        aggregate(inputs, results);
+        for (auto const& d : results)
+            if (!is_root_regular(d.fml()))
+                throw failure::unsupported;
+        formulas.swap(results);
     }
 };
 }
@@ -805,29 +886,18 @@ void seq_regular_simplifier::reduce() {
             return;
     }
     scoped_watch watch(m_watch);
-    if (proofs_enabled() || m_fmls.has_quantifiers()) { ++m_skipped; return; }
+    if (m_fmls.has_quantifiers()) { ++m_skipped; return; }
+    if (proofs_enabled())
+        for (unsigned i = qhead(); i < qtail(); ++i)
+            if (!m_fmls[i].pr()) { ++m_skipped; return; }
     unsigned preimages_before = m_preimages;
     unsigned steps = 0;
     regular_compiler compiler(m, m_max_steps, steps, m_preimages);
-    expr_ref_vector results(m);
-    bool labeled = false;
-    for (unsigned i = qhead(); i < qtail(); ++i) labeled |= m_fmls[i].dep() != nullptr;
+    vector<dependent_expr> results;
+    for (unsigned i = qhead(); i < qtail(); ++i)
+        results.push_back(m_fmls[i]);
     try {
-        if (labeled) {
-            for (unsigned i = qhead(); i < qtail(); ++i)
-                results.push_back(compiler.compile(m_fmls[i].fml()));
-        }
-        else {
-            expr_ref_vector inputs(m);
-            for (unsigned i = qhead(); i < qtail(); ++i) inputs.push_back(m_fmls[i].fml());
-            expr_ref input(mk_and(inputs), m);
-            results.push_back(compiler.compile(input));
-            if (results.back() == input) {
-                m_steps += steps;
-                return;
-            }
-            for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());
-        }
+        compiler.compile(results);
     }
     catch (failure why) {
         m_steps += steps;
@@ -837,14 +907,22 @@ void seq_regular_simplifier::reduce() {
     }
     m_steps += steps;
     if (m_automatic && m_preimages == preimages_before &&
-        !std::all_of(results.begin(), results.end(), [&](expr* e) { return m.is_true(e) || m.is_false(e); }))
+        !std::all_of(results.begin(), results.end(),
+                     [&](dependent_expr const& d) { return m.is_true(d.fml()) || m.is_false(d.fml()); }))
         return;
     unsigned end = qtail();
-    for (unsigned i = qhead(); i < end && !m_fmls.inconsistent(); ++i) {
-        auto const& old = m_fmls[i];
-        expr* result = results.get(i - qhead());
-        if (result != old.fml()) {
-            m_fmls.update(i, dependent_expr(m, result, nullptr, old.dep()));
+    unsigned count = std::max(end - qhead(), results.size());
+    dependent_expr truth(m, m.mk_true(), proofs_enabled() ? m.mk_true_proof() : nullptr, nullptr);
+    for (unsigned j = 0; j < count && !m_fmls.inconsistent(); ++j) {
+        unsigned i = qhead() + j;
+        auto const& result = j < results.size() ? results[j] : truth;
+        if (i >= end) {
+            m_fmls.add(result);
+            ++m_rewritten;
+        }
+        else if (auto const& old = m_fmls[i];
+                 result.fml() != old.fml() || result.dep() != old.dep() || result.pr() != old.pr()) {
+            m_fmls.update(i, result);
             ++m_rewritten;
         }
     }

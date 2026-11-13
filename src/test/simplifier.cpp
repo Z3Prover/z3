@@ -31,6 +31,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_context.h"
 #include "solver/solver.h"
 #include "solver/simplifier_solver.h"
+#include "solver/tactic2solver.h"
 #include "solver/assertions/asserted_formulas.h"
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
@@ -1573,6 +1574,221 @@ static void test_seq_regular() {
     }
 }
 
+static void test_seq_regular_dependencies() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        app_ref s(m.mk_const("regular-dep-s", u.str.mk_string_sort()), m);
+        app_ref t(m.mk_const("regular-dep-t", u.str.mk_string_sort()), m);
+        expr_ref zero(a.mk_int(0), m);
+        expr_ref delimiter(u.str.mk_string(":"), m);
+        expr_ref index(u.str.mk_index(s, delimiter, zero), m);
+        expr_ref prefix(u.str.mk_substr(s, zero, index), m);
+        expr_ref letter_a(u.str.mk_string("a"), m), letter_b(u.str.mk_string("b"), m);
+        expr_ref letter_c(u.str.mk_string("c"), m), letter_d(u.str.mk_string("d"), m);
+        expr_ref has_a(u.str.mk_contains(prefix, letter_a), m);
+        expr_ref has_b(u.str.mk_contains(prefix, letter_b), m);
+        expr_ref no_b(m.mk_not(has_b), m);
+        expr_ref has_c(u.str.mk_contains(s, letter_c), m);
+        expr_ref has_d(u.str.mk_contains(t, letter_d), m);
+        expr_ref source_b(u.str.mk_contains(s, letter_b), m);
+        expr_ref_vector labels(m);
+        for (char const* name : {"regular-label-a", "regular-label-b", "regular-label-c", "regular-label-d"})
+            labels.push_back(m.mk_const(name, m.mk_bool_sort()));
+        auto add = [&](base_dependent_expr_state& state, expr* f, expr* label) {
+            proof_ref pr(proofs ? m.mk_asserted(f) : nullptr, m);
+            expr_dependency_ref dep(label ? m.mk_leaf(label) : nullptr, m);
+            state.add(dependent_expr(m, f, pr, dep));
+        };
+        auto check_deps = [&](expr_dependency* dep, std::initializer_list<unsigned> expected) {
+            ptr_vector<expr> actual;
+            m.linearize(dep, actual);
+            ENSURE(actual.size() == expected.size());
+            for (unsigned i : expected)
+                ENSURE(actual.contains(labels.get(i)));
+        };
+        {
+            base_dependent_expr_state state(m);
+            expr_ref_vector originals(m);
+            expr* formulas[] = {has_a, no_b, has_c, has_d, source_b};
+            for (unsigned i = 0; i < 5; ++i) {
+                originals.push_back(formulas[i]);
+                add(state, formulas[i], i < 4 ? labels.get(i) : nullptr);
+            }
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            unsigned memberships = 0;
+            for (unsigned i = 0; i < state.qtail(); ++i) {
+                auto const& d = state[i];
+                expr *source = nullptr, *language = nullptr;
+                if (u.str.is_in_re(d.fml(), source, language)) {
+                    ++memberships;
+                    if (source == s) check_deps(d.dep(), {0, 1, 2});
+                    else { ENSURE(source == t); check_deps(d.dep(), {3}); }
+                }
+                else {
+                    ENSURE(m.is_true(d.fml()));
+                    check_deps(d.dep(), {});
+                }
+                if (!proofs)
+                    continue;
+                ENSURE(d.pr() && m.get_fact(d.pr()) == d.fml());
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(checker.check(d.pr(), conditions));
+                for (expr* e : subterms::all(expr_ref(d.pr(), m)))
+                    if (m.is_asserted(e))
+                        ENSURE(originals.contains(m.get_fact(to_app(e))));
+                for (expr* condition : conditions) {
+                    for (char const* sv : {"", ":", "ac:b", "a:b", "b:", "ab:c"}) {
+                        for (char const* tv : {"", "d", "bd"}) {
+                            expr_ref s_value(u.str.mk_string(sv), m), t_value(u.str.mk_string(tv), m);
+                            expr_safe_replace sub(m);
+                            sub.insert(s, s_value);
+                            sub.insert(t, t_value);
+                            expr_ref result(m);
+                            sub(condition, result);
+                            th_rewriter rw(m);
+                            rw(result);
+                            ENSURE(m.is_true(result));
+                        }
+                    }
+                }
+            }
+            ENSURE(memberships == 2);
+        }
+        {
+            base_dependent_expr_state state(m);
+            expr_ref alternative(m.mk_or(has_a, has_d), m);
+            add(state, alternative, labels.get(0));
+            add(state, no_b, labels.get(1));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            ENSURE(m.is_or(state[0].fml()));
+            check_deps(state[0].dep(), {0});
+            check_deps(state[1].dep(), {1});
+        }
+        {
+            base_dependent_expr_state state(m);
+            expr_ref no_a(m.mk_not(has_a), m);
+            add(state, has_a, labels.get(0));
+            add(state, no_a, labels.get(1));
+            add(state, has_d, labels.get(3));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            ENSURE(state.inconsistent() && m.is_false(state[0].fml()));
+            check_deps(state[0].dep(), {0, 1});
+            if (proofs) {
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(state[0].pr() && m.is_false(m.get_fact(state[0].pr())));
+                ENSURE(checker.check(state[0].pr(), conditions));
+            }
+        }
+        {
+            base_dependent_expr_state state(m);
+            expr_ref conjunction(m.mk_and(has_a, has_d), m);
+            add(state, conjunction, labels.get(0));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            ENSURE(state.qtail() == 2);
+            for (unsigned i = 0; i < state.qtail(); ++i) {
+                check_deps(state[i].dep(), {0});
+                if (proofs)
+                    ENSURE(state[i].pr() && m.get_fact(state[i].pr()) == state[i].fml());
+            }
+        }
+        for (bool budget : {false, true}) {
+            base_dependent_expr_state state(m);
+            expr_ref relational(m.mk_eq(s, t), m);
+            add(state, has_a, labels.get(0));
+            add(state, budget ? has_d.get() : relational.get(), labels.get(1));
+            vector<dependent_expr> before;
+            for (unsigned i = 0; i < state.qtail(); ++i)
+                before.push_back(state[i]);
+            state.reset_updated();
+            params_ref p;
+            if (budget)
+                p.set_uint("seq_regular.max_steps", 1);
+            seq_regular_simplifier simp(m, p, state);
+            simp.reduce();
+            ENSURE(!state.updated() && state.qtail() == before.size());
+            for (unsigned i = 0; i < state.qtail(); ++i)
+                ENSURE(state[i]() == before[i]());
+        }
+        {
+            base_dependent_expr_state state(m);
+            add(state, has_c, labels.get(2));
+            state.advance_qhead();
+            add(state, has_a, labels.get(0));
+            add(state, no_b, labels.get(1));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            ENSURE(state[0].fml() == has_c);
+            check_deps(state[0].dep(), {2});
+            check_deps(state[1].dep(), {0, 1});
+        }
+        {
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            solver_ref solver(mk_tactic2solver(m, mk_qfslia_tactic(m, p), p, proofs, true, !proofs));
+            solver->assert_expr(has_d, labels.get(3));
+            ENSURE(solver->check_sat() == l_true);
+            solver->push();
+            solver->assert_expr(has_a, labels.get(0));
+            expr_ref no_a(m.mk_not(has_a), m);
+            solver->assert_expr(no_a, labels.get(1));
+            ENSURE(solver->check_sat() == l_false);
+            if (!proofs) {
+                expr_ref_vector core(m);
+                solver->get_unsat_core(core);
+                ENSURE(core.size() == 2 && core.contains(labels.get(0)) && core.contains(labels.get(1)));
+            }
+            if (proofs) {
+                proof_ref pr(solver->get_proof(), m);
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(pr && m.is_false(m.get_fact(pr)));
+                ENSURE(checker.check(pr, conditions));
+            }
+            solver->pop(1);
+            ENSURE(solver->check_sat() == l_true);
+        }
+        {
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            goal_ref g = alloc(goal, m, proofs, false, true);
+            expr_ref no_a(m.mk_not(has_a), m);
+            expr* formulas[] = {has_a, no_a, has_d};
+            unsigned dependencies[] = {0, 1, 3};
+            for (unsigned i = 0; i < 3; ++i) {
+                proof_ref pr(proofs ? m.mk_asserted(formulas[i]) : nullptr, m);
+                expr_dependency_ref dep(m.mk_leaf(labels.get(dependencies[i])), m);
+                g->assert_expr(formulas[i], pr, dep);
+            }
+            tactic_ref tactic = mk_qfslia_tactic(m, p);
+            goal_ref_buffer result;
+            (*tactic)(g, result);
+            ENSURE(result.size() == 1 && result[0]->inconsistent());
+            check_deps(result[0]->dep(0), {0, 1});
+            statistics st;
+            tactic->collect_statistics(st);
+            bool rewritten = false;
+            for (unsigned i = 0; i < st.size(); ++i)
+                rewritten |= std::strcmp(st.get_key(i), "seq-regular-rewritten") == 0;
+            ENSURE(rewritten);
+            if (proofs) {
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(result[0]->pr(0) && m.is_false(m.get_fact(result[0]->pr(0))));
+                ENSURE(checker.check(result[0]->pr(0), conditions));
+            }
+        }
+    }
+}
+
 static void test_qfslia_tactic() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1638,10 +1854,17 @@ static void test_qfslia_tactic() {
     }
 }
 
+void tst_seq_regular() {
+    test_seq_regular();
+    test_seq_regular_dependencies();
+    test_qfslia_tactic();
+}
+
 void tst_simplifier() {
     test_qfslia_tactic();
 
     test_seq_regular();
+    test_seq_regular_dependencies();
     test_use_aware_replace_contains();
     test_bit2int_proofs();
     test_bit2int_zero_divisor_qe();

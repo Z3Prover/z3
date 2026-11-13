@@ -111,7 +111,7 @@ public:
     void operator()(goal_ref const& in, goal_ref_buffer& result) override {
         smt_params_helper params(m_params);
         bool has_strings = false;
-        bool eligible = params.seq_regular() && params.string_solver() == "nseq" && !in->proofs_enabled();
+        bool eligible = params.seq_regular() && params.string_solver() == "nseq";
         for (unsigned i = 0; eligible && i < in->size(); ++i) {
             eligible = !::has_quantifiers(in->form(i));
             if (!has_strings)
