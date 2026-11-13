@@ -1759,6 +1759,11 @@ def _validate_graph(source, certificate):
     root = _index(certificate["proof"], len(nodes), "proof")
     numeric_sorts = {decl.range for decl in declarations if decl.range in _ARITH_SORTS}
     numeric_sorts.update(sort for decl in declarations for sort in decl.domain if sort in _ARITH_SORTS)
+    if any(decl.kind == z3.Z3_OP_IS_INT for decl in declarations):
+        # (is_int t) states t equal to the cast of its floor, an Int term,
+        # though the certificate may declare no other ((is_int 0.5) alone,
+        # which the exporter classifies as mixed).
+        numeric_sorts.add("Int")
     # An array over Int or Real makes the certificate arithmetic even if no
     # term of that sort occurs (the exporter classifies it so).
     numeric_sorts.update(component for sort in sorts for component in _array_components(sort) or ()
@@ -3427,8 +3432,15 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         fallback.extend(cast_facts)
         # grind alone for an euf lemma: congruence closure is its business, not
         # omega's.
-        fallback.append(_without_boolean_distincts(distinct_names,
-                                                   _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph)))
+        tactic = _without_boolean_distincts(distinct_names,
+                                            _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph))
+        if cast_facts:
+            # The push_cast that ends the cast facts closes a goal it
+            # normalizes to an identity, (= (to_int 2.5) 2) with the floor
+            # replaced by its value (_floor_shift_facts): the tactic is for
+            # the goal that is left, if any.
+            tactic = "all_goals (%s)" % tactic
+        fallback.append(tactic)
         if ites:
             # The ites stay folded, as leaves of the congruence or of the axiom
             # instance: only the definitions outside them are unfolded, in the
@@ -3476,9 +3488,11 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             # Numeral expressions evaluated first, as the rewriter compares
             # indices and values by value ((/ 2 2) is 1.0).
             values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
+            # The final tactic for the goals simp leaves; with cast facts it
+            # is under all_goals already.
+            final = store_body[-1] if cast_facts else "all_goals " + store_body[-1]
             bodies.append(store_body[:-1] + values
-                          + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
-                             "all_goals " + store_body[-1]])
+                          + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names), final])
         return bodies, taken
 
     # The facts of reads through stores the rewriter does not skip, into
@@ -3645,8 +3659,9 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, fol
     floor: for each floor of a Real term a the step reaches, the core
     lemmas state ((Rat.floor a : Int) : Rat) <= a < (Rat.floor a : Rat) + 1,
     the two axioms Z3's arithmetic solver adds for to_int, with which the
-    floor is one more Int atom cast into Rat; floors of terms differing by
-    an integer are related too (_floor_shift_facts). A lattice step (node,
+    floor is one more Int atom cast into Rat; the floor of an integer form
+    plus a constant gets its value, and floors of terms differing by an
+    integer are related (_floor_shift_facts). A lattice step (node,
     a cut or a coefficient-free farkas or bound) also gets its projection
     onto its Int atoms (_projection_facts). Steps reaching no conversion
     get nothing.
@@ -3700,9 +3715,13 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, fol
         instances.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
         names.append("_c%d" % formula)
         nodes.update(arguments)
-    facts.extend(_floor_shift_facts(graph, floors, atom_indices, variable_indices))
+    shifts, substitutions = _floor_shift_facts(graph, floors, atom_indices, variable_indices)
+    facts.extend(shifts)
     if node is not None:
         facts.extend(_projection_facts(graph, node, atom_indices, variable_indices))
+    # The floors of constants are replaced by their values after every fact
+    # that may mention one is stated.
+    facts.extend(substitutions)
     facts.append("push_cast at *")
     return (stated, names, nodes, facts) if folded else ([], [], set(), facts)
 
@@ -3833,20 +3852,51 @@ def _projection_facts(graph, node, atom_indices, variable_indices):
 _FLOOR_SHIFT_LIMIT = 12
 
 
+# The floor of a Rat between an Int and its successor is that Int; stated once
+# per certificate with a to_int or an is_int (_floor_shift_facts).
+_FLOOR_VALUE_LEMMA = """
+private theorem _floor_value (a : Rat) (k : Int) (_lower : (k : Rat) <= a) (_upper : a < (k : Rat) + 1) :
+    Rat.floor a = k :=
+  Int.le_antisymm
+    (Int.lt_add_one_iff.mp (Rat.floor_lt_iff.mpr (by push_cast; exact _upper)))
+    (Rat.le_floor_iff.mpr _lower)
+""".strip("\n").split("\n")
+
+
 def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
     """Relate the floors of Real terms a and b whose difference D is an integer: floor a = floor b + D.
+
+    Returns the facts and, apart, the substitutions of the floors of
+    constants by their values, tactic lines for after every fact of the
+    step (_cast_facts).
 
     Z3's rewriter moves integer summands out of a floor, (to_int (+ x 1.0))
     to (+ (to_int x) 1) and (is_int (+ x 1.0)) to (is_int x), which the
     floor bounds alone do not show (they bound each floor within 1 of its
     argument, not to an integer offset). D is a linear form over Int terms
     (numerals, and Int atoms through to_real) with integer coefficients;
-    the core lemma Rat.floor_add_intCast moves it out of the floor, and the
-    equation is cast into Rat for the Real atoms over the floors.
+    the core lemma Rat.floor_add_intCast moves it out of the floor.
 
-    A floored term a that is itself such an integer D, as in (is_int
-    (to_real n)), gets floor a = D through the core lemma
-    Rat.floor_intCast; these facts are one per floor and are not capped.
+    A floored term a that is such an integer D plus a constant c, as in
+    (is_int (to_real n)), (to_int 0.5), or (to_int (+ (to_real n) 2.5)),
+    gets floor a = D + floor c: through the core lemma Rat.floor_intCast
+    when c is an integer, else through _floor_value, D + floor c being the
+    integer within 1 below a. These facts are one per floor and are not
+    capped.
+
+    Each equation is stated twice: between Int terms (_zi, _di), for the
+    floors that are arguments of functions, predicates, and reads, where
+    congruence needs the floor's value as an Int (grind does not conclude
+    it from the equation between the casts), and cast into Rat (_z, _d) for
+    the Real atoms over the floors.
+
+    The floor of a constant (D empty) is then replaced by its value in the
+    goal and in every fact, by the substitutions: grind ran out of
+    heartbeats on a rewrite of (= (to_int x) (to_int (- 2.0))) into bounds
+    of x with (Rat.floor (-2)) in its context, value fact or not, and
+    proves it at once over -2. The floor is generalized and the variable
+    substituted by the value, which leaves the goal open where a simp with
+    the equation may close it.
     """
     forms = {}
     for argument in floors:
@@ -3856,18 +3906,28 @@ def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
         except ReconstructionError:
             continue
         forms[argument] = ({atom: value for atom, value in terms.items() if value}, constant)
-    facts = []
+    facts, values = [], []
+    cast = "congrArg (fun (_t : Int) => ((_t : Int) : Rat))"
     for argument, (terms, constant) in sorted(forms.items()):
-        if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in terms.items())
-                or constant.denominator != 1):
+        if any(not graph.is_int(atom) or value.denominator != 1 for atom, value in terms.items()):
             continue
-        value = _scaled_form(graph, terms, constant, 1, atom_indices, variable_indices, True)
+        value = _scaled_form(graph, terms, Fraction(math.floor(constant)), 1, atom_indices, variable_indices, True)
         side = _inline(graph, argument, atom_indices, variable_indices)
-        facts.append("have _z%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
-                     "(show (%s) = (((%s) : Int) : Rat) by push_cast; grind)).trans (Rat.floor_intCast _))" % (
-                         argument, side, value))
+        if not terms:
+            # Under try: two floored nodes may be one Lean term, the numeral
+            # 1/2 and the quotient (/ 1.0 2.0), and the first one's
+            # substitution then leaves the second no occurrence.
+            values.append("try (generalize Rat.floor (%s) = _fv%d at *; subst _zi%d)"
+                          % (side, argument, argument))
+        if constant.denominator == 1:
+            facts.append("have _zi%d := (congrArg Rat.floor (show (%s) = (((%s) : Int) : Rat) by push_cast; grind))"
+                         ".trans (Rat.floor_intCast _)" % (argument, side, value))
+        else:
+            facts.append("have _zi%d : Rat.floor (%s) = (%s) := _floor_value _ _ (by push_cast; grind) "
+                         "(by push_cast; grind)" % (argument, side, value))
+        facts.append("have _z%d := %s _zi%d" % (argument, cast, argument))
     if len(floors) > _FLOOR_SHIFT_LIMIT:
-        return facts
+        return facts, values
     for first, second in itertools.combinations(sorted(forms), 2):
         (first_terms, first_constant), (second_terms, second_constant) = forms[first], forms[second]
         difference = {atom: first_terms.get(atom, 0) - second_terms.get(atom, 0)
@@ -3879,10 +3939,10 @@ def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
             continue
         offset = _scaled_form(graph, difference, constant, 1, atom_indices, variable_indices, True)
         sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in (first, second)]
-        facts.append("have _d%d_%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
-                     "(show %s = %s + (((%s) : Int) : Rat) by push_cast; grind)).trans Rat.floor_add_intCast)" % (
-                         first, second, sides[0], sides[1], offset))
-    return facts
+        facts.append("have _di%d_%d := (congrArg Rat.floor (show %s = %s + (((%s) : Int) : Rat) by push_cast; grind))"
+                     ".trans Rat.floor_add_intCast" % (first, second, sides[0], sides[1], offset))
+        facts.append("have _d%d_%d := %s _di%d_%d" % (first, second, cast, first, second))
+    return facts, values
 
 
 # The conversions between the sorts of a qf_lira certificate: the injection
@@ -9364,6 +9424,8 @@ def reconstruct(source, certificate):
         lines.extend(_SET_DEFINITIONS + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
+    if graph.floors:
+        lines.extend(_FLOOR_VALUE_LEMMA + [""])
     if quotients:
         lines.extend(_NEGATIVE_QUOTIENT_LEMMA + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):

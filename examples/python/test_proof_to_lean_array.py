@@ -763,6 +763,17 @@ NUMERAL_EXPRESSION_INPUTS = {
 (assert (= (select a 0) 2))
 (check-sat)
 """,
+    # A read and a store at the floor of a fraction, which Z3's rewriter
+    # evaluates: the index needs the floor's value as an Int
+    # (proof_to_lean._floor_shift_facts).
+    "read_at_the_floor_of_a_fraction": """(declare-fun a () (Array Int Int))
+(assert (not (= (select a (to_int 0.5)) (select a 0))))
+(check-sat)
+""",
+    "store_at_the_floor_of_a_fraction": """(declare-fun a () (Array Int Int))
+(assert (not (= (select (store a (to_int 1.5) 7) 1) 7)))
+(check-sat)
+""",
 }
 # Functions into arrays: one family per Lean array type (_m.arrs_funs,
 # _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
@@ -2469,7 +2480,8 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira",
               "real_read_of_an_array_equated_to_a_constant": "qf_uflra",
               "int_read_of_a_store_at_real_indices": "qf_uflira",
-              "read_stored_back_at_a_fraction_of_one": "qf_uflira", "fraction_sums_as_indices": "qf_uflra"}
+              "read_stored_back_at_a_fraction_of_one": "qf_uflira", "fraction_sums_as_indices": "qf_uflra",
+              "read_at_the_floor_of_a_fraction": "qf_uflira", "store_at_the_floor_of_a_fraction": "qf_uflira"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
@@ -4073,6 +4085,22 @@ class TestArrayValidation(unittest.TestCase):
                 text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
                 found = {match.groups() for match in map(fact.match, text.split("\n")) if match}
                 self.assertEqual(found, set(facts), text)
+
+    def test_a_store_at_a_floor_states_its_final_tactic_once(self):
+        # The store-identity alternative ends in the step's final tactic
+        # under all_goals, for the goals its simp leaves; with cast facts
+        # that tactic is under all_goals already (proof_to_lean._grind_lemma).
+        simp = r"\n +try \(set_option linter\.unusedSimpArgs false in simp only \[.*\] at \*\)\n +all_goals "
+        name = "store_at_the_floor_of_a_fraction"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertIn("try (generalize Rat.floor", text)
+        self.assertRegex(text, simp + r"\(first \| omega \| grind")
+        self.assertNotIn("all_goals all_goals", text)
+        # Without cast facts the alternative adds it.
+        name = "int_index_arithmetic"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertNotIn("push_cast at *", text)
+        self.assertRegex(text, simp + r"first \| omega \| grind")
 
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()

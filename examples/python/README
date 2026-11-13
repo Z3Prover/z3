@@ -801,11 +801,15 @@ casts. to_int is Rat.floor, an Int atom of the linear forms like div,
 and (is_int t) is ((Rat.floor t : Int) : Rat) = t, SMT-LIB's definition; a
 lemma reaching either gets the floor bounds of each floored term a from
 core's Rat.floor_le and Rat.lt_floor_add_one (Z3's two arith axioms for
-to_int), floor a = D (core's Rat.floor_intCast) when a is itself an
-integer D over Int terms, and floor a = floor b + D (core's
+to_int), floor a = D + floor c when a is an integer D over Int terms plus
+a constant c (core's Rat.floor_intCast for an integer c, else the private
+lemma _floor_value), and floor a = floor b + D (core's
 Rat.floor_add_intCast) for two floored terms differing by an integer D,
 which Z3's rewriter uses to move integer summands out of a floor (these
-pairs only up to 12 floors per lemma). A cut or coefficient-free farkas or
+pairs only up to 12 floors per lemma). Both equations are stated between
+Int terms, for the floors that are arguments of functions, predicates, and
+reads, and cast into Rat; the floor of a constant is then replaced by its
+value. A cut or coefficient-free farkas or
 bound that rounds a Real atom over a Real variable through a floor (x and
 x/2 both integers) also gets its projection onto the Int atoms: the Real
 atoms are eliminated exactly (substitution, then Fourier-Motzkin, up to 200
