@@ -418,6 +418,44 @@ namespace {
         ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::noop);
     }
 
+    static void tst_ncontains_literal_reach_substitution() {
+        for (char const* text : {"A", "ab"}) {
+            fixture fx;
+            expr_ref h(fx.m.mk_fresh_const("h", fx.s), fx.m);
+            expr_ref needle(fx.u.str.mk_string(text), fx.m);
+            expr_ref word(fx.u.str.mk_string("i"), fx.m);
+            expr_ref word_re(fx.u.re.mk_to_re(word), fx.m);
+            auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+            auto& mf = fx.root->facet_as<seq::mem_facet>(fx.mem_id);
+            nf.add_ncontains(h, needle);
+            seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+            ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::satisfied);
+            auto const& membership = mf.memberships()[0];
+            auto live = mf.live().reachable_live(membership.m_view);
+            expr_ref_vector units(fx.m);
+            fx.u.str.get_concat_units(word, units);
+            seq::mem_split split(fx.m, fx.u, fx.rw, mf.live());
+            bool accepted = false;
+            for (unsigned i = 0; expr* target = live.at(i); ++i) {
+                seq::view reach = seq::view::reach(membership.m_view.m_state, target, fx.m);
+                seq::view_vector views;
+                views.push_back(reach);
+                views.push_back(seq::view::membership(word_re, fx.m));
+                lbool feasible = mf.vw().product_nonempty(h, views, nullptr);
+                ENSURE(feasible != l_undef);
+                if (feasible == l_false)
+                    continue;
+                // Substituting a word certified by the symbolic reach view
+                // must not turn that same view into a conflict.
+                seq::mem_split::branch branch;
+                auto it = split.iterate(units, reach);
+                ENSURE(it.next(branch) && !it.gave_up());
+                accepted = true;
+            }
+            ENSURE(accepted && !live.failed());
+        }
+    }
+
     static void tst_ncontains_completion_after_literal_lowering_scope() {
         fixture fx;
         expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
@@ -507,6 +545,7 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_cross_boundary_conflict();
     tst_ncontains_substitution_scope();
     tst_ncontains_literal_with_pending_equation_scope();
+    tst_ncontains_literal_reach_substitution();
     tst_ncontains_completion_after_literal_lowering_scope();
     tst_ncontains_character_projection_scope();
     std::cout << "seq_ncontains_facet: all tests passed\n";

@@ -640,6 +640,59 @@ static void check_nseq_shared_ite_model() {
     }
 }
 
+static void check_nseq_nested_index_replace() {
+    for (bool proofs : {false, true}) {
+        for (bool regular : {false, true}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(R"(
+(declare-const url String)
+(assert (let ((a!1 (str.indexof (str.substr url 0 (str.indexof url ":" 0)) "A" 0)))
+(let ((a!2 (str.replace (str.substr (str.substr url 0 (str.indexof url ":" 0))
+                                    0
+                                    (+ 1 a!1))
+                        "A"
+                        "a"))
+      (a!3 (+ (- 1)
+              (str.len (str.substr url 0 (str.indexof url ":" 0)))
+              (* (- 1) a!1))))
+(let ((a!4 (str.++ a!2
+                   (str.substr (str.substr url 0 (str.indexof url ":" 0))
+                               (+ 1 a!1)
+                               a!3))))
+  (= "imap" a!4)))))
+(assert (str.contains (str.substr url 0 (str.indexof url ":" 0)) "A"))
+(assert (not (<= (str.indexof url ":" 0) 0)))
+(assert (= url "imAp:"))
+)");
+            ENSURE(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            p.set_bool("seq.regular", regular);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            for (unsigned i = 0; i < 3; ++i)
+                slv->assert_expr(cmd.assertions()[i]);
+            auto check_model = [&](unsigned count) {
+                ENSURE(slv->check_sat(0, nullptr) == l_true);
+                model_ref mdl;
+                slv->get_model(mdl);
+                ENSURE(mdl);
+                for (unsigned i = 0; i < count; ++i) {
+                    expr_ref value(m);
+                    ENSURE(mdl->eval_expr(cmd.assertions()[i], value, true) && m.is_true(value));
+                }
+            };
+            check_model(3);
+            slv->push();
+            slv->assert_expr(cmd.assertions()[3]);
+            check_model(4);
+            slv->pop(1);
+            check_model(3);
+        }
+    }
+}
+
 static void check_nseq_generic_contains_regex() {
     struct {
         char const* sort;
@@ -1227,6 +1280,7 @@ void tst_smt_context()
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_nseq_shared_ite_model();
+    check_nseq_nested_index_replace();
     check_nseq_generic_contains_regex();
     check_sequence_last_index();
     check_array_index_dependencies();

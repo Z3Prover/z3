@@ -20,6 +20,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
 #include <algorithm>
 
 namespace seq {
@@ -267,6 +268,10 @@ namespace seq {
             });
             if (concrete_needle) {
                 expr_ref literal(u.str.mk_concat(nc.m_needle, nc.m_needle[0]->get_sort()), m);
+                // Reach targets use AST identity. Normalize String units before
+                // symbolic and concrete derivatives can produce different states.
+                th_rewriter rw(m);
+                rw(literal);
                 expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
                 expr_ref needle(u.re.mk_to_re(literal), m);
                 expr_ref tail(u.re.mk_concat(needle, all), m);
