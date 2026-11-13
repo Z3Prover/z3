@@ -14,6 +14,17 @@
 
 namespace nla {
 
+    static constexpr unsigned max_propagation_bits = 256;
+    static constexpr unsigned max_propagation_factors = 256;
+
+    static bool bounded_root(rational const& a, unsigned p, rational& r) {
+        // Root finding uses bisection and powers, so bound both the operand and
+        // the exponent for this optional propagation.
+        if (p > 1 && (p > max_propagation_factors || a.bitsize() > max_propagation_bits))
+            return false;
+        return a.root(p, r);
+    }
+
     monomial_bounds::monomial_bounds(core *c) : common(c), dep(c->m_intervals.get_dep_intervals()) {}
 
     void monomial_bounds::generate_lemmas() {
@@ -25,7 +36,7 @@ namespace nla {
     }
 
     bool monomial_bounds::is_too_big(mpq const &q) const {
-        return rational(q).bitsize() > 256;
+        return rational(q).bitsize() > max_propagation_bits;
     }
 
     /**
@@ -116,6 +127,14 @@ namespace nla {
      * Unlike generate_lemma(), this emits no lemmas -- it only tightens LP bounds.
      */
     bool monomial_bounds::tighten_lp(monic const &m) {
+        // Avoid unbounded interval powers and products before root extraction.
+        if (m.size() > max_propagation_factors)
+            return false;
+        for (lpvar v : m.vars()) {
+            if ((c().has_lower_bound(v) && c().get_lower_bound(v).bitsize() > max_propagation_bits) ||
+                (c().has_upper_bound(v) && c().get_upper_bound(v).bitsize() > max_propagation_bits))
+                return false;
+        }
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
@@ -299,10 +318,10 @@ namespace nla {
             return false;
         bool propagated = false;
         for (auto const& m : c().emons()) {
-            if (c().check_monic(m))
-                continue;
             lpvar w, fixed_to_zero;
             if (!is_linear(m, w, fixed_to_zero))
+                continue;
+            if (c().check_monic(m))
                 continue;
             // The pass pays off when the factors are fixed for good (bound
             // propagation from structural facts, e.g. pow2 constants in F*
@@ -711,7 +730,7 @@ namespace nla {
         // From range.upper: v <= root(p, U).
         if (!dep.upper_is_inf(range)) {
             rational U(dep.upper(range));
-            if (U.root(p, r) && improves_upper(r)) {
+            if (bounded_root(U, p, r) && improves_upper(r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
                 propagate_lp_bound(proof, v, cmp, r, dep.get_upper_dep(range));
                 tightened = true;
@@ -721,7 +740,7 @@ namespace nla {
         if ((p & 1) == 0 && !dep.lower_is_inf(range) &&
             c().has_upper_bound(v) && !c().get_upper_bound(v).is_pos()) {
             rational L(dep.lower(range));
-            if (!L.is_neg() && L.root(p, r) && improves_upper(-r)) {
+            if (!L.is_neg() && bounded_root(L, p, r) && improves_upper(-r)) {
                 auto cmp = dep.lower_is_open(range) ? llc::LT : llc::LE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_upper_bound_witness(v));
@@ -755,7 +774,7 @@ namespace nla {
             // From range.lower: v >= root(p, L).
             if (!dep.lower_is_inf(range)) {
                 rational L(dep.lower(range));
-                if (L.root(p, r) && improves_lower(r)) {
+                if (bounded_root(L, p, r) && improves_lower(r)) {
                     auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
                     propagate_lp_bound(proof, v, cmp, r, dep.get_lower_dep(range));
                     tightened = true;
@@ -766,7 +785,7 @@ namespace nla {
         // Even power. From range.upper: v >= -root(p, U).
         if (!dep.upper_is_inf(range)) {
             rational U(dep.upper(range));
-            if (!U.is_neg() && U.root(p, r) && improves_lower(-r)) {
+            if (!U.is_neg() && bounded_root(U, p, r) && improves_lower(-r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::GT : llc::GE;
                 propagate_lp_bound(proof, v, cmp, -r, dep.get_upper_dep(range));
                 tightened = true;
@@ -776,7 +795,7 @@ namespace nla {
         if (!dep.lower_is_inf(range) &&
             c().has_lower_bound(v) && !c().get_lower_bound(v).is_neg()) {
             rational L(dep.lower(range));
-            if (!L.is_neg() && L.root(p, r) && improves_lower(r)) {
+            if (!L.is_neg() && bounded_root(L, p, r) && improves_lower(r)) {
                 auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_lower_bound_witness(v));

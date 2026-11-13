@@ -1,0 +1,22 @@
+{
+  "pull_request": 11677,
+  "head_sha": "9ee7dfee88bc365c651c8d2b5308a1e60bc7dd1d",
+  "base_sha": "d72de58d9e36009f1397377cd185342474c8ecfb",
+  "path_prefix": "fstar/audits/pr-11677/9ee7dfee88bc365c651c8d2b5308a1e60bc7dd1d/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43311389729",
+  "files": [
+    {
+      "name": "PR11677MonomialBounds.fst",
+      "sha256": "e4595d9cdf26c03bfef223aa087efd258cb5ad9a1e4b319db9f97057505ef708"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "983e92c54810fc61a7476583754b6de7f5bb3fe167c7b7fd1698a6f012d92e64"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "71dbb47364c687584edf5f2a0b8d266a272035ce90d23f1ec12af9208e0fe8e7"
+    }
+  ]
+}
