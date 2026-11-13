@@ -320,7 +320,11 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # value is another value), so maps and set operators over sets indexed by
 # arrays are rejected (_declaration, proof_certificate's map_parameters);
 # maps over rows of nested arrays (a set Int -> Prop read from a row of an
-# Int -> (Int -> Prop)) are over Int indices. A read of a row and an extensionality
+# Int -> (Int -> Prop)) are over Int indices. An uninterpreted index sort is
+# in the same position whenever _m.U holds more than that sort, so the index
+# sort of a map, a set operator, or a subset is then a Lean type of its own,
+# _m.S0, _m.S1, ..., over which the arrays are functions on exactly the
+# model's indices (_index_sorts). A read of a row and an extensionality
 # witness over array indices are array terms that lemmas unfold
 # (_folded_array); the witness is chosen with a constant function (_nonempty).
 _ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r", "Prop": "b"}
@@ -834,7 +838,7 @@ def _set_function(graph, node):
     name = graph.decl(node).parameters[0]
     if name in _MAP_CONNECTIVES:
         return _MAP_CONNECTIVES[name][0]
-    types = [_array_types(sort)[1] for sort in graph.decl(node).domain]
+    types = [_array_types(graph, sort)[1] for sort in graph.decl(node).domain]
     variables = ["_v%d" % index for index in range(len(types))]
     return "(fun %s => %s)" % (" ".join("(%s : %s)" % pair for pair in zip(variables, types)),
                                _map_application(graph, node, variables))
@@ -860,8 +864,9 @@ def _map_application(graph, node, args):
             raise ReconstructionError("map of an unbound function: %s" % decl.parameters[1])
         return "(%s [%s])" % (head, ", ".join(
             "(%s %s)" % (_INJECTIONS[sort], arg) if sort in _ARITH_SORTS else "(_m.bool %s)" % arg if sort == "Bool"
+            else "(%s %s)" % (_sort_family(graph, sort, "inj"), arg) if sort in graph.index_sorts
             else arg for sort, arg in zip(elements, args)))
-    return _MAP_BUILTINS[name][2](args, [_component_type(sort) for sort in elements])
+    return _MAP_BUILTINS[name][2](args, [_component_type(graph, sort) for sort in elements])
 
 
 def _map_signature(parameters, elements, result):
@@ -940,10 +945,12 @@ def _array_components(name):
     return tuple(components)
 
 
-def _component_type(sort):
-    """The Lean type of an array's index or element sort: Int, Rat, Prop (Bool), a function (an array), or _m.U."""
+def _component_type(graph, sort):
+    """The Lean type of a sort: Int, Rat, Prop (Bool), a function (an array), its own type (_index_sorts), or _m.U."""
     if _array_components(sort):
-        return "(%s -> %s)" % _array_types(sort)
+        return "(%s -> %s)" % _array_types(graph, sort)
+    if sort in graph.index_sorts:
+        return "_m.S%d" % graph.index_sorts.index(sort)
     return "Prop" if sort == "Bool" else _NUMBER_TYPES.get(sort, "_m.U")
 
 
@@ -953,9 +960,9 @@ def _array_sort_names(name):
     return (name,) + tuple(inner for component in components for inner in _array_sort_names(component))
 
 
-def _array_types(name):
+def _array_types(graph, name):
     """The Lean index and element types of a certificate array sort name."""
-    return tuple(_component_type(component) for component in _array_components(name))
+    return tuple(_component_type(graph, component) for component in _array_components(name))
 
 
 # The Lean proof that no finite list exhausts an index sort over which
@@ -974,13 +981,13 @@ def _unbounded(graph, node, explicit=False):
     index = _array_components(graph.decl(node).range)[0]
     proof = "(%s _atoms%s)" % (_generic_index(index), graph.valuation) if graph.generic else _UNBOUNDED[index]
     if explicit:
-        return "(I := %s) %s" % (_component_type(index), proof)
+        return "(I := %s) %s" % (_component_type(graph, index), proof)
     return proof
 
 
 def _generic_index(sort):
     """The name of the generic index of an index sort of _UNBOUNDED: _generic_i (Int), _generic_r (Real)."""
-    return "_generic_" + _ARRAY_TYPE_CODES[_component_type(sort)]
+    return "_generic_" + _ARRAY_TYPE_CODES[_NUMBER_TYPES[sort]]
 
 
 def _default_map_axiom(graph, node):
@@ -1059,7 +1066,7 @@ def _generic_index_definitions(graph, signature):
     """
     lines = []
     for sort, nodes in graph.generic.items():
-        name, lean_type = _generic_index(sort), _component_type(sort)
+        name, lean_type = _generic_index(sort), _component_type(graph, sort)
         applied = "(%s _atoms%s)" % (name, graph.valuation)
         stored = "([%s] : List %s)" % (", ".join(_term(graph, node) for node in nodes), lean_type)
         lines.extend([
@@ -1111,7 +1118,7 @@ def _constant_array_definitions(graph):
     return lines + [""] + (_GENERIC_DEFAULT_DEFINITIONS if graph.generic else _DEFAULT_DEFINITIONS)
 
 
-def _array_family(name):
+def _array_family(graph, name):
     """The interpretation's family of the array constants of an array sort, one per Lean array type.
 
     Arrays between uninterpreted sorts keep the family arrs; the others are
@@ -1120,19 +1127,21 @@ def _array_family(name):
     (arrs_iaii for (Array Int (Array Int Int)), arrs_aiii for (Array (Array
     Int Int) Int)).
     """
-    codes = "".join(_array_type_code(component) for component in _array_components(name))
+    codes = "".join(_array_type_code(graph, component) for component in _array_components(name))
     return "arrs" if codes == "uu" else "arrs_" + codes
 
 
-def _array_type_code(sort):
+def _array_type_code(graph, sort):
     """The family-name code of an array index or element sort (_array_family)."""
     components = _array_components(sort)
     if components:
-        return "a" + "".join(_array_type_code(component) for component in components)
-    return _ARRAY_TYPE_CODES[_component_type(sort)]
+        return "a" + "".join(_array_type_code(graph, component) for component in components)
+    if sort in graph.index_sorts:
+        return "s%d" % graph.index_sorts.index(sort)  # No other code has a digit, so the codes stay a prefix code.
+    return _ARRAY_TYPE_CODES[_component_type(graph, sort)]
 
 
-def _array_injection(name):
+def _array_injection(graph, name):
     """The interpretation's map injecting an array argument of a function or predicate into the carrier.
 
     Like _m.real and _m.int, nothing states that it is injective and nothing
@@ -1143,10 +1152,10 @@ def _array_injection(name):
     such value, the injection sends each denoted array to its point, and
     the functions and predicates read their array arguments back from them.
     """
-    return _array_family(name) + "_inj"
+    return _array_family(graph, name) + "_inj"
 
 
-def _array_functions(name):
+def _array_functions(graph, name):
     """The interpretation's family of the functions into an array sort, one per Lean array type.
 
     Like _m.funs and the numeric families, a function takes the list of its
@@ -1154,7 +1163,7 @@ def _array_functions(name):
     array of the Lean type, so a model's function into arrays is an instance
     through the same embedding of its array values as the array constants.
     """
-    return _array_family(name) + "_funs"
+    return _array_family(graph, name) + "_funs"
 
 
 def _array_family_fields(graph):
@@ -1164,16 +1173,16 @@ def _array_family_fields(graph):
                  for sort in decl.domain if sort in graph.arrays}
     results = {decl.range for decl in graph.declarations if decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain}
     for sort in graph.arrays:
-        index, element = (lean.replace("_m.", "") for lean in _array_types(sort))
-        fields.setdefault(_array_family(sort), "Nat -> %s -> %s" % (index, element))
+        index, element = (lean.replace("_m.", "") for lean in _array_types(graph, sort))
+        fields.setdefault(_array_family(graph, sort), "Nat -> %s -> %s" % (index, element))
         if sort in arguments:
-            fields.setdefault(_array_injection(sort), "(%s -> %s) -> U" % (index, element))
+            fields.setdefault(_array_injection(graph, sort), "(%s -> %s) -> U" % (index, element))
         if sort in results:
-            fields.setdefault(_array_functions(sort), "Nat -> List U -> %s -> %s" % (index, element))
+            fields.setdefault(_array_functions(graph, sort), "Nat -> List U -> %s -> %s" % (index, element))
     return tuple(sorted(fields.items()))
 
 
-def _nonempty(sort):
+def _nonempty(graph, sort):
     """The inhabitant of an array index sort the extensionality witness chooses with.
 
     An index sort that is an array is inhabited by a constant function,
@@ -1182,10 +1191,12 @@ def _nonempty(sort):
     components = _array_components(sort)
     if components:
         return "(Nonempty.elim %s (fun _e => Nonempty.intro (fun (_ : %s) => _e)))" % (
-            _nonempty(components[1]), _component_type(components[0]))
-    lean = _component_type(sort)
+            _nonempty(graph, components[1]), _component_type(graph, components[0]))
+    lean = _component_type(graph, sort)
     if lean == "Prop":
         return "(Nonempty.intro True)"
+    if sort in graph.index_sorts:
+        return "_m.%s_nonempty" % _array_type_code(graph, sort)
     return "_m.nonempty" if lean == "_m.U" else "(Nonempty.intro (0 : %s))" % lean
 
 
@@ -1361,8 +1372,13 @@ class _Graph:
 
     @functools.cached_property
     def carriers(self):
-        """The uninterpreted sorts proper, all rendered as _m.U."""
+        """The uninterpreted sorts proper, rendered as _m.U except those of index_sorts."""
         return tuple(sort for sort in self.sorts if not _array_components(sort))
+
+    @functools.cached_property
+    def index_sorts(self):
+        """The uninterpreted sorts with a Lean type of their own, _m.S0, _m.S1, ... in this order (_index_sorts)."""
+        return _index_sorts(self)
 
     @functools.cached_property
     def subset_rewrite(self):
@@ -1375,12 +1391,10 @@ class _Graph:
         return bool(self.arrays) and self.decl(node).range in self.arrays
 
     def lean_type(self, node):
-        """The Lean type of a term node: Rat or Int, a function type for an array, _m.U otherwise."""
+        """The Lean type of a term node: Rat or Int, a function type for an array, its sort's type otherwise."""
         if self.is_arith(node):
             return self.number_type_of(node)
-        if self.is_array(node):
-            return "(%s -> %s)" % _array_types(self.decl(node).range)
-        return "_m.U"
+        return _component_type(self, self.decl(node).range)
 
     @property
     def valuation(self):
@@ -1422,12 +1436,12 @@ class _Graph:
         return _NUMERIC_FUNCTIONS[self.decl(node).range]
 
     def function_family(self, node):
-        """The indexed family of an application's function: numeric, into an array sort, or into the carrier."""
+        """The indexed family of an application's function: numeric, into an array sort, or into its sort's type."""
         if self.is_arith(node):
             return self.numeric_functions(node)
         if self.is_array(node):
-            return "_m." + _array_functions(self.decl(node).range)
-        return "_m.funs"
+            return "_m." + _array_functions(self, self.decl(node).range)
+        return _sort_family(self, self.decl(node).range, "funs")
 
     def is_arith(self, node):
         return self.decl(node).range in _ARITH_SORTS
@@ -1717,6 +1731,79 @@ def _declaration(raw, sorts):
     return _Declaration(kind, name, domain, raw["range"], parameters)
 
 
+def _index_sorts(graph):
+    """The uninterpreted index sorts of pointwise functions that get a Lean type of their own, sorted.
+
+    Every uninterpreted sort is otherwise the one type _m.U, and an equality
+    of arrays over a sort I is then stated at every index of _m.U. A model
+    is an instance all the same while its arrays are only read, stored
+    into, and chosen between: each is extended outside I by one fixed
+    value, which those operations keep (see _ARRAY_TYPE_CODES). A map, a
+    set operator, or a subset does not keep it (the complement of the fixed
+    value is another value), so with them an equality of the input may hold
+    in a model and fail in Lean outside I. (= (store a i true) (complement
+    (store a i false))) says that I has one element, and is satisfiable
+    next to (not (= e1 e2)) over another sort; over one carrier its two
+    Lean hypotheses are contradictory (the carrier holds e1 and e2, and at
+    one of them the sets differ), so a refutation resting on them would
+    prove nothing about the input.
+
+    So the index sort I of the arrays such a function is over (a map's
+    result, a subset's sets) is a type _m.SK of its own, K its position
+    here: the arrays over I are functions on exactly a model's I, their
+    equalities, maps, and subsets mean what the input's do, and I's terms
+    are families of their own (_sort_family) injected into _m.U where a
+    function or predicate takes them. Unless I is all of _m.U anyway: the
+    only uninterpreted sort (enumerations included, whose constructors
+    inhabit the carrier), with no function, predicate, or mapped function
+    taking an argument of another sort (a Bool, Int, Real, or array argument
+    is injected into the carrier, which must then hold its values). Then
+    the model's I itself is the carrier, and the encoding stays as it is
+    without maps. Int, Real, and Bool indices are Lean's own types; maps
+    over arrays indexed by arrays are rejected (_declaration).
+    """
+    indices = set()
+    for decl in graph.declarations:
+        if decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES:
+            indices.add(_array_components(decl.range)[0])
+        elif decl.kind == z3.Z3_OP_SET_SUBSET:
+            indices.add(_array_components(decl.domain[0])[0])
+    indices = tuple(sorted(indices & set(graph.carriers)))
+    if graph.carriers == indices and len(indices) == 1 and all(
+            sort == indices[0] for position, decl in enumerate(graph.declarations)
+            if decl.kind == z3.Z3_OP_UNINTERPRETED or _map_symbol(graph, position) is not None
+            for sort in _symbol_signature(graph, position)[0]):
+        return ()
+    return indices
+
+
+def _sort_family(graph, sort, family):
+    """A family of the interpretation over an uninterpreted sort: elems, funs, or (index sorts only) inj.
+
+    The sorts rendered as _m.U share _m.elems and _m.funs. A sort with a
+    type of its own (_index_sorts) has its constants in _m.sK_elems, the
+    functions into it in _m.sK_funs (over argument lists in _m.U, like
+    every function), and the map _m.sK_inj injecting its terms into _m.U
+    as arguments. Like _m.int, nothing states that the injection is
+    injective and nothing needs it; a model is an instance with its own
+    carrier of the sort as _m.SK, a copy of it in the disjoint union _m.U,
+    and the inclusion as _m.sK_inj.
+    """
+    if sort in graph.index_sorts:
+        return "_m.%s_%s" % (_array_type_code(graph, sort), family)
+    return "_m." + family
+
+
+def _index_sort_fields(graph):
+    """The interpretation's fields of the sorts with a type of their own: the type, nonempty as every sort is."""
+    fields = []
+    for sort in graph.index_sorts:
+        lean, code = _component_type(graph, sort).replace("_m.", ""), _array_type_code(graph, sort)
+        fields += [(lean, "Type"), (code + "_nonempty", "Nonempty " + lean), (code + "_elems", "Nat -> " + lean),
+                   (code + "_funs", "Nat -> List U -> " + lean), (code + "_inj", lean + " -> U")]
+    return tuple(fields)
+
+
 def _validate_graph(source, certificate):
     _fields(certificate, (
         "format", "format_version", "z3_version", "fragment", "result",
@@ -1880,7 +1967,8 @@ def _bind_input(source, graph, fragment=None, query=0):
     (Z3 accepts overloading by sort; the frontend rejects it and this check is
     repeated here) and the certificate's declaration must carry that symbol's
     full signature. Interned terms also carry their sort, so terms of different
-    sorts never compare equal even though Lean renders every sort as _m.U.
+    sorts never compare equal even though Lean renders the sorts as _m.U
+    (all but those with a type of their own, _index_sorts).
     """
     context = z3.Context(proof=False)
     original, original_fragment = parse_assertions(source, context, integer=True, query=query)
@@ -2001,6 +2089,12 @@ def _bind_input(source, graph, fragment=None, query=0):
             raise ReconstructionError("symbol used with two sorts: %s" % name)
     graph.enumerations.clear()
     graph.enumerations.update(enumerations)
+    for sort in graph.index_sorts:
+        if sort in enumerations:
+            # Its constructors and case fields are stated over _m.U. (The
+            # exporter rejects arrays indexed by an enumeration.)
+            raise ReconstructionError("maps and set operators over arrays indexed by an enumeration are not "
+                                      "supported: %s" % sort)
     if any(set(tables[table]) != set(original_symbols[table]) for table in tables):
         raise ReconstructionError("certificate assertions do not match the original input")
     for table, symbols in tables.items():
@@ -2045,7 +2139,7 @@ def _interpretation_structure(graph, tables, variable_indices):
     if not graph.uninterpreted:
         return []
     fields = _UF_FIELDS + (_NUMERIC_FIELDS[graph.numeric] if graph.arithmetic else ())
-    fields += _array_family_fields(graph)
+    fields += _index_sort_fields(graph) + _array_family_fields(graph)
     if _carrier_inhabited(graph):
         fields += _NONEMPTY_FIELDS
     if graph.enumerations:
@@ -2057,9 +2151,16 @@ def _carrier_inhabited(graph):
     """Whether the interpretation states that its carrier is nonempty (_NONEMPTY_FIELDS).
 
     It does when an extensionality witness is chosen from the carrier (_nonempty).
+    A sort with a type of its own always has its own field (_index_sort_fields).
     """
     return any(decl.kind == z3.Z3_OP_ARRAY_EXT and _inhabitant_sort(decl.range) in graph.carriers
-               for decl in graph.declarations)
+               and _inhabitant_sort(decl.range) not in graph.index_sorts for decl in graph.declarations)
+
+
+def _inhabited(graph, sort):
+    """Whether _nonempty has a proof for an index sort: always, except over _m.U without its nonempty field."""
+    inhabitant = _inhabitant_sort(sort)
+    return inhabitant not in graph.carriers or inhabitant in graph.index_sorts or _carrier_inhabited(graph)
 
 
 def _enumeration_fields(graph, tables, variable_indices):
@@ -2100,8 +2201,8 @@ def _enumeration_fields(graph, tables, variable_indices):
                 # constructor outside their index sort, see _array_injection).
                 if not _enumeration_array(graph, sort):
                     continue
-                family = _array_functions(sort) if binder else _array_family(sort)
-                binder += "forall _i : %s, " % _array_types(sort)[0].replace("_m.", "")
+                family = _array_functions(graph, sort) if binder else _array_family(graph, sort)
+                binder += "forall _i : %s, " % _array_types(graph, sort)[0].replace("_m.", "")
                 applied, sort = "%s %d%s _i" % (family, index, " _args" if "_args" in binder else ""), \
                     _array_components(sort)[1]
             elif sort in graph.enumerations:
@@ -2279,7 +2380,7 @@ def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
         if kind in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
             return parts[0]
         return None
-    index_type = _array_types(graph.decl(node).range)[0]
+    index_type = _array_types(graph, graph.decl(node).range)[0]
     if goal[0] == "default":
         if graph.generic or _array_components(graph.decl(node).range)[0] not in _UNBOUNDED:
             return None  # No _default over this index sort (the exporter rejects it), or no such theorem.
@@ -2327,12 +2428,15 @@ def _application_arguments(graph, arguments, term, formula):
     """Render the argument list of a function or predicate over the uninterpreted sorts.
 
     A Boolean argument is injected into the carrier by _m.bool (its formula is
-    rendered as a Prop), a Real or Int one by _m.real or _m.int, and an
-    array by the injection of its Lean type (_array_injection).
+    rendered as a Prop), a Real or Int one by _m.real or _m.int, an array by
+    the injection of its Lean type (_array_injection), and a term of a sort
+    with a type of its own by that sort's (_sort_family).
     """
     return "[%s]" % ", ".join("(%s %s)" % (graph.injection(arg), term(arg)) if graph.is_arith(arg)
-                              else "(_m.%s %s)" % (_array_injection(graph.decl(arg).range), term(arg))
+                              else "(_m.%s %s)" % (_array_injection(graph, graph.decl(arg).range), term(arg))
                               if graph.is_array(arg)
+                              else "(%s %s)" % (_sort_family(graph, graph.decl(arg).range, "inj"), term(arg))
+                              if graph.decl(arg).range in graph.index_sorts
                               else term(arg) if graph.is_term(arg)
                               else "(_m.bool %s)" % formula(arg) for arg in arguments)
 
@@ -2429,9 +2533,10 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_UNINTERPRETED:
         index = variable_indices[graph.nodes[node].declaration]
         if not arguments and graph.decl(node).range in graph.arrays:
-            return "_m.%s %d" % (_array_family(graph.decl(node).range), index)
+            return "_m.%s %d" % (_array_family(graph, graph.decl(node).range), index)
         if not arguments:
-            return _variable(graph, node, index) if graph.is_arith(node) else "_m.elems %d" % index
+            return (_variable(graph, node, index) if graph.is_arith(node)
+                    else "%s %d" % (_sort_family(graph, graph.decl(node).range, "elems"), index))
         return "%s %d %s" % (graph.function_family(node), index,
                              _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
@@ -2449,9 +2554,9 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_STORE:
         return "(_store %s %s %s)" % tuple(args)
     if kind == z3.Z3_OP_ARRAY_EXT:
-        return "(_array_diff %s %s %s)" % ((_nonempty(graph.decl(node).range),) + tuple(args))
+        return "(_array_diff %s %s %s)" % ((_nonempty(graph, graph.decl(node).range),) + tuple(args))
     if kind == z3.Z3_OP_CONST_ARRAY:
-        return "(@_const_array %s %s %s)" % (_array_types(graph.decl(node).range) + (args[0],))
+        return "(@_const_array %s %s %s)" % (_array_types(graph, graph.decl(node).range) + (args[0],))
     if kind == z3.Z3_OP_ARRAY_DEFAULT:
         return "(_default %s %s)" % (_unbounded(graph, arguments[0]), args[0])
     function = _set_function(graph, node)
@@ -4246,7 +4351,7 @@ def _map_identities(graph, node, inline):
     kinds = [graph.kind(argument) for argument in arguments]
     if all(kind == z3.Z3_OP_CONST_ARRAY for kind in kinds):
         helpers.append("  have _mk%d : %s = @_const_array %s %s %s := rfl" % (
-            (node, inline(node)) + _array_types(graph.decl(node).range) + (_map_application(graph, node, [
+            (node, inline(node)) + _array_types(graph, graph.decl(node).range) + (_map_application(graph, node, [
                 inline(graph.arguments(argument)[0]) for argument in arguments]),)))
     elif all(kind in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) for kind in kinds):
         indices = {graph.arguments(argument)[1] for argument in arguments if graph.kind(argument) == z3.Z3_OP_STORE}
@@ -4399,7 +4504,7 @@ def _level_fact(graph, name, store, read, inline):
         return "  have %s := _store_apply %s %s" % (
             name, " ".join(inline(argument) for argument in graph.arguments(store)), inline(read))
     return "  have %s := _select_const (I := %s) %s %s" % (
-        name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]), inline(read))
+        name, _array_types(graph, graph.decl(store).range)[0], inline(graph.arguments(store)[0]), inline(read))
 
 
 def _map_read_facts(graph, prefix, array, read, inline, undecided=0):
@@ -4569,7 +4674,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
         if congruence:
             if kind == z3.Z3_OP_ARRAY_EXT:
                 helpers.append("  have _xc%d := _array_diff_comm %s %s %s" % (
-                    node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
+                    node, _nonempty(graph, graph.decl(node).range), inline(graph.arguments(node)[0]),
                     inline(graph.arguments(node)[1])))
         elif kind == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(node)[0]) is not None:
             # A read of a map or set operator: the connective over the reads
@@ -4586,7 +4691,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             # Z3's congruence closure takes the witness as commutative (an
             # euf hint's (comm (= (array-ext b a) (array-ext a b))) claim);
             # _array_diff_comm states it for grind.
-            arguments = (_nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
+            arguments = (_nonempty(graph, graph.decl(node).range), inline(graph.arguments(node)[0]),
                          inline(graph.arguments(node)[1]))
             helpers.append("  have _x%d := _array_ext %s %s %s" % ((node,) + arguments))
             helpers.append("  have _xc%d := _array_diff_comm %s %s %s" % ((node,) + arguments))
@@ -4872,11 +4977,10 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
         # over a carrier the interpretation says so only next to an
         # extensionality witness (_carrier_inhabited); without, no fact.
         index = _array_components(sort)[0]
-        if (other == (sort, leaves, table ^ ((1 << (1 << len(leaves))) - 1))
-                and (_inhabitant_sort(index) not in graph.carriers or _carrier_inhabited(graph))):
+        if other == (sort, leaves, table ^ ((1 << (1 << len(leaves))) - 1)) and _inhabited(graph, index):
             facts.append("have _pwn%d : %s = %s -> False := fun _h => Nonempty.elim %s "
                          "(fun _i => %s (Iff.of_eq (congrFun _h _i)))" % (
-                             node, inline(left), inline(right), _nonempty(index),
+                             node, inline(left), inline(right), _nonempty(graph, index),
                              auxiliary(left, right, "Not (Iff %s %s)")))
     for node in subsets:
         # (subset a b) is (= (setminus a b) empty) for the rewriter, which
@@ -4903,8 +5007,7 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
         # An inhabitant of the index sort. Over a carrier the interpretation
         # states one only next to an extensionality witness
         # (_carrier_inhabited); it always has the constants' values (elems).
-        inhabited = ("(Nonempty.intro (_m.elems 0))" if index in graph.carriers and not _carrier_inhabited(graph)
-                     else _nonempty(index))
+        inhabited = _nonempty(graph, index) if _inhabited(graph, index) else "(Nonempty.intro (_m.elems 0))"
         if difference == 0:
             proof = auxiliary(left, right, "(%s -> %s)")
             facts.append("have _pws%d : _subset %s %s := fun _i => %s" % (
@@ -4940,7 +5043,7 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
                          "(fun _i _f => %s.2 (_h _i %s.1))" % (
                              node, inline(left), inline(right), _UNBOUNDED[index],
                              ", ".join(inline(leaves[position][1]) for position in positions),
-                             _component_type(index), proof, proof))
+                             _component_type(graph, index), proof, proof))
         elif leaves and all(leaf[0] == "value" for leaf in leaves):
             # Maps of constant arrays alone, of Boolean values other than
             # true and false: the rewriter folds the subset to a formula
@@ -5075,7 +5178,7 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
                            for index in sorted(levels.get(node, ())))
         else:
             value = inline(graph.arguments(node)[0])
-            index_type = _array_types(graph.decl(node).range)[0]
+            index_type = _array_types(graph, graph.decl(node).range)[0]
             helpers.append("  have _dc%d := _default_const %s %s" % (
                 node, _unbounded(graph, node, explicit=True), value))
             helpers.extend("  have _dc%d_%d := _select_const (I := %s) %s %s" % (
@@ -9597,7 +9700,7 @@ def reconstruct(source, certificate):
             name, domain, range_name = symbol
             table = _symbol_table(range_name, len(domain), graph.sorts)
             family = ("_m.preds" if table == "predicates" else _NUMERIC_FUNCTIONS[range_name]
-                      if table == "numeric_functions" else "_m.funs")
+                      if table == "numeric_functions" else _sort_family(graph, range_name, "funs"))
             graph.map_heads[declaration] = "%s %d" % (family, indices[table][tables[table][name]])
     defaults = _generic_defaults(graph)
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
@@ -9647,7 +9750,15 @@ def reconstruct(source, certificate):
                          " functions with %s result are the family %s." % (
                              sort, _INJECTIONS[sort], {"Real": "a Real", "Int": "an Int"}[sort],
                              _NUMERIC_FUNCTIONS[sort]))
-    plain = [sort for sort in graph.carriers if sort not in graph.enumerations]
+    for sort in graph.index_sorts:
+        # Maps, set operators, or subsets are over arrays indexed by it, so
+        # their index type is exactly the sort (_index_sorts).
+        lines.append("-- Uninterpreted sort %s is the type %s of its own, the index type of the pointwise maps: "
+                     "constants %s, functions %s, arguments of functions and predicates injected into _m.U by %s." % (
+                         json.dumps(sort, ensure_ascii=True), _component_type(graph, sort),
+                         _sort_family(graph, sort, "elems"), _sort_family(graph, sort, "funs"),
+                         _sort_family(graph, sort, "inj")))
+    plain = [sort for sort in graph.carriers if sort not in graph.enumerations and sort not in graph.index_sorts]
     if len(plain) == 1:
         lines.append("-- Uninterpreted sort %s is the type _m.U; functions and predicates take argument lists."
                      % json.dumps(plain[0], ensure_ascii=True))
@@ -9659,7 +9770,8 @@ def reconstruct(source, certificate):
     elif graph.uninterpreted and not graph.arrays and not graph.enumerations:
         lines.append("-- No uninterpreted sort: the type _m.U carries only the Boolean arguments of the predicates.")
     elif graph.uninterpreted and not graph.enumerations:
-        lines.append("-- No uninterpreted sort: the type _m.U carries only the arguments of the functions, if any.")
+        lines.append("-- No %suninterpreted sort: the type _m.U carries only the arguments of the functions, if any."
+                     % ("other " if graph.index_sorts else ""))
     for sort in sorted(graph.enumerations):
         first = graph.constructor_index(graph.enumerations[sort][0], sort)
         arrays = any(_array_components(array)[1] == sort for array in graph.arrays)
@@ -9676,14 +9788,14 @@ def reconstruct(source, certificate):
         lines.append("-- Array sorts %s are functions %s; select is _select, store the classical update _store, and "
                      "the extensionality witness array-ext is _array_diff." % (
                          ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.arrays),
-                         ", ".join("%s -> %s (_m.%s)" % (_array_types(sort) + (_array_family(sort),))
+                         ", ".join("%s -> %s (_m.%s)" % (_array_types(graph, sort) + (_array_family(graph, sort),))
                                    for sort in graph.arrays)))
     if graph.generic:
         lines.append("-- The array solver's default values (the input names none) are the arrays' values at one "
                      "index that no store writes: %s." % ", ".join(
                          "%s over %s" % (_generic_index(sort), sort) for sort in graph.generic))
     if tables["array_functions"]:
-        families = sorted({_array_functions(graph.declarations[decl].range)
+        families = sorted({_array_functions(graph, graph.declarations[decl].range)
                            for decl in tables["array_functions"].values()})
         lines.append("-- Functions into array sorts are the families %s, one per Lean array type." % ", ".join(
             "_m." + family for family in families))

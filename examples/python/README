@@ -1003,8 +1003,10 @@ Uninterpreted functions in Lean
 -------------------------------
 
 For qf_uf certificates every definition takes, instead of the Rat valuation,
-an interpretation of the uninterpreted sorts, all rendered as one type: a
-structure the file declares, quantified as the one argument _m.
+an interpretation of the uninterpreted sorts, all rendered as one type (but
+for the index sorts of maps and set operators, which can get a type of their
+own, _m.S0; see the arrays section below): a structure the file declares,
+quantified as the one argument _m.
 
     structure Interpretation where
       U : Type
@@ -1402,6 +1404,39 @@ reconstructor rejects. A subset over a
 store of a Boolean value other than true and false that the rewriter folds
 to a formula over that value ((subset (store empty 0 p) empty)) is accepted
 and fails in Lean.
+
+The index sort of a map, a set operator, or a subset is a Lean type of its
+own, _m.S0 (_m.S1, ... for further such sorts, in the order of their names),
+whenever the carrier _m.U holds anything else: another uninterpreted sort or
+an enumeration, or the Bool, Int, Real, or array arguments of a function, a
+predicate, or a mapped function. Over _m.U an equality of two sets is stated
+at every element of the carrier, and a pointwise function does not keep the
+one value a model's arrays are extended by outside their index sort (the
+complement of that value is another one). (= (store a i true) (complement
+(store a i false))) holds exactly when the index sort has one element, and
+is satisfiable next to (not (= e1 e2)) over another sort; over one carrier
+the two statements are contradictory, so a theorem with them as hypotheses
+would prove nothing about the input. With its own type the arrays over the
+sort are functions on exactly a model's indices. The interpretation has the
+fields S0 : Type, s0_nonempty : Nonempty S0 (every sort is nonempty), s0_elems
+: Nat -> S0 (the constants), s0_funs : Nat -> List U -> S0 (the functions into
+the sort), and s0_inj : S0 -> U (the sort's terms as arguments of functions
+and predicates, injected like Int ones by _m.int); the array families are
+named by the code s0 (arrs_s0b : Nat -> S0 -> Prop). A model is an instance
+with its carrier of the sort as S0, a copy of it in the disjoint union U,
+and the inclusion as s0_inj. An index sort that is all of the carrier (the
+only sort, every function over it alone) stays _m.U, where nothing is outside
+it. The choice is made from the certificate's declarations, which include
+those of the proof steps: the sorts and the uninterpreted symbols are the
+input's (the reconstructor checks both), but a pointwise operator that only a
+proof step named would give its index sort a type of its own as well, so the
+signature of the theorem is that of the certificate, not of the input alone.
+A statement with the sort as its own type is faithful to the input in every
+case; the one over _m.U is kept only where it is faithful too. Z3 itself
+reasons about such sets through default values, as if every index sort were
+infinite: it answers unsat on the set equality above. The certificate of such
+an answer is rejected (the default values of arrays over an uninterpreted
+sort have no Lean reading) or fails in Lean.
 
 Z3 logs a map of a built-in with its signature, ((_ map (<= (Int Int) Bool))
 a b), and declares a mapped function before the map, so the trimmer reads

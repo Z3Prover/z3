@@ -674,8 +674,11 @@ keeps every sort name, so the reconstructor checks the proof graph is
 well-sorted (functions and predicates take uninterpreted-sort arguments
 only, equality and `distinct` compare one sort, every application matches
 its declaration) and `_bind_input` checks the sort set against the input.
-Lean renders all sorts as the one type `_U`: a many-sorted model is an
-instance of the theorem over the disjoint union of its carriers, every
+Lean renders all sorts as the one type `_U` (since 2026-11-12 the index
+sort of a map, a set operator, or a subset can be a type of its own; see
+"Index sorts of maps and set operators as Lean types of their own"): a
+many-sorted model is an instance of the theorem over the disjoint union of
+its carriers, every
 ground term keeps its value, and well-sorted inputs only compare terms of
 one sort, so the collapsed theorem implies unsatisfiability of the
 many-sorted input. The two documented two-sort inputs and 19 random
@@ -2758,6 +2761,50 @@ arrays next to the sets; Lean), the pinned seeds `GENERIC_DEFAULT_SEEDS`
 `test_default_values_are_read_at_a_generic_index`,
 `test_default_values_of_maps_are_rejected` (now inputs that name a default
 value), and `test_the_generic_index_is_proved_off_the_stored_indices`.
+
+### Index sorts of maps and set operators as Lean types of their own (2026-11-12)
+
+Every uninterpreted sort is the one Lean type `_m.U`, which is faithful
+while arrays are read, stored into, and compared: a model's array is
+extended outside its index sort by one fixed value. A pointwise function
+does not keep that value, so with maps, set operators, or `subset` over an
+uninterpreted index sort the theorem's hypotheses could be stronger than
+the input. `(= (store a i true) (complement (store a i false)))` over
+`(Array I Bool)` holds exactly when `I` has one element and is satisfiable
+next to `(not (= e1 e2))` over another sort `E`; with both sorts as `_m.U`
+Lean proves `False` from the two hypotheses alone (checked at the base
+revision with the definitions of a reconstructed certificate). No wrong
+certificate is known: Z3 answers unsat on the set equality by its default
+values (it reasons as if the index sort were infinite), and those steps
+were already rejected or failed in Lean. The gap was in what a verified
+theorem says.
+
+- The index sort of a map, a set operator, or a subset is now a Lean type
+  of its own, `_m.S0`, `_m.S1`, ... (`_index_sorts`), with the fields
+  `s0_nonempty`, `s0_elems`, `s0_funs`, and the injection `s0_inj` of its
+  terms into `_m.U` where a function or predicate takes them. Arrays over
+  it are functions on exactly a model's indices.
+- An index sort that is all of the carrier keeps `_m.U`: the only
+  uninterpreted sort, no enumeration, and no function, predicate, or
+  mapped function with an argument of another sort (Bool, Int, Real, or an
+  array, each injected into the carrier). Those certificates are unchanged.
+- The helpers that give a sort its Lean type or family name take the graph
+  (`_component_type`, `_array_types`, `_array_family`, `_nonempty`, ...).
+- An enumeration as such an index sort is rejected by the reconstructor
+  (the exporter rejects arrays indexed by an enumeration before that).
+
+Tests (`test_proof_to_lean_index_sort.py`): `INDEX_SORT_INPUTS`,
+`ALONE_INPUTS`, `INDEX_SORT_SEEDS` of `random_index_sort_instance` (Lean),
+the encoding and the sorts chosen (no Lean; each clause of the condition
+that keeps `_m.U` has an input that only it decides: a subset without a set
+operator, a predicate over Bool that is mapped and never applied, an
+enumeration next to the sets), the enumeration guard run with the sort
+classified as an enumeration (`test_an_enumeration_as_index_sort_is_rejected`),
+and
+`test_a_one_element_index_sort_is_an_instance`: Lean checks a model of the
+set equality and the disequality above (`S0` is `Unit`, `U` is `Bool`)
+against the reconstructed definitions, and the proof that the same two
+statements over one carrier are contradictory.
 
 ### subset over sets (2026-11-12)
 

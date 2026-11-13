@@ -3159,7 +3159,10 @@ class TestArrayValidation(unittest.TestCase):
                      "(Array Int (Array Int Int) )", "(Array Int )(Array Int Int)"):
             with self.subTest(name=name):
                 self.assertIsNone(components(name))
-        self.assertEqual(proof_to_lean._array_family("(Array (Array Int Int) (Array Bool U))"), "arrs_aiiabu")
+        # The family name of a Lean array type; the graph says which sorts have a type of their own (none here).
+        graph = proof_to_lean._validate_graph(ARRAY_INPUTS["read_own_write"], self.certificates["read_own_write"])
+        self.assertEqual(graph.index_sorts, ())
+        self.assertEqual(proof_to_lean._array_family(graph, "(Array (Array Int Int) (Array Bool U))"), "arrs_aiiabu")
         # A tampered name nested past the cap is no sort name (not a RecursionError).
         deep = "Int"
         for _ in range(2000):
