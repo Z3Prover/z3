@@ -114,6 +114,26 @@ lbool seq::predicate_algebra::eval_at(expr* g, expr* cand) const {
 }
 
 lbool seq::predicate_algebra::mk_fresh(ptr_vector<expr> const& consts, expr_ref& out) const {
+    if (u.is_string(m_sort)) {
+        unsigned_vector lengths;
+        for (expr* c : consts) {
+            if (!m.inc()) return l_undef;
+            zstring text;
+            if (!u.str.is_string(c, text))
+                return l_undef;
+            lengths.push_back(text.length());
+        }
+        std::sort(lengths.begin(), lengths.end());
+        unsigned length = 0;
+        for (unsigned n : lengths)
+            if (n == length)
+                ++length;
+        // A missing length supplies a value distinct from every mentioned literal.
+        svector<unsigned> characters;
+        characters.resize(length, 0);
+        out = u.str.mk_string(zstring(characters.size(), characters.data()));
+        return l_true;
+    }
     arith_util a(m);
     if (a.is_int_real(m_sort)) {
         rational mx(0); bool any = false;

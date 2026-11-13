@@ -796,7 +796,7 @@ namespace seq {
         }
         // Witnesses commit model-selected lengths. Keep feasibility checks
         // above active, but postpone these choices until word constraints settle.
-        if (f.is_structurally_satisfied() &&
+        if (m_extract_witness && f.is_structurally_satisfied() &&
             ac.eq_facet_ref().is_satisfied() &&
             ac.deq_facet_ref().is_satisfied()) {
             if (!f.witness_extracted() && !f.memberships().empty()) {
@@ -912,6 +912,24 @@ namespace seq {
             return stx::simplify_result::noop;
         }
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> mem_witness_split::split(
+        eq_tree::node& n, unsigned, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = committed = false;
+        auto ac = get_ambient(n);
+        auto& f = ac.mem_facet_ref();
+        if (f.witness_extracted() || f.memberships().empty() ||
+            !f.is_structurally_satisfied() ||
+            !ac.eq_facet_ref().is_satisfied() ||
+            !ac.deq_facet_ref().is_satisfied())
+            return nullptr;
+        auto result = m_propagation.propagate(n);
+        if (result == stx::simplify_result::conflict || result == stx::simplify_result::noop)
+            return nullptr;
+        out = eq_tree::edge(name(), nullptr, true, 0);
+        has_more = committed = true;
+        return nullptr;
     }
 
 

@@ -640,6 +640,132 @@ static void check_nseq_shared_ite_model() {
     }
 }
 
+static void check_nseq_generic_contains_regex() {
+    struct {
+        char const* sort;
+        char const* first;
+        char const* second;
+    } alphabets[] = {
+        {"String", "\"US\"", "\"AE\""},
+        {"Int", "1", "2"},
+        {"Bool", "true", "false"},
+        {"(_ BitVec 8)", "#x01", "#x02"},
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& alphabet : alphabets) {
+            std::string first = std::string("(seq.unit ") + alphabet.first + ")";
+            std::string second = std::string("(seq.unit ") + alphabet.second + ")";
+            std::string re_first = "(seq.to.re " + first + ")";
+            std::string re_second = "(seq.to.re " + second + ")";
+            std::string all = std::string("(as re.all (RegEx (Seq ") + alphabet.sort + ")))";
+            std::string pred_first = std::string("(re.of.pred (lambda ((x ") +
+                alphabet.sort + ")) (= x " + alphabet.first + ")))";
+            std::string pred_second = std::string("(re.of.pred (lambda ((x ") +
+                alphabet.sort + ")) (= x " + alphabet.second + ")))";
+            std::string contains_first = "(re.++ " + all + " " + pred_first + " " + all + ")";
+            std::string contains_second = "(re.++ " + all + " " + pred_second + " " + all + ")";
+            std::string lambda_membership = "(assert (seq.in.re t (re.inter " +
+                contains_first + " (re.comp " + contains_second + "))))";
+            std::string cases[] = {
+                "(assert (seq.contains t " + first + "))"
+                "(assert (not (seq.contains t " + second + ")))",
+                "(assert (seq.in.re t (re.union " + re_first + " " + re_second + ")))"
+                "(assert (seq.in.re t (re.comp " + re_first + ")))",
+                "(assert (seq.in.re t (re.* (re.union " + re_first + " " + re_second + "))))"
+                "(assert (= (seq.len t) 2))"
+                "(assert (seq.contains t " + first + "))"
+                "(assert (not (seq.contains t " + second + ")))",
+                "(assert (seq.in.re t (re.++ (re.* " + re_second + ") " + re_first +
+                    " (re.* " + re_second + "))))"
+                "(assert (not (seq.contains t " + first + ")))",
+                lambda_membership,
+                lambda_membership + "(assert (not (seq.contains t " + first + ")))",
+                lambda_membership + "(assert (= (seq.len t) 0))",
+            };
+            for (unsigned i = 0; i < std::size(cases); ++i) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::string input = std::string("(declare-const t (Seq ") +
+                    alphabet.sort + "))\n" + cases[i];
+                std::istringstream is(input);
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_uint("timeout", 3000);
+                if (i == 4 && proofs)
+                    p.set_bool("seq.monadic_leaf", false);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                lbool expected = i == 3 || i >= 5 ? l_false : l_true;
+                auto check = [&]() {
+                    ENSURE(slv->check_sat(0, nullptr) == expected);
+                    if (expected != l_true)
+                        return;
+                    model_ref mdl;
+                    slv->get_model(mdl);
+                    ENSURE(mdl);
+                    for (expr* assertion : cmd.assertions()) {
+                        expr_ref value(m);
+                        ENSURE(mdl->eval_expr(assertion, value, true));
+                        bool valid = m.is_true(value);
+                        if (!valid) {
+                            // Generic regex membership can remain unreduced by model evaluation.
+                            params_ref validation;
+                            validation.set_sym("string_solver", symbol("seq"));
+                            ref<solver> checker = mk_smt2_solver(m, validation, symbol::null);
+                            checker->assert_expr(m.mk_not(value));
+                            valid = checker->check_sat(0, nullptr) == l_false;
+                        }
+                        if (!valid) {
+                            std::cerr << "generic sequence model: " << alphabet.sort << " case=" << i
+                                      << " proofs=" << proofs << "\n" << input << "\n";
+                            std::cerr << mk_pp(assertion, m) << "\n" << mk_pp(value, m) << "\n";
+                        }
+                        ENSURE(valid);
+                    }
+                    if (i == 4 && std::string(alphabet.sort) == "String") {
+                        seq_util u(m);
+                        expr* subject = to_app(cmd.assertions()[0])->get_arg(0);
+                        for (char const* literal : {"US", "AE"}) {
+                            expr_ref element(u.str.mk_string(zstring(literal)), m);
+                            expr_ref word(u.str.mk_unit(element), m);
+                            expr_ref contains(u.str.mk_contains(subject, word), m), value(m);
+                            ENSURE(mdl->eval_expr(contains, value, true));
+                            ENSURE(m.is_true(value) == (std::string(literal) == "US"));
+                            ENSURE(m.is_true(value) || m.is_false(value));
+                        }
+                    }
+                };
+                check();
+                if (i == 4) {
+                    seq_util u(m);
+                    arith_util a(m);
+                    expr* subject = to_app(cmd.assertions()[0])->get_arg(0);
+                    expr_ref length(u.str.mk_length(subject), m);
+                    expr_ref two(a.mk_int(2), m);
+                    slv->push();
+                    slv->assert_expr(m.mk_eq(length, two));
+                    check();
+                    model_ref mdl;
+                    slv->get_model(mdl);
+                    expr_ref value(m);
+                    ENSURE(mdl->eval_expr(length, value, true));
+                    ENSURE(value == two);
+                    slv->pop(1);
+                    check();
+                }
+                slv->push();
+                slv->assert_expr(m.mk_not(cmd.assertions()[0]));
+                ENSURE(slv->check_sat(0, nullptr) == l_false);
+                slv->pop(1);
+                check();
+            }
+        }
+    }
+}
+
 static void check_nonlinear_to_int() {
     for (char const* input : {
             "(declare-fun N () Int)\n"
@@ -1101,6 +1227,7 @@ void tst_smt_context()
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_nseq_shared_ite_model();
+    check_nseq_generic_contains_regex();
     check_sequence_last_index();
     check_array_index_dependencies();
     check_stored_lambdas();

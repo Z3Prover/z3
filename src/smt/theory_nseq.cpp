@@ -197,7 +197,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
         // Forward proven bounds before membership search can refute a guessed length.
         m_tree.add_propagation_plugin(alloc(seq::mem_var_bounds_propagation, m, m_seq, m_autil, *m_ambient));
-        m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter));
+        m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, false));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
@@ -221,6 +221,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::model_completion_split, m, m_seq, true));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
+        m_tree.add_completion_plugin(alloc(seq::mem_witness_split, m, m_seq, m_rewriter));
         m_tree.add_completion_plugin(alloc(seq::model_completion_split, m, m_seq));
 
         m_tree.set_max_search_depth(100);
@@ -277,8 +278,6 @@ namespace smt {
         if (m_seq.str.is_in_re(atom)) {
             expr* str_arg = atom->get_arg(0);
             mk_var(ensure_enode(str_arg));
-            if (!ctx.e_internalized(atom->get_arg(1)))
-                ctx.internalize(atom->get_arg(1), false);
             if (!ctx.b_internalized(atom)) {
                 bool_var bv = ctx.mk_bool_var(atom);
                 ctx.set_var_theory(bv, get_id());
@@ -407,7 +406,7 @@ namespace smt {
             m_pending_assumptions.reset();
         if (m_seq.str.is_in_re(e, e1, e2)) {
             ensure_enode(e1);
-            ensure_enode(e2);
+            // Membership facets interpret predicate lambdas without activating array theory.
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
@@ -1168,8 +1167,12 @@ namespace smt {
                         m_pending_assumptions.reset();
                         return FC_CONTINUE;
                     }
-                    if (r == l_undef)
+                    if (r == l_undef) {
                         ctx.force_phase(lit);
+                        // Arithmetic's model-based phase overrides the saved phase.
+                        if (!lit.sign())
+                            ctx.set_true_first_flag(bv);
+                    }
                     m_pending_assumptions.push_back(lit);
                 }
                 if (!m_pending_assumptions.empty()) {

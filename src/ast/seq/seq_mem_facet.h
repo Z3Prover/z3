@@ -189,6 +189,7 @@ namespace seq {
         ast_manager&    m;
         seq_util&       u;
         seq_rewriter&   m_rw;
+        bool            m_extract_witness;
         parikh          m_lengths;
         th_rewriter     m_th_rw;
         // Optional end-game witness solver, gated by
@@ -218,8 +219,9 @@ namespace seq {
         // `view_witness`.
         lbool solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep);
     public:
-        mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw) :
-            m(m), u(u), m_rw(rw), m_lengths(m, parikh::config()), m_th_rw(m), m_mon(rw, m_mon_trail) {}
+        mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw, bool extract_witness = true) :
+            m(m), u(u), m_rw(rw), m_extract_witness(extract_witness),
+            m_lengths(m, parikh::config()), m_th_rw(m), m_mon(rw, m_mon_trail) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
@@ -230,6 +232,18 @@ namespace seq {
             st.update("seq-mem-monadic-endgame num refuted", m_stats.m_num_monadic_refuted);
         }
         void reset_statistics() override { m_stats.reset(); }
+    };
+
+    // SMT integration scopes model-selected lengths and witnesses so rejected
+    // outer assignments cannot leave stale choices in the root facets.
+    class mem_witness_split : public eq_tree::split_plugin_i {
+        mem_propagation m_propagation;
+    public:
+        mem_witness_split(ast_manager& m, seq_util& u, seq_rewriter& rw) :
+            m_propagation(m, u, rw) {}
+        char const* name() const override { return "mem-witness"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(
+            eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
     // Forwards arithmetic bounds on `str.len(x)` as membership constraints

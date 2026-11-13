@@ -24,6 +24,7 @@ Authors:
 #include "ast/rewriter/seq_derive.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/guard_set.h"
+#include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
@@ -498,9 +499,10 @@ namespace seq {
         expr_ref eps = m_re.mk_to_re(u().str.mk_empty(seq_sort));
 
         // Apply predicate to the element
-        array_util autil(m);
         expr* args[2] = { pred, m_ele };
-        expr_ref cond(autil.mk_select(2, args), m);
+        array_rewriter arrays(m);
+        expr_ref cond(m);
+        arrays.mk_select(2, args, cond);
         return mk_ite(cond, eps, empty);
     }
 

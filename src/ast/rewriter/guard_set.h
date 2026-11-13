@@ -9,7 +9,7 @@ Abstract:
 
     Sort-relative predicate algebra and an incremental conjunction accumulator.
     Character predicates use exact ranges. Bool and enumeration predicates use
-    their exact domains; arithmetic and bit-vector equality predicates use
+    their exact domains; arithmetic, bit-vector and String equality predicates use
     mentioned values and a remaining-region representative. Unsupported theory
     reasoning returns unknown, never an assumed emptiness or witness.
 

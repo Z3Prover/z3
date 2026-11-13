@@ -172,9 +172,7 @@ namespace seq {
             for (unsigned i = 0; i < f.qhead(); ++i) {
                 auto const& nc = f.ncontains()[i];
                 if (nc.active() && all_of(nc.m_needle, [&](expr* token) {
-                        expr* character = nullptr;
-                        unsigned ch;
-                        return u.str.is_unit(token, character) && u.is_const_char(character, ch);
+                        return u.str.is_unit(token) && m.is_value(token);
                     })) {
                     f.rewind_qhead(i);
                     break;
@@ -264,23 +262,18 @@ namespace seq {
             }
 
             // Let word substitutions and cheap refutations settle before constructing a witness language.
-            svector<unsigned> characters;
-            for (expr* token : nc.m_needle) {
-                expr* character = nullptr;
-                unsigned ch;
-                if (!u.str.is_unit(token, character) || !u.is_const_char(character, ch))
-                    break;
-                characters.push_back(ch);
-            }
-            if (characters.size() == nc.m_needle.size() && ef.is_satisfied()) {
-                expr_ref literal(u.str.mk_string(zstring(characters.size(), characters.data())), m);
+            bool concrete_needle = all_of(nc.m_needle, [&](expr* token) {
+                return u.str.is_unit(token) && m.is_value(token);
+            });
+            if (concrete_needle && ef.is_satisfied()) {
+                expr_ref literal(u.str.mk_concat(nc.m_needle, nc.m_needle[0]->get_sort()), m);
                 expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
                 expr_ref needle(u.re.mk_to_re(literal), m);
                 expr_ref tail(u.re.mk_concat(needle, all), m);
                 expr_ref containing(u.re.mk_concat(all, tail), m);
                 expr_ref avoiding(u.re.mk_complement(containing), m);
-                if (characters.size() == 1) {
-                    // A single character cannot straddle concatenation boundaries.
+                if (n_size == 1) {
+                    // A single element cannot straddle concatenation boundaries.
                     expr* forbidden = to_app(nc.m_needle[0])->get_arg(0);
                     for (expr* token : nc.m_haystack) {
                         expr* character = nullptr;
@@ -307,7 +300,7 @@ namespace seq {
 
             // Finite unit words require a mismatch in every possible alignment.
             // Bound the expansion before constructing its character formulas.
-            if (characters.size() != n_size && has_window &&
+            if (!concrete_needle && has_window &&
                 n_size <= 256u / (max_pos + 1) &&
                 all_of(nc.m_haystack, [&](expr* token) { return u.str.is_unit(token); }) &&
                 all_of(nc.m_needle, [&](expr* token) { return u.str.is_unit(token); })) {

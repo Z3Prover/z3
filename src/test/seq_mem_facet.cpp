@@ -187,6 +187,66 @@ namespace {
             ENSURE(algebra.eval(eq) == l_undef);
         }
 
+        {
+            sort_ref strings(u.str.mk_string_sort(), m);
+            expr_ref s0(m.mk_var(0, strings), m);
+            seq::predicate_algebra algebra(m, u, strings, s0);
+            expr_ref_vector excluded(m);
+            excluded.push_back(u.str.mk_string(zstring("")));
+            unsigned zero = 0;
+            excluded.push_back(u.str.mk_string(zstring(1, &zero)));
+            excluded.push_back(u.str.mk_string(zstring("US")));
+            excluded.push_back(u.str.mk_string(zstring("AE")));
+            expr_ref predicate(m.mk_true(), m);
+            for (expr* value : excluded) {
+                expr_ref eq(m.mk_eq(s0, value), m);
+                predicate = algebra.mk_and(predicate, algebra.mk_not(eq));
+            }
+            ENSURE(algebra.eval(predicate, &witness) == l_true);
+            for (expr* value : excluded)
+                ENSURE(m.are_distinct(witness, value));
+            expr_ref eq(m.mk_eq(s0, excluded.get(2)), m);
+            expr_ref contradiction = algebra.mk_and(eq, algebra.mk_not(eq));
+            ENSURE(algebra.eval(contradiction) == l_false);
+            expr_ref parameter(m.mk_const("guard-string-parameter", strings), m);
+            expr_ref other(m.mk_const("guard-string-other", strings), m);
+            expr_ref eq_parameter(m.mk_eq(s0, parameter), m);
+            expr_ref eq_other(m.mk_eq(s0, other), m);
+            expr_ref symbolic = algebra.mk_and(eq_parameter, algebra.mk_not(eq_other));
+            ENSURE(algebra.eval(symbolic) == l_undef);
+
+            sort* element_sort = strings;
+            symbol name("x");
+            expr_ref body_u(m.mk_eq(s0, excluded.get(2)), m);
+            expr_ref body_a(m.mk_eq(s0, excluded.get(3)), m);
+            expr_ref lambda_u(m.mk_lambda(1, &element_sort, &name, body_u), m);
+            expr_ref lambda_a(m.mk_lambda(1, &element_sort, &name, body_a), m);
+            expr_ref regex_u(u.re.mk_of_pred(lambda_u), m);
+            expr_ref regex_a(u.re.mk_of_pred(lambda_a), m);
+            sort_ref words(u.str.mk_seq(strings), m);
+            expr_ref all(u.re.mk_full_seq(u.re.mk_re(words)), m);
+            expr_ref prefix_u(u.re.mk_concat(all, regex_u), m);
+            expr_ref prefix_a(u.re.mk_concat(all, regex_a), m);
+            expr_ref contains_u(u.re.mk_concat(prefix_u, all), m);
+            expr_ref contains_a(u.re.mk_concat(prefix_a, all), m);
+            expr_ref avoiding_a(u.re.mk_complement(contains_a), m);
+            expr_ref language(u.re.mk_inter(contains_u, avoiding_a), m);
+            expr_ref conflict(u.re.mk_inter(language, contains_a), m);
+            seq_rewriter rw(m);
+            for (auto mode : {seq::transition_mode::brzozowski_tm,
+                              seq::transition_mode::light_antimirov_tm}) {
+                seq::regex_witness finder(rw, mode);
+                expr_ref word(m);
+                ENSURE(finder.get_witness(language, word) == l_true);
+                expr_ref_vector tokens(m);
+                u.str.get_concat_units(word, tokens);
+                expr* element = nullptr;
+                ENSURE(tokens.size() == 1 && u.str.is_unit(tokens.get(0), element));
+                ENSURE(m.are_equal(element, excluded.get(2)));
+                ENSURE(finder.nonempty(conflict) == l_false);
+            }
+        }
+
         sort_ref chars(u.mk_char_sort(), m);
         expr_ref c0(m.mk_var(0, chars), m);
         seq::predicate_algebra::cache cache(m);

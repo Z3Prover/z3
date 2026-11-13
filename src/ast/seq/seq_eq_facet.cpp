@@ -1346,11 +1346,11 @@ namespace seq {
         auto add_var = [&](expr* e) {
             expr* ch = nullptr;
             if (u.str.is_unit(e, ch)) {
-                if (!u.is_const_char(ch) && !vars.contains(e))
+                if (!m.is_value(e) && !vars.contains(e))
                     vars.push_back(e);
                 return;
             }
-            if (ac.is_var(e) && u.is_string(e->get_sort()) && !m.is_value(e) && !vars.contains(e))
+            if (ac.is_var(e) && u.is_seq(e) && !m.is_value(e) && !vars.contains(e))
                 vars.push_back(e);
         };
         for (auto const& eq : ac.eq_facet_ref().equations()) {
@@ -1398,14 +1398,15 @@ namespace seq {
         };
         vector<candidate> candidates;
         constexpr unsigned max_completion_length = 256;
+        th_rewriter rw(m);
         auto add_model_candidate = [&](expr* var, expr* preferred) {
             expr_ref value(m);
-            zstring str;
-            if (preferred && u.str.is_string(preferred, str))
+            if (preferred && preferred->get_sort() == var->get_sort() && m.is_value(preferred))
                 value = preferred;
             else {
                 rational len;
                 expr_ref len_var(u.str.mk_length(var), m);
+                rw(len_var);
                 if (!sf.value(len_var, len)) {
                     value = u.str.mk_empty(var->get_sort());
                     expr_ref_vector tokens(m);
@@ -1416,6 +1417,19 @@ namespace seq {
                 if (!len.is_unsigned() || len > rational(max_completion_length))
                     return false;
                 unsigned n = len.get_unsigned();
+                if (!u.is_string(var->get_sort())) {
+                    expr_ref_vector tokens(m);
+                    for (unsigned i = 0; i < n; ++i) {
+                        expr_ref nth(u.str.mk_nth_i(var, sf.get_arith_util().mk_int(i)), m);
+                        expr_ref element(m);
+                        if (!sf.value(nth, element) || !m.is_value(element))
+                            return false;
+                        tokens.push_back(u.str.mk_unit(element));
+                    }
+                    value = u.str.mk_concat(tokens, var->get_sort());
+                    candidates.push_back(candidate(m, var, value, tokens));
+                    return true;
+                }
                 svector<unsigned> chars;
                 svector<bool> fixed;
                 chars.resize(n, 0);
@@ -1497,7 +1511,6 @@ namespace seq {
 
         scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m, false);
         replacer->set_substitution(&subst);
-        th_rewriter rw(m);
         for (expr* var : vars) {
             if (is_uninterp_const(var))
                 continue;
