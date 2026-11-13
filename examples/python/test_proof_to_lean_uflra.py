@@ -6,11 +6,15 @@
 # Lean, and end-to-end checks that need the z3 executable and the pinned
 # Lean toolchain.
 ############################################
+import collections
 import copy
+from fractions import Fraction
 import json
 from pathlib import Path
 import random
+import re
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -337,6 +341,240 @@ def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2)
     solver = z3.Solver(ctx=context)
     solver.add(z3.parse_smt2_string(source, ctx=context))
     return source if solver.check() == z3.unsat else None
+
+
+# Real abs terms of constants under applications, reads, and floors. Z3's
+# rewriter evaluates (abs (- 2.5)) to 2.5, and the step that ties the
+# assertion to what the solver saw is then a congruence over the value.
+# Lean's abs is the ite (if t >= 0 then t else -t): each abs of a constant
+# is stated equal to its value and replaced by it
+# (proof_to_lean._abs_value_facts), and counts by its value where arguments
+# are compared (proof_to_lean._real_argument_key). On the clause log Lean
+# rejected each input marked "failed" (`grind` failed in a rewrite); the
+# legacy core's proof evaluates the abs in steps of its own and verified
+# them all.
+ABS_VALUE_INPUTS = {
+    # failed
+    "abs_of_a_negative_fraction": """(declare-fun g (Real) Real)
+(assert (not (= (g (abs (- 2.5))) (g 2.5))))
+""",
+    # failed: a rewrite and a theory lemma over the predicate
+    "abs_under_a_predicate": """(declare-fun r (Real) Bool)
+(assert (r (abs (- 0.5))))
+(assert (not (r 0.5)))
+""",
+    # failed
+    "abs_of_a_sum": """(declare-fun g (Real) Real)
+(assert (not (= (g (abs (+ 1.5 (- 4.0)))) (g 2.5))))
+""",
+    # failed
+    "abs_of_a_third": """(declare-fun g (Real) Real)
+(assert (not (= (g (abs (- (/ 1.0 3.0)))) (g (/ 1.0 3.0)))))
+""",
+    # failed
+    "abs_under_two_functions": """(declare-fun g (Real) Real)
+(assert (not (= (g (g (abs (- 2.5)))) (g (g 2.5)))))
+""",
+    # failed
+    "abs_in_two_assertions": """(declare-fun g (Real) Real)
+(assert (= (g (abs (- 2.5))) 1.0))
+(assert (= (g 2.5) 2.0))
+""",
+    # failed: the argument is a constant only with the abs counted by its
+    # value, and is then related to the numeral the rewriter leaves
+    "abs_in_a_sum_of_numerals": """(declare-fun g (Real) Real)
+(assert (not (= (g (+ (+ 2.0 (- 3.25)) (abs (- 0.25)))) (g (- 1.0)))))
+""",
+    # The two arguments have one linear form over x; verified before.
+    "abs_next_to_a_variable": """(declare-fun g (Real) Real)
+(declare-const x Real)
+(assert (not (= (g (+ x (abs (- 0.75)) 0.5)) (g (+ 1.25 x)))))
+""",
+    # failed: the abs's argument is a constant once x cancels
+    "abs_of_cancelling_variables": """(declare-fun g (Real) Real)
+(declare-const x Real)
+(assert (not (= (g (abs (+ x (- x) (- 2.5)))) (g 2.5))))
+""",
+    # failed: the outer abs is stated over the inner one's value
+    "nested_abs": """(declare-fun g (Real) Real)
+(assert (not (= (g (abs (- (abs (- 2.5)) 4.0))) (g 1.5))))
+""",
+    # failed: (abs (- 0.5)) and (abs (- (/ 1.0 2.0))) are one Lean term;
+    # the first one's replacement leaves the goal none for the second,
+    # whose replacement then only uses up its own fact
+    "one_abs_written_twice": """(declare-fun h (Real Real) Real)
+(assert (not (= (h (abs (- 0.5)) (abs (- (/ 1.0 2.0)))) (h 0.5 0.5))))
+""",
+    # An integer value, which grind reached by evaluating the literals.
+    "abs_of_an_integer": """(declare-fun g (Real) Real)
+(assert (not (= (g (abs (- 3.0))) (g 3.0))))
+""",
+}
+# The floor of an abs of a constant, in qf_uflira: the floor's value is
+# stated over the abs's (proof_to_lean._floor_shift_facts). The first four
+# failed.
+ABS_FLOOR_INPUTS = {
+    "floor_of_an_abs": """(declare-fun f (Int) Int)
+(assert (not (= (f (to_int (abs (- 2.5)))) (f 2))))
+""",
+    "is_int_of_an_abs": """(declare-fun r (Real) Bool)
+(assert (r 0.0))
+(assert (is_int (abs (- 2.5))))
+""",
+    # grind did not bound 3/4 - 2 - (if 1/2 >= 0 then 1/2 else -(1/2)).
+    "floor_of_a_difference_with_an_abs": """(declare-fun f (Int) Int)
+(assert (not (= (f (to_int (- (- 0.75 2.0) (abs 0.5)))) (f (- 2)))))
+""",
+    # Two floored terms of one value: their floors are equated by an
+    # argument helper, proved after the abs is replaced.
+    "floors_of_one_value": """(declare-fun f (Int) Int)
+(assert (not (= (f (to_int (- (+ (- 1.5) 2.25) (abs 3.25)))) (f (to_int (- (+ 0.0 2.5)))))))
+""",
+    # Two floored terms that differ by 2 with the abs counted by its value:
+    # the fact that relates their floors is stated over that value. Verified
+    # before (grind related the floors through the rewriter's normal forms).
+    "floors_that_differ_by_an_integer": """(declare-fun f (Int) Int)
+(declare-const x Real)
+(assert (not (= (f (to_int (+ x (abs (- 2.5))))) (f (+ (to_int (+ x 0.5)) 2)))))
+""",
+}
+# Reads and stores at an abs of a constant (clause log only). The third
+# input has no abs: its read is at a numeral expression that the rewriter
+# evaluates, next to three more in the arguments around it, and the two
+# indices are related as arguments are (proof_to_lean._real_argument_pairs);
+# it failed, as did the first (the store verified before). The last, in
+# qf_uflira, is floors_of_one_value in a certificate with arrays, where the
+# argument helper is stated over the terms written out and makes the
+# replacement in its own goal as well; it failed.
+ABS_ARRAY_INPUTS = {
+    "read_at_an_abs": """(declare-const a (Array Real Real))
+(assert (not (= (select a (abs (- 2.5))) (select a 2.5))))
+""",
+    "store_at_an_abs": """(declare-const a (Array Real Real))
+(assert (not (= (select (store a (abs (- 2.5)) 1.0) 2.5) 1.0)))
+""",
+    "read_at_a_numeral_expression_among_others": """(declare-fun g (Real) Real)
+(declare-fun h (Real Real) Real)
+(declare-const a (Array Real Real))
+(assert (not (= (h (g 2.75) (select a (+ (* 2.0 0.5) (+ (- 0.5) (- 0.75)))))
+                (h (* 2.0 (/ 9.0 8.0)) (+ (+ (- 1.75) (- 0.5)) 5.0)))))
+(assert (= (h (g 2.75) (select a (- 0.25))) (h 2.25 2.75)))
+""",
+    "floors_of_one_value_next_to_a_read": """(declare-fun f (Int) Int)
+(declare-const a (Array Int Int))
+(assert (= (select a 0) 0))
+(assert (not (= (f (to_int (- (+ (- 1.5) 2.25) (abs 3.25)))) (f (to_int (- (+ 0.0 2.5)))))))
+""",
+}
+
+
+def random_abs_value_instance(seed, variables=2, constraints=6, depth=2, floors=False, arrays=False):
+    """A random instance whose applications take Real abs terms of constants as arguments; None unless unsat.
+
+    g : Real -> Real, h : Real Real -> Real, and the predicate r over Real
+    are applied to expressions of three values in quarters, written with
+    abs, sums, differences, negations, and doubled halves of numerals, alone
+    or added to a Real variable. With floors, f : Int -> Int and the
+    predicate p over Int take the floors of such terms, and is_int tests
+    them; with arrays, an array from Real to Real is read and stored at
+    them.
+    """
+    generator = random.Random(seed)
+    lines = ["(declare-fun g (Real) Real)", "(declare-fun h (Real Real) Real)", "(declare-fun r (Real) Bool)"]
+    if floors:
+        lines += ["(declare-fun f (Int) Int)", "(declare-fun p (Int) Bool)"]
+    if arrays:
+        lines.append("(declare-const a (Array Real Real))")
+    lines += ["(declare-const x%d Real)" % i for i in range(variables)]
+    values = [Fraction(generator.randint(-11, 11), 4) for _ in range(3)]
+
+    def numeral(value):
+        text = "%d.%s" % (abs(value) // 1, {0: "0", Fraction(1, 4): "25", Fraction(1, 2): "5",
+                                            Fraction(3, 4): "75"}[abs(value) % 1])
+        return text if value >= 0 else "(- %s)" % text
+
+    def expression(value, depth):
+        """A constant expression of the value: a multiple of 1/4, or of 1/8 as a quotient."""
+        roll = generator.random()
+        if value.denominator > 4:
+            return "(/ %s %d.0)" % (numeral(Fraction(value.numerator)), value.denominator)
+        if depth == 0 or roll < 0.15:
+            return numeral(value)
+        if roll < 0.5 and value >= 0:
+            return "(abs %s)" % expression(generator.choice([1, -1]) * value, depth - 1)
+        if roll < 0.7:
+            part = Fraction(generator.randint(-9, 9), 4)
+            return "(+ %s %s)" % (expression(part, depth - 1), expression(value - part, depth - 1))
+        if roll < 0.8:
+            return "(- %s)" % expression(-value, depth - 1)
+        if roll < 0.9:
+            return "(* 2.0 %s)" % expression(value / 2, depth - 1)
+        part = Fraction(generator.randint(-9, 9), 4)
+        return "(- %s %s)" % (expression(part, depth - 1), expression(part - value, depth - 1))
+
+    def term():
+        roll = generator.random()
+        value = generator.choice(values)
+        if roll < 0.55:
+            return expression(value, depth)
+        if roll < 0.7:
+            return "(+ x%d %s)" % (generator.randrange(variables), expression(value, depth))
+        if roll < 0.8:
+            variable = generator.randrange(variables)
+            return "(abs (+ x%d %s (- x%d)))" % (variable, expression(value, depth - 1), variable)
+        if roll < 0.9:
+            return "(g %s)" % expression(value, depth)
+        if arrays:
+            return "(select a %s)" % expression(value, depth)
+        return "x%d" % generator.randrange(variables)
+
+    def atom():
+        roll = generator.random()
+        if roll < 0.3:
+            return "(= (g %s) (g %s))" % (term(), term())
+        if roll < 0.55:
+            return "(r %s)" % term()
+        if roll < 0.65:
+            return "(= (h %s %s) (h %s %s))" % (term(), term(), term(), term())
+        if roll < 0.75:
+            return "(%s %s %s)" % (generator.choice(["<=", "<", "="]), term(), term())
+        if floors and roll < 0.85:
+            return "(= (f (to_int %s)) (f (to_int %s)))" % (term(), term())
+        if floors and roll < 0.92:
+            return generator.choice(["(p (to_int %s))", "(is_int %s)"]) % term()
+        if arrays and roll < 0.9:
+            return "(= (select (store a %s %s) %s) %s)" % (term(), term(), term(), term())
+        return "(< (g %s) (g %s))" % (term(), term())
+
+    def literal():
+        return atom() if generator.random() < 0.5 else "(not %s)" % atom()
+
+    for _ in range(constraints):
+        if generator.random() < 0.3:
+            lines.append("(assert (or %s %s))" % (literal(), literal()))
+        else:
+            lines.append("(assert %s)" % literal())
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    solver = z3.Solver(ctx=z3.Context())
+    solver.set("timeout", 5000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Unsatisfiable seeds of random_abs_value_instance that Lean rejected on the
+# clause log before the abs terms of constants were replaced by their
+# values, by the generator's options: plain, 8 and 28 needing the abs counted
+# by its value in an argument's linear form; with floors, 255 two floored
+# terms of one value and 292 a floor of a difference with an abs; with
+# arrays, 211 and 347 a read at a numeral expression among others, and 111
+# the rewrite of an inequality over a variable and (abs 0.5), a step
+# without conversions that needs the abs replaced (the other pinned inputs
+# without floors verify with the values stated and nothing replaced). Seed
+# 219 with arrays verified before (grind split the abs and then identified
+# the read's index with its value; with the abs written as the numeral 2.75
+# it did not).
+ABS_VALUE_SEEDS = (({}, (8, 17, 28)), ({"floors": True}, (255, 292)), ({"arrays": True}, (111, 211, 219, 347)))
 
 
 def _th_lemma_nodes(certificate):
@@ -766,6 +1004,320 @@ class TestLegacyMixedLeanIntegration(_LeanIntegration):
             with self.subTest(seed=seed):
                 certificate, _ = self.check(source)
                 self.assertIn("monotonicity", certificate["rule_counts"])
+
+
+def _export_core(source, core):
+    if core == "legacy":
+        return proof_certificate.export_certificate(source)
+    return proof_certificate.export_clause_log_certificate(source)
+
+
+# One abs of a constant as the step states it: its value, then its replacement.
+_ABS_VALUE = re.compile(r"have _av(\d+) : (\(@ite Rat .*\)) = (\(\(-?\d+ : Rat\)(?: / \(\d+ : Rat\))?\)) := by grind$")
+_ABS_REPLACEMENT = "generalize %s = _at%s at *; subst _av%s"
+
+
+@unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+class TestAbsValueValidation(unittest.TestCase):
+    """Validation without Lean of the abs terms of constants: their values, where they are stated, what they key."""
+
+    def _values(self, source, core="clause-log"):
+        """The graph of the input's certificate and the value lines of all its abs terms of constants."""
+        graph = proof_to_lean._validate_graph(source, _export_core(source, core))
+        indices = collections.defaultdict(int)  # every variable rendered with index 0
+        lines, values = proof_to_lean._abs_value_facts(graph, set(range(len(graph.nodes))), indices, indices)
+        # A value and its replacement for each abs, over one text.
+        self.assertEqual(len(lines), 2 * len(values), lines)
+        for fact, replacement in zip(lines[::2], lines[1::2]):
+            match = _ABS_VALUE.match(fact)
+            self.assertIsNotNone(match, fact)
+            node, side, value = match.groups()
+            self.assertEqual(replacement, _ABS_REPLACEMENT % (side, node, node))
+            self.assertEqual(values[int(node)], value)
+            self.assertEqual(graph.kind(int(node)), z3.Z3_OP_ABS)
+        return graph, lines, values
+
+    def test_abs_of_a_constant_is_stated_and_replaced_by_its_value(self):
+        for name, value in (("abs_of_a_negative_fraction", "((5 : Rat) / (2 : Rat))"),
+                            ("abs_under_a_predicate", "((1 : Rat) / (2 : Rat))"),
+                            ("abs_of_a_sum", "((5 : Rat) / (2 : Rat))"),
+                            ("abs_of_a_third", "((1 : Rat) / (3 : Rat))"),
+                            ("abs_in_a_sum_of_numerals", "((1 : Rat) / (4 : Rat))"),
+                            ("abs_of_cancelling_variables", "((5 : Rat) / (2 : Rat))"),
+                            ("abs_of_an_integer", "((3 : Rat))")):
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    _, lines, values = self._values(ABS_VALUE_INPUTS[name], core)
+                    # The legacy proof also has the abs of the argument's
+                    # value, a node of its own.
+                    self.assertEqual(set(values.values()), {value}, lines)
+                    self.assertEqual(len(values), 1 if core == "clause-log" else 2, lines)
+        # The negated fraction's abs, written out as its ite.
+        _, lines, _ = self._values(ABS_VALUE_INPUTS["abs_of_a_negative_fraction"])
+        self.assertIn(" : (@ite Rat (((-(((5 : Rat) / (2 : Rat))))) >= ((0 : Rat))) (Classical.propDecidable _) "
+                      "((-(((5 : Rat) / (2 : Rat))))) (-((-(((5 : Rat) / (2 : Rat))))))) = ((5 : Rat) / (2 : Rat)) "
+                      ":= by grind", lines[0])
+
+    def test_a_nested_abs_is_stated_over_the_inner_value(self):
+        # |-5/2| = 5/2 first, then |5/2 - 4| = 3/2 over the numeral 5/2: one
+        # ite in each statement.
+        _, lines, values = self._values(ABS_VALUE_INPUTS["nested_abs"])
+        self.assertEqual(list(values.values()), ["((5 : Rat) / (2 : Rat))", "((3 : Rat) / (2 : Rat))"])
+        self.assertEqual(sorted(values), list(values))
+        inner, outer = (_ABS_VALUE.match(line).group(2) for line in lines[::2])
+        self.assertEqual((inner.count("@ite"), outer.count("@ite")), (1, 1))
+        self.assertIn("((((5 : Rat) / (2 : Rat))) - (((4 : Rat))))", outer)
+        # Two abs nodes that are one Lean term are both stated and replaced
+        # (the second replacement finds the term in its own fact).
+        _, lines, values = self._values(ABS_VALUE_INPUTS["one_abs_written_twice"])
+        self.assertEqual(list(values.values()), ["((1 : Rat) / (2 : Rat))"] * 2)
+
+    def test_other_abs_terms_have_no_value(self):
+        # An abs of a variable, an Int abs of a constant (the simplifier
+        # evaluates it), and an abs over the floor of a constant.
+        for source in ("(declare-fun g (Real) Real)\n(declare-const x Real)\n"
+                       "(assert (not (= (g (abs (- x))) (g (abs x)))))\n",
+                       "(declare-fun f (Int) Int)\n(assert (not (= (f (abs (- 3))) (f 3))))\n",
+                       "(declare-fun g (Real) Real)\n"
+                       "(assert (not (= (g (abs (- (to_real (to_int 2.5)) 4.5))) (g 2.5))))\n"):
+            with self.subTest(source=source):
+                graph, lines, _ = self._values(source)
+                self.assertTrue([node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ABS])
+                self.assertEqual(lines, [])
+                self.assertNotIn("_av", proof_to_lean.reconstruct(source, _export_core(source, "clause-log")))
+        # The Int abs still counts by its value where arguments are compared.
+        graph, _, _ = self._values("(declare-fun f (Int) Int)\n(assert (not (= (f (abs (- 3))) (f 3))))\n")
+        node = next(node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ABS)
+        self.assertEqual(proof_to_lean._abs_free_value(graph, node), 3)
+        self.assertEqual(proof_to_lean._real_argument_key(graph, node), ((), 3))
+
+    def test_arguments_are_keyed_by_the_value_of_an_abs(self):
+        # (+ x (abs (- 0.75)) 0.5) and (+ 1.25 x) have one key, and the
+        # helper that equates them replaces the abs in its own goal.
+        source = ABS_VALUE_INPUTS["abs_next_to_a_variable"]
+        graph, _, values = self._values(source)
+        (node,) = values
+        arguments = [argument for parent in range(len(graph.nodes))
+                     if graph.kind(parent) == z3.Z3_OP_UNINTERPRETED for argument in graph.arguments(parent)]
+        self.assertEqual(len(set(arguments)), 2)
+        self.assertEqual(len({proof_to_lean._real_argument_key(graph, argument) for argument in arguments}), 1)
+        self.assertEqual(proof_to_lean._real_argument_key(graph, arguments[0])[1], Fraction(5, 4))
+        self.assertIn(tuple(sorted(set(arguments))),
+                      proof_to_lean._real_argument_pairs(graph, set(range(len(graph.nodes)))))
+        text = proof_to_lean.reconstruct(source, _export_core(source, "clause-log"))
+        self.assertRegex(text, r"have _r\d+_\d+ : \(term_\d+ [^=]*= \(term_\d+ [^:]* := by unfold [^;]*term_%d[^;]*; "
+                               r"\(have _av%d : \(@ite Rat .* := by grind\); "
+                               r"\(generalize \(@ite Rat .* = _at%d at \*; subst _av%d\); grind"
+                               % ((node,) * 4))
+        # In the step itself the replacement follows the helpers and
+        # precedes the tactic.
+        self.assertRegex(text, r"\n +unfold [^\n]* at _r\d+_\d+\n +have _av%d : [^\n]* := by grind\n"
+                               r" +generalize [^\n]* = _at%d at \*; subst _av%d\n +grind \(splits := 64\)\)"
+                               % ((node,) * 3))
+        # In a certificate with arrays the helper is stated over the terms
+        # written out, and makes the replacement in its goal the same way.
+        source = ABS_ARRAY_INPUTS["floors_of_one_value_next_to_a_read"]
+        text = proof_to_lean.reconstruct(source, _export_core(source, "clause-log"))
+        self.assertRegex(text, r"have _r\d+_\d+ : \(Rat\.floor [^\n]* := by "
+                               r"\(have _av\d+ : \(@ite Rat [^\n]* := by grind\); "
+                               r"\(generalize \(@ite Rat [^\n]* = _at\d+ at \*; subst _av\d+\); first \| ")
+
+    def test_floors_are_stated_over_the_value_of_an_abs(self):
+        # floor |-5/2| = 2 and floor (3/4 - 2 - |1/2|) = -2, both over the
+        # numeral that replaced the abs, after its replacement.
+        for name, floored, value in (
+                ("floor_of_an_abs", "((5 : Rat) / (2 : Rat))", "2"),
+                ("floor_of_a_difference_with_an_abs",
+                 "((((((3 : Rat) / (4 : Rat))) - (((2 : Rat))))) - (((1 : Rat) / (2 : Rat))))", "-2")):
+            with self.subTest(name=name):
+                source = ABS_FLOOR_INPUTS[name]
+                certificate = _export_core(source, "clause-log")
+                self.assertEqual(certificate["fragment"], "qf_uflira")
+                text = proof_to_lean.reconstruct(source, certificate)
+                fact = "have _zi%%s : Rat.floor (%s) = (((%s : Int))) := _floor_value _ _ " % (floored, value)
+                self.assertRegex(text, r"\n +have _av\d+ : [^\n]*\n +generalize [^\n]* = _at\d+ at \*; "
+                                       r"subst _av\d+\n +" + re.escape(fact).replace("%s", r"\d+", 1))
+                self.assertIn("try (generalize Rat.floor (%s) = _fv" % floored, text)
+        # Without the map of replaced terms the floor of an abs has no value.
+        source = ABS_FLOOR_INPUTS["floor_of_an_abs"]
+        graph, _, values = self._values(source)
+        indices = collections.defaultdict(int)
+        self.assertEqual(proof_to_lean._floor_shift_facts(graph, list(values), indices, indices), ([], []))
+        facts, substitutions = proof_to_lean._floor_shift_facts(graph, list(values), indices, indices, values)
+        self.assertEqual((len(facts), len(substitutions)), (2, 1))
+        # The floors of two terms that differ by an integer are related over
+        # the value too: floor (x + 5/2) = floor (x + 1/2) + 2, no abs left.
+        source = ABS_FLOOR_INPUTS["floors_that_differ_by_an_integer"]
+        shifts = re.findall(r"have _di\d+_\d+ := [^\n]*", proof_to_lean.reconstruct(
+            source, _export_core(source, "clause-log")))
+        self.assertIn("(show (((_vars 0) + (((5 : Rat) / (2 : Rat))))) = (((_vars 0) + (((1 : Rat) / (2 : Rat))))) + "
+                      "(((((2 : Int))) : Int) : Rat) by push_cast; grind)", "\n".join(shifts))
+        for shift in shifts:
+            self.assertNotIn("@ite", shift)
+
+    def test_constant_indices_of_reads_are_related_as_arguments(self):
+        source = ABS_ARRAY_INPUTS["read_at_a_numeral_expression_among_others"]
+        certificate = _export_core(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        indices = sorted({graph.arguments(node)[1] for node in range(len(graph.nodes))
+                          if graph.kind(node) == z3.Z3_OP_SELECT})
+        # The input's two indices and the rewriter's numeral.
+        self.assertGreaterEqual(len(indices), 2)
+        self.assertEqual({proof_to_lean._abs_free_value(graph, index) for index in indices}, {Fraction(-1, 4)})
+        pairs = proof_to_lean._real_argument_pairs(graph, set(range(len(graph.nodes))))
+        text = proof_to_lean.reconstruct(source, certificate)
+        for pair in zip(indices, indices[1:]):
+            self.assertIn(pair, pairs)
+        # Each step states the pairs it reaches: the rewrite the input's
+        # index and the numeral.
+        stated = {(int(first), int(second))
+                  for first, second in re.findall(r"have _r(\d+)_(\d+) : .* = .* := by grind", text)}
+        self.assertTrue([pair for pair in stated if set(pair) <= set(indices)], stated)
+        # An index over a variable is no constant: reads at (+ i 1.0) and
+        # (+ 1.0 i) are left to grind, as before.
+        source = ("(declare-fun g (Real) Real)\n(declare-const a (Array Real Real))\n(declare-const i Real)\n"
+                  "(assert (not (= (g (select a (+ i 1.0))) (g (select a (+ 1.0 i))))))\n")
+        self.assertNotIn("have _r", proof_to_lean.reconstruct(source, _export_core(source, "clause-log")))
+
+
+# The lines of a step that state the value of an abs of a constant and
+# replace it, and the segments an argument helper puts before its tactic.
+_STEP_ABS_VALUE = r"\s*have _av\d+ : \(@ite Rat .* := by grind$"
+_STEP_ABS_REPLACEMENT = r"\s*generalize \(@ite Rat .* = _at\d+ at \*; subst _av\d+$"
+_HELPER_ABS_VALUE = r"\(have _av\d+ : \(@ite Rat [^\n;]* := by grind\); "
+_HELPER_ABS_REPLACEMENT = r"\(generalize \(@ite Rat [^\n;]* = _at\d+ at \*; subst _av\d+\); "
+
+
+def _without_abs_values(text, steps=True, helpers=True, values=True):
+    """The Lean text without the replacements of its abs terms of constants by their values.
+
+    In the steps, in the goals of their argument helpers, or both; with
+    values the facts that state the values are left out too, otherwise
+    they stay and only the generalize and subst go.
+    """
+    if steps:
+        patterns = [_STEP_ABS_REPLACEMENT] + ([_STEP_ABS_VALUE] if values else [])
+        text = "\n".join(line for line in text.split("\n")
+                         if not any(re.match(pattern, line) for pattern in patterns))
+    if helpers:
+        text = re.sub((_HELPER_ABS_VALUE if values else "") + _HELPER_ABS_REPLACEMENT, "", text)
+    return text
+
+
+@unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+class TestAbsValueLeanIntegration(unittest.TestCase):
+    """End-to-end over abs terms of constants: both proof cores, certificate, Lean reconstruction, kernel check."""
+
+    # The array inputs are in qf_uflra but the one that floors.
+    INPUTS = ([(name, source, "qf_uflra", ("clause-log", "legacy")) for name, source in ABS_VALUE_INPUTS.items()]
+              + [(name, source, "qf_uflira", ("clause-log", "legacy")) for name, source in ABS_FLOOR_INPUTS.items()]
+              + [(name, source, "qf_uflira" if "to_int" in source else "qf_uflra", ("clause-log",))
+                 for name, source in ABS_ARRAY_INPUTS.items()])
+    BINDERS = {"qf_uflra": proof_to_lean._UFLRA_BINDERS, "qf_uflira": proof_to_lean._UFLIRA_BINDERS}
+
+    def check(self, source, core, fragment):
+        certificate = _export_core(source, core)
+        self.assertEqual(certificate["fragment"], fragment)
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertIn(self.BINDERS[fragment], statement)
+        axioms = re.search(r"\.unsat' depends on axioms: \[(.*?)\]", report)
+        self.assertIsNotNone(axioms, report)
+        self.assertLessEqual(set(axioms.group(1).split(", ")), {"propext", "Classical.choice", "Quot.sound"}, report)
+        return text
+
+    def rejected(self, name, **parts):
+        """Check that Lean rejects a clause-log certificate, by a failing grind, without parts of its replacements.
+
+        name is a documented input or (seed, options) of the generator;
+        parts are _without_abs_values's. Returns the texts, whole and
+        without the parts.
+        """
+        if isinstance(name, str):
+            source = {**ABS_VALUE_INPUTS, **ABS_FLOOR_INPUTS, **ABS_ARRAY_INPUTS}[name]
+        else:
+            source = random_abs_value_instance(name[0], **name[1])
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % name[0])
+        text = proof_to_lean.reconstruct(source, _export_core(source, "clause-log"))
+        stripped = _without_abs_values(text, **parts)
+        self.assertNotEqual(stripped, text)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "stripped.lean"
+            output.write_text(stripped)
+            result = lean_test_support.run_check_lean(output)
+        report = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, report)
+        errors = [line for line in report.split("\n") if "error:" in line]
+        self.assertTrue(errors, report)
+        for error in errors:
+            self.assertIn("`grind` failed", error)
+        return text, stripped
+
+    def test_documented_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export_core(source, core)) for _, source, _, cores in self.INPUTS
+                                    for core in cores)
+        for name, source, fragment, cores in self.INPUTS:
+            for core in cores:
+                with self.subTest(name=name, core=core):
+                    text = self.check(source, core, fragment)
+                    if core == "clause-log" and "(abs " in source:
+                        self.assertIn("have _av", text)
+
+    def test_pinned_random_instances_verify_on_both_cores(self):
+        for options, seeds in ABS_VALUE_SEEDS:
+            for seed in seeds:
+                source = random_abs_value_instance(seed, **options)
+                self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+                for core in ("clause-log",) if "arrays" in options else ("clause-log", "legacy"):
+                    with self.subTest(seed=seed, options=sorted(options), core=core):
+                        text = self.check(source, core, "qf_uflira" if "floors" in options else "qf_uflra")
+                        if core == "clause-log":
+                            self.assertIn("have _av", text)
+
+    def test_the_values_are_needed(self):
+        # Without the values and replacements Lean rejects the rewrites
+        # over floors, in the step and in the helper that equates two
+        # floors. (An argument that is an abs is related to its value by an
+        # argument helper as well, which grind proves by splitting the abs.)
+        for name in ("floor_of_an_abs", "floor_of_a_difference_with_an_abs", "floors_of_one_value"):
+            with self.subTest(name=name):
+                _, stripped = self.rejected(name)
+                self.assertNotIn("_av", stripped)
+
+    def test_the_replacements_are_needed(self):
+        # With every value still stated and only the replacements left out
+        # Lean rejects these too: the abs terms the facts are about are the
+        # goal's, and the steps rest on their being replaced there. (That a
+        # replacement succeeds shows nothing: the generalize always finds
+        # its term in the fact stated before it.) Under floors, in the
+        # folded and the written out argument helper, and without floors in
+        # the rewrite of an inequality over a variable and an abs (seed 111).
+        for name in ("floor_of_an_abs", "floors_of_one_value", "floors_of_one_value_next_to_a_read",
+                     (111, {"arrays": True})):
+            with self.subTest(name=name):
+                text, stripped = self.rejected(name, values=False)
+                self.assertEqual(stripped.count("have _av"), text.count("have _av"))
+                self.assertNotRegex(stripped, r"_at\d")
+
+    def test_the_helpers_replace_in_their_own_goals(self):
+        # With the steps' own replacements kept, Lean rejects the helper
+        # that equates two floors once it proves the equality over the abs
+        # as written: stated folded, and written out next to arrays.
+        for name in ("floors_of_one_value", "floors_of_one_value_next_to_a_read"):
+            with self.subTest(name=name):
+                _, stripped = self.rejected(name, steps=False)
+                self.assertNotIn("(have _av", stripped)
+                self.assertRegex(stripped, r"\n +have _av\d+ : ")
+
+    def test_the_steps_replace_after_their_helpers(self):
+        # With the helpers' replacements kept, Lean rejects the step that
+        # does not make its own: among the facts of the conversions, and in
+        # a step without conversions (seed 111, the rewrite of an inequality).
+        for name in ("floor_of_a_difference_with_an_abs", (111, {"arrays": True})):
+            with self.subTest(name=name):
+                _, stripped = self.rejected(name, helpers=False)
+                self.assertNotRegex(stripped, r"\n +have _av\d+ : ")
 
 
 if __name__ == "__main__":

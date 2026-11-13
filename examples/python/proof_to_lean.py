@@ -1315,6 +1315,9 @@ class _Graph:
     # The value of each node evaluated by _numeral_expression_value, None if
     # it is not a numeral expression (a cache: the nodes form a shared DAG).
     numeral_values: dict = field(default_factory=dict, compare=False, repr=False)
+    # The value of each node evaluated by _abs_free_value, None if it has
+    # none (a cache, as numeral_values).
+    abs_free_values: dict = field(default_factory=dict, compare=False, repr=False)
     # The keys of _real_argument_key and _real_atom_key, by ("argument" or
     # "atom", node) (a cache: keying a nested ite chain revisits each level
     # from its condition and both branches), and the interned atom key of
@@ -3133,12 +3136,13 @@ def _common_denominator(terms, constant):
     return scale
 
 
-def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, integer, folded=False):
+def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, integer, folded=False,
+                 generalized=None):
     """Render scale * (terms + constant) with integer coefficients, as grind's linear module wants it.
 
     integer is whether the form is over Int (the sort of the atom or term it
     comes from); folded renders the atoms of the form by their definitions
-    (term_N) instead of written out.
+    (term_N) instead of written out, and generalized is _inline's.
     """
     # The linear form's variables are Real variables and opaque ite terms,
     # and in qf_lira Int ones a Real atom reaches through to_real.
@@ -3146,7 +3150,7 @@ def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, 
     parts = []
     for variable in sorted(terms):
         rendered = (_term(graph, variable) if folded
-                    else _inline(graph, variable, atom_indices, variable_indices))
+                    else _inline(graph, variable, atom_indices, variable_indices, generalized))
         if not integer and graph.is_int(variable):
             rendered = "((%s : Int) : Rat)" % rendered
         parts.append("((%d : %s)) * %s" % (terms[variable] * scale, number_type, rendered))
@@ -3387,9 +3391,12 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     if fold and graph.enumerations:
         lines_e, names_e, nodes_e = _folded_enumeration_cases(graph, scope, variable_indices)
         gates, gate_names, gate_nodes = gates + lines_e, gate_names + names_e, gate_nodes | nodes_e
+    abs_facts, abs_values = _abs_value_facts(graph, scope, atom_indices, variable_indices)
     lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, scope, atom_indices, variable_indices, node,
-                                                        folded=fold)
+                                                        folded=fold, values=(abs_facts, abs_values))
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
+    if cast_facts:
+        abs_facts = []  # stated among the cast facts, before the floors' values
     shared = (gates, gate_names, gate_nodes, remaining)
 
     def bodies_through(undecided):
@@ -3429,6 +3436,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             fallback.extend(helper.strip() for helper in _constant_array_comparisons(
                 graph, reachable, atom_indices, variable_indices))
             fallback.extend(pointwise_facts)
+        fallback.extend(abs_facts)
         fallback.extend(cast_facts)
         # grind alone for an euf lemma: congruence closure is its business, not
         # omega's.
@@ -3639,7 +3647,7 @@ private theorem _int_cast_eq (s t : Int) :
 """.strip("\n").split("\n")
 
 
-def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, folded=False):
+def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, folded=False, values=((), None)):
     """Transport the Int atoms of a theory step reaching to_real into Rat, then push the casts.
 
     Through (to_real t), Int terms occur in Real atoms, and a lemma such as
@@ -3664,7 +3672,11 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, fol
     integer are related (_floor_shift_facts). A lattice step (node,
     a cut or a coefficient-free farkas or bound) also gets its projection
     onto its Int atoms (_projection_facts). Steps reaching no conversion
-    get nothing.
+    get nothing. values are the step's replacements of the abs terms
+    that are constants by their values and the map of those terms to their
+    values (_abs_value_facts): the replacements are made here, after the
+    facts stated over the terms as the goal has them and before the facts
+    of the floors, which are stated over the values.
 
     Returns the have lines stated folded, their names, the nodes they are
     about, and the remaining tactic lines. With folded, the floor bounds
@@ -3715,7 +3727,8 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, fol
         instances.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
         names.append("_c%d" % formula)
         nodes.update(arguments)
-    shifts, substitutions = _floor_shift_facts(graph, floors, atom_indices, variable_indices)
+    facts.extend(values[0])
+    shifts, substitutions = _floor_shift_facts(graph, floors, atom_indices, variable_indices, values[1])
     facts.extend(shifts)
     if node is not None:
         facts.extend(_projection_facts(graph, node, atom_indices, variable_indices))
@@ -3863,7 +3876,7 @@ private theorem _floor_value (a : Rat) (k : Int) (_lower : (k : Rat) <= a) (_upp
 """.strip("\n").split("\n")
 
 
-def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
+def _floor_shift_facts(graph, floors, atom_indices, variable_indices, replaced=None):
     """Relate the floors of Real terms a and b whose difference D is an integer: floor a = floor b + D.
 
     Returns the facts and, apart, the substitutions of the floors of
@@ -3897,6 +3910,12 @@ def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
     proves it at once over -2. The floor is generalized and the variable
     substituted by the value, which leaves the goal open where a simp with
     the equation may close it.
+
+    An abs of a constant in a floored term counts by its value
+    (_abs_free_value): (to_int (abs (- 2.5))) is 2. replaced maps those
+    abs terms to their rendered values, which the step has put in their
+    place before these facts (_abs_value_facts), so the facts are stated
+    over the values too.
     """
     forms = {}
     for argument in floors:
@@ -3905,14 +3924,17 @@ def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
             constant = _linear_term(graph, argument, Fraction(1), terms)
         except ReconstructionError:
             continue
+        for atom in [atom for atom in terms if atom in (replaced or ())]:
+            constant += terms.pop(atom) * _abs_free_value(graph, atom)
         forms[argument] = ({atom: value for atom, value in terms.items() if value}, constant)
     facts, values = [], []
     cast = "congrArg (fun (_t : Int) => ((_t : Int) : Rat))"
     for argument, (terms, constant) in sorted(forms.items()):
         if any(not graph.is_int(atom) or value.denominator != 1 for atom, value in terms.items()):
             continue
-        value = _scaled_form(graph, terms, Fraction(math.floor(constant)), 1, atom_indices, variable_indices, True)
-        side = _inline(graph, argument, atom_indices, variable_indices)
+        value = _scaled_form(graph, terms, Fraction(math.floor(constant)), 1, atom_indices, variable_indices, True,
+                             generalized=replaced)
+        side = _inline(graph, argument, atom_indices, variable_indices, replaced)
         if not terms:
             # Under try: two floored nodes may be one Lean term, the numeral
             # 1/2 and the quotient (/ 1.0 2.0), and the first one's
@@ -3937,8 +3959,10 @@ def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
         if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in difference.items())
                 or constant.denominator != 1):
             continue
-        offset = _scaled_form(graph, difference, constant, 1, atom_indices, variable_indices, True)
-        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in (first, second)]
+        offset = _scaled_form(graph, difference, constant, 1, atom_indices, variable_indices, True,
+                              generalized=replaced)
+        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices, replaced)
+                 for argument in (first, second)]
         facts.append("have _di%d_%d := (congrArg Rat.floor (show %s = %s + (((%s) : Int) : Rat) by push_cast; grind))"
                      ".trans Rat.floor_add_intCast" % (first, second, sides[0], sides[1], offset))
         facts.append("have _d%d_%d := %s _di%d_%d" % (first, second, cast, first, second))
@@ -4066,6 +4090,93 @@ def _numeral_value(graph, node):
     except ReconstructionError:
         return None
     return None if any(terms.values()) else constant
+
+
+def _abs_free_value(graph, node):
+    """The value of an arithmetic node that is a constant once every abs of such a node is its value, or None.
+
+    (abs (- 2.5)) is 5/2, and so are (+ (abs (- 0.5)) 2.0) and (abs (abs
+    (- 2.5))): the linear form of the node (_linear_term) with each abs
+    atom replaced by the absolute value of its argument's value. Any other
+    atom leaves the node without a value, a floor of a constant too (an
+    abs over one keeps its ite). Values are cached in
+    graph.abs_free_values.
+    """
+    if node not in graph.abs_free_values:
+        graph.abs_free_values[node] = _evaluate_abs_free(graph, node)
+    return graph.abs_free_values[node]
+
+
+def _evaluate_abs_free(graph, node):
+    """_abs_free_value of a node, given those of the abs atoms of its linear form."""
+    if not graph.is_arith(node):
+        return None
+    if graph.kind(node) == z3.Z3_OP_ABS:
+        value = _abs_free_value(graph, graph.arguments(node)[0])
+        return None if value is None else abs(value)
+    terms = {}
+    try:
+        constant = _linear_term(graph, node, Fraction(1), terms)
+    except ReconstructionError:
+        return None
+    for atom, coefficient in terms.items():
+        if not coefficient:
+            continue
+        value = _abs_free_value(graph, atom) if graph.kind(atom) == z3.Z3_OP_ABS else None
+        if value is None:
+            return None
+        constant += coefficient * value
+    return constant
+
+
+def _constant_abs(graph, node):
+    """Whether a node is an abs of a constant (_abs_free_value)."""
+    return graph.kind(node) == z3.Z3_OP_ABS and _abs_free_value(graph, node) is not None
+
+
+def _abs_value_facts(graph, reachable, atom_indices, variable_indices):
+    """Replace each Real abs of a constant a step reaches by its value: tactic lines, and the abs nodes' values.
+
+    Z3's rewriter evaluates (abs (- 2.5)) to 2.5, and the rewrite of (g
+    (abs (- 2.5))) into (g 2.5), of a read at that index, of a predicate
+    of it, or of its floor rests on the value. Lean's abs is the ite (if t
+    >= 0 then t else -t), and grind, having split it, is left with the
+    branch -(-(5/2)) in the argument, which it does not identify with the
+    numeral 5/2 there: its arithmetic normalizes the atoms it compares, not
+    the arguments of applications (an integer value it does reach, by
+    evaluating the literals), and it does not bound a sum over a split ite
+    whose branch is a fraction ((to_int (- 0.75 (abs 0.5))) had no floor).
+    So each such abs is stated equal to its value (_abs_free_value), which
+    grind proves on its own, and then replaced by it in the goal and in
+    every fact stated so far: generalized, and the variable substituted by
+    the value, as the floor of a constant is (_floor_shift_facts). After
+    that the step is the one of the input with the numeral written out,
+    whose arguments grind compares as it does any numeral expression's.
+
+    In node order, an abs nested in another first; the outer one is stated
+    over the inner one's value, as the goal then has it. The replacement
+    is not under try: the generalize always has an occurrence to abstract,
+    the one in the fact just stated, also when two abs nodes are one Lean
+    term ((abs 0.5) and (abs (/ 1.0 2.0)), where the first one's
+    replacement leaves the goal none for the second) or the abs occurs
+    only inside a folded array term; so a failure of either tactic is an
+    error of the step and not a replacement silently left out. That it
+    succeeds does not show that the goal had the term as it is rendered
+    here: the tests check that on inputs Lean rejects with the facts
+    stated and the replacements left out. An Int abs of a constant gets
+    none: the simplifier evaluates it. The second result maps each
+    replaced node to its rendered value, for the facts stated after the
+    replacement (_inline's generalized).
+    """
+    lines, values = [], {}
+    for node in sorted(reachable):
+        if _constant_abs(graph, node) and not graph.is_int(node):
+            side = _inline(graph, node, atom_indices, variable_indices, values)
+            value = _numeral("Real", _abs_free_value(graph, node))
+            lines.append("have _av%d : %s = %s := by grind" % (node, side, value))
+            lines.append("generalize %s = _at%d at *; subst _av%d" % (side, node, node))
+            values[node] = value
+    return lines, values
 
 
 def _distinct_values(graph, left, right):
@@ -5712,7 +5823,10 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     argument may share a linear form ((ite c 1 0) and (ite c 1.0 0.0)), and
     they are injected by different maps, so no helper relates them. The
     terms that formulas floor are related the same way (_real_argument_pairs),
-    also in certificates without uninterpreted symbols.
+    also in certificates without uninterpreted symbols, and so are the
+    constant indices of reads. An abs of a constant counts by its value in
+    the normal form, and each equality over one is proved after the abs is
+    replaced by that value (_abs_value_facts).
 
     Without arrays each equality is stated over the two terms' definitions,
     folded, proved after unfolding them, and then unfolded in place into
@@ -5732,11 +5846,18 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     """
     helpers = []
     pairs = _real_argument_pairs(graph, reachable)
+
+    def values(nodes):
+        # The replacements of the abs terms of constants among the nodes
+        # by their values, in the goal of an equality before its tactic.
+        return "".join("(%s); " % line for line in _abs_value_facts(graph, nodes, atom_indices, variable_indices)[0])
+
     if graph.arrays:
         for first, second in pairs:
-            helpers.append("  have _r%d_%d : %s = %s := by %s" % (
+            helpers.append("  have _r%d_%d : %s = %s := by %s%s" % (
                 first, second, _inline(graph, first, atom_indices, variable_indices),
-                _inline(graph, second, atom_indices, variable_indices), _theory_tactic(graph)))
+                _inline(graph, second, atom_indices, variable_indices),
+                values(_reachable(graph, first, second)[0]), _theory_tactic(graph)))
         return helpers
     stated, seen = [], set()
     for first, second in pairs:
@@ -5745,10 +5866,10 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
                 continue
             seen.add((left, right))
             stated.append((left, right))
-            names = _definition_names(graph, _reachable_outside(graph, left, stops)
-                                      | _reachable_outside(graph, right, stops))
-            helpers.append("  have _r%d_%d : %s = %s := by unfold %s; %s" % (
-                left, right, _term(graph, left), _term(graph, right), " ".join(names), _theory_tactic(graph)))
+            unfolded = _reachable_outside(graph, left, stops) | _reachable_outside(graph, right, stops)
+            helpers.append("  have _r%d_%d : %s = %s := by unfold %s; %s%s" % (
+                left, right, _term(graph, left), _term(graph, right), " ".join(_definition_names(graph, unfolded)),
+                values(unfolded), _theory_tactic(graph)))
     for first, second in pairs:
         names = " ".join(_definition_names(graph, _reachable(graph, first, second)[0]))
         helpers.append("  unfold %s at _r%d_%d" % (names, first, second))
@@ -5801,8 +5922,9 @@ def _argument_equality_levels(graph, first, second):
             if graph.kind(atom) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS, z3.Z3_OP_TO_INT):
                 groups.setdefault(_real_atom_key(graph, atom), []).append(atom)
         # The two terms themselves are unfolded, even when one is an atom of
-        # its own linear form (an application or a variable).
-        stop = set(level) - {left, right}
+        # its own linear form (an application or a variable), and so is an
+        # abs of a constant, which the keys count by its value.
+        stop = {atom for atom in level if not _constant_abs(graph, atom)} - {left, right}
         for members in groups.values():
             if len(members) < 2:
                 continue
@@ -5850,11 +5972,19 @@ def _real_argument_pairs(graph, reachable):
     them) by congruence instead of splitting both chains: six nested Real
     ites under is_int, compared directly or under a predicate, ran grind out
     of its splits.
+
+    So are the indices of reads that are constants (_abs_free_value): the
+    rewriter evaluates (select a (+ (* 2.0 0.5) (- 0.75))) to a read at 0.25,
+    another node, and grind, which usually identifies the two indices on
+    its own, did not in a rewrite with three more numeral expressions in
+    eighths, quarters, and halves among the arguments around the read.
     """
     groups = {}
     for node in sorted(reachable):
         if graph.kind(node) == z3.Z3_OP_UNINTERPRETED:
             candidates = [argument for argument in graph.arguments(node) if graph.is_arith(argument)]
+        elif graph.kind(node) == z3.Z3_OP_SELECT:
+            candidates = [index for index in graph.arguments(node)[1:] if _abs_free_value(graph, index) is not None]
         elif graph.floors and not graph.is_term(node):
             candidates = _floored_terms(graph, node)
         else:
@@ -5914,12 +6044,17 @@ def _real_argument_key(graph, node):
     complement of the canonical atom) and by the keys of its branches. Two
     terms with one key denote the same value, which the theory tactic
     proves and the helper states. A to_int is keyed by its argument's key.
+    An abs of a constant counts by its value (_constant_abs), as the
+    rewriter evaluates it: (+ x (abs (- 0.25)) 0.5) has the key of (+ 0.75
+    x).
     """
     cached = graph.real_keys.get(("argument", node))
     if cached is not None:
         return cached
     terms = {}
     constant = _linear_term(graph, node, Fraction(1), terms)
+    for atom in [atom for atom in terms if _constant_abs(graph, atom)]:
+        constant += terms.pop(atom) * _abs_free_value(graph, atom)
     atoms = [(_real_atom_key(graph, atom), value) for atom, value in terms.items() if value != 0]
     key = (tuple(sorted(atoms, key=repr)), constant)
     graph.real_keys[("argument", node)] = key

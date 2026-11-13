@@ -4332,6 +4332,60 @@ plus four random seeds, with Lean and `#print axioms`; all 18 runs were
 rejected before), `test_real_abs_is_stated_as_its_ite_over_rat`, and the
 classification tests in `test_proof_certificate.py`.
 
+Update (2026-11-12): Real `abs` of a constant. Z3's rewriter evaluates
+`(abs (- 2.5))` to `2.5`, and the rewrite of `(g (abs (- 2.5)))` into `(g
+2.5)`, of a read at that index, of a predicate of it, or of its floor rests
+on the value. `grind`, having split the ite, does not identify the branch
+`-(-(5/2))` with the numeral under an application (an integer value it
+does reach), and does not bound a sum over a split ite whose branch is a
+fraction, so on the clause log Lean rejected these inputs (`grind` failed in
+a rewrite; the legacy core's proof evaluates the abs in steps of its own
+and verified them). Now:
+
+- every Real `abs` of a constant a step reaches (its argument's linear form
+  is a constant, with an `abs` of a constant under it counted by its value:
+  `_abs_free_value`) is stated equal to its value, `have _avN : (if t >= 0
+  then t else -t) = v := by grind`, and replaced by it in the goal and the
+  facts stated so far (`generalize`, then `subst`), inner ones first
+  (`_abs_value_facts`); the step is then the one of the input with the
+  numeral written out. The replacement is not under `try`: the
+  `generalize` always has the occurrence in the fact just stated, also for
+  the second of two `abs` nodes that are one Lean term, so a failure is an
+  error of the step. Its success does not show that the goal had the term;
+  the tests show that on inputs Lean rejects with the facts stated and the
+  replacements left out;
+- the facts of floors come after the replacement and are stated over the
+  values (`_floor_shift_facts`): `(to_int (abs (- 2.5)))` is `2`;
+- an `abs` of a constant counts by its value in the normal form of an
+  argument (`_real_argument_key`), so `(+ (+ 2.0 (- 3.25)) (abs (- 0.25)))`
+  is related to `(- 1.0)` by an argument helper, which makes the same
+  replacement in its own goal before its tactic (stated folded, or written
+  out in a certificate with arrays);
+- the constant indices of reads are related as arguments are
+  (`_real_argument_pairs`): after the replacement a read at an `abs` is a
+  read at a numeral expression, and `grind` did not identify `(select a (+
+  (* 2.0 0.5) (+ (- 0.5) (- 0.75))))` with the read at `(- 0.25)` among three
+  more numeral expressions in the arguments around it (with or without an
+  `abs` in the input).
+
+Each fact is a `have` the kernel checks and each replacement is by an
+equation proved in the step; the definitions of the terms are unchanged.
+Measured with `random_abs_value_instance` (`test_proof_to_lean_uflra.py`):
+of the 151 unsatisfiable seeds in 1-500, 70 failed in Lean on the clause
+log; with floors 69 of 132 (seeds 1-400); with arrays 53 of 116 (1-400);
+all 399 verify now, and the 150 legacy runs (seeds 1-250, plain and with
+floors) verify as before. Still failing: an `abs` over the floor of a
+constant, `(g (abs (- (to_real (to_int 2.5)) 4.5)))`, which gets no value
+(the floor's is stated after the replacements). Tests:
+`TestAbsValueValidation` and `TestAbsValueLeanIntegration` (21 documented
+inputs, 17 of them rejected before, and 9 random seeds, 8 of them rejected
+before, on both cores; Lean rejects the certificates without the values,
+with the values but without the replacements, without the helpers'
+replacements, and without the steps'). The facts that relate the floors of
+two terms differing by an integer are stated over the values too; no input
+found needs that in Lean (the argument helpers relate each floored term to
+the rewriter's normal form), so only their text is tested.
+
 ### Integer numerals in Real terms (2026-10-30)
 
 Without a `set-logic`, or under `ALL`, Z3 reads an integer numeral where a

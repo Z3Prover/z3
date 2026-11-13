@@ -746,7 +746,11 @@ decidability instance for its condition, so the term definitions that contain
 one are noncomputable; the argument above still applies, because under each
 fixed valuation of the conditions the constraints are linear. A Real abs is
 the same kind of ite, (if t >= 0 then t else -t) over Rat. Every term
-definition takes the atom valuation as well as the Rat valuation.
+definition takes the atom valuation as well as the Rat valuation. Z3's
+rewriter evaluates a Real abs of a constant, (abs (- 2.5)) to 2.5, so a
+lemma reaching one states the ite equal to its value (a have that grind
+proves) and replaces it by the value in its goal and facts, an abs nested
+in another first; the facts of floors are then stated over the values.
 
 Each th-lemma and each rewrite whose equivalence mentions arithmetic is proved
 in a private theorem by unfolding its definitions and calling grind, whose
@@ -1080,7 +1084,11 @@ of the floored terms. The keys are cached and interned per certificate, so
 keying a nested chain takes time linear in its depth. The terms a formula
 floors (an is_int's argument, a to_int's in a comparison) are paired the
 same way, with or without uninterpreted symbols, so (is_int t) and the
-rewriter's (= (to_real (to_int t')) t') are related through t = t'.
+rewriter's (= (to_real (to_int t')) t') are related through t = t'. So are
+the indices of reads that are constants ((select a (+ 0.5 0.25)) and the
+read at 0.75 the rewriter leaves). An abs of a constant counts by its value
+in a normal form, (+ x (abs (- 0.25)) 0.5) as (+ 0.75 x), and a helper over
+one replaces the abs by its value in its own goal before its tactic.
 A certificate whose only uninterpreted symbols are predicates over Bool
 uses the same binders with no sort at all: _m.U carries the two
 Boolean values, _m.elems and _m.funs are never applied. Every ground term
