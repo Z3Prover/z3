@@ -594,6 +594,42 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_nseq_empty_symbolic_regex() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const a String)\n"
+            "(declare-const b String)\n"
+            "(assert (str.in_re a\n"
+            "  (re.diff (re.union (re.* (str.to_re \"b\")) (str.to_re \"z\"))\n"
+            "           (re.++ (re.* (str.to_re \"z\")) (str.to_re b)))))\n"
+            "(assert (= (str.len b) 0))\n"
+            "(assert (= a \"\"))\n");
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("seq.regular", false);
+        p.set_uint("timeout", 3000);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (unsigned i = 0; i < 2; ++i)
+            slv->assert_expr(cmd.assertions()[i]);
+        ENSURE(slv->check_sat(0, nullptr) == l_true);
+        model_ref mdl;
+        slv->get_model(mdl);
+        for (unsigned i = 0; i < 2; ++i) {
+            expr_ref value(m);
+            ENSURE(mdl->eval_expr(cmd.assertions()[i], value, true) && m.is_true(value));
+        }
+        slv->push();
+        slv->assert_expr(cmd.assertions()[2]);
+        ENSURE(slv->check_sat(0, nullptr) == l_false);
+        slv->pop(1);
+        ENSURE(slv->check_sat(0, nullptr) == l_true);
+    }
+}
+
 static void check_nseq_shared_ite_model() {
     for (bool proofs : {false, true}) {
         for (bool regular : {false, true}) {
@@ -1279,6 +1315,7 @@ void tst_smt_context()
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_nseq_empty_symbolic_regex();
     check_nseq_shared_ite_model();
     check_nseq_nested_index_replace();
     check_nseq_generic_contains_regex();

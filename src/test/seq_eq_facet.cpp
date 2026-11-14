@@ -1620,6 +1620,49 @@ namespace {
         )");
     }
 
+    static void tst_nseq_stoi_value_languages() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const m String)
+            (declare-const n String)
+            (assert (= (str.++ x y) (str.++ m n)))
+            (assert (str.in_re n (re.+ (str.to_re "zz"))))
+            (assert (< (str.to_int x) (str.to_int m)))
+        )");
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref conversion(u.str.mk_stoi(s), m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        for (char const* text : {"000", "007", "12"}) {
+            rational number(text);
+            expr_ref word(u.str.mk_string(text), m);
+            expr_ref eq(m.mk_eq(s, word), m);
+            expr_ref value(m.mk_eq(conversion, a.mk_int(number)), m);
+            slv->push();
+            slv->assert_expr(value);
+            ENSURE(slv->check_sat(0, nullptr) == l_true);
+            slv->push();
+            unsigned digits = static_cast<unsigned>(number.to_string().size());
+            expr_ref short_length(a.mk_le(u.str.mk_length(s), a.mk_int(digits - 1)), m);
+            slv->assert_expr(short_length);
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+            slv->pop(1);
+            slv->assert_expr(eq);
+            ENSURE(slv->check_sat(0, nullptr) == l_true);
+            model_ref md;
+            slv->get_model(md);
+            ENSURE(md && md->is_true(value) && md->is_true(eq));
+            slv->pop(1);
+        }
+    }
+
     static void tst_nseq_small_itos_bounds() {
         char const* inputs[] = {
             R"(
@@ -1824,6 +1867,7 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_nseq_stoi_value_languages();
     tst_word_eq_finite_priority();
     tst_word_eq_finite_priority(true);
     tst_eq_approx_memberships();

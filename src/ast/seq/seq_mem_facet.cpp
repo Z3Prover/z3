@@ -34,7 +34,9 @@ constraints actually used.
 --*/
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/rewriter/seq_regex_witness.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
 #include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
 #include "util/z3_exception.h"
@@ -328,11 +330,22 @@ namespace seq {
             bool present = false;
             for (expr* t : sm.m_str)
                 if (t == var) { present = true; break; }
-            if (!present)
+            view v = sm.m_view;
+            if (sm.is_plain() && u.is_seq(var) && !has_quantifiers(v.m_state) &&
+                occurs(var, v.m_state) && !u.re.is_ground(v.m_state)) {
+                expr_safe_replace replace(m);
+                expr_ref value(u.str.mk_concat(repl, var->get_sort()), m);
+                replace.insert(var, value);
+                replace(v.m_state);
+                if (v != sm.m_view) {
+                    th_rewriter rewrite(m);
+                    rewrite(v.m_state);
+                }
+            }
+            if (!present && v == sm.m_view)
                 continue;
             expr_ref_vector new_str(sm.m_str);
             subst_in(new_str, var, repl);
-            view v = sm.m_view;
             eq_tree::dep_tracker dep = m_dm.mk_join(sm.m_dep, subst_dep);
             remove(i);
             add(str_mem(m, new_str, v, dep));
