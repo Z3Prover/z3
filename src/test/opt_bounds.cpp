@@ -1959,6 +1959,38 @@ static void set_unbounded_curve(opt_fixture& f, bool enabled) {
     Z3_params_dec_ref(f.ctx, p);
 }
 
+static void tst_bounded_product_curve() {
+    for (bool curve : {false, true}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), 2);
+        Z3_params_set_bool(f.ctx, p, f.symbol("elim_01"), false);
+        Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_unbounded_curve"), curve);
+        Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), 0);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        Z3_optimize_from_string(f.ctx, f.opt,
+            "(declare-fun jbnal () Int)"
+            "(declare-fun idqbn () Int)"
+            "(declare-fun bclvd () Int)"
+            "(assert (>= idqbn 1))"
+            "(assert (>= bclvd 1))"
+            "(assert (<= idqbn 4))"
+            "(assert (<= jbnal 24))"
+            "(assert (<= bclvd 128))"
+            "(assert (>= jbnal 1))"
+            "(maximize (* idqbn jbnal bclvd))");
+        ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, 0, f.num(12288), Z3_INT_SORT);
+        Z3_ast_vector objectives = Z3_optimize_get_objectives(f.ctx, f.opt);
+        Z3_ast_vector_inc_ref(f.ctx, objectives);
+        ensure_model_value(f, Z3_ast_vector_get(f.ctx, objectives, 0), f.num(-12288));
+        Z3_ast_vector_dec_ref(f.ctx, objectives);
+    }
+}
+
 static void tst_unbounded_curve_cancellation() {
     for (bool throw_after_cancel : {false, true}) {
         ast_manager m;
@@ -2458,6 +2490,7 @@ void tst_opt_bounds() {
     tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
     tst_unbounded_curve_parabola();
+    tst_bounded_product_curve();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();
     tst_bounded_integer_ite();
