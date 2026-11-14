@@ -21,7 +21,9 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_witness.h"
+#include "util/rlimit.h"
 #include <iostream>
+#include <string>
 
 namespace {
 
@@ -159,6 +161,32 @@ public:
             report("a*, max_states=1", m_wit.nonempty(star(a)), l_true);
             m_wit.set_max_states(saved);
             report("abc, bound restored", m_wit.nonempty(word("abc")), l_true);
+        }
+
+        std::cout << "=== regex_witness: flat repeated words ===\n";
+        {
+            std::string text, wrong;
+            for (unsigned i = 0; i < 1024; ++i) {
+                text += "ab";
+                wrong += "ac";
+            }
+            expr_ref repeated(re().mk_loop_proper(ab, 1024, 1024), m);
+            expr_ref literal(u.str.mk_string(zstring(text.c_str())), m);
+            lbool accepted;
+            {
+                scoped_rlimit limit(m.limit(), 3000);
+                accepted = m_wit.accepts(literal, repeated);
+            }
+            report("(ab){1024}, flat periodic word", accepted, l_true);
+            expr_ref rejected(u.str.mk_string(zstring(wrong.c_str())), m);
+            report("(ab){1024}, wrong repeated block", m_wit.accepts(rejected, repeated), l_false);
+            text.back() = 'c';
+            expr_ref changed(u.str.mk_string(zstring(text.c_str())), m);
+            report("(ab){1024}, nonperiodic mismatch", m_wit.accepts(changed, repeated), l_false);
+            expr_ref ac = word("ac");
+            expr_ref choices = alt(ab, ac);
+            expr_ref mixed(re().mk_loop_proper(choices, 1024, 1024), m);
+            report("(ab|ac){1024}, nonperiodic match", m_wit.accepts(changed, mixed), l_true);
         }
 
         std::cout << "=== regex_witness: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("

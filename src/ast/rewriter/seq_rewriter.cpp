@@ -4453,7 +4453,7 @@ br_status seq_rewriter::mk_re_xor(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
     unsigned lo, hi, lo2, hi2, np;
-    expr* a = nullptr;
+    expr *a = nullptr, *b = nullptr, *c = nullptr;
     switch (num_args) {
     case 1: 
         np = f->get_num_parameters();
@@ -4480,6 +4480,13 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         }
         if (np == 2 && lo2 == 1 && hi2 == 1) {
             result = args[0];
+            return BR_DONE;
+        }
+        // (R+){lo,hi} = R{lo,} when hi > 0.
+        if ((np == 1 || np == 2) &&
+            (re().is_plus(args[0], a) ||
+             (re().is_concat(args[0], a, b) && re().is_star(b, c) && a == c))) {
+            result = mk_loop(a, lo2);
             return BR_DONE;
         }
         // (loop (loop a lo) lo2) = (loop lo*lo2)
