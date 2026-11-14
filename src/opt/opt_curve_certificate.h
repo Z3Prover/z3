@@ -38,6 +38,8 @@ namespace opt {
     class curve_certificate {
     public:
         static unsigned const max_degree = 3;
+        // curve parameters evaluated before the solver: 1, 2, 4, 16, ..., 2^32
+        static unsigned const num_samples = 7;
 
         curve_certificate(ast_manager& m, params_ref const& p);
 
