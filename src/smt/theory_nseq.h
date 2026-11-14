@@ -91,6 +91,7 @@ namespace smt {
         expr_ref_vector     m_ubv_strings;     // relevant ubv2s terms
         obj_hashtable<expr> m_ubv_done;        // ubv2s terms with added axioms
         obj_hashtable<expr> m_fixed_length_guards;
+        obj_hashtable<expr> m_stoi_value_axioms;
 
         // Index of the first assigned literal not yet forwarded to
         // flush_assigned_literals(). Trailed so backtracking rewinds it.
@@ -185,6 +186,7 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        bool has_short_stoi() const;
         bool branch_stoi_digit(bool stalled = false);
         bool check_fixed_lengths(bool instantiate = true);
         bool check_length_coherence();

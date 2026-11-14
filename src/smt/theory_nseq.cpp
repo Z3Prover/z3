@@ -1433,9 +1433,76 @@ namespace smt {
         return change;
     }
 
-    // Forward to stoi_facet, which owns the coherence-checking logic.
+    bool theory_nseq::has_short_stoi() const {
+        return any_of(m_ambient->stoi_facet(*m_root).terms(), [&](auto const& term) {
+            expr* s = to_app(term.first)->get_arg(0);
+            unsigned bound = m_seq.str.max_length(s);
+            return !m.is_value(s) && bound > 0 && bound <= 20;
+        });
+    }
+
     bool theory_nseq::check_stoi_coherence() {
-        return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
+        // Keep shared digit arithmetic for bounded conversions.
+        if (has_short_stoi())
+            return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
+        bool progress = false, fallback = false;
+        for (auto const& term : m_ambient->stoi_facet(*m_root).terms()) {
+            expr* e = term.first;
+            expr_ref len(m_seq.str.mk_length(to_app(e)->get_arg(0)), m);
+            rational length;
+            if (upper_bound(len, length) && length.is_unsigned() && length <= rational(20)) {
+                rational maximum(1);
+                for (unsigned i = 0; i < length.get_unsigned(); ++i)
+                    maximum *= 10;
+                --maximum;
+                expr_ref length_bound(m_autil.mk_le(len, m_autil.mk_int(length)), m);
+                expr_ref value_bound(m_autil.mk_le(e, m_autil.mk_int(maximum)), m);
+                expr_ref bound(m.mk_or(m.mk_not(length_bound), value_bound), m);
+                if (!m_stoi_value_axioms.contains(bound)) {
+                    expr_ref_vector clause(m);
+                    clause.push_back(m.mk_not(length_bound));
+                    clause.push_back(value_bound);
+                    m_ax.add_axiom_clause(clause);
+                    pin(bound);
+                    m_stoi_value_axioms.insert(bound);
+                    ctx.push_trail(insert_obj_trail<expr>(m_stoi_value_axioms, bound));
+                    progress = true;
+                    continue;
+                }
+            }
+            rational value;
+            if (!get_num_value(e, value)) {
+                fallback = true;
+                continue;
+            }
+            if (value.is_neg())
+                continue;
+            expr_ref zero(m_seq.str.mk_string("0"), m);
+            expr_ref zeros(m_seq.re.mk_to_re(zero), m);
+            zeros = m_seq.re.mk_star(zeros);
+            expr_ref digits(m_seq.str.mk_string(value.to_string()), m);
+            expr_ref decimal(m_seq.re.mk_to_re(digits), m);
+            expr_ref language(m_seq.re.mk_concat(zeros, decimal), m);
+            expr_ref member(m_seq.re.mk_in_re(to_app(e)->get_arg(0), language), m);
+            if (m_stoi_value_axioms.contains(member))
+                continue;
+            expr_ref numeral(m_autil.mk_int(value), m);
+            expr_ref lower(m_autil.mk_ge(e, numeral), m), upper(m_autil.mk_le(e, numeral), m);
+            literal lo = mk_literal(lower), hi = mk_literal(upper), digit = mk_literal(member);
+            literal clause[] = {~lo, ~hi, digit};
+            ctx.mk_th_axiom(get_id(), 3, clause);
+            for (literal lit : {lo, hi, digit}) {
+                ctx.mark_as_relevant(lit);
+                ctx.force_phase(lit);
+                if (!lit.sign())
+                    ctx.set_true_first_flag(lit.var());
+            }
+            pin(member);
+            m_stoi_value_axioms.insert(member);
+            ctx.push_trail(insert_obj_trail<expr>(m_stoi_value_axioms, member));
+            progress = true;
+        }
+        return !progress && (!fallback || m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient));
     }
 
     bool theory_nseq::branch_stoi_digit(bool stalled) {

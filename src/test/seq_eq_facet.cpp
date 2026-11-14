@@ -1451,6 +1451,50 @@ namespace {
         )");
     }
 
+    static void tst_nseq_stoi_value_languages() {
+        check_nseq_candidate_model(R"(
+            (declare-fun a () Int)
+            (declare-fun b () String)
+            (assert (= 0 (* 1 (str.len (str.at b a))
+                (ite (ite (> 0 a) true (= (str.to_int b) (* a a (+ a a a)))) 0 1))))
+            (assert (< a (+ a a) (str.len b)))
+        )");
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref conversion(u.str.mk_stoi(s), m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> solver = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        for (char const* text : {"000", "007", "12", "000"}) {
+            rational number(text);
+            expr_ref word(u.str.mk_string(text), m);
+            expr_ref eq(m.mk_eq(s, word), m);
+            expr_ref numeral(a.mk_int(number), m);
+            expr_ref value(m.mk_eq(conversion, numeral), m);
+            solver->push();
+            solver->assert_expr(value);
+            ENSURE(solver->check_sat(0, nullptr) == l_true);
+            solver->push();
+            unsigned digits = static_cast<unsigned>(number.to_string().size());
+            expr_ref len(u.str.mk_length(s), m);
+            expr_ref bound(a.mk_int(digits - 1), m);
+            expr_ref short_length(a.mk_le(len, bound), m);
+            solver->assert_expr(short_length);
+            ENSURE(solver->check_sat(0, nullptr) == l_false);
+            solver->pop(1);
+            solver->assert_expr(eq);
+            ENSURE(solver->check_sat(0, nullptr) == l_true);
+            model_ref md;
+            solver->get_model(md);
+            ENSURE(md && md->is_true(value) && md->is_true(eq));
+            solver->pop(1);
+        }
+    }
+
     static void tst_nseq_stoi_model_completion() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -2005,6 +2049,7 @@ void tst_seq_eq_facet() {
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
     tst_nseq_equality_lengths();
+    tst_nseq_stoi_value_languages();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();
