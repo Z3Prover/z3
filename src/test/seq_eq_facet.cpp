@@ -260,6 +260,113 @@ namespace {
         return tree.solve();
     }
 
+    static void tst_element_equality_substitution() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref_vector values(m), alternatives(m);
+        values.push_back(a.mk_int(1));
+        alternatives.push_back(a.mk_int(2));
+        values.push_back(m.mk_true());
+        alternatives.push_back(m.mk_false());
+        values.push_back(u.str.mk_char('a'));
+        alternatives.push_back(u.str.mk_char('b'));
+        values.push_back(u.str.mk_string("US"));
+        alternatives.push_back(u.str.mk_string("AE"));
+        for (unsigned i = 0; i < values.size(); ++i) {
+            trail_stack trail;
+            seq::eq_tree tree(trail, m.limit());
+            auto* root = tree.mk_root();
+            seq::sub_solver solver(m, a, tree.dep_mgr());
+            auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+            auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+            auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+            seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, trail);
+            ac.set_eq_id(eq_id);
+            ac.set_arith_id(arith_id);
+            ac.set_assumption_id(assumption_id);
+            seq_rewriter seq_rw(m);
+            auto mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), seq_rw, ac);
+            ac.set_mem_id(mem_id);
+            tree.set_ambient_context(&ac);
+            auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+            auto& mf = root->facet_as<seq::mem_facet>(mem_id);
+            auto& dm = tree.dep_mgr();
+            seq::eq_propagation propagation(m, u);
+            expr_ref c(m.mk_fresh_const("c", values.get(i)->get_sort()), m);
+            expr_ref d(m.mk_fresh_const("d", values.get(i)->get_sort()), m);
+            expr_ref uc(u.str.mk_unit(c), m), ud(u.str.mk_unit(d), m);
+            expr_ref unit(u.str.mk_unit(values.get(i)), m);
+            expr_ref other(u.str.mk_unit(alternatives.get(i)), m);
+            expr_ref x(m.mk_fresh_const("x", unit->get_sort()), m);
+            expr_ref rhs(u.str.mk_concat(uc, unit), m);
+            expr_ref expected(u.str.mk_concat(unit, unit), m);
+            expr_ref regex(u.re.mk_to_re(expected), m);
+            mf.add(seq::str_mem(m, x, seq::view::membership(regex, m), dm.mk_leaf(23)));
+            ef.add_equation(x, rhs, dm.mk_leaf(11));
+            trail.push_scope();
+            ef.add_equation(uc, unit, dm.mk_leaf(7));
+            ENSURE(propagation.propagate(*root) != stx::simplify_result::conflict);
+            expr_ref_vector tokens(m);
+            seq::eq_tree::dep_tracker dep = nullptr;
+            ef.eliminate(mk_toks(u, m, x), tokens, &dep);
+            expr_ref actual(u.str.mk_concat(tokens, x->get_sort()), m);
+            expr_ref equal(m.mk_eq(actual, expected), m);
+            th_rewriter rw(m);
+            rw(equal);
+            ENSURE(m.is_true(equal));
+            ENSURE(dm.contains(dep, 7) && dm.contains(dep, 11));
+            auto const& membership = mf.memberships().back();
+            ENSURE(membership.active());
+            actual = u.str.mk_concat(membership.m_str, x->get_sort());
+            equal = m.mk_eq(actual, expected);
+            rw(equal);
+            ENSURE(m.is_true(equal));
+            for (unsigned id : {7u, 11u, 23u})
+                ENSURE(dm.contains(membership.m_dep, id));
+            trail.pop_scope(1);
+            ef.eliminate(x, tokens);
+            ENSURE(tokens.size() == 1 && tokens[0] == x);
+            ENSURE(mf.memberships()[0].m_str.size() == 1 && mf.memberships()[0].m_str.get(0) == x);
+
+            trail.push_scope();
+            expr_ref left(u.str.mk_concat(uc, ud), m);
+            expr_ref right(u.str.mk_concat(ud, uc), m);
+            ef.add_equation(left, right, dm.mk_leaf(13));
+            ENSURE(propagation.propagate(*root) != stx::simplify_result::conflict);
+            expr_ref_vector lhs(m), rhs_tokens(m);
+            ef.eliminate(uc, lhs);
+            ef.eliminate(ud, rhs_tokens);
+            ENSURE(lhs == rhs_tokens);
+            trail.pop_scope(1);
+
+            trail.push_scope();
+            left = u.str.mk_concat(uc, unit);
+            right = u.str.mk_concat(other, uc);
+            ef.add_equation(left, right, dm.mk_leaf(17));
+            ENSURE(propagation.propagate(*root) == stx::simplify_result::conflict);
+            ENSURE(dm.contains(root->conflict_dep(), 17));
+            trail.pop_scope(1);
+            root->clear_status();
+            expr_ref number(m.mk_fresh_const("number", a.mk_int()), m);
+            expr_ref itos(u.str.mk_itos(number), m);
+            expr_ref one(u.str.mk_string("1"), m);
+            ef.add_equation(itos, one, dm.mk_leaf(19));
+            stx::simplify_result result;
+            do {
+                result = propagation.propagate(*root);
+                ENSURE(result != stx::simplify_result::conflict);
+            }
+            while (result == stx::simplify_result::proceed);
+            ENSURE(ef.is_satisfied());
+            expr_ref numeral(a.mk_int(1), m);
+            expr_ref numeric_eq(m.mk_eq(number, numeral), m);
+            ENSURE(root->facet_as<seq::solver_facet>(arith_id).implies(numeric_eq, &dep) == l_true);
+            ENSURE(dm.contains(dep, 19));
+        }
+    }
+
     static void tst_word_eq_positional_bound(bool overlap, bool symbolic = false, bool deferred = false) {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1824,6 +1931,7 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_element_equality_substitution();
     tst_word_eq_finite_priority();
     tst_word_eq_finite_priority(true);
     tst_eq_approx_memberships();

@@ -1216,6 +1216,9 @@ namespace smt {
             return FC_GIVEUP;
         }
         default:
+            // Reconcile digits only after word search stalls, not at its preliminary node budget.
+            if (conversions && branch_stoi_digit(true))
+                return FC_CONTINUE;
             if (getenv("NSEQ_DUMP_UNKNOWN")) {
                 std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
                 for (unsigned id = 0; id < m_root->num_facets(); ++id)
@@ -1389,9 +1392,9 @@ namespace smt {
         return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
     }
 
-    bool theory_nseq::branch_stoi_digit() {
+    bool theory_nseq::branch_stoi_digit(bool stalled) {
         // Give ordinary snapshot/coherence reconciliation a query-local head start.
-        if (m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64)
+        if (!stalled && m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64)
             return false;
         for (auto const& term : m_ambient->stoi_facet(*m_root).terms()) {
             expr* e = term.first;

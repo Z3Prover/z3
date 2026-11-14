@@ -693,6 +693,60 @@ static void check_nseq_nested_index_replace() {
     }
 }
 
+static void check_nseq_binary_digit_reconciliation() {
+    for (bool proofs : {false, true}) {
+        for (bool regular : {false, true}) {
+            for (bool substr : {false, true}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::string dx = substr ? "(str.substr x (- (str.len x) 1) 1)" :
+                    "(str.at x (- (str.len x) 1))";
+                std::string dy = substr ? "(str.substr y (- (str.len y) 1) 1)" :
+                    "(str.at y (- (str.len y) 1))";
+                std::istringstream is(
+                    "(declare-const x String)(declare-const y String)"
+                    "(define-fun dx () Int (str.to_int " + dx + "))"
+                    "(define-fun dy () Int (str.to_int " + dy + "))"
+                    "(assert (str.in_re x (re.+ (re.range \"0\" \"1\"))))"
+                    "(assert (str.in_re y (re.+ (re.range \"0\" \"1\"))))"
+                    "(assert (>= dx 0))(assert (>= dy 0))(assert (< (+ dx dy) 2))"
+                    "(assert (= (str.len x) 1))(assert (= (str.len y) 1))"
+                    "(assert (= dx 1))(assert (= dy 0))"
+                    "(assert (= dy 1))");
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_bool("seq.regular", regular);
+                p.set_uint("timeout", 5000);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+                for (unsigned i = 0; i < 7; ++i)
+                    slv->assert_expr(cmd.assertions()[i]);
+                auto check_model = [&](unsigned count) {
+                    ENSURE(slv->check_sat(0, nullptr) == l_true);
+                    model_ref mdl;
+                    slv->get_model(mdl);
+                    ENSURE(mdl);
+                    for (unsigned i = 0; i < count; ++i) {
+                        expr_ref value(m);
+                        ENSURE(mdl->eval_expr(cmd.assertions()[i], value, true) && m.is_true(value));
+                    }
+                };
+                check_model(7);
+                slv->push();
+                slv->assert_expr(cmd.assertions()[7]);
+                slv->assert_expr(cmd.assertions()[8]);
+                check_model(9);
+                slv->push();
+                slv->assert_expr(cmd.assertions()[9]);
+                ENSURE(slv->check_sat(0, nullptr) == l_false);
+                slv->pop(2);
+                check_model(7);
+            }
+        }
+    }
+}
+
 static void check_nseq_generic_contains_regex() {
     struct {
         char const* sort;
@@ -1281,6 +1335,7 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_nseq_shared_ite_model();
     check_nseq_nested_index_replace();
+    check_nseq_binary_digit_reconciliation();
     check_nseq_generic_contains_regex();
     check_sequence_last_index();
     check_array_index_dependencies();

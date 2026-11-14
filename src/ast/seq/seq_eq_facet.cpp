@@ -190,6 +190,10 @@ namespace seq {
         eq_tree::dep_tracker parent_dep = eq.m_dep;
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
+        sort* word_sort = !L.empty() ? L[0]->get_sort() : !R.empty() ? R[0]->get_sort() : nullptr;
+        sort* element_sort = nullptr;
+        if (word_sort)
+            VERIFY(u.is_seq(word_sort, element_sort));
         expr_ref_pair_vector new_eqs(m);
         bool eq_changed = false;
         if (!m_rw.reduce_eq(L, R, new_eqs, eq_changed)) {
@@ -206,36 +210,61 @@ namespace seq {
         eq.m_lhs = std::move(L);
         eq.m_rhs = std::move(R);
 
-        // Append newly produced sub-equations as trailed, definitional
-        // consequences of the parent equation. Use parent_dep because
-        // add_equation may reallocate m_eqs and invalidate `eq`.
-        //
-        // Unit-vs-unit decompositions may force equality between two
-        // character terms. Check whether that equality is already false
-        // in the ambient context before recording it as an assumption.
+        // Only word equalities belong in the word-equation queue.
+        // Use parent_dep because add_equation may invalidate `eq`.
         for (auto const& [l, r] : new_eqs) {
             expr_ref_vector lts(m), rts(m);
-            u.str.get_concat_units(l, lts);
-            u.str.get_concat_units(r, rts);
+            bool word_eq = l->get_sort() == word_sort;
+            bool element_eq = l->get_sort() == element_sort;
+            eq_tree::dep_tracker eq_dep = parent_dep;
+            if (word_eq || element_eq) {
+                expr_ref left(l, m), right(r, m);
+                if (element_eq) {
+                    left = u.str.mk_unit(l);
+                    right = u.str.mk_unit(r);
+                }
+                expr_ref_vector input(m);
+                u.str.get_concat_units(left, input);
+                eliminate(input, lts, &eq_dep);
+                input.reset();
+                u.str.get_concat_units(right, input);
+                eliminate(input, rts, &eq_dep);
+            }
             expr* lch = l, *rch = r;
-            if (!u.is_seq(l) ||
+            if (element_eq) {
+                VERIFY(lts.size() == 1 && u.str.is_unit(lts.get(0), lch));
+                VERIFY(rts.size() == 1 && u.str.is_unit(rts.get(0), rch));
+            }
+            if (!word_eq ||
                 (lts.size() == 1 && rts.size() == 1 && u.str.is_unit(lts.get(0), lch) && u.str.is_unit(rts.get(0), rch))) {
                 if (m.are_distinct(lch, rch)) {
                     conflict = true;
-                    conflict_dep = parent_dep;
+                    conflict_dep = eq_dep;
                     return false;
                 }
                 if (lch != rch) {
                     expr_ref eq_expr(m.mk_eq(lch, rch), m);
                     if (auto false_dep = ac.literal_if_false(eq_expr)) {
                         conflict = true;
-                        conflict_dep = m_dm.mk_join(parent_dep, false_dep);
+                        conflict_dep = m_dm.mk_join(eq_dep, false_dep);
                         return false;
                     }
-                    get_ambient(n).add_assumption(eq_expr, parent_dep);
+                    get_ambient(n).add_assumption(eq_expr, eq_dep);
+                    if (element_eq) {
+                        // Substitute whole unit tokens so other word equations
+                        // and membership facets see the element equality.
+                        expr_ref from(lts.get(0), m);
+                        expr_ref to(rts.get(0), m);
+                        if (m.is_value(lch) && !m.is_value(rch))
+                            std::swap(from, to);
+                        expr_ref_vector repl(m);
+                        repl.push_back(to);
+                        broadcast_subst(n, from, repl, eq_dep);
+                    }
                 }
             }
-            add_equation(lts, rts, parent_dep);
+            if (word_eq)
+                add_equation(lts, rts, eq_dep);
         }
 
         // If one side is empty, the other side must reduce to epsilon.

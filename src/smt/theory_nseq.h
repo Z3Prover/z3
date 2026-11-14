@@ -185,7 +185,7 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
-        bool branch_stoi_digit();
+        bool branch_stoi_digit(bool stalled = false);
         bool check_fixed_lengths(bool instantiate = true);
         bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
