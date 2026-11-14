@@ -64,6 +64,7 @@ jobs:
           pip install ./src/api/python/wheelhouse/*.whl
           python - <src/api/python/z3test.py z3
           python - <src/api/python/z3test.py z3num
+          python -m unittest discover -s examples/python -p test_division_congruence.py
           python -m unittest discover -s examples/python -p test_proof_certificate.py
           python -m unittest discover -s examples/python -p test_proof_to_lean.py
 

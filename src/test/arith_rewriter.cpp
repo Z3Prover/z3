@@ -36,6 +36,27 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
 static char const* example1 = "(<= (+ (* 1.3 x y) (* 2.3 y y) (* (- 1.1 x x))) 2.2)";
 static char const* example2 = "(= (+ 4 3 (- (* 3 x x) (* 5 y)) y) 0)";
 
+static void check_arith_ineq_lhs() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    for (bool lhs : {false, true}) {
+        params_ref p;
+        p.set_bool("arith_ineq_lhs", true);
+        p.set_bool("arith_lhs", lhs);
+        th_rewriter rw(m, p);
+        expr_ref eq = parse_fml(m, "(= (+ x y) (+ a b))");
+        expr_ref le = parse_fml(m, "(<= (+ x y) (+ a b))");
+        rw(eq);
+        rw(le);
+        expr *left = nullptr, *right = nullptr;
+        ENSURE(m.is_eq(eq, left, right));
+        ENSURE((a.is_numeral(left) || a.is_numeral(right)) == lhs);
+        ENSURE(a.is_le(le, left, right));
+        ENSURE(a.is_numeral(right));
+    }
+}
+
 static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
     cmd_context ctx(false, &m);
@@ -394,6 +415,7 @@ static void tst_inverse_trig_domains() {
 }
 
 void tst_arith_rewriter() {
+    check_arith_ineq_lhs();
     check_integer_power_syntax();
     check_power_declarations();
     check_real_zero_power();
