@@ -249,6 +249,15 @@ static void check_recfun_unfold_limit() {
         "(f 0)\n");
 }
 
+static void check_qe2_false_answer() {
+    // qe2 reports a false answer as false, not as false under re-bound variables.
+    check_recfun_output(
+        "(declare-fun v () (Array Bool Bool))\n"
+        "(assert (forall ((r (Array Bool Bool)) (a (Array (Array Bool Bool) Bool)))\n"
+        "  (distinct true (select (store (store a v true) r true) (store v false false)))))\n"
+        "(check-sat-using qe2)\n", "unsat\n");
+}
+
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
     for (unsigned i = 0; i < st.size(); ++i)
         if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
@@ -1509,6 +1518,7 @@ void tst_smt_context()
     check_recfun_unfold_limit();
     check_special_relation_logic();
     check_nonlinear_to_int();
+    check_qe2_false_answer();
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_sequence_last_index();
