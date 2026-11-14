@@ -32,6 +32,7 @@ Tests:
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/occurs.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -556,6 +557,41 @@ static void tst_positive_closure_repetition() {
     member(repeated, "", false);
 }
 
+static void tst_conditional_regex_membership() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+    app_ref p(m.mk_const("p", m.mk_bool_sort()), m);
+    app_ref q(m.mk_const("q", m.mk_bool_sort()), m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref a(su.str.mk_string("a"), m);
+    expr_ref b(su.str.mk_string("b"), m);
+    expr_ref empty(su.str.mk_string(""), m);
+    expr_ref choice(m.mk_ite(p, a, empty), m);
+    expr_ref literal(su.re.mk_to_re(choice), m);
+    expr_ref repeated(su.re.mk_star(literal), m);
+    expr_ref regex(su.re.mk_concat(literal, repeated), m);
+    expr_ref actual(su.re.mk_in_re(x, regex), m);
+    expr_ref then_literal(su.re.mk_to_re(a), m);
+    expr_ref then_repeated(su.re.mk_star(then_literal), m);
+    expr_ref then_regex(su.re.mk_concat(then_literal, then_repeated), m);
+    expr_ref then_member(su.re.mk_in_re(x, then_regex), m);
+    expr_ref else_member(m.mk_eq(x, empty), m);
+    expr_ref expected(m.mk_ite(p, then_member, else_member), m);
+    rw(actual);
+    rw(expected);
+    ENSURE(actual == expected);
+
+    expr_ref other_choice(m.mk_ite(q, b, empty), m);
+    expr_ref other_literal(su.re.mk_to_re(other_choice), m);
+    expr_ref other_repeated(su.re.mk_star(other_literal), m);
+    expr_ref independent(su.re.mk_union(repeated, other_repeated), m);
+    expr_ref member(su.re.mk_in_re(x, independent), m);
+    rw(member);
+    ENSURE(occurs(choice, member) && occurs(other_choice, member));
+}
+
 static void tst_from_code_star_membership() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -616,6 +652,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_conditional_regex_membership();
     tst_from_code_star_membership();
     tst_seq_replace_round_trip();
     tst_empty_language_repetition();

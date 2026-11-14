@@ -3781,6 +3781,41 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
 
+    if (!re().is_ground(b) && is_ground(b) && !has_quantifiers(b)) {
+        expr_mark visited;
+        ptr_buffer<expr> todo;
+        todo.push_back(b);
+        while (!todo.empty()) {
+            expr* choice = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(choice))
+                continue;
+            visited.mark(choice);
+            expr *condition = nullptr, *then_word = nullptr, *else_word = nullptr;
+            if (m().is_ite(choice, condition, then_word, else_word) &&
+                str().is_string(then_word) && str().is_string(else_word)) {
+                expr_safe_replace replace(m());
+                expr_ref then_regex(m()), else_regex(m());
+                replace.insert(choice, then_word);
+                replace(b, then_regex);
+                replace.reset();
+                replace.insert(choice, else_word);
+                replace(b, else_regex);
+                if (re().is_ground(then_regex) && re().is_ground(else_regex)) {
+                    expr_ref then_member(re().mk_in_re(a, then_regex), m());
+                    expr_ref else_member(re().mk_in_re(a, else_regex), m());
+                    result = m().mk_ite(condition, then_member, else_member);
+                    return BR_REWRITE_FULL;
+                }
+                // Try one shared choice only, without expanding independent choices.
+                break;
+            }
+            if (is_app(choice))
+                for (expr* arg : *to_app(choice))
+                    todo.push_back(arg);
+        }
+    }
+
     // (str.in_re e (re.range lo hi)) where a bound is not a concrete character.
     // By SMT-LIB semantics (re.range lo hi) is the set of single characters c
     // with lo <= c <= hi when lo and hi are themselves single characters, and
