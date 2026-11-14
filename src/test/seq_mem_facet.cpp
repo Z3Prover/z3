@@ -1026,6 +1026,64 @@ namespace {
         ENSURE(f.tree.get_stats().m_split_counts.at("mem-monadic") == 1);
     }
 
+    static void tst_medium_repetition_witness() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref digit(f.u.re.mk_range(f.u.str.mk_string("0"), f.u.str.mk_string("9")), f.m);
+        expr_ref prefix(f.u.re.mk_plus(digit), f.m);
+        expr_ref zero(f.u.str.mk_string("0"), f.m);
+        expr_ref block(f.u.re.mk_to_re(zero), f.m);
+        block = f.u.re.mk_loop_proper(block, 512, 512);
+        expr_ref suffix(f.u.re.mk_to_re(f.u.str.mk_string("x")), f.m);
+        expr_ref regex(f.u.re.mk_concat(prefix, block), f.m);
+        regex = f.u.re.mk_concat(regex, suffix);
+        expr_ref full_char(f.u.re.mk_full_char(f.u.re.mk_re(x->get_sort())), f.m);
+        expr_ref exact_length(f.u.re.mk_loop_proper(full_char, 514, 514), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        seq::view_witness vw(f.trail, f.rw, mf.live());
+        unsigned checkpoints = 0;
+        vw.set_checkpoint([&]() {
+            return ++checkpoints <= 4 ? seq::view_failure_reason::none : seq::view_failure_reason::budget;
+        });
+        seq::view_vector views;
+        views.push_back(seq::view::membership(regex, f.m));
+        views.push_back(seq::view::membership(exact_length, f.m));
+        expr_ref word(f.m);
+        ENSURE(vw.product_nonempty(x, views, &word) == l_true);
+        seq::regex_witness checker(f.rw);
+        ENSURE(checker.accepts(word, regex) == l_true);
+        ENSURE(checker.accepts(word, exact_length) == l_true);
+    }
+
+    static void tst_long_flat_ground_membership(bool accepted) {
+        fixture f;
+        expr_ref digit(f.u.re.mk_range(f.u.str.mk_string("0"), f.u.str.mk_string("9")), f.m);
+        expr_ref prefix(f.u.re.mk_plus(digit), f.m);
+        expr_ref zero(f.u.str.mk_string("0"), f.m);
+        expr_ref block(f.u.re.mk_to_re(zero), f.m);
+        block = f.u.re.mk_loop_proper(block, 512, 512);
+        expr_ref suffix(f.u.re.mk_to_re(f.u.str.mk_string("x")), f.m);
+        expr_ref regex(f.u.re.mk_concat(prefix, block), f.m);
+        regex = f.u.re.mk_concat(regex, suffix);
+        std::string text = accepted ? std::string(513, '0') + "x" : "x" + std::string(513, '0');
+        expr_ref word(f.u.str.mk_string(text.c_str()), f.m);
+        expr_ref_vector tokens(f.m);
+        f.u.str.get_concat_units(word, tokens);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto dep = f.tree.dep_mgr().mk_leaf(11);
+        mf.add(seq::str_mem(f.m, tokens, seq::view::membership(regex, f.m), dep));
+        scoped_rlimit limit(f.m.limit(), 100000);
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        auto result = propagation.propagate(*f.root);
+        ENSURE((result == stx::simplify_result::conflict) == !accepted);
+        if (accepted) {
+            ENSURE(mf.is_satisfied());
+        }
+        else {
+            ENSURE(f.tree.dep_mgr().contains(f.root->conflict_dep(), 11));
+        }
+    }
+
     static void tst_witness_checkpoint_accounting() {
         fixture f;
         expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
@@ -1461,6 +1519,9 @@ void tst_seq_mem_facet() {
     tst_leaf_prefix_symbolic_and_cancelled();
     tst_symbolic_unit_derivative_not_rejected();
     tst_symbolic_unit_no_cost_retry();
+    tst_medium_repetition_witness();
+    tst_long_flat_ground_membership(false);
+    tst_long_flat_ground_membership(true);
     tst_witness_checkpoint_accounting();
     tst_witness_budget_not_sat();
     tst_witness_waits_for_word_constraints(false);

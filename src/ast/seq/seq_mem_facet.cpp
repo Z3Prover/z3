@@ -712,9 +712,13 @@ namespace seq {
             expr_ref word(m);
             rational ground_length;
             if (!sm.m_str.empty() &&
-                any_of(sm.m_str, [&](expr* token) { return !u.str.is_unit(token); }))
+                (sm.m_str.size() > 256 ||
+                 any_of(sm.m_str, [&](expr* token) { return !u.str.is_unit(token); })))
                 word = u.str.mk_concat(sm.m_str, sm.m_str.get(0)->get_sort());
             if (word && m_rw.get_ground_seq_length(word, ground_length)) {
+                // Avoid repeatedly slicing a long concatenation of individual units.
+                if (sm.m_str.size() > 256)
+                    m_th_rw(word);
                 regex_witness checker(m_rw);
                 lbool accepted = checker.accepts(word, sm.m_view.m_state);
                 if (accepted == l_false) {
