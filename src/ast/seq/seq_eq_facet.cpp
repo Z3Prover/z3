@@ -1354,7 +1354,7 @@ namespace seq {
             auto& mf = ac.mem_facet_ref();
             // Keep delayed conversion coherence on its original schedule.
             if (!ac.eq_facet_ref().is_satisfied() || !ac.ncontains_facet_ref().is_satisfied() ||
-                !mf.is_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
+                !mf.is_structurally_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
                 return nullptr;
             unsigned num_deqs = 0;
             for (auto const& dq : ac.deq_facet_ref().disequations()) {
