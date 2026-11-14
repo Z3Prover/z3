@@ -5068,6 +5068,19 @@ br_status seq_rewriter::mk_le_core(expr * l, expr * r, expr_ref & result) {
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     TRACE(seq, tout << mk_pp(l, m()) << " == " << mk_pp(r, m()) << "\n");
+    {
+        expr *src1, *src2, *needle1, *needle2, *offset1, *offset2;
+        rational i, j;
+        if (str().is_index(l, src1, needle1, offset1) &&
+            str().is_index(r, src2, needle2, offset2) &&
+            src1 == src2 && needle1 == needle2 &&
+            m_autil.is_numeral(offset1, i) && m_autil.is_numeral(offset2, j) &&
+            ((i.is_zero() && j.is_one()) || (i.is_one() && j.is_zero()))) {
+            expr_ref prefix(str().mk_prefix(needle1, src1), m());
+            result = m().mk_not(prefix);
+            return BR_REWRITE_FULL;
+        }
+    }
     expr_ref_vector res(m());
     expr_ref_pair_vector new_eqs(m());
     if (m_util.is_re(l)) {

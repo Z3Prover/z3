@@ -557,6 +557,41 @@ static void tst_positive_closure_repetition() {
     member(repeated, "", false);
 }
 
+static void tst_equal_index_searches() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util arith(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(arith.mk_int()), m);
+    expr_ref zero(arith.mk_int(0), m);
+    expr_ref one(arith.mk_int(1), m);
+    expr_ref two(arith.mk_int(2), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        app_ref x(m.mk_fresh_const("x", seq_sort), m);
+        app_ref y(m.mk_fresh_const("y", seq_sort), m);
+        app_ref z(m.mk_fresh_const("z", seq_sort), m);
+        expr_ref first(su.str.mk_index(x, y, zero), m);
+        expr_ref second(su.str.mk_index(x, y, one), m);
+        expr_ref prefix(su.str.mk_prefix(y, x), m);
+        expr_ref expected(m.mk_not(prefix), m);
+        rw(expected);
+        for (bool reverse : {false, true}) {
+            expr_ref actual(reverse ? m.mk_eq(second, first) : m.mk_eq(first, second), m);
+            rw(actual);
+            ENSURE(actual == expected);
+        }
+        expr_ref other_offset(su.str.mk_index(x, y, two), m);
+        expr_ref other_source(su.str.mk_index(z, y, one), m);
+        expr_ref other_needle(su.str.mk_index(x, z, one), m);
+        for (expr* other : {other_offset.get(), other_source.get(), other_needle.get()}) {
+            expr_ref actual(m.mk_eq(first, other), m);
+            rw(actual);
+            ENSURE(occurs(first, actual) && occurs(other, actual));
+        }
+    }
+}
+
 static void tst_conditional_regex_membership() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -652,6 +687,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_equal_index_searches();
     tst_conditional_regex_membership();
     tst_from_code_star_membership();
     tst_seq_replace_round_trip();
