@@ -435,6 +435,11 @@ namespace smt {
                 expr_ref_vector rhs = tokenize(dep, e1);
                 rhs.push_back(f); // fresh existential
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                if (ctx.has_quantifiers()) {
+                    // E-matching must see the existential decomposition, not just the private facet.
+                    expr_ref concat(m_seq.str.mk_concat(e1, f), m);
+                    propagate_eq(lit, e2, concat);
+                }
             }
             else
                 m_ax.add_prefix_axiom(e);
@@ -453,6 +458,10 @@ namespace smt {
                 rhs.push_back(f); // fresh existential
                 rhs.append(tokenize(dep, e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                if (ctx.has_quantifiers()) {
+                    expr_ref concat(m_seq.str.mk_concat(f, e1), m);
+                    propagate_eq(lit, e2, concat);
+                }
             }
             else
                 m_ax.add_suffix_axiom(e);
@@ -497,6 +506,11 @@ namespace smt {
                 rhs.append(tokenize(dep, e2));
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                if (ctx.has_quantifiers()) {
+                    expr_ref prefix(m_seq.str.mk_concat(x, e2), m);
+                    expr_ref concat(m_seq.str.mk_concat(prefix, y), m);
+                    propagate_eq(lit, e1, concat);
+                }
             }
             else {
                 // not contains(e1,e2) is tracked by ncontains_facet.

@@ -594,6 +594,54 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_nseq_quantified_decompositions() {
+    char const* inputs[] = {
+        "(declare-const s String)(declare-const t String)"
+        "(assert (forall ((x String) (y String))"
+        "  (=> (= (str.++ x y) t) (distinct x s))))"
+        "(assert (str.prefixof s t))",
+        "(declare-const s String)(declare-const t String)"
+        "(assert (forall ((x String) (y String))"
+        "  (=> (= (str.++ x y) t) (distinct y s))))"
+        "(assert (str.suffixof s t))",
+        "(declare-const s String)(declare-const t String)"
+        "(assert (forall ((x String) (y String) (z String))"
+        "  (=> (= (str.++ x y z) t) (distinct y s))))"
+        "(assert (str.contains t s))"
+    };
+    for (char const* input : inputs) {
+        for (bool proofs : {false, true}) {
+            for (unsigned relevancy : {0u, 2u}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::istringstream is(input);
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_uint("relevancy", relevancy);
+                p.set_uint("timeout", 2000);
+                p.set_bool("unsat_core", true);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                expr_ref quantified(m.mk_const("quantified", m.mk_bool_sort()), m);
+                expr_ref predicate(m.mk_const("predicate", m.mk_bool_sort()), m);
+                slv->assert_expr(cmd.assertions()[0], quantified);
+                for (unsigned i = 0; i < 2; ++i) {
+                    slv->push();
+                    slv->assert_expr(cmd.assertions()[1], predicate);
+                    ENSURE(l_false == slv->check_sat(0, nullptr));
+                    expr_ref_vector core(m);
+                    slv->get_unsat_core(core);
+                    ENSURE(core.size() == 2);
+                    if (proofs)
+                        ENSURE(slv->get_proof());
+                    slv->pop(1);
+                }
+            }
+        }
+    }
+}
+
 static void check_nseq_shared_ite_model() {
     for (bool proofs : {false, true}) {
         for (bool regular : {false, true}) {
@@ -1382,6 +1430,7 @@ static void check_inactive_nseq() {
 
 void tst_smt_context()
 {
+    check_nseq_quantified_decompositions();
     check_inactive_nseq();
     check_integer_power(false);
     check_integer_power(true);
