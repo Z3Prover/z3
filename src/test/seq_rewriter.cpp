@@ -556,6 +556,44 @@ static void tst_positive_closure_repetition() {
     member(repeated, "", false);
 }
 
+static void tst_from_code_star_membership() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util arith(m);
+    th_rewriter rw(m);
+    app_ref n(m.mk_const("code", arith.mk_int()), m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref word(su.str.mk_from_code(n), m);
+    expr_ref literal(su.re.mk_to_re(word), m);
+    expr_ref language(su.re.mk_star(literal), m);
+    for (unsigned code : {0u, 122u, 0x2ffffu}) {
+        expr_ref character(su.str.mk_string(zstring(1, &code)), m);
+        expr_ref concrete_literal(su.re.mk_to_re(character), m);
+        expr_ref concrete_language(su.re.mk_star(concrete_literal), m);
+        expr_ref value(arith.mk_int(code), m);
+        expr_ref guard(m.mk_eq(n, value), m);
+        for (bool suffix : {false, true}) {
+            expr_ref source(suffix ? su.str.mk_concat(x, character) :
+                                     su.str.mk_concat(character, x), m);
+            expr_ref actual(su.re.mk_in_re(source, language), m);
+            expr_ref member(su.re.mk_in_re(source, concrete_language), m);
+            expr_ref expected(m.mk_and(guard, member), m);
+            rw(actual);
+            rw(expected);
+            ENSURE(actual == expected);
+        }
+    }
+    expr_ref empty(su.str.mk_string(""), m);
+    expr_ref empty_member(su.re.mk_in_re(empty, language), m);
+    rw(empty_member);
+    ENSURE(m.is_true(empty_member));
+    expr_ref unknown(su.re.mk_in_re(x, language), m);
+    expr_ref unchanged(unknown, m);
+    rw(unknown);
+    ENSURE(unknown == unchanged);
+}
+
 static void tst_empty_language_repetition() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -578,6 +616,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_from_code_star_membership();
     tst_seq_replace_round_trip();
     tst_empty_language_repetition();
     tst_positive_closure_repetition();

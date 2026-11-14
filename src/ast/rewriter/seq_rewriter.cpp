@@ -3823,6 +3823,28 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
 
+    expr *repeated = nullptr, *code_word = nullptr, *code_arg = nullptr;
+    if (re().is_star(b, repeated) && re().is_to_re(repeated, code_word) &&
+        str().is_from_code(code_word, code_arg)) {
+        expr_ref_vector parts(m());
+        str().get_concat(a, parts);
+        for (expr* part : parts) {
+            zstring text;
+            if (!str().is_string(part, text) || text.length() == 0)
+                continue;
+            // A nonempty word in this language repeats one character only.
+            unsigned code = text[0];
+            expr_ref value(m_autil.mk_int(code), m());
+            expr_ref guard(m().mk_eq(code_arg, value), m());
+            expr_ref character(str().mk_string(zstring(1, &code)), m());
+            expr_ref literal(re().mk_to_re(character), m());
+            expr_ref star(re().mk_star(literal), m());
+            expr_ref member(re().mk_in_re(a, star), m());
+            result = m().mk_and(guard, member);
+            return BR_REWRITE_FULL;
+        }
+    }
+
     zstring s;
     if (str().is_string(a, s) && re().is_ground(b)) {
         // Just check membership and replace by true/false
