@@ -342,6 +342,8 @@ namespace smt {
     }
 
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
+        // Equalities can invalidate a witness without a Boolean assignment notification.
+        m_pending_assumptions.reset();
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
         expr* e1 = n1->get_expr();
@@ -359,6 +361,7 @@ namespace smt {
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
+        m_pending_assumptions.reset();
         enode *n1 = get_enode(v1);
         enode *n2 = get_enode(v2);
         expr *e1 = n1->get_expr();

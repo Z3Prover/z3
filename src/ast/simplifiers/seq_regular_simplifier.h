@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Bounded regular preimages of string observations.
+    Decimal constant comparisons and bounded regular preimages of string observations.
     Run on original assertions, before general sequence rewriting.
 
 --*/
@@ -20,7 +20,7 @@ class seq_regular_simplifier : public dependent_expr_simplifier {
     bool m_automatic = false;
     bool m_enabled = true;
     unsigned m_max_steps = 100000;
-    unsigned m_steps = 0, m_preimages = 0, m_rewritten = 0;
+    unsigned m_steps = 0, m_preimages = 0, m_rewritten = 0, m_stoi_rewritten = 0;
     unsigned m_unsupported = 0, m_budget = 0, m_skipped = 0;
     stopwatch m_watch;
 public:
@@ -35,5 +35,5 @@ public:
 };
 
 Z3_ADD_SIMPLIFIER(seq_regular, "seq-regular",
-                 "convert fully regular string goals to memberships before sequence rewriting.",
+                 "lower decimal constant comparisons and fully regular string goals to memberships.",
                  alloc(seq_regular_simplifier, m, p, s));

@@ -1240,6 +1240,152 @@ static void test_use_aware_replace_contains() {
     ENSURE(context.check() == l_true);
 }
 
+static void test_seq_decimal_comparisons() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref_vector pin(m), cases(m);
+    auto hold = [&](expr* e) { pin.push_back(e); return e; };
+    auto integer = [&](rational const& n) { return hold(a.mk_numeral(n, true)); };
+    expr_ref s(m.mk_const("decimal-s", u.str.mk_string_sort()), m);
+    expr_ref n(m.mk_const("decimal-n", a.mk_int()), m);
+    expr* stoi = hold(u.str.mk_stoi(s));
+    enum class cmp { eq, ne, le, ge, lt, gt };
+    auto compare = [&](cmp op, expr* x, expr* y) -> expr* {
+        switch (op) {
+        case cmp::eq: return hold(m.mk_eq(x, y));
+        case cmp::ne: {
+            expr* args[] = {x, y};
+            return hold(m.mk_distinct(2, args));
+        }
+        case cmp::le: return hold(a.mk_le(x, y));
+        case cmp::ge: return hold(a.mk_ge(x, y));
+        case cmp::lt: return hold(a.mk_lt(x, y));
+        case cmp::gt: return hold(a.mk_gt(x, y));
+        default: UNREACHABLE(); return nullptr;
+        }
+    };
+    for (char const* text : {"-2", "-1", "0", "9", "10", "255", "1000",
+                            "123456789012345678901234567890"}) {
+        expr* value = integer(rational(text));
+        for (cmp op : {cmp::eq, cmp::ne, cmp::le, cmp::ge, cmp::lt, cmp::gt}) {
+            expr* formula = compare(op, stoi, value);
+            cases.push_back(formula);
+            cases.push_back(hold(m.mk_not(formula)));
+            cases.push_back(compare(op, value, stoi));
+        }
+    }
+    expr* zero = integer(rational(0));
+    expr* one = integer(rational(1));
+    expr* first = hold(u.str.mk_substr(s, zero, one));
+    expr* minus = hold(u.str.mk_string(zstring("-")));
+    expr* negative = hold(m.mk_eq(first, minus));
+    expr* len = hold(u.str.mk_length(s));
+    expr* rest_len = hold(a.mk_sub(len, one));
+    expr* rest = hold(u.str.mk_substr(s, one, rest_len));
+    expr* rest_value = hold(u.str.mk_stoi(rest));
+    expr* negated = hold(a.mk_uminus(rest_value));
+    expr* signed_value = hold(m.mk_ite(negative, negated, stoi));
+    expr* minus_one = integer(rational(-1));
+    expr* reflected = hold(a.mk_mul(minus_one, signed_value));
+    expr* five = integer(rational(5));
+    expr* affine = hold(a.mk_add(reflected, five));
+    expr* partial = hold(m.mk_ite(negative, n, stoi));
+    for (int bound : {-1, 0, 1, 255}) {
+        expr* value = integer(rational(bound));
+        cases.push_back(compare(cmp::gt, signed_value, value));
+        cases.push_back(compare(cmp::le, affine, value));
+        cases.push_back(compare(cmp::eq, signed_value, value));
+        cases.push_back(compare(cmp::ge, partial, value));
+    }
+
+    std::vector<zstring> words{zstring()};
+    for (unsigned length = 1, begin = 0, end = 1; length <= 3; ++length) {
+        unsigned next = static_cast<unsigned>(words.size());
+        for (unsigned j = begin; j < end; ++j)
+            for (unsigned ch : {'0', '2', '9', 'a'})
+                words.push_back(words[j] + zstring(ch));
+        begin = end;
+        end = static_cast<unsigned>(words.size());
+        ENSURE(next == begin);
+    }
+    for (char const* text : {"255", "256", "270", "299", "400", "999", "1000", "1001",
+                            "0255", "00256", "0001000", "-12", "-a", "-", "0xff", "FF",
+                            "123456789012345678901234567889",
+                            "123456789012345678901234567890",
+                            "123456789012345678901234567891",
+                            "0123456789012345678901234567890",
+                            "9999999999999999999999999999999"})
+        words.push_back(zstring(text));
+    words.push_back(zstring(0x0661u));
+    words.push_back(zstring(0x1f600u));
+    for (expr* formula : cases) {
+        base_dependent_expr_state state(m);
+        expr_ref label(m.mk_const("decimal-label", m.mk_bool_sort()), m);
+        expr_dependency* dep = m.mk_leaf(label);
+        state.add(dependent_expr(m, formula, nullptr, dep));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != formula && state[0].dep() == dep);
+        expr_ref rewritten(state[0].fml(), m);
+        for (zstring const& word : words) {
+            expr_ref value(u.str.mk_string(word), m);
+            expr_safe_replace sub(m);
+            sub.insert(s, value);
+            sub.insert(n, five);
+            expr_ref original(m), result(m);
+            sub(formula, original);
+            sub(rewritten, result);
+            rw(original);
+            rw(result);
+            ENSURE(m.is_true(original) || m.is_false(original));
+            ENSURE(original == result);
+        }
+    }
+    {
+        expr_ref t(m.mk_const("decimal-t", u.str.mk_string_sort()), m);
+        expr* other = hold(u.str.mk_stoi(t));
+        expr* sum = hold(a.mk_add(stoi, other));
+        expr* relational = compare(cmp::eq, sum, n);
+        expr* bound = integer(rational(255));
+        expr* bounded = compare(cmp::gt, stoi, bound);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, bounded, nullptr, nullptr));
+        state.add(dependent_expr(m, relational, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != bounded && state[1].fml() == relational);
+        expr_ref_vector conjuncts(m);
+        flatten_and(state[0].fml(), conjuncts);
+        ENSURE(conjuncts.contains(bounded));
+        statistics st;
+        simp.collect_statistics(st);
+        bool rewritten = false;
+        for (unsigned i = 0; i < st.size(); ++i)
+            if (!strcmp(st.get_key(i), "seq-regular-stoi-rewritten"))
+                rewritten = st.get_uint_value(i) == 1;
+        ENSURE(rewritten);
+        expr* valid = compare(cmp::ge, stoi, zero);
+        base_dependent_expr_state coupled(m);
+        coupled.add(dependent_expr(m, valid, nullptr, nullptr));
+        coupled.add(dependent_expr(m, relational, nullptr, nullptr));
+        seq_regular_simplifier keep_numeric(m, params_ref(), coupled);
+        keep_numeric.reduce();
+        ENSURE(coupled[0].fml() == valid && coupled[1].fml() == relational);
+    }
+    {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, cases.get(0), nullptr, nullptr));
+        params_ref p;
+        p.set_uint("seq_regular.max_steps", 1);
+        seq_regular_simplifier simp(m, p, state);
+        simp.reduce();
+        ENSURE(state[0].fml() == cases.get(0));
+    }
+}
+
 static void test_seq_regular() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1564,6 +1710,7 @@ static void test_seq_regular() {
 
 void tst_simplifier() {
 
+    test_seq_decimal_comparisons();
     test_seq_regular();
     test_use_aware_replace_contains();
     test_bit2int_proofs();

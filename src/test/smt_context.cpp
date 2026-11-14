@@ -693,6 +693,69 @@ static void check_nseq_nested_index_replace() {
     }
 }
 
+static void check_nseq_decimal_bound_regex() {
+    for (bool signed_conversion : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(set-logic QF_SLIA)"
+            "(declare-const s String)"
+            "(define-fun t () String (str.substr s 3 (- (str.len s) 3)))"
+            "(define-fun value () Int " +
+            std::string(signed_conversion ?
+                "(ite (= (str.substr t 0 1) \"-\")"
+                "     (- (str.to_int (str.substr t 1 (- (str.len t) 1))))"
+                "     (str.to_int t))" : "(str.to_int t)") + ")"
+            "(assert (str.in_re s (re.+ (re.range \"0\" \"9\"))))"
+            "(assert (<= (str.len s) 6))"
+            "(assert (> value 255))"
+            "(assert (= s \"000255\"))"
+            "(assert (= s \"000256\"))");
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("seq.regular", true);
+        p.set_uint("timeout", 5000);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        for (unsigned i = 0; i < 3; ++i)
+            slv->assert_expr(cmd.assertions()[i]);
+        auto check_model = [&]() {
+            ENSURE(slv->check_sat(0, nullptr) == l_true);
+            model_ref mdl;
+            slv->get_model(mdl);
+            ENSURE(mdl);
+            for (expr* assertion : slv->get_assertions()) {
+                expr_ref value(m);
+                ENSURE(mdl->eval_expr(assertion, value, true) && m.is_true(value));
+            }
+        };
+        check_model();
+        slv->push();
+        slv->assert_expr(cmd.assertions()[3]);
+        ENSURE(slv->check_sat(0, nullptr) == l_false);
+        slv->pop(1);
+        check_model();
+        model_ref mdl;
+        slv->get_model(mdl);
+        expr_ref witness(m);
+        seq_util u(m);
+        expr_ref s(m.mk_const("s", u.str.mk_string_sort()), m);
+        ENSURE(mdl->eval_expr(s, witness, true));
+        expr_ref equality(m.mk_eq(s, witness), m);
+        slv->push();
+        slv->assert_expr(m.mk_not(equality));
+        check_model();
+        slv->pop(1);
+        check_model();
+        slv->push();
+        slv->assert_expr(cmd.assertions()[4]);
+        check_model();
+        slv->pop(1);
+        check_model();
+    }
+}
+
 static void check_nseq_binary_digit_reconciliation() {
     for (bool proofs : {false, true}) {
         for (bool regular : {false, true}) {
@@ -1335,6 +1398,7 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_nseq_shared_ite_model();
     check_nseq_nested_index_replace();
+    check_nseq_decimal_bound_regex();
     check_nseq_binary_digit_reconciliation();
     check_nseq_generic_contains_regex();
     check_sequence_last_index();

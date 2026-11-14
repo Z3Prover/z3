@@ -7,14 +7,15 @@ Module Name:
 
 Abstract:
 
-    Aggregate regular observations before taking selector/replacement preimages.
-    No assertions are changed unless the entire pending goal is regular.
+    Lower decimal constant comparisons, then aggregate regular observations
+    before taking selector/replacement preimages. The latter phase is transactional.
 
 --*/
 #include "ast/simplifiers/seq_regular_simplifier.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_range_collapse.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "params/smt_params_helper.hpp"
 #include <algorithm>
 #include <map>
@@ -36,7 +37,16 @@ class regular_compiler {
     unsigned max_steps;
     unsigned& steps;
     unsigned& preimages;
+    enum class comparison_kind { eq, ne, le, ge, lt, gt };
     std::unordered_map<expr*, expr*> normalized;
+    std::unordered_map<expr*, expr*> decimal_normalized;
+    std::map<std::pair<comparison_kind, rational>, expr*> decimal_languages;
+    struct decimal_rewrite {
+        expr* original;
+        expr* replacement;
+        bool magnitude;
+    };
+    std::vector<decimal_rewrite> decimal_rewrites;
     struct linear {
         rational constant;
         std::map<expr*, rational> terms;
@@ -223,6 +233,163 @@ class regular_compiler {
         if (u.re.is_empty(x)) return all;
         if (u.re.is_full_seq(x)) return empty;
         return keep(u.re.mk_complement(x));
+    }
+    expr* decimal_range(unsigned lo, unsigned hi) {
+        tick();
+        return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));
+    }
+    expr* decimal_greater(rational const& bound) {
+        SASSERT(bound.is_int() && bound >= 0);
+        std::string text = bound.to_string();
+        if (text.size() > 4096) throw failure::budget;
+        unsigned size = static_cast<unsigned>(text.size());
+        expr* digits = decimal_range(0, 9);
+        expr* suffix = epsilon;
+        expr* greater = empty;
+        // Shared suffixes keep the lexicographic comparison linear in the numeral's size.
+        for (unsigned i = size; i-- > 0;) {
+            tick();
+            unsigned digit = text[i] - '0';
+            expr* exact = lit(zstring(static_cast<unsigned>(text[i])));
+            greater = cat(exact, greater);
+            if (digit < 9) {
+                expr* higher = decimal_range(digit + 1, 9);
+                expr* alternative = cat(higher, suffix);
+                greater = join(greater, alternative);
+            }
+            suffix = cat(digits, suffix);
+        }
+        expr* nonzero = decimal_range(1, 9);
+        expr* arbitrary = star(digits);
+        expr* longer = cat({nonzero, suffix, arbitrary});
+        greater = join(greater, longer);
+        expr* zeros = lit(zstring("0"));
+        zeros = star(zeros);
+        return cat(zeros, greater);
+    }
+    expr* decimal_language(comparison_kind op, rational const& bound) {
+        tick();
+        auto key = std::make_pair(op, bound);
+        auto found = decimal_languages.find(key);
+        if (found != decimal_languages.end()) return found->second;
+        expr* digits = decimal_range(0, 9);
+        expr* repeated = star(digits);
+        expr* valid = cat(digits, repeated);
+        expr* language = nullptr;
+        if (bound < 0) {
+            switch (op) {
+            case comparison_kind::eq: language = bound.is_minus_one() ? complement(valid) : empty.get(); break;
+            case comparison_kind::ne: language = bound.is_minus_one() ? valid : all.get(); break;
+            case comparison_kind::le: language = bound.is_minus_one() ? complement(valid) : empty.get(); break;
+            case comparison_kind::lt: language = empty; break;
+            case comparison_kind::ge: language = all; break;
+            case comparison_kind::gt: language = bound.is_minus_one() ? valid : all.get(); break;
+            default: UNREACHABLE(); break;
+            }
+        }
+        else if (op == comparison_kind::eq || op == comparison_kind::ne) {
+            std::string text = bound.to_string();
+            if (text.size() > 4096) throw failure::budget;
+            expr* zeros = lit(zstring("0"));
+            zeros = star(zeros);
+            expr* number = lit(zstring(text.c_str()));
+            language = cat(zeros, number);
+            if (op == comparison_kind::ne) language = complement(language);
+        }
+        else {
+            if ((op == comparison_kind::ge || op == comparison_kind::lt) && bound.is_zero())
+                language = valid;
+            else {
+                rational threshold = bound;
+                if (op == comparison_kind::ge || op == comparison_kind::lt) --threshold;
+                language = decimal_greater(threshold);
+            }
+            if (op == comparison_kind::le || op == comparison_kind::lt) language = complement(language);
+        }
+        decimal_languages.emplace(std::move(key), language);
+        return language;
+    }
+    static comparison_kind reverse_comparison(comparison_kind op) {
+        switch (op) {
+        case comparison_kind::le: return comparison_kind::ge;
+        case comparison_kind::ge: return comparison_kind::le;
+        case comparison_kind::lt: return comparison_kind::gt;
+        case comparison_kind::gt: return comparison_kind::lt;
+        default: return op;
+        }
+    }
+    expr* comparison(comparison_kind op, expr* term, rational const& bound) {
+        expr* value = keep(a.mk_numeral(bound, true));
+        switch (op) {
+        case comparison_kind::eq: return keep(m.mk_eq(term, value));
+        case comparison_kind::ne: {
+            expr* eq = keep(m.mk_eq(term, value));
+            return neg(eq);
+        }
+        case comparison_kind::le: return keep(a.mk_le(term, value));
+        case comparison_kind::ge: return keep(a.mk_ge(term, value));
+        case comparison_kind::lt: return keep(a.mk_lt(term, value));
+        case comparison_kind::gt: return keep(a.mk_gt(term, value));
+        default: UNREACHABLE(); return nullptr;
+        }
+    }
+    expr* decimal_comparison(comparison_kind op, linear const& l, bool& changed,
+                             bool& magnitude, unsigned depth = 0) {
+        tick();
+        if (depth > 256) throw failure::budget;
+        if (l.terms.size() != 1) return nullptr;
+        auto [term, coefficient] = *l.terms.begin();
+        if (coefficient == rational(-1))
+            op = reverse_comparison(op);
+        else if (!coefficient.is_one())
+            return nullptr;
+        rational bound = -l.constant * coefficient;
+        if (!bound.is_int()) return nullptr;
+        expr *source, *condition, *yes, *no;
+        if (u.str.is_stoi(term, source)) {
+            changed = true;
+            magnitude |= bound >= 0 &&
+                !(bound.is_zero() && (op == comparison_kind::ge || op == comparison_kind::lt));
+            return membership(source, decimal_language(op, bound));
+        }
+        if (!m.is_ite(term, condition, yes, no)) return nullptr;
+        auto branch = [&](expr* e) {
+            linear value = affine(e);
+            value.constant -= bound;
+            expr* result = decimal_comparison(op, value, changed, magnitude, depth + 1);
+            return result ? result : comparison(op, e, bound);
+        };
+        expr* y = branch(yes);
+        expr* n = branch(no);
+        expr_ref_vector args(m);
+        args.push_back(condition);
+        args.push_back(y);
+        expr* positive = boolean(true, args);
+        args.reset();
+        args.push_back(neg(condition));
+        args.push_back(n);
+        expr* negative = boolean(true, args);
+        args.reset();
+        args.push_back(positive);
+        args.push_back(negative);
+        return boolean(false, args);
+    }
+    expr* lower_decimal(app* e) {
+        if (e->get_num_args() != 2 || !a.is_int(e->get_arg(0))) return e;
+        comparison_kind op;
+        if (m.is_eq(e)) op = comparison_kind::eq;
+        else if (m.is_distinct(e)) op = comparison_kind::ne;
+        else if (a.is_le(e)) op = comparison_kind::le;
+        else if (a.is_ge(e)) op = comparison_kind::ge;
+        else if (a.is_lt(e)) op = comparison_kind::lt;
+        else if (a.is_gt(e)) op = comparison_kind::gt;
+        else return e;
+        linear value = affine(e->get_arg(0));
+        value.add(affine(e->get_arg(1)), rational(-1));
+        bool changed = false, magnitude = false;
+        expr* result = decimal_comparison(op, value, changed, magnitude);
+        if (changed) decimal_rewrites.push_back({e, result, magnitude});
+        return changed ? result : e;
     }
     expr* avoiding(zstring const& ch) {
         auto excluded = seq::range_predicate::singleton(ch[0], u.max_char());
@@ -701,25 +868,80 @@ public:
         character = u.re.mk_full_char(re);
         all = u.re.mk_full_seq(re);
     }
-    expr* normalize(expr* e) {
+    bool retain_shared_conversions(expr_ref_vector& formulas) {
+        if (decimal_rewrites.empty()) return true;
+        obj_hashtable<expr> shared, seen;
+        ptr_vector<expr> todo;
+        todo.append(formulas.size(), formulas.data());
+        while (!todo.empty()) {
+            tick();
+            expr* e = todo.back();
+            todo.pop_back();
+            if (seen.contains(e)) continue;
+            seen.insert(e);
+            if (u.str.is_stoi(e)) shared.insert(e);
+            if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);
+        }
+        if (shared.empty()) return true;
+        if (std::none_of(decimal_rewrites.begin(), decimal_rewrites.end(),
+                         [](decimal_rewrite const& r) { return r.magnitude; }))
+            return false;
+        expr_safe_replace sub(m);
+        for (auto const& rewrite : decimal_rewrites) {
+            if (m.is_true(rewrite.replacement) || m.is_false(rewrite.replacement)) continue;
+            seen.reset();
+            todo.push_back(rewrite.original);
+            bool uses_shared = false;
+            while (!todo.empty()) {
+                tick();
+                expr* e = todo.back();
+                todo.pop_back();
+                if (seen.contains(e)) continue;
+                seen.insert(e);
+                uses_shared |= shared.contains(e);
+                if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);
+            }
+            if (!uses_shared) continue;
+            // Keep arithmetic information when the conversion still participates in coupled arithmetic.
+            // Validity already has a digit-language axiom; only magnitude bounds add a new regex lemma.
+            expr* retained = rewrite.original;
+            if (rewrite.magnitude) retained = keep(m.mk_and(retained, rewrite.replacement));
+            sub.insert(rewrite.replacement, retained);
+        }
+        if (sub.empty()) return true;
+        for (unsigned i = 0; i < formulas.size(); ++i) {
+            tick();
+            expr_ref result(m);
+            sub(formulas.get(i), result);
+            formulas.set(i, result);
+        }
+        return true;
+    }
+    expr* normalize(expr* e, bool decimal_only = false) {
+        auto& cache = decimal_only ? decimal_normalized : normalized;
         ptr_vector<expr> todo;
         todo.push_back(e);
         while (!todo.empty()) {
             tick();
             expr* cur = todo.back();
-            if (normalized.count(cur)) { todo.pop_back(); continue; }
+            if (cache.count(cur)) { todo.pop_back(); continue; }
             if (!is_app(cur)) throw failure::unsupported;
             bool ready = true;
             for (expr* arg : *to_app(cur)) {
-                if (!normalized.count(arg)) { todo.push_back(arg); ready = false; break; }
+                if (!cache.count(arg)) { todo.push_back(arg); ready = false; break; }
             }
             if (!ready) continue;
             expr_ref_vector args(m);
-            for (expr* arg : *to_app(cur)) args.push_back(normalized[arg]);
-            normalized[cur] = normalize_node(to_app(cur), args);
+            for (expr* arg : *to_app(cur)) args.push_back(cache[arg]);
+            if (decimal_only) {
+                app* rebuilt = to_app(keep(m.mk_app(to_app(cur)->get_decl(), args.size(), args.data())));
+                cache[cur] = lower_decimal(rebuilt);
+            }
+            else
+                cache[cur] = normalize_node(to_app(cur), args);
             todo.pop_back();
         }
-        return normalized[e];
+        return cache[e];
     }
     bool is_root_regular(expr* e) {
         ptr_vector<expr> todo;
@@ -809,25 +1031,23 @@ void seq_regular_simplifier::reduce() {
     unsigned preimages_before = m_preimages;
     unsigned steps = 0;
     regular_compiler compiler(m, m_max_steps, steps, m_preimages);
-    expr_ref_vector results(m);
+    expr_ref_vector decimals(m), results(m);
     bool labeled = false;
     for (unsigned i = qhead(); i < qtail(); ++i) labeled |= m_fmls[i].dep() != nullptr;
+    bool decimal_changed = false;
     try {
-        if (labeled) {
+        for (unsigned i = qhead(); i < qtail(); ++i) {
+            expr* input = m_fmls[i].fml();
+            expr* result = compiler.normalize(input, true);
+            decimals.push_back(result);
+        }
+        if (!compiler.retain_shared_conversions(decimals)) {
+            decimals.reset();
             for (unsigned i = qhead(); i < qtail(); ++i)
-                results.push_back(compiler.compile(m_fmls[i].fml()));
+                decimals.push_back(m_fmls[i].fml());
         }
-        else {
-            expr_ref_vector inputs(m);
-            for (unsigned i = qhead(); i < qtail(); ++i) inputs.push_back(m_fmls[i].fml());
-            expr_ref input(mk_and(inputs), m);
-            results.push_back(compiler.compile(input));
-            if (results.back() == input) {
-                m_steps += steps;
-                return;
-            }
-            for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());
-        }
+        for (unsigned i = qhead(); i < qtail(); ++i)
+            decimal_changed |= decimals.get(i - qhead()) != m_fmls[i].fml();
     }
     catch (failure why) {
         m_steps += steps;
@@ -835,8 +1055,33 @@ void seq_regular_simplifier::reduce() {
         else if (why == failure::budget) ++m_budget;
         return;
     }
+    try {
+        if (labeled) {
+            for (expr* input : decimals)
+                results.push_back(compiler.compile(input));
+        }
+        else {
+            expr_ref input(mk_and(decimals), m);
+            results.push_back(compiler.compile(input));
+            if (results.back() == input && !decimal_changed) {
+                m_steps += steps;
+                return;
+            }
+            for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());
+        }
+    }
+    catch (failure why) {
+        if (why == failure::unsupported) ++m_unsupported;
+        else if (why == failure::budget) ++m_budget;
+        if (!decimal_changed || why == failure::canceled) {
+            m_steps += steps;
+            return;
+        }
+        results.reset();
+        results.append(decimals);
+    }
     m_steps += steps;
-    if (m_automatic && m_preimages == preimages_before &&
+    if (m_automatic && !decimal_changed && m_preimages == preimages_before &&
         !std::all_of(results.begin(), results.end(), [&](expr* e) { return m.is_true(e) || m.is_false(e); }))
         return;
     unsigned end = qtail();
@@ -844,6 +1089,7 @@ void seq_regular_simplifier::reduce() {
         auto const& old = m_fmls[i];
         expr* result = results.get(i - qhead());
         if (result != old.fml()) {
+            if (decimals.get(i - qhead()) != old.fml()) ++m_stoi_rewritten;
             m_fmls.update(i, dependent_expr(m, result, nullptr, old.dep()));
             ++m_rewritten;
         }
@@ -851,7 +1097,7 @@ void seq_regular_simplifier::reduce() {
 }
 
 void seq_regular_simplifier::reset_statistics() {
-    m_steps = m_preimages = m_rewritten = m_unsupported = m_budget = m_skipped = 0;
+    m_steps = m_preimages = m_rewritten = m_stoi_rewritten = m_unsupported = m_budget = m_skipped = 0;
     m_watch.reset();
 }
 
@@ -859,6 +1105,7 @@ void seq_regular_simplifier::collect_statistics(statistics& st) const {
     st.update("seq-regular-steps", m_steps);
     st.update("seq-regular-preimages", m_preimages);
     st.update("seq-regular-rewritten", m_rewritten);
+    st.update("seq-regular-stoi-rewritten", m_stoi_rewritten);
     st.update("seq-regular-unsupported", m_unsupported);
     st.update("seq-regular-budget", m_budget);
     st.update("seq-regular-skipped", m_skipped);
