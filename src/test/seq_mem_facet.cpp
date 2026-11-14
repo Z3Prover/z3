@@ -350,6 +350,36 @@ namespace {
         return *found;
     }
 
+    static void tst_empty_regex_parameter_substitution(bool shared_subject) {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", f.u.str.mk_string_sort()), f.m);
+        expr_ref singleton(f.u.re.mk_to_re(x), f.m);
+        expr_ref symbolic(f.u.re.mk_star(singleton), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& dm = f.tree.dep_mgr();
+        mf.add(seq::str_mem(f.m, shared_subject ? x.get() : y.get(),
+                           seq::view::membership(symbolic, f.m), dm.mk_leaf(1)));
+        f.trail.push_scope();
+        expr_ref_vector repl(f.m);
+        mf.apply_subst(x, repl, dm.mk_leaf(2));
+        auto const& substituted = only_active_membership(mf);
+        expr_ref word(f.u.str.mk_string(""), f.m);
+        expr_ref expected(f.u.re.mk_to_re(word), f.m);
+        ENSURE(substituted.m_view.m_state == expected);
+        ENSURE(dm.contains(substituted.m_dep, 1) && dm.contains(substituted.m_dep, 2));
+        if (shared_subject) {
+            ENSURE(substituted.m_str == repl);
+        }
+        else {
+            ENSURE(substituted.m_str.size() == 1 && substituted.m_str.get(0) == y);
+        }
+        f.trail.pop_scope(1);
+        auto const& restored = only_active_membership(mf);
+        ENSURE(restored.m_view.m_state == symbolic);
+        ENSURE(dm.contains(restored.m_dep, 1) && !dm.contains(restored.m_dep, 2));
+    }
+
     // All words over {a,b,c} with #letter == residue (mod modulus).
     static expr_ref count_regex(fixture& f, char letter, unsigned modulus, unsigned residue) {
         expr_ref other(f.u.re.mk_empty(f.u.re.mk_re(f.u.str.mk_string_sort())), f.m);
@@ -1520,6 +1550,8 @@ void tst_seq_mem_facet() {
     tst_letter_count_benchmark(false);
     tst_letter_count_benchmark(true);
     tst_letter_count_equations_scopes();
+    tst_empty_regex_parameter_substitution(false);
+    tst_empty_regex_parameter_substitution(true);
     tst_letter_count_partial_assignments();
     tst_letter_count_constants();
     tst_letter_count_opaque_tokens();

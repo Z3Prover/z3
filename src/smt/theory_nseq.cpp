@@ -21,6 +21,7 @@ Author:
 #include "smt/smt_context.h"
 #include "smt/smt_justification.h"
 #include "ast/expr_substitution.h"
+#include "ast/occurs.h"
 #include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/trail.h"
@@ -974,6 +975,43 @@ namespace smt {
         return proc;
     }
 
+    bool theory_nseq::check_empty_lengths() {
+        if (!any_of(m_ambient->mem_facet(*m_root).memberships(), [&](seq::str_mem const& member) {
+                return member.active() && member.is_plain() && !has_quantifiers(member.m_view.m_state) &&
+                    !m_seq.re.is_ground(member.m_view.m_state);
+            }))
+            return false;
+        unsigned size = m_axioms.size();
+        for (unsigned i = 0; i < size; ++i) {
+            expr* term = m_axioms.get(i);
+            expr* s = nullptr;
+            rational hi;
+            if (!m_seq.str.is_length(term, s) || !is_uninterp_const(s))
+                continue;
+            if (!any_of(m_ambient->mem_facet(*m_root).memberships(), [&](seq::str_mem const& member) {
+                    return member.active() && member.is_plain() && !has_quantifiers(member.m_view.m_state) &&
+                        !m_seq.re.is_ground(member.m_view.m_state) && occurs(s, member.m_view.m_state);
+                }))
+                continue;
+            if (!upper_bound(term, hi) || !hi.is_zero())
+                continue;
+            expr_ref empty(m_seq.str.mk_empty(s->get_sort()), m);
+            if (ctx.e_internalized(s) && ctx.e_internalized(empty) &&
+                ctx.get_enode(s)->get_root() == ctx.get_enode(empty)->get_root())
+                continue;
+            expr_ref eq(m_sk.mk_eq(s, empty), m);
+            if (ctx.b_internalized(eq) && ctx.get_assignment(ctx.get_literal(eq)) == l_true)
+                continue;
+            expr_ref positive(m_autil.mk_gt(term, m_autil.mk_int(0)), m);
+            expr_ref_vector clause(m);
+            clause.push_back(positive);
+            clause.push_back(eq);
+            m_ax.add_axiom_clause(clause);
+            return true;
+        }
+        return false;
+    }
+
     bool theory_nseq::check_fixed_lengths(bool instantiate) {
         for (unsigned v = 0; v < get_num_vars() && m.inc(); ++v) {
             expr* e = get_expr(v);
@@ -1239,6 +1277,8 @@ namespace smt {
             return FC_GIVEUP;
         }
         default:
+            if (!has_short_stoi() && check_empty_lengths())
+                return FC_CONTINUE;
             // Reconcile digits only after word search stalls, not at its preliminary node budget.
             if (conversions && branch_stoi_digit(true))
                 return FC_CONTINUE;
