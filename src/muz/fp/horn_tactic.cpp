@@ -403,10 +403,11 @@ public:
 
     void operator()(goal_ref const & in,
                     goal_ref_buffer & result) override {
-        if (in->proofs_enabled()) {
+        if (m_is_simplify && in->proofs_enabled()) {
             result.push_back(in.get());
             return;
         }
+        fail_if_proof_generation("horn", in);
         (*m_imp)(in, result);
     }
 

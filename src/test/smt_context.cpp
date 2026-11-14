@@ -1186,7 +1186,7 @@ static void check_proof_mode_guards() {
         bool rejects = false;
         for (char const* rejecting : {
             "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv",
-            "ff-sat", "ff-solve", "ff2bv", "fm",
+            "ff-sat", "ff-solve", "ff2bv", "fm", "horn",
             "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
             "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
             "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
@@ -1477,6 +1477,45 @@ static void check_proof_mode_fallbacks() {
     }
 }
 
+static void check_horn_proof_diagnostic() {
+    char const* inputs[] = {
+        "(declare-fun inv (Int) Bool)"
+        "(assert (forall ((x Int)) (=> (= x 0) (inv x))))"
+        "(assert (forall ((x Int)) (=> (inv x) (inv (+ x 1)))))"
+        "(assert (forall ((x Int)) (=> (and (inv x) (> x 5)) false)))",
+        "(assert (forall ((q17 Int) (q18 Int) (q19 Bool)) false))",
+        "(declare-fun p (Int) Bool)"
+        "(assert (p 0))"
+        "(assert (not (p 0)))"
+        "(assert (not (p 1)))",
+        "(declare-fun p (Int) Bool)"
+        "(assert (p 0))"
+        "(assert (not (p 1)))"
+    };
+    for (bool proofs : {false, true}) {
+        for (unsigned i = 0; i < 4; ++i) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(inputs[i]);
+            ENSURE(parse_smt2_commands(cmd, input));
+            params_ref p;
+            scoped_ptr<solver_factory> factory = mk_smt_strategic_solver_factory();
+            ref<solver> slv = (*factory)(m, p, proofs, true, false, symbol("HORN"));
+            for (expr* a : cmd.assertions())
+                slv->assert_expr(a);
+            lbool result = slv->check_sat(0, nullptr);
+            if (proofs) {
+                ENSURE(result == l_undef);
+                ENSURE(slv->reason_unknown() == "horn does not support proof production");
+            }
+            else {
+                ENSURE(result == (i == 3 ? l_true : l_false));
+            }
+        }
+    }
+}
+
 static void check_intblast_signed_mod() {
     for (int x = 0; x < 8; ++x) {
         for (int y = 0; y < 8; ++y) {
@@ -1524,6 +1563,7 @@ void tst_smt_context()
     check_proof_mode_compositions();
     check_proof_mode_sls();
     check_proof_mode_fallbacks();
+    check_horn_proof_diagnostic();
     check_integer_power(false);
     check_integer_power(true);
     check_case_split_relevant_first();
