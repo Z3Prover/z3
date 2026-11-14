@@ -203,9 +203,11 @@ namespace seq {
                     requested_length = rational(lo);
             }
             for (auto const& v : views) {
+                // Overlapping concatenation derivatives can grow even for moderately long words.
+                unsigned threshold = re().is_concat(v.m_state) ? 256 : compact_threshold;
                 expr* literal = nullptr;
-                if (requested_length <= rational(compact_threshold) &&
-                    re().min_length(v.m_state) <= compact_threshold &&
+                if (requested_length <= rational(threshold) &&
+                    re().min_length(v.m_state) <= threshold &&
                     !(re().is_to_re(v.m_state, literal) && !m.is_value(literal)))
                     continue;
                 // Ordinary product costs also rank monadic refinements.
@@ -228,7 +230,7 @@ namespace seq {
                         candidate = u().str.mk_power(candidate, exponent);
                     }
                 }
-                if (!m_rw.get_ground_seq_length(candidate, length) || length <= rational(compact_threshold))
+                if (!m_rw.get_ground_seq_length(candidate, length) || length <= rational(threshold))
                     continue;
                 if (all_of(views, [&](view const& constraint) {
                         return compact.accepts(candidate, constraint.m_state) == l_true;
