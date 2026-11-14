@@ -30,10 +30,31 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
-    linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
-    map_parameters,
+    expand_polynomial, integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
+    linear_combination_refutes, numeral_value, polynomial_refutation, RECOGNIZER_KINDS, SET_OPERATORS,
+    enumeration_constructors, map_parameters, require_subset,
 )
+
+
+class TrimmedAwayError(ProofExportError):
+    """A trimmed log lacks clauses the replay needs; the untrimmed log may have them (_Replay._nonlinear_lemma)."""
+
+
+class TrimmedLog(str):
+    """The text of a trimmed clause log (trim_clause_log), with the log it was cut from as `untrimmed`.
+
+    Z3's trimmer keeps what the empty clause depends on and takes a lemma
+    of the nonlinear solver for an axiom, while the replay derives the
+    logged clause from the lemma and the unit clauses that make the
+    lemma's other literals false: the trimmed log need not have those, and
+    build_certificate then replays the untrimmed one.
+    """
+
+    def __new__(cls, text, untrimmed):
+        log = super().__new__(cls, text)
+        log.untrimmed = untrimmed
+        return log
+
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 # The sort a log term's arguments take, for their numerals: an arithmetic
@@ -42,6 +63,28 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+# Z3's own functions for a division by zero (of /, of div, and of mod and
+# rem), and the operators whose application to a zero numeral is one (see
+# _Terms.divides_by_zero).
+_DIVISION_BY_ZERO_HEADS = ("/0", "div0", "mod0")
+_DIVISION_HEADS = ("/", "div", "mod", "rem")
+_ZERO = re.compile(r"^0+(\.0+)?$")
+# Z3's set operators by the name the log prints: z3py's constructor and the
+# number of sets it takes (proof_certificate.SET_OPERATORS).
+_SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
+    (SET_OPERATORS[z3.Z3_OP_SET_UNION], z3.SetUnion), (SET_OPERATORS[z3.Z3_OP_SET_INTERSECT], z3.SetIntersect),
+    (SET_OPERATORS[z3.Z3_OP_SET_DIFFERENCE], z3.SetDifference),
+    (SET_OPERATORS[z3.Z3_OP_SET_COMPLEMENT], z3.SetComplement))}
+# The hints of Z3's nonlinear solver: nla carries the literals of a lemma and
+# a polynomial refutation over the solver's columns, nla-unsupported the
+# literals alone or nothing. The literals are read (_Terms.hint): the lemma
+# they deny is the logged clause before it lost the literals false at the
+# base level. The refutation is not: the lemma, or the logged clause, is
+# certified when a polynomial refutation of its literals is found again
+# (_Replay._nonlinear_lemma, polynomial_facts), and not otherwise.
+_NONLINEAR_HINTS = ("nla", "nla-unsupported")
+# The th-lemma of a clause whose literals have a polynomial refutation.
+_POLYNOMIAL_HINT = "nla"
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -244,7 +287,10 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
     Trimming only shortens the replay. When the trimmer reports an error (it
     rejects an inference it cannot derive by unit propagation) or writes a
     dependency graph the replay cannot use, the untrimmed log is returned
-    with a warning, and the replay checks every step of it instead. timeout
+    with a warning, and the replay checks every step of it instead. A
+    trimmed log is returned as a TrimmedLog, which keeps the untrimmed text
+    for the replay that needs a clause the trimmer dropped
+    (build_certificate). timeout
     (seconds) and memory (megabytes) bound the trimmer, by default
     _TIME_LIMIT and _MEMORY_LIMIT; it stopping at the time limit raises
     subprocess.TimeoutExpired, at the memory limit ProofExportError.
@@ -264,7 +310,7 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
         if run.stderr.strip():
             warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
         try:
-            return _dependency_core(run.stdout)
+            return TrimmedLog(_dependency_core(run.stdout), text)
         except ProofExportError as error:
             warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
                           % error, RuntimeWarning)
@@ -275,6 +321,11 @@ def _symbol(token):
     if token.startswith("|") and token.endswith("|") and len(token) >= 2:
         return token[1:-1]
     return token
+
+
+def _text(sexpr):
+    """A parsed log term as the log writes it, for error messages."""
+    return sexpr if isinstance(sexpr, str) else "(%s)" % " ".join(_text(part) for part in sexpr)
 
 
 def _number(sexpr):
@@ -338,6 +389,8 @@ class _Terms:
         # numeral read with the wrong sort is coerced by z3py into a to_real
         # term or fails to build, which no input atom matches.
         self.integer = self.real = False
+        # Names of the definitions that divide by zero (divides_by_zero).
+        self.zero_divisions = set()
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
@@ -398,6 +451,10 @@ class _Terms:
         if isinstance(sexpr, str):
             if sexpr in self.defined:
                 return self.defined[sexpr]
+            if sexpr in self.zero_divisions:
+                # Not reached from _Replay.run, which leaves out or rejects a
+                # clause over such a definition before it builds a literal.
+                raise ProofExportError("the clause log uses a term over a division by zero: %s" % sexpr)
             if sexpr == "true":
                 return z3.BoolVal(True, self.context)
             if sexpr == "false":
@@ -418,6 +475,11 @@ class _Terms:
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
         head = sexpr[0]
+        if head in ("forall", "exists", "lambda"):
+            # Z3's rewriter expands an equality between stores over constant
+            # arrays whose index sort may be finite into a quantified
+            # formula, (forall ((x I)) (= (ite (= x i) w v) v)).
+            raise ProofExportError("quantifiers are not supported in the clause log: %s" % head)
         if head == ["_", "array-ext", "0"] and len(sexpr) == 3:
             # The array solver's Skolem function for extensionality: an index
             # where two distinct arrays differ (z3py's Ext).
@@ -428,8 +490,7 @@ class _Terms:
         if (isinstance(head, list) and len(head) == 3 and head[:2] == ["as", "const"] and len(sexpr) == 2
                 and isinstance(head[2], list) and len(head[2]) == 3 and head[2][0] == "Array"):
             # A constant array ((as const (Array I E)) v), z3py's K, of an
-            # array sort of the input (the exporter admits Int and Real indices
-            # only).
+            # array sort of the input (the exporter rejects array indices).
             sort = self.array_sorts.get(_sort_text(head[2]))
             element = head[2][2]  # a sort name, or an array sort of nested arrays
             value = self.build(sexpr[1], {"Int": True, "Real": False}.get(element) if isinstance(element, str)
@@ -476,6 +537,22 @@ class _Terms:
                 return self.recognizers[_symbol(head[2])](self.build(sexpr[1]))
             except z3.Z3Exception:
                 raise ProofExportError("ill-sorted recognizer application in the clause log") from None
+        if (isinstance(head, list) and len(head) == 3 and head[0] == "as" and isinstance(head[1], str)
+                and head[1] in _SET_HEADS):
+            # A set operator printed with its sort, ((as union (Array I Bool))
+            # a b), as Z3 prints union: the application below, of that sort.
+            # Z3 qualifies only its own functions, so the head names the
+            # operator even when the input declares a function of that name
+            # (over other sorts; Z3 rejects one with the operator's own).
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+            try:
+                result = self._apply(head[1], len(arguments), arguments)
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted application of %s in the clause log" % head[1]) from None
+            sort = self.array_sorts.get(_sort_text(head[2]))
+            if sort is None or not sort.eq(result.sort()):
+                raise ProofExportError("set operator of another sort in the clause log: %s" % head[1])
+            return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -494,7 +571,11 @@ class _Terms:
             raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
         try:
             return function(*arguments) if function is not None else self._apply(head, count, arguments)
-        except z3.Z3Exception:
+        except (z3.Z3Exception, AttributeError):
+            # z3py raises AttributeError when it casts an array to an
+            # arithmetic sort: a function of the input named like a set
+            # operator, (declare-fun intersection (Int Int) Int), takes the
+            # bare name, so Z3's (intersection a b) of two sets is not built.
             raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
 
     def _apply(self, head, count, arguments):
@@ -530,6 +611,25 @@ class _Terms:
             return z3.Select(arguments[0], arguments[1])
         if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
             return z3.Store(arguments[0], arguments[1], arguments[2])
+        if head in _SET_HEADS and count == _SET_HEADS[head][1] and all(
+                is_array_sort(argument.sort()) for argument in arguments):
+            # A set operator of the input, logged as it is written when Z3
+            # stops rewriting (the assertions after one that simplifies to
+            # false); otherwise the log holds the map its rewriter makes of
+            # it. The exporter's map_parameters admits the result or rejects
+            # it (sets of one index sort).
+            result = _SET_HEADS[head][0](*arguments)
+            map_parameters(result)
+            return result
+        if (head == "subset" and count == 2 and is_array_sort(arguments[0].sort())
+                and arguments[0].sort().range().kind() == z3.Z3_BOOL_SORT
+                and arguments[1].sort().eq(arguments[0].sort())):
+            # Logged as written in the assertions after one that simplifies
+            # to false, like the set operators; otherwise the log holds the
+            # rewriter's (= (setminus a b) empty) over maps.
+            result = z3.IsSubset(arguments[0], arguments[1])
+            require_subset(result)
+            return result
         if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
             # The array solver's default value of an array, the value it
             # takes at all but finitely many indices (constant arrays).
@@ -572,9 +672,70 @@ class _Terms:
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
         raise ProofExportError("unsupported operator in the clause log: %s" % head)
 
+    def divides_by_zero(self, sexpr):
+        """Whether a log term, literal, or hint mentions a division by zero.
+
+        That is an application of one of Z3's functions for a division by
+        zero (/0, div0, mod0), a /, div, mod, or rem by a zero numeral, or a
+        definition or hint over one. No assertion has such a term (the
+        fragment check rejects a zero divisor and Z3's functions; a function
+        the input declares under one of their names, with another signature,
+        is not meant: _applies_input_function), so it is the arithmetic
+        solver's own: for a div, mod, or rem whose divisor is not a numeral
+        when the solver meets it, it states (= (div t d) (div0 t d)),
+        (= (mod t 0) (mod0 t 0)), and the rem axioms of (rem t 0). A divisor
+        the input writes as a constant expression, (- 3) or (+ 1 2), is not
+        a numeral in the assertions Z3 logs unsimplified, those after an
+        assertion that folds to false.
+        """
+        pending, hints = [sexpr], set()
+        while pending:
+            part = pending.pop()
+            if isinstance(part, str):
+                if part in self.zero_divisions:
+                    return True
+                if part in self.hints and part not in hints:
+                    hints.add(part)
+                    pending.append(self.hints[part])
+            elif part:
+                head = part[0]
+                if isinstance(head, str) and len(part) == 3:
+                    if head in _DIVISION_HEADS and isinstance(part[2], str) and _ZERO.match(part[2]):
+                        return True
+                    if head in _DIVISION_BY_ZERO_HEADS and not self._applies_input_function(part):
+                        return True
+                pending.extend(part)
+        return False
+
+    def _applies_input_function(self, sexpr):
+        """Whether (f s t), f named like one of Z3's functions for a division by zero, applies a function of the input.
+
+        The input can declare a binary function under such a name over other
+        argument sorts, (declare-fun div0 (U U) U) or (Int U) Int (Z3 rejects
+        the declaration over two arithmetic sorts, those of its own), and the
+        log prints both by the bare name: the sorts of the arguments tell
+        them apart. Arguments that do not build decide nothing: the walk of
+        divides_by_zero goes on into them, and building the term then
+        reports what is wrong with it.
+        """
+        function = self.functions.get(sexpr[0])
+        if function is None or function.arity() != 2:
+            return False
+        try:
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+        except ProofExportError:
+            return True
+        return all(argument.sort().eq(function.domain(index)) for index, argument in enumerate(arguments))
+
     def define(self, name, sort, sexpr):
-        if name in self.defined or name in self.hints:
+        if name in self.defined or name in self.hints or name in self.zero_divisions:
             raise ProofExportError("duplicate definition in the clause log: %s" % name)
+        if sort != "Proof" and self.divides_by_zero(sexpr):
+            # Not built: the certificate has no term for a division by zero.
+            # The replay leaves out the solver's clauses over the name and
+            # rejects an assumed one (_Replay.run); build rejects the name.
+            self.zero_divisions.add(name)
+            return
         # Definitions stay referenced for the whole replay, so their identifiers are stable.
         if sort == "Proof":
             self.hints[name] = sexpr
@@ -588,13 +749,27 @@ class _Terms:
         """Return (name, [(coefficient, literal)]) for a theory hint or None for rup."""
         if sexpr == "rup":
             return None
-        if isinstance(sexpr, str):
+        if isinstance(sexpr, str) and sexpr not in _NONLINEAR_HINTS:
             if sexpr not in self.hints:
                 raise ProofExportError("undefined proof hint in the clause log: %s" % sexpr)
             sexpr = self.hints[sexpr]
+        if sexpr in _NONLINEAR_HINTS:
+            return sexpr, []  # logged by its name alone when it lists no literal
         if not sexpr or not isinstance(sexpr[0], str):
             raise ProofExportError("malformed proof hint in the clause log")
         name, arguments = sexpr[0], sexpr[1:]
+        if name in _NONLINEAR_HINTS:
+            # The nonlinear solver's lemma: coefficient-literal pairs, then
+            # nla's polynomial refutation, a symbol that is not read. The
+            # literals are those the lemma denies, of which the logged
+            # clause may have lost the ones false at the base level
+            # (_Replay.infer); when they are not read either (a term the
+            # replay does not build), the logged clause stands for the lemma.
+            try:
+                return name, [(_number(arguments[index]), self.build(arguments[index + 1]))
+                              for index in range(0, len(arguments) - 1, 2)]
+            except ProofExportError:
+                return name, []
         if name in _COEFFICIENT_HINTS:
             if len(arguments) % 2:
                 raise ProofExportError("%s hint needs coefficient-literal pairs" % name)
@@ -659,6 +834,44 @@ def _store_axiom(literal):
 def _is_set_combinator(expr):
     """Whether expr applies a map or one of Z3's set operators (proof_certificate.map_parameters)."""
     return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
+
+
+def _default_map_axiom(literal):
+    """Whether literal states the default value of a map, (= (default (map f a b)) (f (default a) (default b))).
+
+    Any equality or disequality with the default value of a map on one
+    side counts, and so does that value as a literal of its own (a set's
+    is a formula), except the default-value axiom of a store over that map,
+    (= (default (store m i v)) (default m)), which holds of every array.
+    The reconstructor's test (proof_to_lean._default_map_axiom) reads the
+    equalities only: it rejects an array th-lemma with any other literal
+    (_check_th_lemma), so a bare default value never reaches it.
+    """
+    atom = _strip(literal)[0]
+    if z3.is_default(atom):
+        return _is_set_combinator(atom.arg(0))
+    if not z3.is_eq(atom):
+        return False
+    sides = atom.children()
+    for side, other in (sides, reversed(sides)):
+        if z3.is_default(side) and _is_set_combinator(side.arg(0)):
+            if not (z3.is_default(other) and z3.is_store(other.arg(0)) and other.arg(0).arg(0).eq(side.arg(0))):
+                return True
+    return False
+
+
+def _names_default(expr):
+    """Whether a default value (default a) occurs in expr (one traversal of the DAG, as _symbols)."""
+    seen, pending = set(), [expr]
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if z3.is_default(node):
+            return True
+        pending.extend(node.children())
+    return False
 
 
 def _same_equality(left, right):
@@ -762,7 +975,13 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
     arith axioms relate to their operands, abs, a read of an array, and an
-    array's default value.
+    array's default value. So is a product of two or more nonconstant
+    factors, the term as it is written: Z3's simplex solver has one
+    variable for it, and its linear lemmas never use what a product is of
+    ((* x y) and (* y x) are two atoms here; Z3's rewriter orders the
+    factors before the solver sees them). The input has such products over
+    Int only (proof_certificate._require_linear_arithmetic); the log may
+    state one over Real, of to_real terms, in a step Lean checks.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -796,7 +1015,10 @@ def _linear(expr, terms=None, scale=Fraction(1)):
             elif variable is None:
                 variable = child
             else:
-                raise ProofExportError("nonlinear multiplication is not supported")
+                # A second nonconstant factor: the product is an atom, its
+                # numeral factors included.
+                terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
+                return terms, Fraction(0)
         terms, constant = _linear(variable, terms, scale * factor)
     elif kind == z3.Z3_OP_DIV:
         divisor = constant_value(expr.arg(1))
@@ -929,6 +1151,58 @@ def check_linear_hint(name, pairs):
     if not integer:
         raise ProofExportError("%s hint coefficients do not refute its literals" % name)
     return False
+
+
+def polynomial_facts(literals):
+    """The facts that hold when every literal of a clause over Int atoms is false, as polynomials, or None.
+
+    Each is (equality, polynomial) for 0 <= polynomial or polynomial = 0
+    (proof_certificate.polynomial_refutation), a strict bound tightened and
+    the products multiplied out over the atoms of the linear forms that are
+    no products (_linear). A clause with a literal that is no bound or
+    equality over Int terms (a disequality's complement is an equality; an
+    equality's is not a fact of this kind) has none.
+    """
+    products, pending, facts = {}, [_strip(literal)[0] for literal in literals], []
+    if any(atom.num_args() != 2 or not z3.is_int(atom.arg(0)) for atom in pending):
+        return None
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() not in products:
+            products[expr.get_id()] = expr if expr.decl().kind() == z3.Z3_OP_MUL else None
+            pending.extend(expr.children())
+
+    def factors(atom):
+        product = products.get(atom)
+        return None if product is None else [_linear(child) for child in product.children()]
+
+    try:
+        for literal in literals:
+            relation, terms, constant = _constraint(_complement(literal))  # sum(terms) + constant <= 0, or = 0
+            polynomial = expand_polynomial(terms, constant, factors)
+            facts.append((relation == "=", {monomial: -value for monomial, value in polynomial.items()}))
+    except ProofExportError:
+        return None
+    return facts
+
+
+def _same_constraint(first, second):
+    """Whether two literals state one linear constraint: an equality either way round, a bound and its tightening."""
+    if first.get_id() == second.get_id():
+        return True
+    if z3.is_not(first) and z3.is_not(second):
+        first, second = first.arg(0), second.arg(0)
+    try:
+        relation, terms, constant = _constraint(first)
+        other, other_terms, other_constant = _constraint(second)
+    except ProofExportError:
+        return False
+    if relation != other:
+        return False
+    if terms == other_terms and constant == other_constant:
+        return True
+    return (relation == "=" and constant == -other_constant
+            and terms == {atom: -value for atom, value in other_terms.items()})
 
 
 def check_arith_hint(pairs):
@@ -1210,6 +1484,9 @@ class _Replay:
         self.root = None
         self.logged_clauses = {}
         self.trimmed = False
+        self.uncertified = {}    # proof node of an axiom nothing certifies -> why (_require_certified)
+        self.nonlinear = False   # whether the nonlinear solver left a lemma in the log (_nonlinear_lemma)
+        self.default_maps = set()  # those of them that state the default value of a map
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
         self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
@@ -1356,6 +1633,12 @@ class _Replay:
         if source is not None:
             assertion, conjunct, path = source
             return self._derive_assumption(assertion, path, conjunct, formula)
+        # A clause Z3 assumed on its nonlinear solver's word (nlsat) is no
+        # assertion's: when its literals have a polynomial refutation it is a
+        # theorem about the products, an nla th-lemma as in infer.
+        lemma = self._polynomial_lemma(literals)
+        if lemma is not None:
+            return lemma
         candidates = self._candidate_sources(formula)
         # A conjunct a model shows consistent with the clause's negation does
         # not imply the clause, nor does any conjunct below it: such
@@ -1544,12 +1827,17 @@ class _Replay:
         original assertions, never taken from the hint. A bare smt hint
         claims the logged clause is a theory tautology, and so does a
         datatype hint (an enumeration's case split or constructor clash).
+        An nla or nla-unsupported hint marks a lemma of the nonlinear
+        solver, certified by a polynomial refutation found again or not at
+        all (_nonlinear_lemma).
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """
         if hint is None:
             return self.rup(literals, dependencies)
         name, pairs = hint
+        if name in _NONLINEAR_HINTS:
+            return self._nonlinear_lemma(name, pairs, literals)
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
             if name == "alldiff" and not _distinct_gate(lemma_literals):
@@ -1569,12 +1857,13 @@ class _Replay:
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
-            if name == "array" and any(z3.is_default(side) and _is_set_combinator(side.arg(0))
-                                       for _, literal in pairs for side in _strip(literal)[0].children()):
-                # (= (default (map f a b)) (f (default a) (default b))) holds
-                # only for arrays constant at all but finitely many indices,
-                # which Lean's _default cannot assume of a map's arguments.
-                raise ProofExportError("the default value of a map is not certified")
+            # (= (default (map f a b)) (f (default a) (default b))) holds
+            # only for arrays constant at all but finitely many indices,
+            # which Lean's _default cannot assume of a map's arguments. The
+            # array solver states the axiom for every map it meets, whether
+            # or not a conflict comes to rest on it, so the axiom is judged
+            # only once the refutation is known to use it (_require_certified).
+            default_map = name == "array" and any(_default_map_axiom(literal) for _, literal in pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":
@@ -1598,8 +1887,15 @@ class _Replay:
                 equality = pairs[0][1]
                 lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
                                   else [equality])
+            if default_map:
+                # The hint lists the equality the axiom propagates, like the
+                # axioms above; the node stands for the logged clause as it is.
+                lemma_literals = list(literals)
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+            if default_map:
+                self.uncertified[lemma] = "the default value of a map is not certified"
+                self.default_maps.add(lemma)
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
@@ -1607,6 +1903,79 @@ class _Replay:
             return self.rup(literals, None if dependencies is None else dependencies + [entry])
         finally:
             self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+
+    def _polynomial_lemma(self, literals):
+        """An nla th-lemma node for a clause whose literals have a polynomial refutation, or None.
+
+        The clause is then a theorem about the products of its Int terms:
+        the reconstructor finds the refutation again and Lean proves the
+        clause from the products of the bounds it denies.
+        """
+        facts = polynomial_facts(literals)
+        if facts is None:
+            return None
+        self._check_deadline()
+        if polynomial_refutation(facts) is None:
+            return None
+        self.nonlinear = True
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [_POLYNOMIAL_HINT])
+        return self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+
+    def _nonlinear_lemma(self, name, pairs, literals):
+        """Justify a clause the nonlinear solver (nla_core) inferred: hint nla or nla-unsupported.
+
+        The lemma is the logged clause, or the clause of the complements of
+        the hint's literals, of which the logged one may have lost those
+        false at the base level; it is then derived from the lemma by unit
+        propagation over the whole clause database. When the literals of
+        either have a polynomial refutation (products of two of the facts
+        they deny and a linear combination, the evidence Z3 itself looks
+        for; it is found again, the hint's is not read) the lemma is an nla
+        th-lemma (_polynomial_lemma). Otherwise Lean has no proof of it: the
+        node stands for the logged clause, a refutation that uses it is
+        rejected (_require_certified), and one that does not leaves it out
+        of the certificate.
+        """
+        self.nonlinear = True
+        candidates = [list(literals)]
+        if pairs and all(z3.is_bool(literal) for _, literal in pairs):
+            # A literal the lemma rests on twice (an equality, as its two
+            # bounds) is listed twice, and one may be written another way
+            # than in the logged clause ((= x 1) for (= 1 x)): the logged
+            # literal is kept, for the unit propagation.
+            complements = {}
+            for _, literal in pairs:
+                complement = _complement(literal)
+                complement = next((logged for logged in literals if _same_constraint(logged, complement)),
+                                  complement)
+                complements[complement.get_id()] = complement
+            candidates.append(list(complements.values()))
+        for lemma_literals in candidates:
+            lemma = self._polynomial_lemma(lemma_literals)
+            if lemma is None:
+                continue
+            if {self.literal_key(literal) for literal in lemma_literals} == {
+                    self.literal_key(literal) for literal in literals}:
+                return lemma, lemma_literals
+            entry = self.add_clause(lemma, lemma_literals)
+            try:
+                return self.rup(literals)
+            except ProofExportError as error:
+                # Z3's trimmer takes the logged clause for an axiom, so a
+                # trimmed log need not keep the unit clauses that make the
+                # other literals false; the untrimmed log has them
+                # (build_certificate replays it).
+                if self.trimmed:
+                    raise TrimmedAwayError(
+                        "the trimmed log lacks the unit clauses under a lemma of the nonlinear solver "
+                        "(the untrimmed log has them): %s" % error) from None
+            finally:
+                self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [name])
+        lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+        self.uncertified[lemma] = ("the refutation uses a lemma of the nonlinear solver, "
+                                   "which is not certified: %s" % name)
+        return lemma, list(literals)
 
     def rup(self, literals, dependencies=None):
         """Derive a clause by unit propagation, as hypotheses, resolutions, and a lemma."""
@@ -1704,6 +2073,34 @@ class _Replay:
         conclusion = self.clause_formula(remaining)
         return self.dag.node(declaration, [clause_node] + units + [self.dag.expression(conclusion)])
 
+    def _require_certified(self):
+        """Reject a refutation that rests on an axiom nothing certifies (self.uncertified).
+
+        One logged on the way but left unused (an untrimmed log keeps every
+        clause the solver derived) is left out of the certificate instead
+        (see run).
+
+        The default-map axiom is certified when no assertion names a default
+        value: the default values are then the array solver's own terms, and
+        the reconstructor reads them all at one index that no store of the
+        certificate writes (proof_to_lean's _generic_defaults), where the
+        axiom holds of every map. An input that names one keeps Lean's
+        _default, of which the axiom is not a theorem.
+        """
+        if not self.uncertified:
+            return
+        named = any(_names_default(assertion) for assertion in self.assertions)
+        used, pending = set(), [self.root]
+        while pending:
+            node = pending.pop()
+            if node not in used:
+                used.add(node)
+                pending.extend(self.dag.nodes[node]["arguments"])
+        rejected = {node for node in used.intersection(self.uncertified)
+                    if named or node not in self.default_maps}
+        if rejected:
+            raise ProofExportError(self.uncertified[min(rejected)])
+
     # -- driver ----------------------------------------------------------
 
     def run(self, text):
@@ -1774,7 +2171,22 @@ class _Replay:
                     and isinstance(part[1], str) and _symbol(part[1]) in phantoms
                     for part in command[1:]):
                 continue  # a clause over a phantom literal is never tied to an assertion
+            elif head in ("infer", "del") and any(terms.divides_by_zero(part) for part in command[1:]):
+                # A clause the arithmetic solver states about a division by
+                # zero (_Terms.divides_by_zero): the certificate has no term
+                # for one, and the clause is left out. Like a clause over a
+                # phantom literal, that only removes support for later
+                # steps: an inference that needs it is not derivable by unit
+                # propagation and rejects the log (in a trimmed log, a
+                # clause that depends on it does, as a forward dependency).
+                continue
             elif head == "assume":
+                for part in command[1:]:
+                    if terms.divides_by_zero(part):
+                        # No assertion has such a term, so no assertion
+                        # gives the clause.
+                        raise ProofExportError("the clause log assumes a clause over a division by zero: %s"
+                                               % _text(part))
                 literals = [terms.build(part) for part in command[1:]]
                 node = self.assume(literals)
                 for literal in literals:
@@ -1807,19 +2219,39 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
+        self._require_certified()
         # A trimmed log keeps only the nodes the refutation uses; so does an
-        # untrimmed one whose unused clauses mention default values over an
-        # index sort the certificate cannot carry (the gates of the default
-        # values the array solver introduces for maps over any index sort).
-        # If the refutation uses one, the reconstructor rejects it.
+        # untrimmed one with an unused axiom nothing certifies, or whose
+        # unused clauses mention default values over an index sort the
+        # certificate cannot carry (the gates of the default values the array
+        # solver introduces for maps over any index sort). If the refutation
+        # uses one of the latter, the reconstructor rejects it. So does one
+        # with lemmas of the nonlinear solver: the clauses it leaves unused
+        # (assumed on nlsat's word, or tied to the assertions by a cnf
+        # lemma) need not have a proof Lean finds.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed or terms.uncertified_defaults)
+                                    compact=(self.trimmed or terms.uncertified_defaults or bool(self.uncertified)
+                                             or self.nonlinear))
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):
     """Rebuild a clause log as an unverified z3-native-proof-dag bundle.
 
     timeout (seconds, default _TIME_LIMIT) bounds the replay's wall-clock
-    time; exceeding it raises ProofExportError.
+    time; exceeding it raises ProofExportError. When text is a TrimmedLog
+    without the unit clauses a lemma of the nonlinear solver rests on
+    (TrimmedAwayError), the log it was cut from is replayed instead, with a
+    warning and within the same time; a trimmed log given as a plain string
+    raises the error.
     """
-    return _Replay(source, fragment, assertions, context, timeout).run(text)
+    replay = _Replay(source, fragment, assertions, context, timeout)
+    try:
+        return replay.run(text)
+    except TrimmedAwayError as error:
+        untrimmed = getattr(text, "untrimmed", None)
+        if untrimmed is None:
+            raise
+        warnings.warn("replaying the untrimmed log: %s" % error, RuntimeWarning)
+        second = _Replay(source, fragment, assertions, context, timeout)
+        second.deadline = replay.deadline
+        return second.run(untrimmed)

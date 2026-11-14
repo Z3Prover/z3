@@ -143,6 +143,23 @@ _PSEUDO_BOOLEAN = {z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST, z3.Z3_OP_PB_LE, z3
 # (an opaque Int atom, which Z3's arithmetic solver bounds by two axioms),
 # and is_int tests a Real term (an integer numeral Z3 coerces to Real is
 # read as a Real numeral, see _parse_snapshot).
+# A product of two or more nonconstant Int terms, (* m n) or (* m (+ n 1)),
+# is accepted as one more opaque atom of the linear forms: Z3's simplex
+# solver has a variable for it, so its farkas, bound, implied-eq, and cut
+# lemmas are linear combinations over the products, which the checks here
+# re-derive and Lean proves (its Int * is the product, and grind normalizes
+# polynomials). What Z3's nonlinear solver adds about a product from its
+# factors (nla lemmas, bounds it propagates, clauses nlsat decides) is
+# certified when a polynomial refutation of the clause is found again
+# (polynomial_refutation); proof_clause_log rejects a refutation that uses
+# a lemma of that solver without one. A product of
+# Real terms stays rejected in the input: Real variables are Rat in Lean,
+# which is faithful for linear constraints (a system with rational
+# coefficients has a real solution exactly when it has a rational one) but
+# not for polynomial ones ((= (* x x) 2.0) has a real solution and no
+# rational one), so a theorem over Rat would not say that the input is
+# unsatisfiable. An Int product has the same value under a real and a
+# rational solution, which agree on the Int terms.
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
@@ -585,8 +602,13 @@ def integer_divisor(expr):
 
 
 def _require_linear_arithmetic(expr):
-    """Reject Real or Int terms outside the linear fragment with constant coefficients.
+    """Reject Real or Int terms outside the arithmetic fragment: linear forms over atoms.
 
+    A product by constants scales a linear form; one of several nonconstant
+    factors is an atom over Int and rejected over Real, where the Rat
+    encoding is faithful for linear constraints only (see the comment above
+    _ARITH_PREDICATES). Division by a term stays rejected (x / 0 is
+    uninterpreted in SMT-LIB and 0 in Lean), and so does a power.
     Real division is accepted by a nonzero constant, integer div, mod, and rem
     by a nonzero constant, abs over Int or Real, to_real of an Int term
     (the injection, linear in its argument), and to_int of a Real term (the
@@ -603,8 +625,9 @@ def _require_linear_arithmetic(expr):
         # atoms of linear forms.
         pass
     elif kind == z3.Z3_OP_MUL:
-        if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
-            raise ProofExportError("nonlinear multiplication is not supported")
+        if not z3.is_int(expr) and sum(1 for child in expr.children() if constant_value(child) is None) > 1:
+            raise ProofExportError("nonlinear multiplication is supported over Int only: a product of Real terms "
+                                   "is not certified")
     elif kind == z3.Z3_OP_DIV:
         divisor = constant_value(expr.arg(1))
         if divisor is None or divisor == 0:
@@ -745,8 +768,9 @@ def is_array_sort(sort):
     I -> (J -> E) in Lean). The element sort may be an enumeration (_m.U
     in Lean, whose interpretation states that every read is one of its
     constructors, see is_enumeration_array_sort). Arrays of several indices
-    are not supported (see array_sort_name); constant arrays and default
-    values need an infinite index sort (Int or Real).
+    are not supported (see array_sort_name); default values need an
+    infinite index sort (Int or Real), and constant arrays an index sort
+    that is not an array.
     """
     def component(candidate):
         return (_is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
@@ -855,6 +879,21 @@ def map_parameters(expr):
         raise ProofExportError("maps and set operators over arrays indexed by arrays are not supported: %s"
                                % expr.sort())
     return result
+
+
+def require_subset(expr):
+    """Check a (subset a b): two sets (arrays with Bool elements) of one sort, not indexed by arrays.
+
+    Z3's rewriter makes (= (setminus a b) empty) of it, so the sets are
+    those a set operator takes (map_parameters).
+    """
+    sort = expr.arg(0).sort() if expr.num_args() == 2 else None
+    if (sort is None or expr.decl().params() or sort.kind() != z3.Z3_ARRAY_SORT or not expr.arg(1).sort().eq(sort)
+            or sort.range().kind() != z3.Z3_BOOL_SORT):
+        raise ProofExportError("unsupported subset (two sets of one sort are supported): %s" % expr.sexpr())
+    array_sort_name(sort)  # Sets over another index sort (a bit-vector, an enumeration) are an unsupported sort.
+    if sort.domain().kind() == z3.Z3_ARRAY_SORT:
+        raise ProofExportError("maps and set operators over arrays indexed by arrays are not supported: %s" % sort)
 
 
 def _require_default(expr):
@@ -1034,6 +1073,10 @@ def classify_fragment(assertions):
                 pass
             elif decl.kind() == z3.Z3_OP_ARRAY_DEFAULT:
                 _require_default(expr)  # The default value of a set, an atom too.
+            elif decl.kind() == z3.Z3_OP_SET_SUBSET:
+                # (subset a b) over two sets (checked as arrays when visited):
+                # every member of a is one of b.
+                require_subset(expr)
             elif decl.kind() == z3.Z3_OP_IS_INT:
                 # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
                 real = integer = True
@@ -1097,15 +1140,20 @@ def classify_fragment(assertions):
                 if is_enumeration_sort(component):
                     enumerations[component.name()] = component
             if decl.kind() == z3.Z3_OP_CONST_ARRAY:
-                # ((as const (Array I E)) v): the array solver relates it to
+                # ((as const (Array I E)) v), the constant function in Lean.
+                # Over Int and Real indices the array solver relates it to
                 # the other arrays through default values (the value an
                 # array takes at all but finitely many indices), which Lean
-                # proves over an infinite index type, Int or Real (see
-                # proof_to_lean._default); a finite uninterpreted index sort
-                # would make those axioms unsound.
-                if expr.sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
-                    raise ProofExportError("constant arrays are supported over Int and Real indices only: %s"
-                                           % expr.sort())
+                # proves over an infinite index type (see
+                # proof_to_lean._default). An uninterpreted index sort may
+                # be finite, so it has no default values (_require_default,
+                # and the reconstructor rejects those of the solver's own);
+                # Lean reads it as a type of its own, exactly the model's
+                # (proof_to_lean._index_sorts), and Bool indices as Prop.
+                # Over array indices a model's constant array is not Lean's
+                # constant function (proof_to_lean's nested arrays).
+                if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
+                    raise ProofExportError("constant arrays indexed by arrays are not supported: %s" % expr.sort())
             elif decl.kind() == z3.Z3_OP_ARRAY_MAP or decl.kind() in SET_OPERATORS:
                 if map_parameters(expr)[:1] == ("declared",):
                     # A map of an uninterpreted function: a symbol of the
@@ -1711,6 +1759,143 @@ def bound_combination_refutes(constraints):
     return False
 
 
+# Two bounds of Z3's own search for a polynomial refutation (nla_lemma.cpp,
+# prove): the facts it derives and the monomials of one. The resource limit
+# of the solver call that looks for the linear combination is deterministic,
+# unlike a timeout.
+_POLYNOMIAL_FACTS = 384
+_POLYNOMIAL_MONOMIALS = 512
+_POLYNOMIAL_RLIMIT = 20000000
+
+
+def multiply_polynomials(left, right):
+    """The product of two polynomials, each a map from a monomial (a sorted tuple of atoms) to its coefficient."""
+    product = {}
+    for first, coefficient in left.items():
+        for second, factor in right.items():
+            monomial = tuple(sorted(first + second))
+            product[monomial] = product.get(monomial, Fraction(0)) + coefficient * factor
+    return {monomial: value for monomial, value in product.items() if value}
+
+
+def expand_polynomial(terms, constant, factors):
+    """The polynomial of the linear form sum(terms) + constant, its product atoms multiplied out.
+
+    factors(atom) is None for an atom that is no product, and the linear
+    forms (terms, constant) of the factors of one that is (a product of two
+    or more nonconstant factors is an atom of the linear forms, see
+    proof_clause_log._linear). A polynomial of more than
+    _POLYNOMIAL_MONOMIALS monomials is rejected.
+    """
+    polynomial = {(): Fraction(constant)} if constant else {}
+    for atom, coefficient in terms.items():
+        parts = factors(atom)
+        product = {(atom,): Fraction(1)} if parts is None else {(): Fraction(1)}
+        for part_terms, part_constant in parts or ():
+            product = multiply_polynomials(product, expand_polynomial(part_terms, part_constant, factors))
+            if len(product) > _POLYNOMIAL_MONOMIALS:
+                raise ProofExportError("a product of more than %d monomials" % _POLYNOMIAL_MONOMIALS)
+        for monomial, value in product.items():
+            polynomial[monomial] = polynomial.get(monomial, Fraction(0)) + coefficient * value
+    return {monomial: value for monomial, value in polynomial.items() if value}
+
+
+def polynomial_refutation(facts):
+    """Refute polynomial facts by products of two of them and a linear combination, or return None.
+
+    facts are (equality, polynomial) pairs stating 0 <= polynomial, or
+    polynomial = 0 for an equality, over atoms that take integer (or any
+    ordered ring's) values. The search follows that of Z3's nonlinear solver
+    for the evidence of an nla lemma (nla_lemma.cpp, prove) in its main
+    derived facts: the given ones, the square of every atom, an equality
+    times an atom, and, in as many rounds as the degree of the facts, the
+    product of a fact derived in the last round with one of the first, as
+    long as its degree is at most theirs. It is not the same search: Z3
+    also weakens a fact with a negative constant, takes disequalities, and
+    gives up above 64 given facts, so a lemma Z3 has evidence for may have
+    no refutation here. A product is nonnegative when both
+    factors are, and zero when one is. z3 looks for multipliers,
+    nonnegative but for an equality's, that sum the derived facts to the
+    constant -1 with every monomial cancelled; nothing it returns is trusted:
+    the sum is checked here.
+
+    Returns the (multiplier, derivation) pairs of the sum. A derivation is
+    ("fact", position), ("square", atom), or ("product", derivation,
+    derivation), in which an equality may be multiplied by ("atom", atom).
+    Facts of degree one have no polynomial refutation that is not a linear
+    one, the business of the linear checks: None.
+    """
+    degree = max((len(monomial) for _, polynomial in facts for monomial in polynomial), default=0)
+    if degree < 2:
+        return None
+    atoms = sorted({atom for _, polynomial in facts for monomial in polynomial for atom in monomial})
+    derived = [(("fact", position), equality, polynomial) for position, (equality, polynomial) in enumerate(facts)]
+    derived += [(("square", atom), False, {(atom, atom): Fraction(1)}) for atom in atoms]
+    for position, (equality, polynomial) in enumerate(facts):
+        if equality:
+            derived += [(("product", ("fact", position), ("atom", atom)), True,
+                         multiply_polynomials(polynomial, {(atom,): Fraction(1)})) for atom in atoms]
+    derived = derived[:_POLYNOMIAL_FACTS]
+    seen = {(equality, frozenset(polynomial.items())) for _, equality, polynomial in derived}
+    seeds, begin = len(derived), 0
+    for _ in range(degree):
+        refutation = _polynomial_combination(derived)
+        if refutation is not None:
+            return refutation
+        end = len(derived)
+        for first, first_equality, first_polynomial in derived[begin:end]:
+            for second, second_equality, second_polynomial in derived[:seeds]:
+                if len(derived) >= _POLYNOMIAL_FACTS:
+                    break
+                if (max(map(len, first_polynomial), default=0)
+                        + max(map(len, second_polynomial), default=0) > degree):
+                    continue
+                equality = first_equality or second_equality
+                polynomial = multiply_polynomials(first_polynomial, second_polynomial)
+                key = (equality, frozenset(polynomial.items()))
+                if polynomial and len(polynomial) <= _POLYNOMIAL_MONOMIALS and key not in seen:
+                    seen.add(key)
+                    derived.append((("product", first, second), equality, polynomial))
+        if end == len(derived):
+            return None
+        begin = end
+    return _polynomial_combination(derived)
+
+
+def _polynomial_combination(derived):
+    """Multipliers summing derived facts (polynomial_refutation) to the constant -1, by z3, or None."""
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("rlimit", _POLYNOMIAL_RLIMIT)
+    multipliers = [z3.Real("m%d" % position, context) for position in range(len(derived))]
+    rows = {}
+    for position, (_, equality, polynomial) in enumerate(derived):
+        if not equality:
+            solver.add(multipliers[position] >= 0)
+        for monomial, value in polynomial.items():
+            rows.setdefault(monomial, []).append(multipliers[position] * z3.RealVal(str(value), context))
+    if () not in rows:
+        return None
+    for monomial, summands in rows.items():
+        solver.add(z3.Sum(summands) == (0 if monomial else -1))
+    if solver.check() != z3.sat:
+        return None
+    model = solver.model()
+    total, refutation = {}, []
+    for (derivation, equality, polynomial), multiplier in zip(derived, multipliers):
+        value = model.eval(multiplier, model_completion=True)
+        value = Fraction(value.numerator_as_long(), value.denominator_as_long())
+        if value < 0 and not equality:
+            return None
+        if value:
+            refutation.append((value, derivation))
+            for monomial, factor in polynomial.items():
+                total[monomial] = total.get(monomial, Fraction(0)) + value * factor
+    if {monomial: value for monomial, value in total.items() if value} != {(): Fraction(-1)}:
+        return None
+    return refutation
+
+
 def _certificate_from_proof(source, assertions, proof, query=0):
     if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
             or not z3.is_false(proof.arg(proof.num_args() - 1))):
@@ -1824,6 +2009,8 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None, quer
     try:
         text = proof_clause_log.run_clause_log(executable, commands, timeout, memory)
         text = proof_clause_log.trim_clause_log(executable, text, timeout, memory)
+        # A trimmed log that dropped the unit clauses a lemma of the
+        # nonlinear solver rests on is replayed untrimmed (build_certificate).
         certificate = proof_clause_log.build_certificate(source, fragment, assertions, text, context, timeout)
         certificate["query"] = index
         return certificate

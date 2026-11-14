@@ -674,8 +674,12 @@ keeps every sort name, so the reconstructor checks the proof graph is
 well-sorted (functions and predicates take uninterpreted-sort arguments
 only, equality and `distinct` compare one sort, every application matches
 its declaration) and `_bind_input` checks the sort set against the input.
-Lean renders all sorts as the one type `_U`: a many-sorted model is an
-instance of the theorem over the disjoint union of its carriers, every
+Lean renders all sorts as the one type `_U` (since 2026-11-12 the index
+sort of a map, a set operator, or a subset can be a type of its own, since
+2026-11-13 that of a constant array too; see
+"Index sorts of maps and set operators as Lean types of their own"): a
+many-sorted model is an instance of the theorem over the disjoint union of
+its carriers, every
 ground term keeps its value, and well-sorted inputs only compare terms of
 one sort, so the collapsed theorem implies unsatisfiability of the
 many-sorted input. The two documented two-sort inputs and 19 random
@@ -1165,6 +1169,63 @@ a tail stays rejected by the fragment check. Tests:
 `test_proof_certificate.py` and its Lean counterpart in
 `test_proof_to_lean_arith.py` (`ONE_ARGUMENT_INPUTS`).
 
+**Division-by-zero clauses and decided ites in the clause log
+(2026-11-12).** Two more rejections of the same unsimplified assertions,
+on 27 of 244 unsat inputs of the random QF_UFLIA generator with zero forms
+(`random_instance` in `test_proof_to_lean_uflia.py`, the general and the
+simplifier forms with and without a sort); all 27 verify now.
+
+- An Int `div`, `mod`, or `rem` whose divisor the input writes as a
+  constant expression, `(- 3)` or `(+ 1 2)`. The rewriter makes it a
+  numeral; unsimplified it is none when the arithmetic solver meets the
+  term (`found_underspecified` in `sat/smt/arith_internalize.cpp`), which
+  then states `(= (div t d) (div0 t d))`, `(= (mod t 0) (mod0 t 0))`, and
+  the rem axioms of `(rem t 0)` next to the axioms of the division guarded
+  by `(= d 0)`. `div0` and `mod0` are Z3's functions for a division by
+  zero, and the replay rejected them ("unsupported operator in the clause
+  log: div0"; 25 inputs). The certificate has no term for a division by
+  zero (Lean's is total, SMT-LIB's uninterpreted), and no assertion has
+  one, so the replay now leaves out the inferred and deleted clauses over
+  such a term: an application of `/0`, `div0`, or `mod0`, a `/`, `div`,
+  `mod`, or `rem` by a zero numeral, or a definition over one
+  (`_Terms.divides_by_zero`). A function the input declares under one of
+  those names stays its own: Z3 accepts the declaration only over other
+  argument sorts than two arithmetic ones, the log prints both by the bare
+  name, and the sorts of an application's arguments tell them apart
+  (`ZERO_DIVISION_NAMESAKE_INPUTS`). As with the phantom literals, leaving a
+  clause out only removes support for later steps: an inference that needs
+  it is not derivable by unit propagation and the log is rejected. An
+  assumed clause over such a term is rejected ("the clause log assumes a
+  clause over a division by zero"). The guarded axioms stay, over the
+  input's own `div` and its `mod`, and Lean proves them. A Real division
+  is not affected (the solver simplifies its divisor itself).
+- An ite whose condition is the constant true under its negations, `(ite
+  true a b)` or `(ite (not (not true)) a b)`. Z3 logs the gate with the
+  guard, the negation of a constant, stated as false: `(tseitin false (=
+  (ite true a b) a))`. The reconstructor looked for the guard among the
+  literals and took the clause for an invalid def-axiom (2 inputs, and 3
+  of the 25 above once their logs replay). `_ite_gate_lemma` now proves
+  the gate of a condition whose negand is a constant from the equation of
+  the case that holds, without a split or a decidability witness
+  (`_ite_gate_decided`); the gate of the other branch stays rejected. An
+  `(ite false a b)` proved before: its guard is the condition itself.
+
+Only a log short enough to be replayed untrimmed (under 4,096 characters)
+shows either: a trimmed log keeps the folded assertion alone. Of the 435
+documented inputs of the earlier tests, each put behind a false assertion,
+16 that were rejected verify, and the texts of the others are unchanged
+(and verify in that form);
+still rejected there are `is-A` recognizers written the old way
+("unsupported operator in the clause log") and an Int `abs` nested in a
+Real term without a logic ("cannot mix Int and Real arithmetic"). Tests:
+`ZERO_DIVISION_INPUTS` and `DECIDED_ITE_INPUTS` in
+`test_proof_certificate.py` (the pinned log, what is left out and what
+stays rejected, symbols of the input named `mod0` and `div0`, the
+reconstruction of the decided gates without a Lean run), their Lean
+counterparts and `test_decided_ite_gates_without_a_guard_literal` in
+`test_proof_to_lean_arith.py`, and `UNSIMPLIFIED_SEEDS` in
+`test_proof_to_lean_uflia.py`.
+
 **Integer input through the legacy proof object (2026-10-16).** `--core
 legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log
 only") because theory_lra's integer steps were not inventoried. A probe over
@@ -1328,7 +1389,8 @@ the bounds and the div and mod rows it rests on as literals. So `_grind_lemma`
 now proves an Int th-lemma under those hints in two attempts: first the
 definitions outside the atoms are unfolded, every `mod` atom gets its
 bounds `0 <= m < |k|` (`Int.emod_nonneg`, `Int.emod_lt_of_pos`, through
-`Int.emod_neg` for a negative divisor; the solver fixes these at base level
+`Int.emod_neg` for a negative divisor, since 2026-11-12 `Int.emod_lt` with
+`decide`, see "Int negations rendered as differences"; the solver fixes these at base level
 and omits them from the lemmas it explains, which left one cut unprovable
 without them) stated and reverted, the atoms are `generalize`d to fresh
 integers, and `omega` (farkas, bound: it closes the linear goal at once)
@@ -1673,6 +1735,93 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### Int negations rendered as differences (2026-11-11, every negation and negative quotients 2026-11-12)
+
+An Int input with a term Lean evaluates to the negation of zero in an
+argument of a function, predicate, read, or store, `(f (- 0))`, `(p (- (* 0
+x)) x)`, `(select a (- (mod 6 3)))`, reconstructed through the clause log
+and then failed in Lean, not in a tactic but in the kernel: `(kernel)
+application type mismatch ... decide (-0 = 0) = false`. The pinned
+toolchain's `grind` takes the Int term `-0` for a numeral other than `0` (a
+negated literal is its normal form of a negative numeral) and builds a
+disequality proof by evaluation that the kernel rejects. The error comes
+after the tactic block, so no alternative of a step's `first` catches it.
+`grind` meets the literal whenever its simplifier evaluates the negated
+term to `0`: a numeral expression, a linear form whose variables cancel by
+a zero factor, a `div` or `mod` of numerals, a remainder by 1, an ite whose
+condition it decides. The same happened where a map identity applies an
+Int negation map to a stored or constant `0` (`((_ map -) (store a i 0))`:
+`grind` beta-reduces `(fun v => -v) 0`), the kernel error the iteration
+123 review found on stores over negation maps, and where the simplifier
+introduces the negation itself, from a quotient by a negative numeral (`t
+/ -k` becomes `-(t / k)`, the literal `-0` once `t / k` is evaluated to 0:
+`(f (div 2 (- 5)))`).
+
+The reconstructor renders such terms as differences, which are the same
+numbers and which the simplifier evaluates with their operands:
+
+- `_negation`: every Int negation is `0 - t`, for a unary minus, the
+  negative branch of `abs`, and `rem` by a negative constant. Which terms
+  the simplifier evaluates to 0 is not for the reconstructor to predict
+  (the first version, iteration 124, rendered the difference only where
+  its own evaluation of the term gave zero, and missed `(- (mod x 1))`,
+  `(rem x (- 1))`, and `(- (ite true 0 1))`). Only the negation of a
+  positive numeral keeps the form `-k`, so `(- 2)` is still the numeral
+  `-2`. Where `t` does not evaluate, the simplifier normalizes `0 - t` to
+  the form it gives `-t`;
+- `_negative_quotient`: a `div` by a negative constant `d` (a negated
+  numeral, or a constant expression such as `(* 5 (- 1))` or `(- (- (-
+  5)))`, read by `_linear_term`) is `0 - t / (0 -
+  d)`. The definition is followed by a theorem `term_N_quotient` that it
+  equals `t / d` over the operands' definitions, proved by the file's
+  `_div_neg` (`Int.ediv_neg`), so the kernel checks the identity the
+  rendering rests on and the definition is Lean's Euclidean quotient, as
+  the header states for every other `div`;
+- `_INT_MAP_NEGATION`: the Int negation map is `fun v => 0 - v`, in the
+  lambda and in the read facts.
+
+Real negations keep `-t`: `Rat` has no such defect. The theorem's
+statement changes only in those definitions, to terms equal to the old
+ones. The legacy core's certificates of these inputs verified before (no
+step of theirs gives `grind` the literal) and verify with the differences.
+
+One proof read the old form: the upper bound `m < |k|` that
+`_mod_bound_facts` states for a mod atom under a negative divisor was
+`rw [Int.emod_neg]`, which needs the divisor to be a negation in the
+text. A divisor `(- (- (- 3)))` or `(- (+ 1 2))` is a difference now, so
+the bound is `Int.emod_lt` (by the divisor's absolute value) compared with
+`|k|` by `decide`, whatever the constant divisor looks like (`(* 3 (- 1))`
+never was a negation). The generalized attempts of the rewrites that
+normalize such a divisor fail all the same, before and after: they relate
+the mod by the written divisor with the mod by `-3`, two atoms once
+generalized, and the unfolded fallback proves them
+(`test_mod_bounds_prove_however_a_negative_divisor_is_written` in
+`test_proof_to_lean_lia.py` has Lean check each stated bound as a theorem
+of its own, since the fallback would hide a bound that fails).
+
+Tests: `ZERO_NEGATION_INPUTS` (24 inputs, 21 of which the kernel rejected
+with the old renderings, two of them quotients by `(* 5 (- 1))` and `(- (-
+(- 5)))`), `NONZERO_NEGATION_INPUTS`, `ZERO_SEEDS`, and
+`SIMPLIFIER_SEEDS` (random instances over the terms the simplifier takes to
+`-0` on its own) in `test_proof_to_lean_uflia.py` (both cores;
+`test_int_negations_are_rendered_as_differences` pins the forms and the
+quotient theorems, `test_negated_zero_literals_fail_in_the_kernel` pins
+the defect and tells when a later toolchain no longer has it), and the
+three `read_at_a_*` inputs and the four `negation_map*` inputs in
+`test_proof_to_lean_array.py`.
+
+Still failing, with `grind` failed instead of the kernel error: a map of a
+two-store chain (the rewriter's store chain of maps has an identity for
+the outer level only). `to_int` of a numeral expression under a function,
+a predicate, a read, or one store verifies since 2026-11-12, see "Floors
+under applications"; a read past a store at such a floor under another
+store still fails (the limits listed there).
+
+The two `test_negated_zero_literals_fail_in_the_kernel` tests are expected
+to fail when `lean/lean-toolchain` moves to a toolchain whose `grind` no
+longer has the defect; they are then to be removed (the renderings stay
+valid, and may be dropped with them).
 
 ### Assumption search skips conjuncts a model refutes (2026-11-11)
 
@@ -2473,6 +2622,509 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Reads through stores into maps, members of sets equated with stores (2026-11-11)
+
+After "Default values read at a generic index" below, 4 of the 630
+unsatisfiable `random_set_instance` seeds of 1-1600 still failed in Lean
+(`grind`, in a rewrite or cnf lemma; seeds 1083, 1088, 1398, 1486). Two
+causes, both a missing fact rather than a missing rule:
+
+- **A read through a store into a map.** `(select (store (setminus s s) 1
+  false) i)` is rewritten to false, and `(complement (store s j true))`
+  under a difference to `(store (complement s) j false)`, whose read at 0 a
+  cnf lemma compares with members of `s` and `t`. The read of the store had its
+  `_store_apply` fact, which mentions the read of the map below, but that
+  read is no term of the certificate and had no fact: only a store at a
+  value index other than the read's (which the rewriter skips) led on to
+  the map. Now a read goes on through up to `_MAP_STORE_LEVELS` (8) stores
+  the rewriter does not skip to the map or set operator below them, and
+  gets the fact of every store and the read facts of the map
+  (`_read_levels`), also for the branches of an ite over arrays (`_sim`
+  facts) and for stored rows (`_nm` facts). The limit counts such stores
+  over all the stores and maps the facts of one read walk, so a read
+  through stores alternating with maps is bounded too; below more of them a
+  read keeps the levels the rewriter skips.
+- **Members of a set equated with a store.** With `(= (store s j false)
+  t)` asserted, Z3 evaluates `(select t j)` inside the maps of another
+  assertion and logs a clause over members alone, which the replay ties to
+  both assertions by a cnf lemma. That lemma reaches the store and no map,
+  and `_pointwise_map_facts` stated its facts only next to a map. Now a cnf
+  lemma that reaches a store of a Boolean set gets the `_pwr` facts (the
+  members of each such equality's sides at the indices the lemma reads, by
+  `congrFun`), and only those.
+
+The facts of reads through stores the rewriter does not skip are stated in
+attempts of their own, after the step's other attempts (`_grind_lemma`
+builds its proof bodies twice, without and with them, when a read has such
+a store). Each such store is a case split on its index for `grind`, and an
+attempt that cannot close the goal with them may not fail but run out of
+the heartbeats, which `first` does not catch. With the facts in every
+attempt, a rewrite of seven reads of three stores alternating with
+complements (`set_reads_through_stores_alternating_with_complements`),
+which the pointwise facts prove in 0.5 s, ran out after 55 s in the attempt
+made first, without the pointwise facts; with five reads it took 6.6 s. Now
+the attempts before the added ones are exactly those of a text without such
+facts, so a step that verified without them is proved by the same attempt
+after the same failed ones (`test_reads_through_unskipped_stores_are_stated_last`
+compares the attempts with those under `_MAP_STORE_LEVELS` 0). The added
+attempts state every fact, the pointwise ones too. The members of a set
+equated with a store are pointwise facts, and were after the attempt
+without them already.
+
+Nothing is trusted: the new facts are `rfl`, `_store_apply` instances, or
+`congrFun` of the hypothesis, and Lean checks each. Tests: nine documented
+inputs (`SET_COMBINATOR_INPUTS`, each failed at the previous commit),
+`STORE_OVER_MAP_SEEDS`, `test_reads_through_stores_reach_maps`,
+`test_reads_through_unskipped_stores_are_stated_last`, the cnf cases of
+`test_sets_are_compared_member_by_member`, and four entries of
+`test_map_facts_are_needed` (Lean rejects the text without the facts). All
+630 unsat seeds of 1-1600 verify (626 before), 399 of the 401 of 1601-2600
+(397 before), and 203 of the 205 of 2601-3100 (as before). Of these 1,236
+texts and those of the 228 documented array inputs, 1,360 are the previous
+reconstructor's byte for byte, and in the other 104 every step keeps its
+previous attempts first, in order. Still open, among the four that fail: a
+read through stores over a plain set at variable indices down to a store at
+the read's own index (`(select (store (store s j true) i true) j)` in a cnf
+lemma, seed 1701) gets one level only; and an equality the rewriter decides
+false at a stored index (`(= (store s 1 true) ((_ map xor) t t))`, seed
+2483) has no fact, the sides differing at 1 only and not at every index.
+Seeds 2801 and 3083 are not analysed.
+
+### Default values read at a generic index: the default-map axiom (2026-11-11)
+
+The array solver's default-map axiom, `(= (default (map f a b)) (f (default
+a) (default b)))`, was the last rejection of the random set sweep: 64 of
+the 368 unsatisfiable `random_set_instance` seeds of 1-1000 (and 40 of the
+262 of 1001-1600) name no member, so Z3 refutes them by default values,
+e.g. `(= ((_ map =>) a b) full)` with `a` full and `b` empty. Lean's
+`_default` is the value an array takes at all but finitely many indices
+(any store-invariant value when there is none), and the axiom is not a
+theorem of it: the arguments of a map need not be constant almost
+everywhere.
+
+None of these inputs names a default value. The default values are then
+terms of the array solver alone, and the refutation uses three properties
+of them: that of a constant array is its value, that of a store is the
+array's, that of a map is the function of the arrays'. One function has all
+three over the terms of a certificate, whatever the element sort: the read
+at one index that no store of the certificate writes. So when
+
+- an `array` th-lemma of the certificate states the default value of a map
+  (`_default_map_axiom`),
+- no assertion mentions a default value, and
+- no index stored at mentions one,
+
+the reconstructor reads every default value at such an index
+(`_generic_defaults`, `_Graph.generic`):
+
+- `_generic_i` (`_generic_r` over Real indices) is a definition over the
+  interpretation, `Classical.choose (_int_unbounded [i1, ..., ik])` at the
+  list of the index terms of the certificate's stores over that index
+  sort; `_generic_i_fresh` is its specification and `_generic_i_ne_K :
+  Not (_generic_i ... = term_K ...)` the fact for one stored index
+  (`_generic_index_definitions`). The index terms are definitions written
+  before it, the definitions that mention a default value after it.
+- `_default g a` is `a g` (`_GENERIC_DEFAULT_DEFINITIONS`), with the
+  generic index where the unboundedness proof stood; `_default_const` is
+  `rfl`, `_default_store` takes the proof that the index is not the stored
+  one (`_default_store_fact`), and the axiom itself is a fact by `rfl`, like
+  a read of the map (`_default_map_fact`; over a map of `ite` the lemma
+  unfolds the ite of the default values, `_map_read_values`). Rewrites and
+  cnf lemmas that compare arrays get the facts of the maps they reach too:
+  the replay may tie a logged equality to an assertion that is false of
+  the default values alone (seed 67, a set equal to a store into its
+  complement).
+
+The theorem is unchanged: its hypotheses are the assertions, which do not
+mention the index (they are defined before it), and nothing is assumed of
+it (it is chosen, and Lean checks that it is off the stored indices:
+`test_the_generic_index_is_proved_off_the_stored_indices` chooses it off the
+empty list instead and expects the rejection). An input that names a
+default value keeps Lean's `_default`, and a refutation of it through the
+axiom is rejected as before, by the exporter (`_Replay._require_certified`,
+which now asks whether an assertion names one) and by the reconstructor
+(`_check_th_lemma`). A certificate that does not use the axiom is rendered
+as before. Default values of arrays of an enumeration get no case facts at
+a generic index (`_read_cases`).
+
+After: all 368 unsatisfiable seeds of 1-1000 verify in Lean (304 before);
+of the 262 of 1001-1600, 258 verify (218 before) and none is rejected. The
+other four fail in Lean as they did before (`grind` in a rewrite or cnf
+lemma, not through default values: 1083, 1088, 1398, 1486). Still
+rejected: the axiom next to a default value the input names. Tests
+(`test_proof_to_lean_array.py`): fifteen documented inputs
+(`GENERIC_DEFAULT_INPUTS`: Int and Real indices, both at once, a
+Real-indexed array that takes no default value next to sets over Int,
+stores under and over the map, maps of `+`, `<=`, `ite`, and an
+uninterpreted function, a row of nested arrays, a trimmed log, enumeration
+arrays next to the sets; Lean), the pinned seeds `GENERIC_DEFAULT_SEEDS`
+(Lean),
+`test_default_values_are_read_at_a_generic_index`,
+`test_default_values_of_maps_are_rejected` (now inputs that name a default
+value), and `test_the_generic_index_is_proved_off_the_stored_indices`.
+
+### Constant arrays over uninterpreted and Bool index sorts (2026-11-13)
+
+Constant arrays were certified over Int and Real indices only: the exporter
+rejected `((as const (Array I E)) v)` over an uninterpreted sort or Bool
+("constant arrays are supported over Int and Real indices only"), and the
+reconstructor rejected the constant arrays Z3's rewriter makes over such
+sorts in inputs that write none ("invalid constant array declaration"):
+`(= s (setminus t t))`, and every `(subset a b)` the rewriter does not
+decide, which it turns into `(= (setminus a b) empty)`. The reason given
+was the default values, which need an infinite index type. A constant
+array itself does not: it is the constant function over any index type.
+What it needs is an index type that is exactly the model's.
+
+- Over Bool indices a model's constant array embeds as the constant
+  function on `Prop`. Over an uninterpreted sort `I` it does when `I` is a
+  Lean type of its own, so a constant array makes its index sort one
+  (`_index_sorts`, as maps do since 2026-11-12), unless the sort is all of
+  the carrier. Over one carrier `(= (store (const v) i w) (store (const w)
+  i w))`, which says that `I` has one element when `v` and `w` differ,
+  contradicts `(not (= v w))` over another sort, though the two have a
+  model (Z3 answers sat): `test_a_one_element_index_sort_is_an_instance`
+  has Lean check that model against the reconstructed definitions, and the
+  contradiction over one carrier.
+- Constant arrays indexed by arrays stay rejected, by the exporter
+  ("constant arrays indexed by arrays are not supported") and the
+  reconstructor: a model's outer array is constant on the embedded indices
+  only.
+- Default values stay over Int and Real indices: the exporter rejects
+  `(default a)` over another index sort, the reconstructor a `default`
+  declaration ("invalid default declaration"), which the array solver
+  states of some constant arrays over a sort on its own (`(= red (default
+  (const red)))`). No default-value fact is stated over such sorts
+  (`_default_const`, `_default_store` take a proof that no finite list
+  exhausts the index type).
+- Without default values Z3's rewriter compares two constant arrays over
+  such a sort by their values, `(= (const v) (const w))` to `(= v w)`,
+  which holds because the sort has an index. `_constant_array_comparisons`
+  states, for the index sorts constant arrays of the certificate are over
+  (`_Graph.constant_indices`), that each equality of arrays a rewrite
+  reaches holds at one index of the sort (`_index_witness`: the value of a
+  constant, `_m.s0_elems 0` or `_m.elems 0`; `True` over Bool) and that a
+  constant array has its value there, next to the reads at the stored
+  indices as over Int. Without these facts `grind` fails
+  (`test_the_reads_at_an_index_are_needed`).
+- An equality between stores over constant arrays over such a sort the
+  rewriter expands into a quantified formula (`(forall ((x I)) (= (ite (= x
+  i) w v) v))`); the exporter now names it ("quantifiers are not supported
+  in the clause log: forall", before "unsupported application head in the
+  clause log").
+
+Measured on this iteration's macOS build with
+`random_constant_sort_instance` (`test_proof_to_lean_const_sort.py`; every
+input was rejected before): with a second sort declared (`index='I'`), 511
+of the 565 unsatisfiable seeds of 1-1500 verify in Lean; over the only
+sort, 203 of 227 (1-600); over Bool indices, 200 of 218 (1-600). Of the 535
+of the first row that reconstruct, 501 state `I` as a type of its own (479
+verify); in the other 34 no assertion mentions the second sort, so `I` is
+the only sort of the certificate and stays the carrier (32 verify). Of the
+others, 35 are
+rejected for the solver's default values, 15 by the exporter (11 for a
+quantifier, 4 for a fresh symbol of the log), and 46 fail in Lean, 38 of
+them in the same way with Int for the index sort. The 30 seeds of
+`random_index_sort_instance` 1-1500 that were rejected for a constant
+array now reconstruct, and 26 verify (the other 4 fail over Int too). The
+existing set, constant-array, subset, enumeration-array, sorted, and
+Bool-argument generators reconstruct to the same text as before (613
+certificates), and so do the other 211 of `random_index_sort_instance`.
+
+Tests (`test_proof_to_lean_const_sort.py`): `CONSTANT_SORT_INPUTS` (22,
+three of them the only sort next to a function with a Bool, an Int, or an
+array argument, where it is a type of its own all the same),
+`CARRIER_INPUTS` (8: the only sort, Bool indices), the pinned seeds
+`CONSTANT_SORT_SEEDS` (Lean); the sorts chosen, the encoding, the facts at
+the index and the absence of default-value facts, `REJECTED_INPUTS`, and
+tampered certificates (a constant array over array indices, a default
+value over the sort, the sorts merged) without Lean. The two subsets of
+`REJECTED_SUBSET_INPUTS` over a sort and over Bool indices are among the
+inputs that verify.
+
+### Index sorts of maps and set operators as Lean types of their own (2026-11-12)
+
+Every uninterpreted sort is the one Lean type `_m.U`, which is faithful
+while arrays are read, stored into, and compared: a model's array is
+extended outside its index sort by one fixed value. A pointwise function
+does not keep that value, so with maps, set operators, or `subset` over an
+uninterpreted index sort the theorem's hypotheses could be stronger than
+the input. `(= (store a i true) (complement (store a i false)))` over
+`(Array I Bool)` holds exactly when `I` has one element and is satisfiable
+next to `(not (= e1 e2))` over another sort `E`; with both sorts as `_m.U`
+Lean proves `False` from the two hypotheses alone (checked at the base
+revision with the definitions of a reconstructed certificate). No wrong
+certificate is known: Z3 answers unsat on the set equality by its default
+values (it reasons as if the index sort were infinite), and those steps
+were already rejected or failed in Lean. The gap was in what a verified
+theorem says.
+
+- The index sort of a map, a set operator, or a subset is now a Lean type
+  of its own, `_m.S0`, `_m.S1`, ... (`_index_sorts`), with the fields
+  `s0_nonempty`, `s0_elems`, `s0_funs`, and the injection `s0_inj` of its
+  terms into `_m.U` where a function or predicate takes them. Arrays over
+  it are functions on exactly a model's indices.
+- An index sort that is all of the carrier keeps `_m.U`: the only
+  uninterpreted sort, no enumeration, and no function, predicate, or
+  mapped function with an argument of another sort (Bool, Int, Real, or an
+  array, each injected into the carrier). Those certificates are unchanged.
+- The helpers that give a sort its Lean type or family name take the graph
+  (`_component_type`, `_array_types`, `_array_family`, `_nonempty`, ...).
+- An enumeration as such an index sort is rejected by the reconstructor
+  (the exporter rejects arrays indexed by an enumeration before that).
+
+Tests (`test_proof_to_lean_index_sort.py`): `INDEX_SORT_INPUTS`,
+`ALONE_INPUTS`, `INDEX_SORT_SEEDS` of `random_index_sort_instance` (Lean),
+the encoding and the sorts chosen (no Lean; each clause of the condition
+that keeps `_m.U` has an input that only it decides: a subset without a set
+operator, a predicate over Bool that is mapped and never applied, an
+enumeration next to the sets), the enumeration guard run with the sort
+classified as an enumeration (`test_an_enumeration_as_index_sort_is_rejected`),
+and
+`test_a_one_element_index_sort_is_an_instance`: Lean checks a model of the
+set equality and the disequality above (`S0` is `Unit`, `U` is `Bool`)
+against the reconstructed definitions, and the proof that the same two
+statements over one carrier are contradictory.
+
+### subset over sets (2026-11-12)
+
+`(subset a b)` over two sets was rejected by the exporter ("unsupported
+propositional operator: subset"). It is certified through the clause log
+now, for sets of one sort that are not indexed by arrays (as the set
+operators).
+
+- Lean reads it as `_subset a b`, `forall i, a i -> b i`: the statement of
+  the theorem says what the input says, not what Z3 makes of it.
+- Z3's rewriter makes `(= (setminus a b) empty)` of it, the map of `and`
+  over `a` and the complement of `b` compared with the constant array of
+  false (`array_rewriter::mk_set_subset`), and the log holds only that. The
+  replay ties it to the assertion by a rewrite, which Lean proves from the
+  theorem `_subset_eq : _subset a b = (_map2 And a (_map1 Not b) =
+  _const_array I False)` (function extensionality, kernel-checked, stated
+  in certificates with a constant array) instantiated at each subset a
+  step reaches (`_sb` facts, `_array_helpers`).
+- The rewriter then simplifies that difference member by member like any
+  map, so `_pointwise_map_facts` reads each subset's difference as a
+  Boolean function of its sets' leaves and states, by its truth table: the
+  subset itself when the difference is empty in every row (`(subset a a)`,
+  `(subset (intersection a b) a)`: `_pws`), its negation at any index when
+  it is full in every row (`(subset full empty)`: `_pwsn`; over an
+  uninterpreted index sort the inhabitant is the value of the
+  interpretation's first constant, `_m.elems 0`, unless the interpretation
+  states `nonempty`), and otherwise one of
+  - its negation at a stored index when the difference is full in every
+    row of that index (`(subset full (store s 1 false))`: the rewriter
+    pulls the store out of the map and compares it with the empty set
+    there);
+  - its negation at an index that is none of the stored ones when the
+    difference is full in every row off them (`(subset full (store empty 0
+    true))`, which the rewriter decides by the default values): such an
+    index exists over Int and Real (`_int_unbounded`, `_rat_unbounded` at
+    the list of the stored indices);
+  - `_pwsv : _subset a b = (p -> q)` when both sets are maps of constant
+    arrays alone, of Boolean values other than `true` and `false`
+    (`(subset (const p) (const (not p)))`, which the rewriter folds to `(not
+    p)`): the subset is that implication at any index;
+
+  and next to any of these three, that the difference as `_subset_eq`
+  writes it is the set of the step with that function (`(subset a empty)`
+  is left as `(= a empty)`, `(subset (complement a) a)` as `(= (complement
+  a) empty)`; the rewriter does not pull a store out from under a union, so
+  `(subset (union (store a 0 true) (store b 1 true)) empty)` fails at 0 and
+  keeps its equality). The tables only choose the facts; Lean checks each.
+- After an assertion that simplifies to false Z3 logs the others as
+  written; the replay builds `(subset a b)` itself, and the array solver's
+  own axiom of it, `(subset a b)` against `(= (setminus a b) empty)` as two
+  `array` lemmas, passes the array lemma check (a subset atom next to an
+  equality) and is proved from `_subset_eq`.
+
+Measured on this iteration's macOS build with `random_subset_instance`
+(`test_proof_to_lean_subset.py`; all rejected before): of the 1105
+unsatisfiable seeds of 1-5000, 1104 verify in Lean; the 400 seeds 1-400 of
+its unsimplified variant (a false assertion first) all verify. Seed 1089
+fails in a rewrite between two set equalities: the replay ties the clause
+of `(subset full s0)` to the assertion `(= s0 full)`, equivalent to it and
+earlier in the input, which fails the same way with `(= (setminus full s0)
+empty)` written out. Before the facts off the stored indices and next to a
+stored index were stated, seeds 1791, 2233, and 2769 failed too (pinned).
+The existing set and constant-array generators reconstruct to the same
+text as before (457 and 133 unsatisfiable seeds).
+
+Still rejected: a subset over an uninterpreted or Bool index sort that the
+rewriter does not decide (its equality needs a constant array over that
+sort, which the certificate does not carry: "invalid constant array
+declaration"; one the rewriter decides, true or false, leaves no constant
+array and verifies, unless a false assertion before it has Z3 log it as
+written), sets indexed by arrays,
+by bit-vectors, or by an enumeration ("unsupported sort"), and every array
+input on the legacy core. Known to be accepted and then fail in Lean
+(`grind` failed, a rejected certificate): a subset over a store of a
+Boolean value other than `true` and `false` that the rewriter folds to a
+formula over the value (`(subset (store empty 0 p) empty)` is `(not p)`:
+no fact reads the subset by cases of `p` at the stored index), and the
+rewrite of seed 1089. Tests (`test_proof_to_lean_subset.py`):
+`SUBSET_INPUTS` (41 documented inputs), `REJECTED_SUBSET_INPUTS`,
+`SUBSET_SEEDS` and `UNSIMPLIFIED_SUBSET_SEEDS` (Lean),
+`TestSubsetValidation` (the declaration, the log, the replay's terms, the
+facts of each kind, tampered certificates), and
+`test_subset_facts_are_needed` (Lean rejects twelve of the inputs without
+their facts).
+
+### Sets compared member by member (2026-11-11)
+
+Z3's rewriter simplifies a map of connectives over sets as it simplifies
+the connective over their members (`array_rewriter::mk_map_core`), and
+decides an equality between the results when they are constant arrays:
+`(setminus s s)` is the empty set, `(intersection (complement s) (setminus
+s t))` too, nested maps of `and` are flattened, sorted, and stripped of a
+repeated set, a difference of stores at one index is the store of the
+difference, `(= ((_ map and) s (complement s)) full)` is false. The
+certificate holds the sets before and after; they are equal as functions
+of their members, but by no identity of a single map node
+(`_map_identities`), so `grind` failed in the rewrite, or in a cnf lemma
+over such sets: 17 of the 114 exported seeds of `random_set_instance`
+1-400, and 26 of the 190 of 401-1000.
+
+`_pointwise_map_facts` (`proof_to_lean.py`) reads each set term over
+Booleans a rewrite or cnf lemma reaches as a Boolean function of its
+leaves: the sets its maps, set operators, and stores are over, the Boolean
+values stored or held by constant arrays (other than true and false), and,
+per stored index, whether the member's index is that one. It computes the
+truth table (at most `_POINTWISE_LEAVES` = 8 leaves and `_POINTWISE_SIZE`
+= 48 maps and stores per term, counted as its member formula writes them;
+a larger term is a leaf itself) and states
+
+- two terms of one function equal: `have _pwN : A = B := funext (fun _i =>
+  propext (rewrite_K_pwJ (_select a _i) ...))`, or `funext (fun _i => rfl)`
+  when the two have one member formula (a union and the map of `or` over
+  the same sets);
+- the sides of an equality whose functions differ in every row different:
+  `A = B -> False`, at an inhabitant of the index sort (0 over Int and
+  Real; over an uninterpreted sort only when the interpretation already
+  states `nonempty`, next to an extensionality witness);
+- in a cnf lemma, the members of an equality's sides at each index the
+  lemma reads from a set of that sort, `A = B -> (Iff (member of A at i)
+  (member of B at i))`, by `congrFun` (three seeds of 401-1000: an
+  assertion logged as written, tied to a clause about one member).
+
+The auxiliary theorems `rewrite_K_pwJ` are over the members as
+propositions and are proved by `grind` with nothing else in its context;
+the member formulas are what the sets' definitions unfold to at an index,
+so the instances type-check by unfolding. The tables only choose which
+facts to state: a wrong table gives a theorem `grind` cannot prove or a
+fact that does not type-check. Steps without a map or set operator get
+nothing (stores alone stay with the store identities).
+
+What the facts cost is bounded in two ways, both found on `(select X i)`,
+`(not (select a i))`, `(= c (setminus a a))` with `X` sixteen nested maps
+`((_ map xor) ... b)` over `a`, which verified in 0.6 s before any
+pointwise fact (every second level of the nest has the function of `a` or
+of `(xor a b)`, and no step needs to know):
+
+- A map of `xor` writes the member formula of each argument twice and a
+  map of `ite` that of its condition, so the formula of a nest doubles per
+  level. `_POINTWISE_SIZE` counts a map's argument once per occurrence in
+  what `_map_application` writes (`_pointwise_occurrences`): five nested
+  maps of `xor` count 31, the sixth is a leaf. Counted as a tree of maps,
+  the sixteen levels were under the limit: 10.8 MB of text, and an
+  auxiliary theorem out of heartbeats (172 MB at twenty levels).
+- A step is first tried without its pointwise facts and then again with
+  them (`_grind_lemma`; each attempt is an alternative of `first`). With
+  small auxiliary theorems and the facts in the only attempt, the cnf
+  lemma of that input, given the eleven equalities between the levels of
+  the nest, ran out of its 1,000,000 heartbeats (`whnf`, inside `grind`,
+  after 15 s); stating the facts and clearing them took 0.6 s, so the cost
+  is `grind` closing the classes of the equated sets under the maps and
+  reads of its context. `first` does not catch a heartbeat timeout, so
+  the attempt without the facts has to come first: a step that needs none
+  is proved as before, and a step that needs them fails the first attempt
+  with `grind` failed, as it did before the facts existed.
+
+An auxiliary theorem is stated once per certificate
+(`_Graph.pointwise_theorems`, by its text): a later step that compares the
+same two member formulas uses the earlier step's theorem. Over the 304
+exported seeds of 1-1000 that is 221 auxiliary theorems instead of 477
+(207 of those had one formula on both sides, now `rfl`), 7.19 MB of text
+against 6.80 MB (the repeated attempts), and the same Lean time (131 s).
+
+After: all 304 exported seeds of 1-1000 verify in Lean (261 before; the
+other 64 unsatisfiable ones rest on the default-map axiom and stayed
+rejected until "Default values read at a generic index" above). Still
+open: an equality of sets decided false over an uninterpreted index sort
+when the interpretation has no `nonempty` field (`(= (union a (complement
+a)) (setminus b b))` over `(Array Index Bool)`); and a step that needs
+some of its pointwise facts while `grind` cannot afford all of them (none
+is known).
+Tests (`test_proof_to_lean_array.py`): ten documented inputs in
+`SET_COMBINATOR_INPUTS` and the pinned seeds `POINTWISE_SET_SEEDS` (Lean;
+each failed before), the sixteen nested maps of `xor` and of `ite`
+(`set_read_of_nested_xor_maps`, `set_read_of_nested_ite_maps`; Lean),
+`test_sets_are_compared_member_by_member`, and
+`test_map_facts_are_needed`. The last drops each kind of fact alone; for
+the six rewriter identities of a single map of connectives, which the
+pointwise facts prove as well, it reconstructs the input without pointwise
+facts (over `_POINTWISE_SETS`), checks that Lean accepts it by the
+identities alone, and that Lean rejects it without them. Four inputs need
+the pointwise facts themselves.
+
+### Set logs: operators as written, unused default-map axioms (2026-11-11)
+
+A sweep of random constraints over four sets of integers
+(`random_set_instance`: equalities and disequalities between unions,
+intersections, differences, complements, maps of `=>`, `xor`, `and`,
+inserts and removals, the empty and the full set, and members read)
+showed the replay rejecting 61 of the 142 unsatisfiable seeds of 1-400, for
+two reasons that are not about the refutation:
+
+- Once an assertion simplifies to false, Z3 logs the remaining assertions
+  as they are written, set operators included: `(complement s2)`,
+  `(intersection s1 s1)`, `(setminus a b)`, and union with its sort,
+  `((as union (Array Int Bool)) a b)`. Elsewhere the log holds the maps the
+  rewriter makes of them, so the replay built `(_ map f)` heads only
+  ("unsupported operator in the clause log: complement", "unsupported
+  application head"; 28 seeds). `_Terms.build` now builds the four operators
+  (`_SET_HEADS`), under `map_parameters` like the input's own, and checks the
+  sort an `as` head names. Z3 qualifies only its own functions, so
+  `(as union S)` is the operator even when the input declares a function
+  named `union` (over other sorts; Z3 rejects one with the operator's own),
+  which takes the bare name as for every head. The other three operators
+  are printed bare, so beside a function of their name the log is ambiguous
+  and the input is rejected ("ill-sorted application of intersection in the
+  clause log", an `AttributeError` of z3py before).
+- The array solver states the default-map axiom, `(= (default (map f a b))
+  (f (default a) (default b)))`, for every map it meets, whether or not a
+  conflict comes to rest on it, and the replay rejected it on sight. A log
+  of 4 KB or more is trimmed, which drops an unused axiom; a shorter one is
+  not, so `(= (setminus a b) empty)` with a member of `a` outside `b` (what
+  the rewriter makes of `subset`), or the same as a full `=>` map, was
+  rejected although its refutation is two reads (5 seeds). The replay now
+  records the axiom's node (`_Replay.uncertified`), rejects with the same
+  message only when the refutation reaches it (`_require_certified`), and
+  otherwise leaves it out (a compact certificate). The default value of a
+  store over a map, `(= (default (store m i v)) (default m))`, was taken for
+  the axiom too; it is `_default_store`'s and is kept (`_default_map_axiom`).
+  The reconstructor rejects the axiom on its own (`_check_th_lemma`), where
+  Lean would have failed before.
+
+After: 114 of the 142 export and 97 verify in Lean (81 and 67 before; 30
+of the 33 new ones verify). Still open: the other 28 rest on the
+default-map axiom (no member is named, e.g. `(= ((_ map =>) a b) full)`
+with `a` full and `b` empty) and stay rejected (certified since "Default
+values read at a generic index" above); and 17 fail Lean in a
+rewrite where Z3's rewriter decides an equality of sets by map identities
+(`(setminus s1 s1)` is empty, `(not (not s))` is `s`, flattened and sorted
+`and`s), which had no theorem (14 of them exported before as well; they
+verify since "Sets compared member by member" above).
+`subset` itself is still rejected as an operator (certified since
+2026-11-12, see "subset over sets" above). Tests
+(`test_proof_to_lean_array.py`): six documented inputs in
+`SET_COMBINATOR_INPUTS` and the pinned seeds `SET_SEEDS` (Lean),
+`test_the_replay_reads_set_operators`,
+`test_unused_default_values_of_maps_are_left_out`, and
+`test_default_values_of_maps_are_rejected` (now an input whose refutation
+needs the axiom, short and behind enough clauses for the log to be trimmed,
+and the reconstructor's own rejection of both).
+
 ### Replay keys of maps and constant arrays (2026-11-06)
 
 The replay ties a clause the log assumes to an input conjunct by its
@@ -2541,7 +3193,7 @@ proved by `grind`. A random sweep found one more gap, which set operators
 already had: Z3's rewriter skips a store at another numeral index and
 evaluates the read of a map below it (`(select (store ((_ map not) s) 1
 false) 0)` is `(not (select s 0))`) with no read term of the map, so such
-a read now gets the map's read facts too (`_skipped_to_map`), and a read
+a read now gets the map's read facts too (`_read_levels`), and a read
 of a map goes on through the stores below it the same way.
 Multiplication, conversions, uninterpreted functions of four or more
 arguments, connectives of three or more arguments, and maps over arrays of
@@ -2574,7 +3226,10 @@ the map of `and` over the complement that the rewriter turns it into
 the map they become); each is shown necessary by
 `test_map_facts_are_needed`. The default-map axiom is not valid for
 `_default` (a map's arguments need not be constant almost everywhere) and is
-rejected explicitly ("the default value of a map is not certified"); input
+rejected explicitly ("the default value of a map is not certified"; since
+2026-11-11 only when the refutation uses it, see "Set logs: operators as
+written, unused default-map axioms", and only when the input names a
+default value, see "Default values read at a generic index"); input
 `default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
 `issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
 values over an uninterpreted index and stays rejected). Maps of other
@@ -3229,6 +3884,240 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### The rewriter's sign split of a factored product (2026-11-13)
+
+Z3's rewriter decides a comparison of a polynomial with zero by the signs
+of its factors (`arith_rewriter.cpp`, `factor_le_ge_eq`): with `f` a factor
+of every monomial of `p` and `p = f * g`, `(>= p 0)` becomes `(or (= (>= f
+0) (>= g 0)) (= f 0) (= g 0))`, `g` rewritten the same way and the linear
+comparisons normalized with their integer rounding, so `(>= (+ (* -2 m) (*
+-3 (* n m))) 0)` is logged as `(or (= 0 m) (= (<= 0 m) (<= n -1)))`. The
+step reaches the certificate as a rewrite of the assertion, as a cnf lemma
+tying a clause logged in the rewritten form to its assertion (a conjunct
+`(< 0 (* m n))` next to `(>= m 0)` is assumed as `(>= n 0)`), or as a
+theory clause between the leaves of such a lemma. Lean proved none of
+them: a product is an opaque atom to omega, and grind does not relate its
+sign to its factors'. It was the largest class of Lean failures over
+products: 31 of the 39 failing seeds 1-600 of `random_product_instance`,
+and z3test's nl38.
+
+- **The proof redoes the factoring, not the rewriter's choices**
+  (`proof_to_lean._sign_cases`). From `s - t` of a comparison over a
+  product, the atoms every nonconstant monomial shares are factored out:
+  `s - t = c * (f1 * (... * fn)) + d`, the last factor the quotient
+  polynomial unless it is the constant `c`. That identity is proved by
+  grind's ring normalization over the folded atoms before any hypothesis
+  is in scope. The factors are split by `Int.lt_trichotomy`; in every case
+  the sign of the product follows from those of its factors (`Int.mul_pos`,
+  `Int.mul_pos_of_neg_of_neg`, `Int.mul_neg_of_pos_of_neg`,
+  `Int.mul_neg_of_neg_of_pos`; `Int.mul_eq_zero` once a factor is zero, the
+  factors after it unsplit), and with the identity, the signs, and `0 <= a
+  * a` for every square the goal compares, the step is linear arithmetic
+  over the atoms and the products as written: `first | omega | grind`, the
+  certificate's tactic for theory steps. At most five factors are split.
+- **Where it is tried**, always as the first attempt, the existing proofs
+  after it: a rewrite step, for the comparisons of its left side over a
+  product that the right side does not keep (`_sign_split`; a rewrite the
+  normalized-rewrite path takes is left to it); a cnf lemma that is one
+  theory fact, after the polynomial refutation; a theory clause over the
+  leaves of a cnf lemma (`_sign_split_clause`, `_theory_clause_proof`).
+  Certificates without an Int product are untouched.
+- **Which comparisons of a rewrite are factored.** The right side keeps a
+  comparison when it has one over the same monomials up to a common factor
+  that compares them with zero exactly if the left one does, once
+  normalized as the rewriter does (`_compares_with_zero`: divided by the
+  gcd of the coefficients, the constant rounded, so `(<= (* 2 (* m n)) 1)`
+  is `(<= (* m n) 0)`). The rewriter splits only comparisons with zero,
+  so `(>= (* m n) 7)` kept on the right side says nothing about a `(<= (*
+  m n) 0)` beside it on the left, which is factored. A rewrite that only
+  normalizes its product comparisons gets no attempt.
+- **What the proof reads.** Comparisons of Int terms under `and`, `or`,
+  `not`, `=`, `=>`, `xor`, and `ite` of formulas. Any other formula there
+  (a predicate application, a `distinct`, a comparison of other terms) is
+  an atom of the step's propositional structure and stays folded, as the
+  atoms of the linear forms do; a step in which the rewriter also changed
+  such a formula fails the attempt and keeps its other proofs.
+- **Monomials equated with zero are not split.** `(= (* m n) 0)` to `(or
+  (= m 0) (= n 0))` is `Int.mul_eq_zero`, which the step's own grind is
+  given: one line where the split of five factors is 63 leaves (a rewrite
+  of four such equations over five variables took 124 kB and 1.9 s of Lean
+  with the split, 17 kB and 0.5 s without). A step gets an attempt only if
+  it factors some other comparison; then the equations are factored with it.
+
+Nothing is trusted: the factoring is a hint for Lean, which checks the
+identity, the case split, and every leaf; a step that needs more than the
+signs (`(= (* m m) 3)` to `false`) fails the attempt and the fallbacks, as
+before.
+
+Measured: of the 78 nonlinear unsat queries of z3test's `regressions/smt2`,
+26 verify (24 before; new: nl38, both queries). Of the 460 unsatisfiable
+seeds 1-1200 of `random_product_instance`, 441 verify (375 before: 222 of
+235 in 1-600, 194 before; 219 of 225 in 601-1200, 181 before), none that
+verified fails. The 19 others: 2 use an `nla` lemma without a refutation,
+17 fail in Lean (a `cut`, `bound`, or `implied-eq` over products; a
+rewrite or cnf lemma that needs more than signs, as "3 is no square" or `m
+n = -1`; a rewrite the replay ties to another assertion). Tests:
+`test_proof_to_lean_sign_split.py` (15 documented inputs, 12 of them
+through the legacy proof object too, 3 pinned logs, 10 pinned seeds, one
+input outside, and a pinned log whose split attempt fails in Lean and
+whose other proofs hold: the file verifies, and does not with the split as
+the only proof of its steps).
+
+Next: factors that are ites (the gate facts of the ite next to the split,
+`(> (* (ite p m 1) n) 0)`); an atom the rewriter renames next to the
+product (`(abs n)` to its ite: the split takes the two for different
+atoms, fails, and the bridged proof after it holds); theory clauses of cnf
+lemmas with a leaf that is no comparison of Int terms (no attempt);
+squares of sums. The legacy core's rewrite steps go through the same
+function: 12 of the 15 documented inputs verify through the legacy proof
+object (none before), `factors_of_the_quotient` and `five_factors` fail in
+Lean there as before, and `square_against_its_root` is rejected by the
+exporter (`arith assumed nlsat`); of 24 probe inputs 11 fail at the base
+and verify, none that verified fails. No sweep of the legacy path was run.
+
+### Lemmas of the nonlinear solver by polynomial refutations (2026-11-13)
+
+A refutation that used a lemma of Z3's nonlinear solver was rejected by
+name, and the clauses that solver leaves in the log under other names (a
+conflict nlsat found, logged as an assumed clause; a simplex conflict over
+a bound it propagated, logged as a coefficient-free `cut` or `bound`) went
+to Lean without the fact about the products they rest on and failed there.
+
+- **Polynomial refutations.** A clause that holds by what its products
+  denote has one: the facts its literals deny (`0 <= p`, strict bounds
+  tightened, or `p = 0`, products multiplied out over the other atoms), the
+  square of every atom, an equality times an atom, and products of two of
+  these, as many rounds deep as the degree of the literals, sum with
+  nonnegative multipliers to a negative constant. This is the kind of
+  evidence Z3 itself looks for (`nla_lemma.cpp`, `prove`); the search here
+  takes its main derived facts and two of its limits (384 facts, 512
+  monomials) but is not the same one: Z3 also weakens a fact with a
+  negative constant, takes disequalities, and gives up above 64 given
+  facts, so a lemma Z3 has evidence for may have no refutation here. The
+  hint's own refutation is not read: it is over the solver's columns,
+  which the log does not tie to terms.
+  `proof_certificate.polynomial_refutation` searches again, z3 solving for
+  the multipliers, and checks the sum in exact arithmetic.
+- **Exporter.** An `nla` or `nla-unsupported` lemma is an `nla` th-lemma
+  when the logged clause or the clause of the hint's literals has a
+  refutation (`_Replay._nonlinear_lemma`); the logged clause may have lost
+  the literals false at the base level and is then derived by unit
+  propagation. Z3's trimmer takes the logged clause for an axiom and drops
+  those unit clauses, so `trim_clause_log` returns the trimmed text with
+  the log it was cut from (`TrimmedLog`), and `build_certificate` replays
+  that one, with a warning and within the same time limit, when the
+  trimmed one lacks them (`TrimmedAwayError`); any caller that trims and
+  replays, z3test's `proof_lean.py` included, gets the fallback. An
+  assumed clause with a refutation is an `nla` th-lemma instead of a cnf
+  bridge to the assertions. A lemma without one is rejected when used, as
+  before. Certificates from logs with such lemmas are compact.
+- **Reconstructor.** `nla` is a th-lemma hint: a clause over Int terms
+  without premises for which the reconstructor finds a refutation itself
+  (`_check_th_lemma`, `_polynomial_certificate`); one without is rejected.
+  `_product_combination` writes the proof as `_farkas_combination` does,
+  with products among the summands (`Int.mul_nonneg`, `Int.mul_eq_zero`,
+  a case split for a square, grind's ring normalization for the sum's
+  identity). The same attempt goes first for a `cut` or a coefficient-free
+  `farkas` or `bound` over products, and for a cnf lemma whose literals are
+  bounds.
+
+Nothing is trusted: the multipliers come from a solver, the sum is checked
+in Python, and Lean checks the proof; a clause without a refutation is
+rejected or left to the tactics it had.
+
+Measured on the 78 nonlinear unsat queries of z3test's `regressions/smt2`:
+24 verify (14 before; new: nl10, nl11, nl32 q2 and q3, nl36, nl39), 41 are
+rejected for a product of Real terms, 4 use a lemma without a refutation
+(nl13, nl19), 6 fail in Lean (nl17 and nl18 q2 on an implied equality over
+a square, nl37 q2 and q5 on "no square is 2", nl38 on the rewriter's sign
+split, which verifies since the section above), 3 are outside for other
+reasons. Four of the six (nl17, nl18 q2,
+nl37 q2 and q5), and the input `(= (* m m) 2)`, were rejected by the
+exporter before, at their first `nla` lemma; those lemmas now have
+refutations, so the inputs are exported and fail in Lean on another step,
+which the exporter does not foresee. Nothing unsound is accepted, but a
+harness that counts rejections and Lean failures sees five rejections
+turn into failures. Of the 235 unsatisfiable seeds
+1-600 of `random_product_instance`, 194 verify (182 before), 2 use a lemma
+without a refutation, 39 fail in Lean (31 on a sign-split rewrite, 4 on a
+`cut`, 5 on a cnf lemma, one seed on two of these). Tests:
+`test_proof_to_lean_nla.py` (18 documented inputs, 3 pinned logs, 5 pinned
+seeds, the search itself).
+
+Next: a lemma that concludes an equality (split the disequality, two
+refutations; nl17, nl18, and `nla-unsupported` lemmas like `m = -1 -> m n +
+n = 0`), an equality stated as two bounds (nl13), the literals of an
+`nlsat-assumed` hint (the assumed clause lost them; nl37), squares of sums.
+
+### Products of Int terms as atoms of the linear forms (2026-11-13)
+
+Every product of two nonconstant terms was rejected ("nonlinear
+multiplication is not supported"), the largest class of rejections in
+z3test's `regressions/smt2` after strings and bit-vectors: 78 unsat
+queries. A product is a variable of Z3's simplex solver, and many
+refutations use nothing else of it: bounds on `(* m n)` against each other,
+a product named by a variable, a parity conflict over one.
+
+- **Int products are accepted in every integer fragment** (`qf_lia`,
+  `qf_uflia`, `qf_lira`, `qf_uflira`, arrays included), by both exporters.
+  In the linear forms of the replay and of the reconstructor
+  (`proof_clause_log._linear`, `proof_to_lean._linear_term`) a product of
+  two or more nonconstant factors is an atom, the term as written, so
+  `farkas`, `bound`, `implied-eq`, and `cut` lemmas over products are
+  re-derived and proved as before. Lean's `*` is the product; `grind`
+  normalizes polynomials, so the two ways of writing a product that the
+  rewriter identifies are one term there. With an Int product in the
+  certificate `grind` is given `Int.mul_eq_zero`, for the rewriter's split
+  of `(= (* m n) 0)`.
+- **Real products stay rejected, with a reason.** Real is `Rat` in Lean,
+  which is faithful for linear constraints only: `(= (* x x) 2.0)` has a
+  real solution and no rational one, so a theorem over `Rat` would not say
+  that the input is unsatisfiable. The message is "nonlinear multiplication
+  is supported over Int only: a product of Real terms is not certified"; the
+  reconstructor parses the input with the same check. Certifying them needs
+  a statement over the reals (an ordered field the theorem quantifies over,
+  or a real closed one), not a change of tactics.
+- **The nonlinear solver's own reasoning is not certified.** Its lemmas
+  (hints `nla`, which carries a polynomial refutation, and
+  `nla-unsupported`) become nodes nothing certifies: a refutation that uses
+  one is rejected ("the refutation uses a lemma of the nonlinear solver,
+  which is not certified: nla"), one that does not leaves it out (before,
+  the first such hint in a log rejected it: "unsupported clause-log hint").
+  Clauses the log assumes on nlsat's word (`; assumed`, `nlsat-assumed`)
+  are tied to the assertions by a cnf lemma like any assumed clause; simplex
+  conflicts over bounds the nonlinear solver propagated arrive as
+  coefficient-free `cut` or `bound` lemmas; the rewriter splits a factored
+  product by the signs of its factors (`(>= (+ (* -2 m) (* -3 m n)) 0)` to
+  cases on `m` and `n`). Lean must prove each, and mostly does not: such an
+  input is not certified. (Since the section above: the lemmas, the
+  assumed clauses, and the conflicts with a polynomial refutation are
+  certified; since "The rewriter's sign split of a factored product", the
+  sign splits too.)
+
+Measured: of the 78 queries, 14 verify (nl9, nl12, nl37 q0 and q4, nl40,
+nl46, nl48, nl49, two queries each), 41 are rejected for a product of Real
+terms, 18 use a lemma of the nonlinear solver, 2 fail in Lean on the
+rewriter's sign split (nl38), 3 are outside for other reasons. Of the 235 unsatisfiable seeds 1-600 of
+`random_product_instance` (linear over three products with their factors
+in random orders), 182 verify, 2 use an `nla` lemma, and 51 fail in Lean.
+The failing lemmas, a seed counted once for each kind it fails on (some
+fail on two): a sign-split rewrite in 34 seeds, a `cut` in 12, a cnf lemma
+of an assumed clause in 8, a `bound` in 3. Tests:
+`test_proof_to_lean_nonlinear.py` (26 documented inputs, 11 of them through
+the legacy core too, 10 rejected inputs, 7 pinned seeds).
+
+The rewriter distributes `to_real` over a product, so `(to_real (* m n))`
+is the Real product `(* (to_real m) (to_real n))` in the log, a second
+variable of the simplex solver next to `(* m n)` that only the nonlinear
+solver relates to it. An input with both is refuted with `nla` lemmas and
+assumed nlsat clauses on the way, and is certified only when the trimmed
+refutation avoids them (the test accepts both outcomes); with the product
+under `to_real` everywhere the refutation is linear and stable.
+
+Next: replay the `nla` hint's polynomial refutation in Lean (products of
+premises, then a linear combination `grind` closes), sign facts for the
+rewriter's splits, and squares (`0 <= m m`) for the cuts.
+
 ### is_int of nested Real chains related to its normal form (2026-11-09)
 
 The rewriter's normal form of `(is_int t)` is `(= (to_real (to_int t'))
@@ -3632,6 +4521,70 @@ Fourier-Motzkin), each projected constraint stated over Int through the
 81 unsatisfiable seeds verify; without the facts six of the eight runs of
 the new test inputs fail.
 
+Update (2026-11-12): Floors under applications. A floor that is an
+argument of a function, a predicate, or a read needs its value as an Int:
+Z3's rewriter turns `(f (to_int 0.5))` into `(f 0)` and `(f (to_int (+
+(to_real x) 0.5)))` into `(f x)`, and the equation between the casts into
+Rat, the only one stated so far (and only for an integer-valued floored
+term), gives `grind` no congruence between the two applications. Every
+such rewrite failed in Lean on the clause log (`grind` failed); the legacy
+core, whose proof rewrites the argument first, failed on `is_int` of a
+constant only. Now (`_floor_shift_facts`):
+
+- `floor a = D + floor c` for a floored term `a` that is an integer form
+  `D` over Int terms plus any constant `c`, not only an integer one:
+  through `Rat.floor_intCast` when `c` is an integer, else through a
+  private lemma `_floor_value` (the floor of a Rat between an Int and its
+  successor is that Int, from core's `Rat.le_floor_iff` and
+  `Rat.floor_lt_iff`), whose two bounds `grind` proves;
+- that equation and the one between floors differing by an integer are
+  stated between Int terms (`_zi`, `_di`) and then cast into Rat (`_z`,
+  `_d`, as before);
+- the floor of a constant (`D` empty) is replaced by its value in the goal
+  and in every fact (`generalize`, then `subst`): with `(Rat.floor (-2))`
+  in its context `grind` ran out of heartbeats on the rewrite of `(= (to_int
+  x) (to_int (- 2.0)))` into bounds of `x` (107 s to the timeout, which
+  `first` does not catch), and proves it at once over `-2`;
+- the `push_cast` that ends the cast facts may now close the goal (`(=
+  (to_int 2.5) 2)` is `2 = 2` by then), so the final tactic of a step with
+  cast facts runs under `all_goals`.
+
+`(is_int c)` over a constant with no Int term in the input (`(assert
+(is_int 0.5))`) was rejected by the reconstructor on both cores ("qf_lira
+certificates contain both Int and Real arithmetic": the certificate
+declares `is_int` and Real numerals only): an `is_int` declaration now
+counts as Int arithmetic, since `(is_int t)` is a statement about the floor
+of `t`. A certificate with `is_int` labelled `qf_lra` or `qf_uflra` is
+rejected.
+
+Of the 148 unsatisfiable `random_floor_argument_instance` seeds in 1-600
+(`test_proof_to_lean_uflira.py`: `f`, `g`, `p` applied to floors of
+numerals, of casts, and of their sums, `is_int` under an ite), 109 failed
+in Lean on the clause log before and all verify now; on the legacy core 4
+of the 74 in 1-300 failed and all verify.
+
+Two inputs of this kind still fail in Lean (`grind` failed), as they did
+before; neither is a matter of the floor facts:
+
+- a read past a store at the floor of a constant under another store,
+  `(select (store (store a 1 7) (to_int 2.5) 8) 1)`: the array helpers
+  decide that two indices differ for numerals, not for the floor of a
+  constant, so the inner store gets no fact (with `2` for the floor the
+  input verifies);
+- seed 685 of `random_floor_argument_instance` on the clause log, the one
+  failure among the 74 unsatisfiable seeds in 601-900: `(f (+ (to_int 1.75)
+  0))` next to `(p (to_int 1.75))`. The level-by-level equality of the
+  arguments is proved with the other node flooring `7/4` left folded, so
+  its goal is `Rat.floor (7/4) = term + 0` over an opaque term.
+
+Tests:
+`FLOOR_ARGUMENT_INPUTS` (15 documented inputs) and `FLOOR_ARGUMENT_SEEDS`
+(5 seeds) on both cores, `TestFloorArgumentValidation` (the facts, without
+Lean) in `test_proof_to_lean_uflira.py`; three more `FLOOR_INPUTS` and
+`test_is_int_of_a_constant_is_a_certificate_over_both_sorts` in
+`test_proof_to_lean_lira.py`; a read and a store at a floor in
+`test_proof_to_lean_array.py`.
+
 ### Uninterpreted functions next to both sorts: qf_uflira (2026-11-03)
 
 Input with uninterpreted sorts or functions next to both Int and Real
@@ -3824,6 +4777,60 @@ hand-written inputs, including the triangle inequality and a QF_UFLRA one,
 plus four random seeds, with Lean and `#print axioms`; all 18 runs were
 rejected before), `test_real_abs_is_stated_as_its_ite_over_rat`, and the
 classification tests in `test_proof_certificate.py`.
+
+Update (2026-11-12): Real `abs` of a constant. Z3's rewriter evaluates
+`(abs (- 2.5))` to `2.5`, and the rewrite of `(g (abs (- 2.5)))` into `(g
+2.5)`, of a read at that index, of a predicate of it, or of its floor rests
+on the value. `grind`, having split the ite, does not identify the branch
+`-(-(5/2))` with the numeral under an application (an integer value it
+does reach), and does not bound a sum over a split ite whose branch is a
+fraction, so on the clause log Lean rejected these inputs (`grind` failed in
+a rewrite; the legacy core's proof evaluates the abs in steps of its own
+and verified them). Now:
+
+- every Real `abs` of a constant a step reaches (its argument's linear form
+  is a constant, with an `abs` of a constant under it counted by its value:
+  `_abs_free_value`) is stated equal to its value, `have _avN : (if t >= 0
+  then t else -t) = v := by grind`, and replaced by it in the goal and the
+  facts stated so far (`generalize`, then `subst`), inner ones first
+  (`_abs_value_facts`); the step is then the one of the input with the
+  numeral written out. The replacement is not under `try`: the
+  `generalize` always has the occurrence in the fact just stated, also for
+  the second of two `abs` nodes that are one Lean term, so a failure is an
+  error of the step. Its success does not show that the goal had the term;
+  the tests show that on inputs Lean rejects with the facts stated and the
+  replacements left out;
+- the facts of floors come after the replacement and are stated over the
+  values (`_floor_shift_facts`): `(to_int (abs (- 2.5)))` is `2`;
+- an `abs` of a constant counts by its value in the normal form of an
+  argument (`_real_argument_key`), so `(+ (+ 2.0 (- 3.25)) (abs (- 0.25)))`
+  is related to `(- 1.0)` by an argument helper, which makes the same
+  replacement in its own goal before its tactic (stated folded, or written
+  out in a certificate with arrays);
+- the constant indices of reads are related as arguments are
+  (`_real_argument_pairs`): after the replacement a read at an `abs` is a
+  read at a numeral expression, and `grind` did not identify `(select a (+
+  (* 2.0 0.5) (+ (- 0.5) (- 0.75))))` with the read at `(- 0.25)` among three
+  more numeral expressions in the arguments around it (with or without an
+  `abs` in the input).
+
+Each fact is a `have` the kernel checks and each replacement is by an
+equation proved in the step; the definitions of the terms are unchanged.
+Measured with `random_abs_value_instance` (`test_proof_to_lean_uflra.py`):
+of the 151 unsatisfiable seeds in 1-500, 70 failed in Lean on the clause
+log; with floors 69 of 132 (seeds 1-400); with arrays 53 of 116 (1-400);
+all 399 verify now, and the 150 legacy runs (seeds 1-250, plain and with
+floors) verify as before. Still failing: an `abs` over the floor of a
+constant, `(g (abs (- (to_real (to_int 2.5)) 4.5)))`, which gets no value
+(the floor's is stated after the replacements). Tests:
+`TestAbsValueValidation` and `TestAbsValueLeanIntegration` (21 documented
+inputs, 17 of them rejected before, and 9 random seeds, 8 of them rejected
+before, on both cores; Lean rejects the certificates without the values,
+with the values but without the replacements, without the helpers'
+replacements, and without the steps'). The facts that relate the floors of
+two terms differing by an integer are stated over the values too; no input
+found needs that in Lean (the argument helpers relate each floored term to
+the rewriter's normal form), so only their text is tested.
 
 ### Integer numerals in Real terms (2026-10-30)
 

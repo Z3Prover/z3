@@ -142,7 +142,10 @@ arithmetic on its own: Int variables and numerals, sums, differences,
 negation, multiplication by a numeral, Int-valued ite, integer div and mod
 by a nonzero numeral (negative too), Z3's rem by a nonzero numeral, and
 abs, and the same atoms over Int
-terms; both cores certify it, and a consumer of parse_assertions or
+terms. A product of two or more nonconstant Int terms, (* m n) or (* m (+ n
+1)), is accepted in every integer fragment as one more atom of the linear
+forms (see "Products of Int terms" below); a product of Real terms is
+rejected. Both cores certify the fragment, and a consumer of parse_assertions or
 parse_legacy_assertions accepts it explicitly (integer=True, as the
 exporter and the reconstructor do), because its cut steps are certified by
 Lean alone rather than re-derived in Python first. The qf_uflia fragment is the
@@ -168,10 +171,12 @@ UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
 predicates may take arrays as arguments, functions may return them,
-constant arrays ((as const (Array I E)) v) and default values (default a)
-are supported over Int and Real indices, and sets combine by maps of not,
+constant arrays ((as const (Array I E)) v) are supported over Int, Real,
+Bool, and uninterpreted indices and default values (default a)
+over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
-setminus, complement); maps of xor, = and distinct, Int and Real +, -, and
+setminus, complement) and are compared by subset; maps of xor, = and
+distinct, Int and Real +, -, and
 comparisons, ite, and uninterpreted functions and predicates of up to three
 arguments apply over elements of an uninterpreted sort, Int, Real, or Bool.
 Only the clause log certifies them (the legacy core
@@ -179,8 +184,9 @@ rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
 Int), see below), and an index or element sort may itself be such an array
 ((Array Int (Array Int Int)), (Array (Array Int Int) Bool), nested to any
 depth); arrays
-with several indices, constant arrays and default values over other index
-sorts, default values that are arrays, maps of other functions (*, conversions,
+with several indices, constant arrays indexed by arrays, default values over
+other index sorts than Int and Real, default values that are arrays, maps of
+other functions (*, conversions,
 uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected.
 Enumeration datatypes (declare-datatype or declare-datatypes whose
 constructors are all nullary, not parametric) count as uninterpreted sorts,
@@ -201,7 +207,9 @@ pigeonhole search) over more than five constructors or with more than
 sixteen arguments, past which Lean runs out of memory, are rejected.
 Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
-nonlinear), and Int
+nonlinear; the clauses Z3's arithmetic solver states on its own about a
+division by zero, over its functions div0 and mod0, are left out of the
+certificate, and a refutation that needs one is rejected), and Int
 mixed with Real next to uninterpreted functions (also through a function
 signature such as (Int) Real) are rejected explicitly.
 The exception is an integer numeral where a Real is expected: without a
@@ -216,7 +224,7 @@ several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
 reconstructor, which parses the input itself. Quantifiers,
-nonlinear terms, bit-vectors, and arrays are rejected. Definitions are expanded by Z3's parser.
+products of Real terms, powers, and bit-vectors are rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
@@ -737,14 +745,24 @@ become exact Rat literals, and the theorem reads
 Real variables are encoded as Rat. This is sound for the supported fragment:
 a system of linear constraints with rational coefficients has a real solution
 if and only if it has a rational one, so unsatisfiability over Rat is
-unsatisfiability over the reals. The exporter rejects nonlinear terms, which
-is the precondition of that argument; extending the fragment must revisit
-this encoding. A Real ite becomes Lean's ite over Rat with the classical
+unsatisfiability over the reals. The exporter rejects products of Real terms
+("nonlinear multiplication is supported over Int only"), which is the
+precondition of that argument: (= (* x x) 2.0) has a real solution and no
+rational one, so a theorem over Rat would not say that such an input is
+unsatisfiable. The reconstructor parses the input with the same check, so no
+certificate states a product of Real terms as a hypothesis; extending the
+fragment must revisit this encoding. A product of Int terms is not affected:
+the Int terms take the same values in a real solution and in the rational
+one the argument gives. A Real ite becomes Lean's ite over Rat with the classical
 decidability instance for its condition, so the term definitions that contain
 one are noncomputable; the argument above still applies, because under each
 fixed valuation of the conditions the constraints are linear. A Real abs is
 the same kind of ite, (if t >= 0 then t else -t) over Rat. Every term
-definition takes the atom valuation as well as the Rat valuation.
+definition takes the atom valuation as well as the Rat valuation. Z3's
+rewriter evaluates a Real abs of a constant, (abs (- 2.5)) to 2.5, so a
+lemma reaching one states the ite equal to its value (a have that grind
+proves) and replaces it by the value in its goal and facts, an abs nested
+in another first; the facts of floors are then stated over the values.
 
 Each th-lemma and each rewrite whose equivalence mentions arithmetic is proved
 in a private theorem by unfolding its definitions and calling grind, whose
@@ -799,11 +817,15 @@ casts. to_int is Rat.floor, an Int atom of the linear forms like div,
 and (is_int t) is ((Rat.floor t : Int) : Rat) = t, SMT-LIB's definition; a
 lemma reaching either gets the floor bounds of each floored term a from
 core's Rat.floor_le and Rat.lt_floor_add_one (Z3's two arith axioms for
-to_int), floor a = D (core's Rat.floor_intCast) when a is itself an
-integer D over Int terms, and floor a = floor b + D (core's
+to_int), floor a = D + floor c when a is an integer D over Int terms plus
+a constant c (core's Rat.floor_intCast for an integer c, else the private
+lemma _floor_value), and floor a = floor b + D (core's
 Rat.floor_add_intCast) for two floored terms differing by an integer D,
 which Z3's rewriter uses to move integer summands out of a floor (these
-pairs only up to 12 floors per lemma). A cut or coefficient-free farkas or
+pairs only up to 12 floors per lemma). Both equations are stated between
+Int terms, for the floors that are arguments of functions, predicates, and
+reads, and cast into Rat; the floor of a constant is then replaced by its
+value. A cut or coefficient-free farkas or
 bound that rounds a Real atom over a Real variable through a floor (x and
 x/2 both integers) also gets its projection onto the Int atoms: the Real
 atoms are eliminated exactly (substitution, then Fourier-Motzkin, up to 200
@@ -830,9 +852,10 @@ instance, and no encoding argument is needed: the variables range over
 exactly the integers. Integer div and mod by a numeral are Lean's Int / and
 %, which follow the same Euclidean convention as SMT-LIB (the remainder is
 nonnegative and below the divisor's absolute value, for negative divisors
-too), and abs is the ite SMT-LIB defines it as, (if t >= 0 then t else -t)
-with the classical instance. Z3's rem by a numeral k is its definition at k:
-t % k for a positive k, -(t % k) for a negative one. The agreement holds for
+too), and abs is the ite SMT-LIB defines it as, (if t >= 0 then t else 0 - t)
+with the classical instance. Z3's rem by a constant k is its definition at k:
+t % k for a positive k, 0 - t % k for a negative one (the negations are
+written as differences, see below). The agreement holds for
 nonzero divisors only (Lean's x / 0 is 0 where SMT-LIB's is any value), so
 the reconstructor rejects every div, mod, or rem node whose divisor is not a
 nonzero constant among the nodes the theorem states, the assertions and
@@ -842,17 +865,123 @@ total division without that reaching the statement; a rem is rendered from
 the sign of its divisor, so a rem by zero or by a term is rejected wherever
 it occurs); omega reads / and % by a positive numeral directly,
 and leaves them as atoms for a negative divisor, whose arith axioms grind
-proves instead. Each th-lemma and arithmetic rewrite is proved by
+proves instead. An Int negation (- t) is the difference 0 - t (also in
+the negative branch of abs and in a rem by a negative constant; only the
+negation of a positive numeral is the numeral -k), the Int negation map
+((_ map -) a) is fun v => 0 - v, and a div by a negative constant d ((- 5),
+or an expression such as (* 5 (- 1))) is
+0 - t / (0 - d), which a theorem after the definition (term_N_quotient)
+equates with Lean's t / d: Lean's grind takes the Int literal -0 for a
+numeral other than 0, and the kernel rejects the proof it builds on that
+(after the tactic block, where no alternative can catch the error); its
+simplifier reaches -0 wherever it evaluates a negated term to 0
+((- (* 0 x)), (- (mod x 1)), (- (ite true 0 1))) and where it rewrites
+t / -k to -(t / k) ((div 2 (- 5))), and evaluates the differences
+instead. Each th-lemma and arithmetic rewrite is proved by
 first | omega | grind (splits := 64), except euf th-lemmas (below): omega
 decides linear integer arithmetic (ite over Int included) and produces a
 kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
+Products of Int terms. A product of two or more nonconstant Int terms is
+Lean's Int product, and in the exporter's and the reconstructor's linear
+forms it is an atom, the term as written (proof_clause_log._linear,
+proof_to_lean._linear_term and _is_product): Z3's simplex solver has one
+variable for it, so its farkas, bound, implied-eq, and cut lemmas over
+products are linear combinations, re-derived over the atoms as before and
+proved by omega (which takes a product of two terms as an atom) or grind
+(which normalizes polynomials, so (* m n) and (* n m), two atoms here, are
+one term there; Z3's rewriter orders the factors before the solver sees
+them, and the rewrite between the two forms is a Lean lemma). With such a
+product in the certificate grind is given Int.mul_eq_zero, for the
+rewriter's split of (= (* m n) 0) into (or (= m 0) (= n 0)). What Z3 knows
+about a product from its factors is certified by polynomial refutations. A
+clause that holds by what its products denote has one: the bounds and
+equalities its literals deny (strict bounds tightened, products multiplied
+out over the atoms that are none), the square of every atom, an equality
+times an atom, and products of two of these, as many rounds deep as the
+degree of the literals, sum with nonnegative multipliers (any, for a
+product with an equality) to a negative constant. Z3's nonlinear solver
+looks for one as the evidence of an nla lemma (nla_lemma.cpp); the hint's
+is not read (it is over the solver's columns, which the log does not
+name). proof_certificate.polynomial_refutation searches again, z3 solving
+for the multipliers, and checks the sum in exact arithmetic (the search
+follows Z3's in the facts listed above but is narrower: Z3 also weakens a
+fact with a negative constant and takes disequalities, so a lemma Z3 has
+evidence for may have no refutation here); the
+exporter runs it to decide what is certified, the reconstructor runs it
+again over the certificate's clause, and Lean proves the clause from it
+(proof_to_lean._product_combination): each fact by a core lemma from the
+negated clause, each product by Int.mul_nonneg (Int.mul_eq_zero with an
+equality), each square by a case split on the atom's sign, the sum of the
+scaled products equal to the constant by grind's ring normalization over
+the atoms left folded, and the contradiction by decide. Three kinds of
+clauses are proved this way. A lemma of the nonlinear solver (hint nla or
+nla-unsupported) is an nla th-lemma when the logged clause, or the clause
+of the hint's literals, has a refutation; the logged clause may have lost
+the literals false at the base level, and is then derived from the lemma
+by unit propagation (Z3's trimmer takes the logged clause for an axiom and
+drops those unit clauses, so proof_clause_log.trim_clause_log returns the
+trimmed text together with the log it was cut from, and build_certificate
+replays that one, with a warning and within the same time limit, when the
+trimmed one lacks them). A clause the log assumes on nlsat's word
+("; assumed", hint nlsat-assumed) is an nla th-lemma too when its literals
+have a refutation, and otherwise tied to the assertions by a cnf lemma
+like any other assumed clause, which gets the same proof when its literals
+are bounds (a conflict of asserted bounds). A simplex conflict resting on
+a bound the nonlinear solver propagated is logged as a coefficient-free
+cut or bound, and gets the proof as its first attempt. A lemma of the
+nonlinear solver without a refutation within the search becomes a node
+nothing certifies, and a refutation that uses it is rejected ("the
+refutation uses a lemma of the nonlinear solver, which is not certified");
+the reconstructor rejects an nla th-lemma for which it finds none. A
+certificate from a log with such lemmas keeps only the steps the
+refutation uses. Outside the search: a lemma that concludes an equality
+(its denial is a disequality), an equality stated as two bounds, the
+square of a sum, and what holds over the integers only (no square is 2);
+Lean has to prove those unaided, and where it does not the input is not
+certified (an input whose nla lemmas all have refutations is exported
+whatever its other steps need, so such an input fails in Lean rather than
+in the exporter). Z3's rewriter decides a comparison of a polynomial with
+zero by the signs of its factors: (>= (+ (* -2 m) (* -3 (* n m))) 0)
+becomes (or (= 0 m) (= (<= 0 m) (<= n -1))), in a rewrite step, in a cnf
+lemma tying a clause logged in that form to its assertion, or in a theory
+clause between the leaves of such a lemma. Lean proves these by the same
+signs (proof_to_lean._sign_split and _sign_cases): the atoms every
+nonconstant monomial of the comparison shares are factored out, the
+identity s - t = c * (f1 * (... * fn)) + d is proved by grind's ring
+normalization over the folded atoms, the factors (at most five) are split
+by Int.lt_trichotomy, the sign of the product follows in every case
+(Int.mul_pos and its three variants, Int.mul_eq_zero), and with that, the
+factors' signs, and 0 <= a * a for the squares the step compares, omega
+(else grind) closes the step as linear arithmetic over the atoms and the
+products as written. In a rewrite step the comparisons factored are those
+of the left side that the right side does not keep: one over the same
+monomials up to a common factor that is compared with zero exactly if the
+left one is (after the rewriter's division by the gcd and rounding), so
+(>= (* m n) 7) kept next to a split (<= (* m n) 0) does not hide it. A
+formula of the step that is no comparison of Int terms and no connective
+(a predicate application, a distinct) stays folded as an atom. A step
+whose only products are monomials equated with zero gets no split: (= (*
+m n) 0) is (or (= m 0) (= n 0)) by Int.mul_eq_zero, which grind is given.
+The attempt goes first and the proofs the step had
+stay as its fallbacks; a step that needs more than the signs ((= (* m m)
+3) to false) still fails in Lean. Z3's rewriter distributes to_real over a product, so (to_real
+(* m n)) is the Real product of (to_real m) and (to_real n) in the log, a
+second variable of the simplex solver next to (* m n), which the nonlinear
+solver alone relates to it: an input whose refutation needs the two to
+agree is certified only when the trimmed log holds no lemma of that solver
+(and Lean proves what is left), while one with the product under to_real
+throughout has a linear refutation. Through the legacy core such steps are
+(_ th-lemma arith assumed nlsat) or unsupported nla, which the exporter
+rejects. Division, div, and mod by a product, and powers, stay rejected.
 An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
 mod, abs, ite, or application atoms gets a first attempt over the atoms
 generalized to integers: the definitions outside the atoms are unfolded,
 for a cut or a coefficient-free lemma each mod atom's bounds 0 <= m < |k|
-are stated (Int.emod_nonneg, Int.emod_lt_of_pos, through Int.emod_neg for
-a negative divisor; Z3 fixes them at base level and omits them from the
+are stated (Int.emod_nonneg, Int.emod_lt_of_pos, and for a negative
+divisor Int.emod_lt, whose bound by the divisor's absolute value decide
+compares with |k| however the divisor is written; Z3 fixes them at base
+level and omits them from the
 lemmas it explains) and reverted into the goal, each atom is generalized to
 a fresh integer, and omega (a farkas or bound with coefficients, a
 combination over the atoms already re-derived by the reconstructor, so it
@@ -977,8 +1106,10 @@ Uninterpreted functions in Lean
 -------------------------------
 
 For qf_uf certificates every definition takes, instead of the Rat valuation,
-an interpretation of the uninterpreted sorts, all rendered as one type: a
-structure the file declares, quantified as the one argument _m.
+an interpretation of the uninterpreted sorts, all rendered as one type (but
+for the index sorts of maps and set operators, which can get a type of their
+own, _m.S0; see the arrays section below): a structure the file declares,
+quantified as the one argument _m.
 
     structure Interpretation where
       U : Type
@@ -1059,7 +1190,11 @@ of the floored terms. The keys are cached and interned per certificate, so
 keying a nested chain takes time linear in its depth. The terms a formula
 floors (an is_int's argument, a to_int's in a comparison) are paired the
 same way, with or without uninterpreted symbols, so (is_int t) and the
-rewriter's (= (to_real (to_int t')) t') are related through t = t'.
+rewriter's (= (to_real (to_int t')) t') are related through t = t'. So are
+the indices of reads that are constants ((select a (+ 0.5 0.25)) and the
+read at 0.75 the rewriter leaves). An abs of a constant counts by its value
+in a normal form, (+ x (abs (- 0.25)) 0.5) as (+ 0.75 x), and a helper over
+one replaces the abs by its value in its own goal before its tactic.
 A certificate whose only uninterpreted symbols are predicates over Bool
 uses the same binders with no sort at all: _m.U carries the two
 Boolean values, _m.elems and _m.funs are never applied. Every ground term
@@ -1227,9 +1362,10 @@ skips a store at false in a read at true as it skips stores at other
 numerals, so such reads get every skipped level's _store_apply fact; the SAT
 solver identifies (not (not p)) with p, so a unit resolution of the gate
 clause (or (not (= (not p) p)) (not (not p)) p) of an index equality
-concludes p, which the reconstruction proves by contradiction. Constant
-arrays and default values over Bool indices stay rejected (a finite index
-sort, like constant arrays over uninterpreted indices).
+concludes p, which the reconstruction proves by contradiction. A constant
+array over Bool indices is the constant function on Prop (a model's embeds
+as exactly that); default values over Bool indices stay rejected (a finite
+index sort).
 
 Nested arrays are functions into or over functions: (Array Int (Array Int
 Int)) is Int -> (Int -> Int) (the family arrs_iaii: a nested component is
@@ -1243,8 +1379,9 @@ image too, so the same generic facts prove the array lemmas. A pointwise
 connective does not commute off the image (the complement of the fixed
 value is another value), so maps and set operators over sets indexed by
 arrays are rejected by the exporter and by the reconstructor; constant
-arrays are admitted over Int and Real indices only, where the embedding
-is onto. A read of a row is an array term, and so is the
+arrays are not admitted over array indices, where the embedding is not
+onto (a model's is constant on the embedded indices only). A read of a
+row is an array term, and so is the
 extensionality witness of two arrays over array indices, chosen with a
 constant function from the element type's inhabitant ((Nonempty.elim
 (Nonempty.intro (0 : Int)) (fun _e => Nonempty.intro (fun (_ : Int) =>
@@ -1270,11 +1407,30 @@ not change (Classical.choice of a Nonempty proof, which is proof-
 irrelevant). _default_const and _default_store are theorems over any index
 type that no finite list exhausts. Over a finite index sort no such function
 exists (storing at every index turns one constant array into another), so
-constant arrays and default terms over uninterpreted indices are rejected
+default terms over uninterpreted and Bool indices are rejected
 by the exporter and by the reconstructor. Z3's rewriter decides an
 equality between stores over constant arrays by their default values or
 their values at the stored indices; a rewrite step reaching a constant
 array gets those facts for its array equalities.
+
+A constant array over an uninterpreted index sort or over Bool is the
+constant function too, _const_array _m.S0 v or _const_array Prop v. The
+sort is then a Lean type of its own like the index sort of a map (below),
+unless it is all of the carrier: over one carrier (= (store (const v) i w)
+(store (const w) i w)), which says that the index sort has one element when
+v and w differ, would contradict (not (= v w)) over another sort, though
+the two have a model. Z3's rewriter makes such arrays of sets ((setminus t
+t) is the empty set, a subset the equality of a difference with it), so
+they are in certificates of inputs that write none. Without default values
+the rewriter compares two constant arrays by their values, (= (const v)
+(const w)) to (= v w), which holds because the sort has an index: each
+equality of arrays a rewrite reaches is read at one index of the sort (a
+constant's value _m.s0_elems 0, or True over Bool), where a constant array
+has its value. An equality between stores over constant arrays over such a
+sort the rewriter expands into a quantified formula, which the exporter
+rejects ("quantifiers are not supported in the clause log"), and the array
+solver's default value of a constant array over such a sort is rejected by
+the reconstructor ("invalid default declaration").
 
 Maps of not, and, or, => over sets and Z3's set operators (union,
 intersection, setminus, complement; Z3 nests n-ary ones into binary ones)
@@ -1285,12 +1441,40 @@ logged as an array hint stating the propagated equality; each read of a map
 gets that fact, and so do the maps, stores, and constant arrays below it,
 since Z3's rewriter evaluates a read through all of them with no read term of
 the levels in between; a read of a store at another numeral over a map gets
-the map's facts too, the rewriter skipping the store. The identities the euf solver and the rewriter apply to
+the map's facts too, the rewriter skipping the store, and so does a read
+through up to eight stores it does not skip, counted over all the stores and
+maps the facts of that read walk (the rewriter simplifies the map below
+member by member and pulls stores out of maps, so the read is compared with
+members of the sets), also below the branches of an ite and in a stored row.
+Each store that is not skipped is a case split on its index for grind, so
+the facts through such stores are stated in attempts of their own, after the
+step's other attempts: a step that needs none is proved as without them. The
+identities the euf solver and the rewriter apply to
 maps are theorems instantiated per map node: maps of and and or commute (euf
 compares them as commutative) and are idempotent, a double complement
 cancels, a map of stores at one index is the store of the map (a constant
 array counting as a store of its value), and a map of constant arrays is
-constant. The rewriter turns setminus a b into the map of and over a and the
+constant. Beyond single maps, the rewriter simplifies a map of connectives
+as the connective over the members ((setminus s s) is empty, nested maps of
+and are flattened and sorted) and decides an equality between constant
+results; a rewrite or cnf lemma over sets therefore gets, for the set terms
+over Booleans it reaches, read as Boolean functions of their leaves (truth
+tables over at most eight sets, values, and stored-index tests), the
+equality of two terms of one function and the difference of an equality's
+sides that differ in every row, each by function extensionality from an
+auxiliary theorem over the members as propositions that grind proves on its
+own, and in a cnf lemma the members of an equality's sides at the indices it
+reads (_pointwise_map_facts); a cnf lemma that reaches a store of a set and
+no map gets the last kind alone (a set equated with a store, whose member at
+the stored index Z3 evaluated in another assertion). A term is read this way while its member
+formula writes at most 48 maps and stores (a map of xor writes each argument
+twice and a map of ite its condition, so a nest of them doubles per level);
+a larger one is a leaf. Two terms of one member formula are equal by rfl, an
+auxiliary theorem is stated once per certificate, and the step is first
+tried without these facts, then with them: grind closes the classes of the
+equated sets under every map in its context, which exhausted the heartbeats
+of a lemma that needed none of them. The rewriter turns setminus a b into
+the map of and over a and the
 complement of b, a different Lean function, so each setminus node is stated
 equal to that map by rfl; union, intersection, and complement share their
 Lean function with the map they become. A map of any other function is
@@ -1303,11 +1487,82 @@ names it ("declared", f) and the reconstructor binds it to the input's
 signature. Maps of commutative functions (xor, =, distinct, +) commute, by
 _map2_comm with the pointwise swap proved by grind. The array solver's other map axiom, (default (map f a b)) = (f
 (default a) (default b)), holds only for arrays constant at all but finitely
-many indices, which _default cannot assume of a map's arguments; the replay
-rejects it explicitly. The solver also introduces default values of maps over
-any index sort in gate clauses; an untrimmed log's certificate keeps only the
-nodes the refutation uses when it has such defaults over an uninterpreted
-index, which the reconstructor would otherwise reject.
+many indices, which _default cannot assume of a map's arguments. When a
+refutation uses it and the input names no default value (the sets of an
+input compared without a member: (= ((_ map =>) a b) full) with a full and
+b empty), the default values are the array solver's own terms, and Lean
+reads them all at one index that no store of the certificate writes:
+_generic_i (_generic_r over Real indices) is chosen off the list of the
+stored indices (Classical.choose of the unboundedness theorem), _default g
+a is a g, the default value of a store is the array's because the index is
+not the stored one (_generic_i_ne_K), and the axiom holds by rfl like a read
+of the map. The assertions do not mention the index, so the theorem is
+unchanged. An input that names a default value keeps _default, and the
+replay explicitly rejects a refutation of it that uses the axiom; it leaves
+the axiom out when it is only logged (the solver states it for every map; a
+log under 4 KB is not trimmed), as for an empty set difference refuted by a
+member. The default value of a store over a map is the map's, like any
+array's, and is kept. Once an assertion simplifies to false Z3 logs the
+others as written, so the replay also builds the set operators themselves
+((complement a), ((as union (Array Int Bool)) a b)), not only the maps the
+rewriter makes of them. The solver also introduces default values of maps
+over any index sort in gate clauses; an untrimmed log's certificate keeps
+only the nodes the refutation uses when it has such defaults over an
+uninterpreted index, which the reconstructor would otherwise reject.
+(subset a b) over two sets is _subset a b, forall i, a i -> b i. Z3's rewriter
+makes (= (setminus a b) empty) of it, which the theorem _subset_eq relates
+to the subset (_subset a b = (_map2 And a (_map1 Not b) = _const_array I
+False), by function extensionality); each step reaching a subset gets that
+fact, and, since the rewriter simplifies the difference member by member,
+the facts that apply of: the subset itself where the difference is empty at
+every member; its negation where it is full at every member, at a stored
+index, or at every index off the stored ones (one exists over Int and
+Real); the implication between the values of two constant arrays; and the
+equality of the difference with the set the rewriter leaves. Written out
+after a false assertion, the subset comes with the array solver's axiom
+relating it to that equality, two array lemmas proved the same way. A
+subset over an uninterpreted or Bool index sort is certified like one over
+Int, its equality with the empty set a constant array over that sort; only
+the failure off the stored indices has no fact there (the sort may have no
+other index). A subset over a
+store of a Boolean value other than true and false that the rewriter folds
+to a formula over that value ((subset (store empty 0 p) empty)) is accepted
+and fails in Lean.
+
+The index sort of a map, a set operator, a subset, or a constant array is a
+Lean type of its
+own, _m.S0 (_m.S1, ... for further such sorts, in the order of their names),
+whenever the carrier _m.U holds anything else: another uninterpreted sort or
+an enumeration, or the Bool, Int, Real, or array arguments of a function, a
+predicate, or a mapped function. Over _m.U an equality of two sets is stated
+at every element of the carrier, and a pointwise function does not keep the
+one value a model's arrays are extended by outside their index sort (the
+complement of that value is another one). (= (store a i true) (complement
+(store a i false))) holds exactly when the index sort has one element, and
+is satisfiable next to (not (= e1 e2)) over another sort; over one carrier
+the two statements are contradictory, so a theorem with them as hypotheses
+would prove nothing about the input. With its own type the arrays over the
+sort are functions on exactly a model's indices. The interpretation has the
+fields S0 : Type, s0_nonempty : Nonempty S0 (every sort is nonempty), s0_elems
+: Nat -> S0 (the constants), s0_funs : Nat -> List U -> S0 (the functions into
+the sort), and s0_inj : S0 -> U (the sort's terms as arguments of functions
+and predicates, injected like Int ones by _m.int); the array families are
+named by the code s0 (arrs_s0b : Nat -> S0 -> Prop). A model is an instance
+with its carrier of the sort as S0, a copy of it in the disjoint union U,
+and the inclusion as s0_inj. An index sort that is all of the carrier (the
+only sort, every function over it alone) stays _m.U, where nothing is outside
+it. The choice is made from the certificate's declarations, which include
+those of the proof steps: the sorts and the uninterpreted symbols are the
+input's (the reconstructor checks both), but a pointwise operator that only a
+proof step named would give its index sort a type of its own as well, so the
+signature of the theorem is that of the certificate, not of the input alone.
+A statement with the sort as its own type is faithful to the input in every
+case; the one over _m.U is kept only where it is faithful too. Z3 itself
+reasons about such sets through default values, as if every index sort were
+infinite: it answers unsat on the set equality above. The certificate of such
+an answer is rejected (the default values of arrays over an uninterpreted
+sort have no Lean reading) or fails in Lean.
+
 Z3 logs a map of a built-in with its signature, ((_ map (<= (Int Int) Bool))
 a b), and declares a mapped function before the map, so the trimmer reads
 map logs back; the replay checks a logged signature against the
@@ -1456,8 +1711,10 @@ test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
-arrays), and test_proof_to_lean_enum.py enumeration datatypes and arrays
-of them end to end;
+arrays), test_proof_to_lean_enum.py enumeration datatypes and arrays
+of them, test_proof_to_lean_nonlinear.py products of Int terms,
+test_proof_to_lean_nla.py the lemmas of the nonlinear solver, and
+test_proof_to_lean_sign_split.py the rewriter's sign splits end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than

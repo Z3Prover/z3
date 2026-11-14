@@ -123,22 +123,22 @@ class TestDeepFormulaWalks(unittest.TestCase):
         # raised only when the parent's form asks for the subformula: a
         # conjunction stops at a false conjunct.
         x, y = z3.Reals("x y")
-        nonlinear = x * y > 0
-        self.assertEqual(normalizer.forms[normalizer.key(z3.And(z3.BoolVal(False), nonlinear))], ("false",))
-        for formula in (z3.And(x > 0, nonlinear), z3.Not(z3.Or(nonlinear, x > 0)), nonlinear):
-            with self.assertRaisesRegex(proof_certificate.ProofExportError, "nonlinear"):
+        unsupported = x / y > 0
+        self.assertEqual(normalizer.forms[normalizer.key(z3.And(z3.BoolVal(False), unsupported))], ("false",))
+        for formula in (z3.And(x > 0, unsupported), z3.Not(z3.Or(unsupported, x > 0)), unsupported):
+            with self.assertRaisesRegex(proof_certificate.ProofExportError, "division"):
                 normalizer.key(formula)
         # Every failing ancestor raises the same error again, from the
         # traceback where it was first caught rather than gathering their frames.
         for atom in atoms:
-            nonlinear = z3.And(atom, nonlinear)
+            unsupported = z3.And(atom, unsupported)
         try:  # not assertRaises, which drops the traceback
-            normalizer.key(nonlinear)
+            normalizer.key(unsupported)
         except proof_certificate.ProofExportError as error:
-            self.assertIn("nonlinear", str(error))
+            self.assertIn("division", str(error))
             self.assertLess(len(traceback.extract_tb(error.__traceback__)), 50)
         else:
-            self.fail("the nonlinear conjunct was not reported")
+            self.fail("the unsupported conjunct was not reported")
 
 
 class TestDeepCaseSplits(unittest.TestCase):
