@@ -73,6 +73,22 @@ static void test_pseudo_division_resource_cost() {
     ENSURE(rl.count() - before > small_cost);
     lc = coeff(q, 0, degree(q, 0));
     ENSURE(eq((lc^d)*p, Q*q + R));
+
+    p = c*(x^2) + 1;
+    q = c*x + 1;
+    canceled = false;
+    {
+        scoped_rlimit limit(rl, 100);
+        try {
+            m.resultant(p, q, 0, R);
+        }
+        catch (polynomial_exception const&) {
+            canceled = true;
+        }
+    }
+    ENSURE(canceled);
+    m.resultant(p, q, 0, R);
+    ENSURE(eq(R, c*c + c));
 }
 
 void test_factorization_basic() {

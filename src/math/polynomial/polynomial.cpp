@@ -34,6 +34,7 @@ Notes:
 #include "util/scoped_numeral_buffer.h"
 #include "util/ref_buffer.h"
 #include "util/common_msgs.h"
+#include <exception>
 #include <memory>
 #include <numeric>
 #include <tuple>
@@ -1877,10 +1878,20 @@ namespace polynomial {
         random_gen               m_rand;
 
         struct scoped_arithmetic_charge {
-            bool & m_charge;
+            imp & m_owner;
             bool m_old;
-            scoped_arithmetic_charge(bool & charge) : m_charge(charge), m_old(charge) { m_charge = true; }
-            ~scoped_arithmetic_charge() { m_charge = m_old; }
+            int m_exceptions;
+            scoped_arithmetic_charge(imp & owner) : m_owner(owner), m_old(owner.m_charge_arithmetic),
+                m_exceptions(std::uncaught_exceptions()) { owner.m_charge_arithmetic = true; }
+            ~scoped_arithmetic_charge() {
+                if (std::uncaught_exceptions() > m_exceptions) {
+                    m_owner.m_som_buffer.reset();
+                    m_owner.m_som_buffer2.reset();
+                    m_owner.m_cheap_som_buffer.reset();
+                    m_owner.m_cheap_som_buffer2.reset();
+                }
+                m_owner.m_charge_arithmetic = m_old;
+            }
         };
 
         // Debugging method: check if the coefficients of p are in the numeral_manager.
@@ -2027,16 +2038,10 @@ namespace polynomial {
                 if (mng.is_zero(a))
                     return;
                 unsigned sz = p->size();
-                unsigned a_words = m_owner->m_charge_arithmetic ? 1 + (mng.m().bitsize(a) - 1) / 32 : 0;
                 for (unsigned i = 0; i < sz; ++i) {
                     if (CheckZeros && mng.is_zero(p->a(i)))
                         continue;
-                    if (m_owner->m_charge_arithmetic) {
-                        // Estimate coefficient multiplication work in pairs of 32-bit words.
-                        unsigned b_words = 1 + (mng.m().bitsize(p->a(i)) - 1) / 32;
-                        uint64_t cost = static_cast<uint64_t>(a_words) * b_words;
-                        m_owner->checkpoint(static_cast<unsigned>(std::min<uint64_t>(cost, UINT_MAX)));
-                    }
+                    m_owner->arithmetic_checkpoint(a, p->a(i));
                     monomial * m2 = p->m(i);
                     m2 = m_owner->mul(m, m2);
                     unsigned pos  = m_m2pos.get(m2);
@@ -2310,6 +2315,7 @@ namespace polynomial {
                     return;
                 unsigned sz = p->size();
                 for (unsigned i = 0; i < sz; ++i) {
+                    m_owner->arithmetic_checkpoint(a, p->a(i));
                     monomial * m2 = p->m(i);
                     m2 = m_owner->mul(m, m2);
                     // m2 is not in m_tmp_ms
@@ -2567,6 +2573,16 @@ namespace polynomial {
             if (!m_limit.inc(cost)) {
                 throw polynomial_exception(Z3_CANCELED_MSG);
             }
+        }
+
+        void arithmetic_checkpoint(numeral const & a, numeral const & b) {
+            if (!m_charge_arithmetic)
+                return;
+            // Estimate arithmetic work in pairs of 32-bit coefficient words.
+            unsigned a_words = 1 + (m_manager.m().bitsize(a) - 1) / 32;
+            unsigned b_words = 1 + (m_manager.m().bitsize(b) - 1) / 32;
+            uint64_t cost = static_cast<uint64_t>(a_words) * b_words;
+            checkpoint(static_cast<unsigned>(std::min<uint64_t>(cost, UINT_MAX)));
         }
 
         mpzzp_manager & m() const { return const_cast<imp*>(this)->m_manager; }
@@ -3112,6 +3128,7 @@ namespace polynomial {
             unsigned sz = p->size();
             scoped_numeral a(m_manager);
             for (unsigned i = 0; i < sz; ++i) {
+                arithmetic_checkpoint(p->a(i), d);
                 m_manager.div(p->a(i), d, a);
                 m_cheap_som_buffer.add(a, p->m(i));
             }
@@ -3708,6 +3725,7 @@ namespace polynomial {
             for (unsigned i = 1; i < sz; ++i) {
                 if (m_manager.is_one(a))
                     return;
+                arithmetic_checkpoint(a, p->a(i));
                 m_manager.gcd(a, p->a(i), a);
             }
         }
@@ -3769,7 +3787,16 @@ namespace polynomial {
                 return;
             }
             unsigned sz = p->size();
-            m_manager.gcd(sz, p->as(), a);
+            if (m_charge_arithmetic) {
+                m_manager.set(a, p->a(0));
+                m_manager.abs(a);
+                for (unsigned i = 1; i < sz && !m_manager.is_one(a); ++i) {
+                    arithmetic_checkpoint(a, p->a(i));
+                    m_manager.gcd(a, p->a(i), a);
+                }
+            }
+            else
+                m_manager.gcd(sz, p->as(), a);
             if (m_manager.is_one(a)) {
                 c = const_cast<polynomial*>(p);
                 return;
@@ -3778,6 +3805,7 @@ namespace polynomial {
             scoped_numeral ai(m_manager);
             for (unsigned i = 0; i < sz; ++i) {
                 monomial * m = p->m(i);
+                arithmetic_checkpoint(p->a(i), a);
                 m_manager.div(p->a(i), a, ai);
                 m_cheap_som_buffer.add_reset(ai, m);
             }
@@ -5267,7 +5295,7 @@ namespace polynomial {
         template<bool Exact_d, bool Quotient, bool ModD>
         void pseudo_division_core(polynomial const * p, polynomial const * q, var x, unsigned & d, polynomial_ref & Q, polynomial_ref & R,
                                   var2degree const * x2d = nullptr) {
-            scoped_arithmetic_charge charge(m_charge_arithmetic);
+            scoped_arithmetic_charge charge(*this);
             SASSERT(is_valid(x));
             SASSERT(!ModD || x2d != 0);
             TRACE(polynomial, tout << "pseudo_division\np: "; p->display(tout, m_manager);
@@ -5509,6 +5537,7 @@ namespace polynomial {
                 TRACE(polynomial, tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
                       if (m_r_q) { tout << "m_r_q: "; m_r_q->display(tout); tout << "\n"; });
                 m_r_q_ref = m_r_q;
+                arithmetic_checkpoint(a_r, a_q);
                 m_manager.div(a_r, a_q, a_r_q);
                 C.add(a_r_q, m_r_q);       // C <- C + (a_r/a_q)*(m_r/m_q)
                 m_manager.neg(a_r_q);
@@ -5721,7 +5750,7 @@ namespace polynomial {
                     Res(A, B) = (-1)^(m*n) * mul(Res(R, B), lc^(m - r - d * n))
         */
         void resultant(polynomial const * p, polynomial const * q, var x, polynomial_ref & result) {
-            scoped_arithmetic_charge charge(m_charge_arithmetic);
+            scoped_arithmetic_charge charge(*this);
             polynomial_ref A(pm());
             polynomial_ref B(pm());
             A = const_cast<polynomial*>(p);
