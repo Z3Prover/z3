@@ -1,0 +1,22 @@
+{
+  "pull_request": 11700,
+  "head_sha": "0dd4af3078d462c35ecb5a31366c5f341aa93a61",
+  "base_sha": "1a1d88dde7cc567e2ed6beeea05321aa5a223c8a",
+  "path_prefix": "fstar/audits/pr-11700/0dd4af3078d462c35ecb5a31366c5f341aa93a61/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43624065562",
+  "files": [
+    {
+      "name": "ArithCharge.fst",
+      "sha256": "1bd6d81dc10b4d4afc75cc9e6e3ad2b82335d856f64010fbc0834b036e2ce630"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "221c410c07d92cf5e941eb113cd8790b0a9d35dd1536ecf16781db81ca96c3dc"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "40a07161efbb1d0c2969dad56610c47424312c1392229c32bd90fcbb6c578ee7"
+    }
+  ]
+}
