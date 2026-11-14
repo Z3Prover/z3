@@ -2162,6 +2162,39 @@ static void tst_unbounded_curve() {
     }
 }
 
+// Issue #11690: a product of three bounded integers climbs for many rounds
+// under the legacy arithmetic solver, so the curve certificate is tried. Every
+// curve through the recent models leaves the box, which evaluating it at a few
+// parameters shows; no solver query on the curve is needed. The cubic's query
+// used to spend minutes in nlsat on resultants with large coefficients. The
+// search itself takes about 45000 units, so it completes within 100000 only
+// when the certificate attempts stay cheap.
+static void tst_unbounded_curve_bounded_product() {
+    opt_fixture f;
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), 2);
+    Z3_params_set_bool(f.ctx, p, f.symbol("elim_01"), false);
+    Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), 100000);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+    Z3_optimize_from_string(f.ctx, f.opt,
+        "(declare-fun jbnal () Int)"
+        "(declare-fun idqbn () Int)"
+        "(declare-fun bclvd () Int)"
+        "(assert (>= idqbn 1))"
+        "(assert (>= bclvd 1))"
+        "(assert (<= idqbn 4))"
+        "(assert (<= jbnal 24))"
+        "(assert (<= bclvd 128))"
+        "(assert (>= jbnal 1))"
+        "(maximize (* idqbn jbnal bclvd))");
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    ENSURE(f.check() == Z3_L_TRUE);
+    ensure_finite_bounds(f, 0, Z3_mk_int(f.ctx, 12288, Z3_mk_int_sort(f.ctx)), Z3_INT_SORT);
+}
+
 // maximize y with y = x*x, x >= 0 over the models (5, 25), (6, 36), (7, 49).
 // The backward differences at (7, 49) are (1, 13) and (0, 2). The ray
 // x = 7 + t, y = 49 + 13 t leaves the parabola at t = 1; the quadratic
@@ -2457,6 +2490,7 @@ void tst_opt_bounds() {
     tst_nlsat_unbounded_reals_only();
     tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
+    tst_unbounded_curve_bounded_product();
     tst_unbounded_curve_parabola();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();
