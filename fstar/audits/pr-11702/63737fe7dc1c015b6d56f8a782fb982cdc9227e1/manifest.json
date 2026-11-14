@@ -1,0 +1,22 @@
+{
+  "pull_request": 11702,
+  "head_sha": "63737fe7dc1c015b6d56f8a782fb982cdc9227e1",
+  "base_sha": "1a1d88dde7cc567e2ed6beeea05321aa5a223c8a",
+  "path_prefix": "fstar/audits/pr-11702/63737fe7dc1c015b6d56f8a782fb982cdc9227e1/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43565057170",
+  "files": [
+    {
+      "name": "CardinalityRefactor.fst",
+      "sha256": "44b368199322d7203ddf6a325bf47dc17fcb48f4dbb9595e7ec68db15200bf66"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "89b82ad638ed83164e61d3288b9ad3caf613391d9aadec60e29b6f28a9e5b2d3"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "a618b4af77c2e803b13f464eac8415a7e81eaf05e0617d878331e8972c1a6e68"
+    }
+  ]
+}
