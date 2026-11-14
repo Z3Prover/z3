@@ -1873,7 +1873,15 @@ namespace polynomial {
         unsigned_vector          m_degree2pos;
         bool                     m_use_sparse_gcd;
         bool                     m_use_prs_gcd;
+        bool                     m_charge_arithmetic = false;
         random_gen               m_rand;
+
+        struct scoped_arithmetic_charge {
+            bool & m_charge;
+            bool m_old;
+            scoped_arithmetic_charge(bool & charge) : m_charge(charge), m_old(charge) { m_charge = true; }
+            ~scoped_arithmetic_charge() { m_charge = m_old; }
+        };
 
         // Debugging method: check if the coefficients of p are in the numeral_manager.
         bool consistent_coeffs(polynomial const * p) {
@@ -2019,9 +2027,16 @@ namespace polynomial {
                 if (mng.is_zero(a))
                     return;
                 unsigned sz = p->size();
+                unsigned a_words = m_owner->m_charge_arithmetic ? 1 + (mng.m().bitsize(a) - 1) / 32 : 0;
                 for (unsigned i = 0; i < sz; ++i) {
                     if (CheckZeros && mng.is_zero(p->a(i)))
                         continue;
+                    if (m_owner->m_charge_arithmetic) {
+                        // Estimate coefficient multiplication work in pairs of 32-bit words.
+                        unsigned b_words = 1 + (mng.m().bitsize(p->a(i)) - 1) / 32;
+                        uint64_t cost = static_cast<uint64_t>(a_words) * b_words;
+                        m_owner->checkpoint(static_cast<unsigned>(std::min<uint64_t>(cost, UINT_MAX)));
+                    }
                     monomial * m2 = p->m(i);
                     m2 = m_owner->mul(m, m2);
                     unsigned pos  = m_m2pos.get(m2);
@@ -2548,8 +2563,8 @@ namespace polynomial {
             m_monomial_manager->dec_ref();
         }
 
-        void checkpoint() {
-            if (!m_limit.inc()) {
+        void checkpoint(unsigned cost = 1) {
+            if (!m_limit.inc(cost)) {
                 throw polynomial_exception(Z3_CANCELED_MSG);
             }
         }
@@ -5252,6 +5267,7 @@ namespace polynomial {
         template<bool Exact_d, bool Quotient, bool ModD>
         void pseudo_division_core(polynomial const * p, polynomial const * q, var x, unsigned & d, polynomial_ref & Q, polynomial_ref & R,
                                   var2degree const * x2d = nullptr) {
+            scoped_arithmetic_charge charge(m_charge_arithmetic);
             SASSERT(is_valid(x));
             SASSERT(!ModD || x2d != 0);
             TRACE(polynomial, tout << "pseudo_division\np: "; p->display(tout, m_manager);
@@ -5705,6 +5721,7 @@ namespace polynomial {
                     Res(A, B) = (-1)^(m*n) * mul(Res(R, B), lc^(m - r - d * n))
         */
         void resultant(polynomial const * p, polynomial const * q, var x, polynomial_ref & result) {
+            scoped_arithmetic_charge charge(m_charge_arithmetic);
             polynomial_ref A(pm());
             polynomial_ref B(pm());
             A = const_cast<polynomial*>(p);
