@@ -211,6 +211,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
         m_tree.add_split_plugin(m_mem_leaf);
+        m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));

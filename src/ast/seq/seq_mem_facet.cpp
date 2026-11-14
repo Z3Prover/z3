@@ -37,6 +37,7 @@ constraints actually used.
 #include "ast/for_each_expr.h"
 #include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/var_subst.h"
 #include "util/z3_exception.h"
 #include <algorithm>
 #include <tuple>
@@ -1021,6 +1022,56 @@ namespace seq {
         committed = true;
         m_stats.m_num_splits++;
         return it;
+    }
+
+    // ---- mem_char_split -------------------------------------------------------------
+
+    bool mem_char_split::iterator::next(eq_tree::edge& out) {
+        if (m_next >= m_cofactors.size())
+            return false;
+        auto [guard, target] = m_cofactors.get(m_next++);
+        ast_manager& m = m_ch.get_manager();
+        var_subst sub(m);
+        auto ac = get_ambient(m_n);
+        ac.add_assumption(sub(guard, m_ch), m_dep);
+        auto& mf = ac.mem_facet_ref();
+        mf.remove(m_idx);
+        mf.add(str_mem(m, m_rest, view::membership(target, m), m_dep));
+        out = eq_tree::edge("mem-char", m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> mem_char_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto& mf = get_ambient(n).mem_facet_ref();
+        for (unsigned idx = 0; idx < mf.memberships().size(); ++idx) {
+            str_mem const& sm = mf.memberships()[idx];
+            if (!sm.active() || !sm.is_plain())
+                continue;
+            expr* ch = nullptr;
+            unsigned k = 0;
+            for (; k < sm.m_str.size() && u.str.is_unit(sm.m_str.get(k), ch) && m.is_value(ch); ++k)
+                ;
+            if (k == sm.m_str.size() || !u.str.is_unit(sm.m_str.get(k), ch))
+                continue;
+            expr_ref r(sm.m_view.m_state, m);
+            for (unsigned i = 0; i < k; ++i)
+                r = m_rw.mk_derivative(to_app(sm.m_str.get(i))->get_arg(0), r);
+            expr_ref_pair_vector cofactors(m_rw.get_derive().get_cached_cofactors(transition_mode::brzozowski_tm, r));
+            if (cofactors.empty()) {
+                n.set_conflict(stx::br_plugin_base, sm.m_dep);
+                return nullptr;
+            }
+            expr_ref_vector rest(m);
+            rest.append(sm.m_str.size() - k - 1, sm.m_str.data() + k + 1);
+            scoped_ptr<iterator> it(alloc(iterator, n, idx, expr_ref(ch, m), rest, cofactors, sm.m_dep));
+            VERIFY(it->next(out));
+            committed = true;
+            m_stats.m_num_splits++;
+            return it.detach();
+        }
+        return nullptr;
     }
 
     // ---- mem_split ------------------------------------------------------------------

@@ -361,6 +361,41 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
+    // `w . c . rest in R`, w known characters, c symbolic: for each cofactor
+    // (g, R') of the derivative of d_w(R), assume g(c) and continue with `rest in R'`.
+    class mem_char_split : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        seq_rewriter& m_rw;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node&       m_n;
+            unsigned             m_idx;
+            expr_ref             m_ch;
+            expr_ref_vector      m_rest;
+            expr_ref_pair_vector m_cofactors;
+            eq_tree::dep_tracker m_dep;
+            unsigned             m_next = 0;
+        public:
+            iterator(eq_tree::node& n, unsigned idx, expr_ref const& ch, expr_ref_vector const& rest,
+                     expr_ref_pair_vector const& cofactors, eq_tree::dep_tracker dep) :
+                m_n(n), m_idx(idx), m_ch(ch), m_rest(rest), m_cofactors(cofactors), m_dep(dep) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        mem_char_split(ast_manager& m, seq_util& u, seq_rewriter& rw) : m(m), u(u), m_rw(rw) {}
+        char const* name() const override { return "mem-char"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-mem-char num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
     // Decompose one membership `term in R` into branches. Each branch is a
     // vector of `(variable, view)` pairs: a reach view for a variable
     // followed by more of the term, or a membership view for a variable
