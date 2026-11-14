@@ -524,6 +524,45 @@ static void check_patterned_lambda_store() {
         cmd.check_sat(0, nullptr);
         VERIFY(out.str() == (test == 3 ? "unsat\n" : "sat\n"));
     }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream input(
+        "(assert (= (default (lambda ((x Bool)) x))\n"
+        "           (default (lambda ((x Bool)) (not x)))))\n");
+    VERIFY(parse_smt2_commands(cmd, input));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "unsat\n");
+
+    cmd.reset_assertions();
+    out.str("");
+    std::istringstream multi(
+        "(assert (forall ((a (Array Int Bool Bool)) (y Int) (z Bool))\n"
+        "  (! (= (lambda ((x Int) (b Bool)) (and (= x y) (= b z)))\n"
+        "        (store ((as const (Array Int Bool Bool)) false) y z true))\n"
+        "     :pattern ((select a y z)))))\n"
+        "(assert (= (lambda ((x Int) (b Bool)) (and (= x 0) b))\n"
+        "           (store ((as const (Array Int Bool Bool)) false) 0 true true)))\n");
+    VERIFY(parse_smt2_commands(cmd, multi));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "sat\n");
+
+    for (char const* text : {
+        "(assert (= (default (lambda ((x Int)) (= x 0)))\n"
+        "           (default (lambda ((x Int)) (not (= x 0))))))\n",
+        "(assert (= (default (store (lambda ((x Int)) (= x 0)) 1 false))\n"
+        "           (default (store (lambda ((x Int)) (not (= x 0))) 1 false))))\n"}) {
+        cmd.reset_assertions();
+        out.str("");
+        std::istringstream defaults(text);
+        VERIFY(parse_smt2_commands(cmd, defaults));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == "unknown\n" || out.str() == "unsat\n");
+    }
 }
 
 static void check_sat_array_lambdas() {
