@@ -449,6 +449,29 @@ namespace {
         ENSURE(!mf.check_letter_conflict(ef, dep));
     }
 
+    static void tst_letter_count_partial_assignments() {
+        fixture f;
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        expr_ref odd = count_regex(f, 'a', 2, 1);
+        expr_ref even = count_regex(f, 'a', 2, 0);
+        expr_ref_vector vars(f.m);
+        for (unsigned i = 0; i < 15; ++i) {
+            vars.push_back(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()));
+            mf.add(seq::str_mem(f.m, vars.back(), seq::view::membership(odd, f.m), dm.mk_leaf(i + 1)));
+        }
+        scoped_rlimit limit(f.m.limit(), 10000);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(!mf.check_letter_conflict(ef, dep) && !dep);
+        f.trail.push_scope();
+        mf.add(seq::str_mem(f.m, vars.back(), seq::view::membership(even, f.m), dm.mk_leaf(16)));
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        ENSURE(dm.contains(dep, 15) && dm.contains(dep, 16));
+        f.trail.pop_scope(1);
+        ENSURE(!mf.check_letter_conflict(ef, dep) && !dep);
+    }
+
     static void tst_letter_count_constants() {
         fixture f;
         auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
@@ -1439,6 +1462,7 @@ void tst_seq_mem_facet() {
     tst_letter_count_benchmark(false);
     tst_letter_count_benchmark(true);
     tst_letter_count_equations_scopes();
+    tst_letter_count_partial_assignments();
     tst_letter_count_constants();
     tst_letter_count_opaque_tokens();
     tst_letter_count_fallbacks();
