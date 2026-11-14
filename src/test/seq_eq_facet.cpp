@@ -1427,6 +1427,30 @@ namespace {
         }
     }
 
+    static void tst_nseq_equality_lengths() {
+        check_nseq_candidate_model(R"(
+            (declare-const a String)
+            (declare-const b String)
+            (assert (str.in_re (str.++ "z" b)
+                (re.* (str.to_re (str.from_code (str.len a))))))
+        )", false);
+        check_nseq_candidate_model(R"(
+            (declare-const a String)
+            (assert (= (str.substr
+                (str.++ a a (str.from_int 0) a (str.from_code (+ (str.len a) 1)))
+                0 (str.to_code "a")) (str.++ a "a")))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const a String)
+            (declare-const x String)
+            (declare-const y String)
+            (assert (= x (str.++ a "a")))
+            (assert (= y x))
+            (assert (= y (str.substr
+                (str.++ a a "0" a (str.from_code (+ (str.len a) 1))) 0 97)))
+        )");
+    }
+
     static void tst_nseq_stoi_model_completion() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -1980,6 +2004,7 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_equality_lengths();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();

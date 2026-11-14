@@ -1065,6 +1065,11 @@ namespace smt {
         if (check_ubv_strings())
             return FC_CONTINUE;
 
+        // Expose missing length equations after repeated shallow word conflicts.
+        if (m_num_conflicts >= 64 && m_tree.get_stats().m_num_dfs_nodes <= 2ull * m_num_conflicts &&
+            check_length_coherence())
+            return FC_CONTINUE;
+
         if (!m_pending_assumptions.empty()) {
 
             if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {
@@ -1291,6 +1296,29 @@ namespace smt {
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
+    }
+
+    bool theory_nseq::check_length_coherence() {
+        bool added = false;
+        unsigned num_vars = get_num_vars();
+        for (unsigned v = 0; v < num_vars; ++v) {
+            expr* e = get_expr(v);
+            if (!m_seq.str.is_concat(e) || !ctx.is_relevant(get_enode(v)))
+                continue;
+            expr_ref len(m_seq.str.mk_length(e), m);
+            if (ctx.e_internalized(len))
+                continue;
+            enode* first = get_enode(v);
+            for (enode* n = first->get_next(); n != first; n = n->get_next()) {
+                expr_ref other_len(m_seq.str.mk_length(n->get_expr()), m);
+                if (ctx.e_internalized(other_len)) {
+                    ctx.internalize(len, false);
+                    added = true;
+                    break;
+                }
+            }
+        }
+        return added;
     }
 
     bool theory_nseq::add_ho_eq(expr* lhs, expr* rhs) {

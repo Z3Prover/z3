@@ -187,6 +187,7 @@ namespace smt {
         bool check_stoi_coherence();
         bool branch_stoi_digit(bool stalled = false);
         bool check_fixed_lengths(bool instantiate = true);
+        bool check_length_coherence();
         bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
         bool check_ubv_strings();
