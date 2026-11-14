@@ -1427,6 +1427,49 @@ namespace {
         }
     }
 
+    static void tst_itos_concrete_binding(bool reverse) {
+        eq_approx_fixture f;
+        seq::sub_solver solver(f.m, f.a, f.tree.dep_mgr());
+        auto arith_id = f.tree.register_facet<seq::solver_facet>(*f.root, f.m, f.u, solver);
+        f.ac.set_arith_id(arith_id);
+        auto id = f.tree.register_facet<seq::assumption_facet>(*f.root, f.m);
+        f.ac.set_assumption_id(id);
+        auto& assumptions = f.root->facet_as<seq::assumption_facet>(id);
+        expr_ref n(f.m.mk_fresh_const("n", f.a.mk_int()), f.m);
+        expr_ref term(f.u.str.mk_itos(n), f.m);
+        expr_ref word(f.u.str.mk_string("10"), f.m);
+        expr_ref_vector expected(f.m), actual(f.m);
+        f.u.str.get_concat_units(word, expected);
+        f.trail.push_scope();
+        auto dep = f.tree.dep_mgr().mk_leaf(1);
+        f.eqs().add_equation(reverse ? word : term, reverse ? term : word, dep);
+        bool conflict = false;
+        seq::eq_tree::dep_tracker conflict_dep = nullptr, binding_dep = nullptr;
+        ENSURE(f.eqs().simplify(*f.root, f.ac, conflict, conflict_dep));
+        ENSURE(!conflict);
+        ENSURE(f.eqs().get_subst(term, actual, &binding_dep));
+        ENSURE(actual == expected);
+        ENSURE(f.tree.dep_mgr().contains(binding_dep, 1));
+        ENSURE(assumptions.assumptions().size() == 1);
+        expr_ref numeric_equality(f.m.mk_eq(n, f.a.mk_int(10)), f.m);
+        ENSURE(assumptions.assumptions().get(0).first == numeric_equality);
+        f.trail.pop_scope(1);
+        ENSURE(!f.eqs().get_subst(term, actual));
+        ENSURE(assumptions.assumptions().empty());
+    }
+
+    static void tst_nseq_itos_word_coherence() {
+        check_nseq_candidate_model(R"(
+            (declare-const x Int)
+            (assert (str.<= (str.from_int x) (str.from_int (+ 5118 (abs x)))))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x Int)
+            (assert (str.<= (str.from_int x)
+                (str.from_int (+ 18446744073709551616 (abs x)))))
+        )");
+    }
+
     static void tst_nseq_equality_lengths() {
         check_nseq_candidate_model(R"(
             (declare-const a String)
@@ -2061,6 +2104,9 @@ void tst_seq_eq_facet() {
     tst_nseq_candidate_model();
     tst_nseq_equality_lengths();
     tst_nseq_stoi_value_languages();
+    tst_itos_concrete_binding(false);
+    tst_itos_concrete_binding(true);
+    tst_nseq_itos_word_coherence();
     tst_nseq_empty_regex_parameters();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();

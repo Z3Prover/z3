@@ -190,6 +190,22 @@ namespace seq {
         eq_tree::dep_tracker parent_dep = eq.m_dep;
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
+        expr_ref conversion(m);
+        expr_ref_vector concrete_word(m);
+        auto is_concrete_word = [&](expr_ref_vector const& ts) {
+            return all_of(ts, [&](expr* t) {
+                expr* ch = nullptr;
+                return u.str.is_unit(t, ch) && u.is_const_char(ch);
+            });
+        };
+        if (L.size() == 1 && u.str.is_itos(L.get(0)) && is_concrete_word(R)) {
+            conversion = L.get(0);
+            concrete_word.append(R);
+        }
+        else if (R.size() == 1 && u.str.is_itos(R.get(0)) && is_concrete_word(L)) {
+            conversion = R.get(0);
+            concrete_word.append(L);
+        }
         sort* word_sort = !L.empty() ? L[0]->get_sort() : !R.empty() ? R[0]->get_sort() : nullptr;
         sort* element_sort = nullptr;
         if (word_sort)
@@ -265,6 +281,12 @@ namespace seq {
             }
             if (word_eq)
                 add_equation(lts, rts, eq_dep);
+        }
+
+        // Arithmetic rewriting must not hide a concrete conversion binding from sibling facets.
+        if (conversion) {
+            broadcast_subst(n, conversion, concrete_word, parent_dep);
+            changed = true;
         }
 
         // If one side is empty, the other side must reduce to epsilon.

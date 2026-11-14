@@ -1406,7 +1406,8 @@ namespace smt {
     bool theory_nseq::get_num_value(expr* e, rational& val) {
         expr_ref e2(m);
         m_th_rewriter(e, e2);
-        return m_arith_value.get_value_equiv(e2, val) && val.is_int();
+        return (m_arith_value.get_value_equiv(e2, val) ||
+                (e != e2.get() && m_arith_value.get_value_equiv(e, val))) && val.is_int();
     }
 
     bool theory_nseq::lower_bound(expr* e, rational& lo) {
@@ -1488,7 +1489,8 @@ namespace smt {
         bool progress = false, fallback = false;
         for (auto const& term : m_ambient->stoi_facet(*m_root).terms()) {
             expr* e = term.first;
-            expr_ref len(m_seq.str.mk_length(to_app(e)->get_arg(0)), m);
+            expr* s = to_app(e)->get_arg(0);
+            expr_ref len(m_seq.str.mk_length(s), m);
             rational length;
             if (upper_bound(len, length) && length.is_unsigned() && length <= rational(20)) {
                 rational maximum(1);
@@ -1521,14 +1523,22 @@ namespace smt {
             expr_ref zeros(m_seq.re.mk_to_re(zero), m);
             zeros = m_seq.re.mk_star(zeros);
             expr_ref digits(m_seq.str.mk_string(value.to_string()), m);
-            expr_ref decimal(m_seq.re.mk_to_re(digits), m);
-            expr_ref language(m_seq.re.mk_concat(zeros, decimal), m);
-            expr_ref member(m_seq.re.mk_in_re(to_app(e)->get_arg(0), language), m);
-            if (m_stoi_value_axioms.contains(member))
+            expr_ref refinement(m);
+            if (m_seq.str.is_itos(s)) {
+                // Integer-to-string outputs have no leading zero padding.
+                refinement = m_sk.mk_eq(s, digits);
+            }
+            else {
+                expr_ref decimal(m_seq.re.mk_to_re(digits), m);
+                expr_ref language(m_seq.re.mk_concat(zeros, decimal), m);
+                refinement = m_seq.re.mk_in_re(s, language);
+            }
+            if (m_stoi_value_axioms.contains(refinement))
                 continue;
             expr_ref numeral(m_autil.mk_int(value), m);
             expr_ref lower(m_autil.mk_ge(e, numeral), m), upper(m_autil.mk_le(e, numeral), m);
-            literal lo = mk_literal(lower), hi = mk_literal(upper), digit = mk_literal(member);
+            literal lo = mk_literal(lower), hi = mk_literal(upper);
+            literal digit = mk_literal(refinement);
             literal clause[] = {~lo, ~hi, digit};
             ctx.mk_th_axiom(get_id(), 3, clause);
             for (literal lit : {lo, hi, digit}) {
@@ -1537,9 +1547,9 @@ namespace smt {
                 if (!lit.sign())
                     ctx.set_true_first_flag(lit.var());
             }
-            pin(member);
-            m_stoi_value_axioms.insert(member);
-            ctx.push_trail(insert_obj_trail<expr>(m_stoi_value_axioms, member));
+            pin(refinement);
+            m_stoi_value_axioms.insert(refinement);
+            ctx.push_trail(insert_obj_trail<expr>(m_stoi_value_axioms, refinement));
             progress = true;
         }
         return !progress && (!fallback || m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient));
