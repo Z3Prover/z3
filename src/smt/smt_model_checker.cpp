@@ -27,6 +27,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
@@ -35,6 +36,55 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "model/model_pp.h"
 #include <tuple>
+
+namespace {
+    /**
+       \brief Guard division, modulus and remainder terms that have a symbolic divisor
+       by the interpretation the model gives them at a zero divisor:
+
+           (div t s)  -->  (ite (= s 0) div0_interp(t, s) (div t s))
+
+       The model evaluator leaves (div t s) as is when s is not a numeral.
+       The auxiliary context of the model checker could then pick, for s = 0,
+       a value of (div t s) that differs from the current model and refute
+       a quantifier that the model satisfies.
+       The guard is added once, before evaluation, so it cannot be re-introduced
+       by rewrites of the evaluated term.
+    */
+    struct partial_arith_guard_cfg : public default_rewriter_cfg {
+        ast_manager& m;
+        arith_util   m_arith;
+        model_core&  m_model;
+
+        partial_arith_guard_cfg(ast_manager& m, model_core& mdl): m(m), m_arith(m), m_model(mdl) {}
+
+        func_interp* interp_at_zero(func_decl* f0) const {
+            func_interp* fi = m_model.get_func_interp(f0);
+            return fi && fi->get_interp() ? fi : nullptr;
+        }
+
+        bool has_interp_at_zero() {
+            return interp_at_zero(m_arith.mk_div0()) || interp_at_zero(m_arith.mk_idiv0()) ||
+                   interp_at_zero(m_arith.mk_mod0()) || interp_at_zero(m_arith.mk_rem0());
+        }
+
+        br_status reduce_app(func_decl* f, unsigned num, expr* const* args, expr_ref& result, proof_ref& pr) {
+            func_decl_ref f0(m);
+            if (!m_arith.is_considered_partially_interpreted(f, num, args, f0))
+                return BR_FAILED;
+            func_interp* fi = interp_at_zero(f0);
+            if (!fi)
+                return BR_FAILED;
+            var_subst vs(m, false);
+            expr_ref at_zero = vs(fi->get_interp(), num, args);
+            expr_ref is_zero(m.mk_eq(args[1], m_arith.mk_numeral(rational(0), args[1]->get_sort())), m);
+            result = m.mk_ite(is_zero, at_zero, m.mk_app(f, num, args));
+            return BR_DONE;
+        }
+    };
+}
+
+template class rewriter_tpl<partial_arith_guard_cfg>;
 
 namespace smt {
 
@@ -188,7 +238,14 @@ namespace smt {
         
         TRACE(model_checker, tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
 
-        if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
+        expr_ref body(q->get_expr(), m);
+        partial_arith_guard_cfg guard_cfg(m, *m_curr_model);
+        if (guard_cfg.has_interp_at_zero()) {
+            rewriter_tpl<partial_arith_guard_cfg> guard(m, false, guard_cfg);
+            guard(body, body);
+        }
+
+        if (!m_curr_model->eval(body, tmp, true)) {
             return false;
         }
         TRACE(model_checker, tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
