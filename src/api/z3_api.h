@@ -6646,6 +6646,21 @@ extern "C" {
     Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m);
 
     /**
+       \brief Return a partial model containing the goal's model-converter definitions.
+
+       This does not solve the goal and the result is not necessarily a model of
+       the goal or of the original formulas. Evaluate expressions with
+       #Z3_model_eval and model completion disabled to retain uninterpreted
+       subgoal symbols. The definitions describe one reconstruction chosen by
+       the tactics, which need not cover every model of the original goal.
+       An error is returned if a model converter does not support partial models.
+       Model generation must have been enabled when creating the goal.
+
+       def_API('Z3_goal_get_model', MODEL, (_in(CONTEXT), _in(GOAL)))
+    */
+    Z3_model Z3_API Z3_goal_get_model(Z3_context c, Z3_goal g);
+
+    /**
        \brief Convert a goal into a string.
 
        def_API('Z3_goal_to_string', STRING, (_in(CONTEXT), _in(GOAL)))

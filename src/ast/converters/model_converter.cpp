@@ -93,6 +93,10 @@ public:
         this->m_c1->operator()(m);
     }
 
+    bool apply_partial(model_ref & m) override {
+        return m_c2->apply_partial(m) && m_c1->apply_partial(m);
+    }
+
     void operator()(labels_vec & r) override {
         this->m_c2->operator()(r);
         this->m_c1->operator()(r);
@@ -148,6 +152,11 @@ public:
         m->copy_usort_interps(*m_model.get());
     }
 
+    bool apply_partial(model_ref & m) override {
+        (*this)(m);
+        return true;
+    }
+
     void operator()(labels_vec & r) override {
         r.append(m_labels.size(), m_labels.data());
     }
@@ -195,4 +204,3 @@ void apply(model_converter_ref & mc, model_ref & m) {
         (*mc)(m);
     }
 }
-

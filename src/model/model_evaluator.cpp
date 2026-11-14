@@ -67,6 +67,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool                            m_model_completion;
     bool                            m_array_equalities;
     bool                            m_array_as_stores;
+    bool                            m_symbolic = false;
     obj_map<func_decl, expr*>       m_def_cache;
     expr_ref_vector                 m_pinned;
 
@@ -480,17 +481,23 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
 
             if (!fi) {
+                if (m_symbolic)
+                    return BR_FAILED;
                 result = m_au.mk_numeral(rational(0), f->get_range());
                 return BR_DONE;
             }
         }
         else if (!fi && m_fpau.is_considered_uninterpreted(f, num, args)) {
+            if (m_symbolic)
+                return BR_FAILED;
             result = m.get_some_value(f->get_range());
             return BR_DONE;
         }
         else if (m_dt.is_accessor(f)) {
             expr* arg = args[0];
             if (m.is_value(arg) && !fi) {
+                if (m_symbolic)
+                    return BR_FAILED;
                 fi = alloc(func_interp, m, f->get_arity());
                 expr* val = m_model.get_some_value(f->get_range());
                 fi->set_else(val);
@@ -509,6 +516,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
 
         if (fi) {
+            if (fi->is_partial() && m_symbolic)
+                return eval_fi(fi, num, args, result) ? BR_REWRITE1 : BR_FAILED;
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
 
@@ -837,6 +846,10 @@ bool model_evaluator::get_model_completion() const {
 
 void model_evaluator::set_expand_array_equalities(bool f) {
     m_imp->cfg().m_array_equalities = f;
+}
+
+void model_evaluator::set_symbolic(bool f) {
+    m_imp->cfg().m_symbolic = f;
 }
 
 unsigned model_evaluator::get_num_steps() const {
