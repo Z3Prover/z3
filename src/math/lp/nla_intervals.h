@@ -21,6 +21,7 @@ class core;
 class intervals {
     mutable dep_intervals     m_dep_intervals;
     core*                     m_core;
+    reslimit&                 m_limit;
     
 public:
     typedef dep_intervals::interval interval;
@@ -28,6 +29,7 @@ private:
     u_dependency* mk_dep(lp::explanation const&);
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
+    void checkpoint() const;
 public:
 
     intervals(core* c, reslimit& lim);
@@ -52,7 +54,7 @@ public:
     template <dep_intervals::with_deps_t wd>
     bool interval_from_term(const nex& e, scoped_dep_interval& i); 
 
-
+private:
     template <dep_intervals::with_deps_t wd, typename T>
     bool interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval&, const std::function<void (const T&)>& f );
 
@@ -67,6 +69,7 @@ public:
     
     template <dep_intervals::with_deps_t wd, typename T>
     bool interval_of_expr(const nex* e, unsigned p, scoped_dep_interval&, const std::function<void (const T&)>& f); 
+public:
     bool upper_is_inf(const interval& a) const { return m_dep_intervals.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_dep_intervals.lower_is_inf(a); }
 
@@ -76,11 +79,13 @@ public:
     bool is_inf(const interval& i) const { return m_dep_intervals.is_inf(i); }
 
     bool check_nex(const nex*, u_dependency*);
+private:
     const nex* get_zero_interval_child(const nex_mul&) const;
     const nex* get_inf_interval_child(const nex_sum&) const;
     bool has_zero_interval(const nex&) const;
     bool has_inf_interval(const nex&) const;
     bool mul_has_inf_interval(const nex_mul&) const;
+public:
     static lp::lar_term expression_to_normalized_term(const nex_sum*, rational& a, rational& b);
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>>&);
     static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>>&);

@@ -250,6 +250,14 @@ public:
         fill_vars_from_occurences_map(vars);
         return false;
     }
+
+    void report_result() {
+        bool result = m_call_on_result(m_e);
+        if (m_limit.is_canceled())
+            m_limit_exceeded = true;
+        else
+            m_done = result || ++m_reported > 100;
+    }
     
     void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
         if (m_done || m_limit_exceeded)
@@ -268,7 +276,7 @@ public:
         if (vars.empty()) {
             if (front.empty()) {
                 TRACE(nla_cn, tout << "got the cn form: =" << *m_e << "\n";);
-                m_done = m_call_on_result(m_e) || ++m_reported > 100;
+                report_result();
  #ifdef Z3DEBUG
                 TRACE(nla_cn, tout << "m_e_clone " << *m_e_clone << "\n";);
                 SASSERT(nex_creator::equal(m_e, m_e_clone));
@@ -305,7 +313,7 @@ public:
 #ifdef Z3DEBUG
             TRACE(nla_cn, tout << "got the cn form: =" << *m_e <<  ", clone = " << *m_e_clone << "\n";);
 #endif
-            m_done = m_call_on_result(m_e) || ++m_reported > 100;
+            report_result();
 #ifdef Z3DEBUG
             SASSERT(nex_creator::equal(m_e, m_e_clone));
 #endif

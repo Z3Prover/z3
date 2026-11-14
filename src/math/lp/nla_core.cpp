@@ -767,6 +767,7 @@ bool core::conflict_found() const {
 bool core::done() const {
     return m_lemmas.size() >= 10 || 
         conflict_found() || 
+        m_reslim.is_canceled() ||
         lp_settings().get_cancel_flag();
 }
 
@@ -972,6 +973,8 @@ lbool core::on_to_refine_empty() {
 }
 
 lbool core::check(unsigned level) {
+    if (m_reslim.is_canceled())
+        return l_undef;
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
@@ -1035,7 +1038,7 @@ lbool core::check(unsigned level) {
             check_weighted(3, checks);
         }
 
-        if (lp_settings().get_cancel_flag())
+        if (m_reslim.is_canceled() || lp_settings().get_cancel_flag())
             return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;

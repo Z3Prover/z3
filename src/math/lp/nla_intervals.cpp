@@ -5,11 +5,21 @@
 
 namespace nla {
 
+namespace {
+struct interval_limit_exceeded {};
+}
+
 intervals::intervals(core* c, reslimit& lim):
     m_dep_intervals(c->lra.dep_manager(), lim),
-    m_core(c) {}
+    m_core(c),
+    m_limit(lim) {}
 
 typedef enum dep_intervals::with_deps_t e_with_deps;
+
+void intervals::checkpoint() const {
+    if (!m_limit.inc())
+        throw interval_limit_exceeded();
+}
 
 const nex* intervals::get_inf_interval_child(const nex_sum& e) const {
     for (auto * c : e) {
@@ -33,6 +43,7 @@ bool intervals::mul_has_inf_interval(const nex_mul& e) const {
 }
 
 bool intervals::has_inf_interval(const nex& e) const {
+    checkpoint();
     if (e.is_var())
         return m_core->no_bounds(e.to_var().var());
     if (e.is_mul()) 
@@ -52,6 +63,7 @@ bool intervals::has_zero_interval(const nex& e) const {
 
 const nex* intervals::get_zero_interval_child(const nex_mul& e) const {
     for (const auto & p : e) {
+        checkpoint();
         const nex * c = p.e();
         if (has_zero_interval(*c))
             return c;        
@@ -87,23 +99,29 @@ std::ostream& intervals::display_separating_interval(std::ostream& out, const ne
 // return true iff the interval of n is does not contain 0
 bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
-    scoped_dep_interval i(get_dep_intervals());
-    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        lemma_builder lemma(*m_core, "check_nex");
-        lemma &= e;
-    };
-    if (!interval_of_expr<e_with_deps::without_deps>(n, 1, i, f)) {
-        // found a conflict during the interval calculation
+    try {
+        scoped_dep_interval i(get_dep_intervals());
+        std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
+            lemma_builder lemma(*m_core, "check_nex");
+            lemma &= e;
+        };
+        if (!interval_of_expr<e_with_deps::without_deps>(n, 1, i, f)) {
+            // found a conflict during the interval calculation
+            return true;
+        }
+        if (!m_dep_intervals.separated_from_zero(i)) {
+            return false;
+        }
+        scoped_dep_interval interv_wd(get_dep_intervals());
+        interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd, f);
+        TRACE(nla_intervals, display_separating_interval(tout, n, interv_wd, initial_deps););
+        m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
         return true;
     }
-    if (!m_dep_intervals.separated_from_zero(i)) {
+    catch (interval_limit_exceeded const&) {
+        // A canceled interval evaluation does not establish a conflict.
         return false;
     }
-    scoped_dep_interval interv_wd(get_dep_intervals());
-    interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd, f);
-    TRACE(nla_intervals, display_separating_interval(tout, n, interv_wd, initial_deps););    
-    m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
-    return true;
 }
 
 void intervals::add_mul_of_degree_one_to_vector(const nex_mul* e, vector<std::pair<rational, lpvar>> &v) {
@@ -436,6 +454,7 @@ void intervals::to_power(scoped_dep_interval& a, unsigned p) {
 }
 template <e_with_deps wd, typename T>
 bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
+    checkpoint();
     switch (e->type()) {
     case expr_type::SCALAR:
         {
@@ -478,4 +497,3 @@ const lp::lar_solver& intervals::ls() const { return m_core->lra; }
 
 
 } // end of nla namespace
-

@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/rational.h"
 #include "util/vector.h"
+#include "math/lp/cross_nested.h"
 #include <iostream>
 
 // Simple horner evaluation function for testing
@@ -179,6 +180,32 @@ void test_horner() {
     test_horner_high_degree();
 }
 
+void test_horner_canceled_callback() {
+    reslimit limit;
+    nla::nex_creator creator;
+    creator.set_number_of_vars(2);
+    auto* x = creator.mk_var(0);
+    auto* y = creator.mk_var(1);
+    auto* sum = creator.mk_sum(x, y);
+    auto* e = creator.simplify(sum);
+    unsigned calls = 0;
+    nla::cross_nested cn(
+        [&](nla::nex const*) {
+            if (++calls == 101)
+                limit.cancel();
+            return false;
+        },
+        [](unsigned) { return false; },
+        limit, 0, creator);
+    for (unsigned i = 0; i < 101; ++i)
+        cn.run(e);
+    VERIFY(calls == 101);
+    VERIFY(!cn.done());
+    cn.run(e);
+    VERIFY(calls == 101);
+}
+
 void tst_horner() {
     test_horner();
+    test_horner_canceled_callback();
 }

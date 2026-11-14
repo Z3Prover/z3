@@ -26,6 +26,63 @@ Revision History:
 
 namespace nla {
 
+void test_nla_intervals_resource_limit() {
+    reslimit rl;
+    params_ref p;
+    lp::lar_solver s;
+    nla::core solver(s, p, rl);
+    nla::intervals intervals(&solver, rl);
+    nex_creator nc;
+    nex_creator::sum_factory sum(nc);
+    for (unsigned j = 0; j < 32; ++j) {
+        lpvar x = s.add_var(j, true);
+        s.add_var_bound(x, lp::lconstraint_kind::GE, rational(-1));
+        s.add_var_bound(x, lp::lconstraint_kind::LE, rational(1));
+        sum += nc.mk_var(x);
+    }
+    nex* e = sum.mk();
+    {
+        scoped_rlimit budget(rl, 5);
+        VERIFY(!intervals.check_nex(e, nullptr));
+        VERIFY(rl.is_canceled());
+    }
+    rl.reset_count();
+    VERIFY(!intervals.check_nex(e, nullptr));
+    VERIFY(rl.count() >= 32);
+    VERIFY(!rl.is_canceled());
+
+    lp::lar_solver positive_s;
+    nla::core positive_solver(positive_s, p, rl);
+    nla::intervals positive_intervals(&positive_solver, rl);
+    nex_creator positive_nc;
+    nex_creator::sum_factory positive_sum(positive_nc);
+    for (unsigned j = 0; j < 32; ++j) {
+        lpvar x = positive_s.add_var(j, true);
+        positive_s.add_var_bound(x, lp::lconstraint_kind::GE, rational(1));
+        positive_s.add_var_bound(x, lp::lconstraint_kind::LE, rational(2));
+        positive_sum += positive_nc.mk_var(x);
+    }
+    nex* positive = positive_sum.mk();
+    {
+        scoped_rlimit budget(rl, 100);
+        VERIFY(!positive_intervals.check_nex(positive, nullptr));
+        VERIFY(rl.is_canceled());
+        VERIFY(positive_solver.lemmas().empty());
+    }
+    VERIFY(positive_intervals.check_nex(positive, nullptr));
+    VERIFY(!positive_solver.lemmas().empty());
+
+    reslimit core_limit;
+    lp::lar_solver core_lp;
+    core_lp.add_var(0, true);
+    VERIFY(core_lp.solve() == lp::lp_status::OPTIMAL);
+    nla::core bounded_core(core_lp, p, core_limit);
+    core_limit.cancel();
+    VERIFY(bounded_core.check(0) == l_undef);
+    core_limit.reset_cancel();
+    VERIFY(bounded_core.check(0) == l_true);
+}
+
 void test_nla_intervals_basic() {
     std::cout << "test_nla_intervals_basic\n";
     
@@ -276,6 +333,7 @@ void test_fetch_normalized_term_column() {
 }
 
 void test_nla_intervals() {
+    test_nla_intervals_resource_limit();
     test_nla_intervals_basic();
     test_nla_intervals_negative();
     test_nla_intervals_zero_crossing();

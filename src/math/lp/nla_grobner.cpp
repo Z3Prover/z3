@@ -88,20 +88,25 @@ namespace nla {
         catch (...) {
 
         }
+        if (c().reslim().is_canceled())
+            return;
         if (!productive) {
             m_solver.saturate();
             TRACE(grobner, m_solver.display(tout));
 
+            if (c().reslim().is_canceled())
+                return;
             if (m_delay_base > 0)
                 --m_delay_base;
 
             try {
                 productive = is_conflicting()
-                    || propagate_quotients()
-                    || propagate_gcd_test()
-                    || propagate_eqs()
-                    || propagate_factorization()
-                    || propagate_linear_equations();
+                    || (!c().reslim().is_canceled() &&
+                        (propagate_quotients()
+                         || propagate_gcd_test()
+                         || propagate_eqs()
+                         || propagate_factorization()
+                         || propagate_linear_equations()));
             }
             catch (...) {
 
@@ -150,6 +155,8 @@ namespace nla {
 
     bool grobner::is_conflicting() {
         for (auto eq : m_solver.equations()) {
+            if (c().reslim().is_canceled())
+                return false;
             if (is_conflicting(*eq)) {
                 lp_settings().stats().m_grobner_conflicts++;
                 TRACE(grobner, m_solver.display(tout));
