@@ -453,6 +453,18 @@ ite term over the sort is an opaque element for the euf core, tied to its
 branches by the same two gate clauses as a Real ite, which the replay adds
 as def-axiom nodes.
 
+Z3 logs an assertion of nested binary gates flattened, its operands sorted,
+the duplicates and the tautologous clauses (or (not A) A) dropped, and the
+replay ties the logged clause to the assertion by a rewrite. Over more than
+16 theory atoms such a rewrite is first proved by the Boolean structure of
+its two sides, every atom an opaque leaf and the goal folded (the prover of
+the cnf lemmas, with a disjunction of a leaf and its negation stated as a
+fact by excluded middle); the theory tactic over the unfolded sides stays
+the fallback, and is the only proof of a smaller rewrite or of one the
+structure does not prove. grind alone ran out of its heartbeats on the
+five-way disjunctions of 25-clause conjunctions of the QF_UF quasigroup
+benchmarks (QG-classification).
+
 Uninterpreted functions mixed with arithmetic (QF_UFLRA) need nothing new
 in the log either: an application with a Real result, (f x) or (g a), is an
 opaque variable of the farkas, bound, and implied-eq hints, exactly like a

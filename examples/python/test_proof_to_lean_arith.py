@@ -25,6 +25,7 @@ import proof_certificate
 import proof_clause_log
 import lean_test_support
 import proof_to_lean
+from test_proof_to_lean_uf import regrouped_gates_instance
 
 # Verbatim copies of the QF_LRA inputs documented for Z3Prover/z3test under
 # regressions/proofs/lean/, so the tests need no z3test checkout.
@@ -1576,6 +1577,41 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 lemma = self._normalized_lemma(source)
                 self.assertIn("  by grind (splits := 64)", lemma)
                 self.assertNotIn("Iff.intro", lemma)
+
+    def test_normalized_regrouping_rewrite_verifies_by_its_tautology_facts(self):
+        # The regrouped gates of the QF_UF quasigroup inputs (see
+        # test_proof_to_lean_uf.regrouped_gates_instance) over bounds on
+        # sums of Reals: the rewrite takes the normalized path, whose
+        # propositional lemma is proved with links over `let`-bound names,
+        # and the clauses (or (not A) A) Z3's rewriter drops are facts of it
+        # by excluded middle, where the search split on a leaf for each.
+        # Lean checks the lemma with the grind fallback removed, so the
+        # facts as they are rendered in that mode are what verify.
+        source = regrouped_gates_instance(5, 15, logic="QF_LRA")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+
+        def lemmas_of(text):
+            found = [part.split("\n\n", 1)[0] for part in text.split("private theorem normalized_rewrite_")[1:]]
+            self.assertTrue(found)
+            return found
+
+        text = proof_to_lean.reconstruct(source, certificate)
+        alone, facts = text, 0
+        for lemma in lemmas_of(text):
+            self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
+            self.assertNotIn("refine (Or.elim (Classical.em", lemma)  # no case on a bound
+            self.assertEqual(lemma.count("\n    | grind (splits := 64)"), 1)
+            facts += len(re.findall(r" have _f\d+ : _s\d+ := \(Or\.elim \(Classical\.em _atom\d+\) ", lemma))
+            alone = alone.replace(lemma, lemma.replace("\n    | grind (splits := 64)", '\n    | fail "no fallback"'), 1)
+        self.assertGreaterEqual(facts, 5)
+        self.assertNotIn("\n    | grind (splits := 64)", "".join(lemmas_of(alone)))
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+        # Without the facts the search goes through the cases of the bounds.
+        with patch.object(proof_to_lean._PropositionalProver, "_excluded_middles", lambda self: []):
+            cases = "".join(lemmas_of(proof_to_lean.reconstruct(source, certificate)))
+        self.assertTrue("refine (Or.elim (Classical.em" in cases or "  by first" not in cases)
 
     def test_link_allowance_is_capped_at_the_budget(self):
         # The allowance is at most the budget itself, so a rewrite's proof

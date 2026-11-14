@@ -1253,12 +1253,22 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(sum(line.startswith("· ") for line in lines), 2)
             self.assertEqual(lines[-1], "  exact _f7")
             self.assertEqual(prover.needed, {0})
-        for structure, split in ((("or", p, ("not", p)), "(_atoms 0)"), (("or", a, ("not", a)), "(formula_3 _atoms _vars)")):
+        for operand, split in ((p, "(_atoms 0)"), (a, "(formula_3 _atoms _vars)")):
+            structure = ("or", ("and", operand, operand), ("not", operand))
             prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
             lines = prover.implication(("true",), structure)
             self.assertIsNotNone(lines)
             term = "\n".join(lines)
             self.assertIn("\nrefine (Or.elim (Classical.em %s)" % split, term)
+            self.assertEqual(prover.needed, set())
+            # The disjunction of an operand and its negation is no case of
+            # an implication: it is one of its facts, by excluded middle.
+            structure = ("or", operand, ("not", operand))
+            prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
+            term = "\n".join(prover.implication(("true",), structure))
+            self.assertNotIn("refine (Or.elim", term)
+            self.assertIn(" := (Or.elim (Classical.em %s) (fun _g => (Or.inl _g)) (fun _g => (Or.inr _g)))\n"
+                          % split, term)
             self.assertEqual(prover.needed, set())
         self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
             ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode

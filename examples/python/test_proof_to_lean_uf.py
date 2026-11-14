@@ -6,6 +6,7 @@
 # Lean toolchain.
 ############################################
 import copy
+import functools
 import hashlib
 import json
 from pathlib import Path
@@ -638,6 +639,81 @@ def equality_diamond(levels):
     lines.append("(assert (not (= x0 x%d)))" % levels)
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
+
+
+def regrouped_gates_instance(disjuncts, clauses, size=5, seed=0, logic="QF_UF"):
+    """A disjunction of conjunctions of two-literal clauses over the cells of an operation table, as binary gates.
+
+    The shape of the QF_UF QG-classification inputs (smtlib-sample qg5
+    iso_*, gensys_*): over the elements e0 ... e<size-1> and one binary
+    operation, the atoms are the equalities (= (op ei ej) ek), and one
+    assertion is a left-nested (or (or D1 D2) ...), every Di a left-nested
+    (and (and C C) ...) of clauses (or (not A) B) over random atoms, every
+    fifth clause the tautology (or (not A) A). Z3 logs the assertion
+    flattened, without the tautologies, and the certificate ties the logged
+    clause to the assertion by a rewrite over the atoms. The other
+    assertions refute the first clause of every Di, so the refutation
+    needs the assertion.
+
+    With logic QF_LRA the same gates are over bounds on the Reals x0 ...
+    x<size-1> and on their sums, (<= (+ xi xj) c), one per cell and value:
+    arithmetic atoms, whose rewrite takes the normalized path
+    (proof_to_lean._normalized_rewrite).
+    """
+    rng = random.Random(seed)
+
+    def atom(row, column, value):
+        if logic == "QF_UF":
+            return "(= (op e%d e%d) e%d)" % (row, column, value)
+        if row == column:
+            return "(<= x%d %d)" % (row, value + size * column)
+        return "(<= (+ x%d x%d) %d)" % (row, column, value + size * row)
+
+    def some_atom():
+        return atom(rng.randrange(size), rng.randrange(size), rng.randrange(size))
+
+    if logic == "QF_UF":
+        lines = ["(set-logic QF_UF)", "(declare-sort U 0)", "(declare-fun op (U U) U)"]
+        lines += ["(declare-fun e%d () U)" % i for i in range(size)]
+    else:
+        lines = ["(set-logic %s)" % logic] + ["(declare-fun x%d () Real)" % i for i in range(size)]
+    alternatives, refuted = [], ["(assert %s)" % atom(0, 0, 0)]
+    for i in range(1, disjuncts + 1):
+        row, column = divmod(i, size)
+        first = atom(row % size, column, row % size)
+        refuted.append("(assert (not %s))" % first)
+        parts = ["(or (not %s) %s)" % (atom(0, 0, 0), first)]
+        for j in range(1, clauses):
+            left = some_atom()
+            parts.append("(or (not %s) %s)" % (left, left if j % 5 == 0 else some_atom()))
+        alternatives.append(functools.reduce(lambda left, right: "(and %s %s)" % (left, right), parts))
+    lines.append("(assert %s)" % functools.reduce(lambda left, right: "(or %s %s)" % (left, right), alternatives))
+    return "\n".join(lines + refuted + ["(check-sat)"]) + "\n"
+
+
+def structural_rewrites(text):
+    """The rewrite lemmas whose first attempt is a proof by the Boolean structure of the two sides."""
+    return [block for block in text.split("\n\n")
+            if "private theorem rewrite_" in block and " := by\n  first\n    | (" in block
+            and "refine Iff.intro (fun (_f1 : " in block]
+
+
+def structure_alone(text):
+    """The text with the attempts after the structural one dropped from those rewrites, and how many lost one.
+
+    The attempts of a lemma are the alternatives `| (...)` of its `first`
+    (_grind_lemma), the structural one before those over the unfolded
+    sides, whatever their tactic is: without them Lean checks the
+    structural proof and nothing else.
+    """
+    structural, blocks, dropped = structural_rewrites(text), [], 0
+    for block in text.split("\n\n"):
+        if block in structural:
+            head, attempt, *others = block.split("\n    | (")
+            block = head + "\n    | (" + attempt
+            dropped += bool(others)
+        blocks.append(block)
+    return "\n\n".join(blocks), dropped
 
 
 def outlined_lemma_sizes(text):
@@ -1518,6 +1594,108 @@ class TestUninterpretedValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "signature does not match"):
             proof_to_lean.reconstruct(source, swapped)
 
+    def test_tautological_disjunctions_are_facts_of_the_prover(self):
+        # A disjunction holding a disjunct and its negation is true by
+        # excluded middle, and no gate propagates into it: the search split
+        # on a leaf for each one, both cases going on to the next. Proving
+        # a conjunction with k clauses (or (not A) A) from the one Z3's
+        # rewriter leaves without them took 2^k cases (the search gave up
+        # from seven); they are facts of the proof now, and no case.
+        def sides(tautologies, clauses=24):
+            leaf = [("leaf", index, "_atom%d" % index) for index in range(2 * clauses)]
+            kept = [("or", ("not", leaf[2 * i]), leaf[2 * i + 1]) for i in range(clauses)]
+            every = list(kept)
+            for i in range(tautologies):
+                every.insert(3 * i, ("or", ("not", leaf[2 * i]), leaf[2 * i]))
+            nested = functools.reduce(lambda left, right: ("and", left, right), every)
+            return leaf, nested, ("and",) + tuple(kept)
+
+        # With links (the rewrites: _leaf_equivalence, _normalized_rewrite)
+        # an implication is a refutation of its negated target; without,
+        # the target is proved directly.
+        for links in (False, True):
+            steps = {}
+            for tautologies in (4, 8, 16):
+                leaf, nested, flat = sides(tautologies)
+                prover = proof_to_lean._PropositionalProver(nested, flat, classical=True, links=links)
+                self.assertEqual(len(prover.tautologies), tautologies)
+                lines = prover.equivalence(nested, flat)
+                self.assertIsNotNone(lines, (links, tautologies))
+                text = "\n".join(lines)
+                self.assertNotIn("refine (Or.elim", text)  # no case analysis at all
+                self.assertEqual(text.count(":= (Or.elim (Classical.em _atom"), tautologies)
+                self.assertEqual("refine Classical.byContradiction" in text, links)
+                steps[tautologies] = prover.steps
+            self.assertLess(steps[16], steps[4] + 100, (links, steps))
+            # A clause that is no tautology is still needed: no proof without it.
+            leaf, nested, flat = sides(4)
+            prover = proof_to_lean._PropositionalProver(nested, flat[:-1], classical=True, links=links)
+            self.assertIsNone(prover.equivalence(nested, flat[:-1]))
+        # The disjunct and its negation at any positions of a wider disjunction.
+        a, b = leaf[0], leaf[1]
+        wide = ("or", a, b, ("not", a))
+        prover = proof_to_lean._PropositionalProver(wide, ("true",), classical=True)
+        self.assertEqual(prover.tautologies, [(wide, True, "(Or.elim (Classical.em _atom0) (fun _g => (Or.inl _g)) "
+                                               "(fun _g => (Or.inr (Or.inr _g))))")])
+        self.assertIsNotNone(prover.implication(("true",), wide))
+        # Without classical mode a leaf has no excluded middle: no fact.
+        self.assertEqual(proof_to_lean._PropositionalProver(wide, ("true",)).tautologies, [])
+        # A prover that only refutes (the cnf lemmas) does not look for them.
+        prover = proof_to_lean._PropositionalProver(wide, ("not", wide), classical=True)
+        self.assertIsNotNone(prover.refutation(("not", wide), [(wide, "_h")]))
+        self.assertIsNone(prover._tautologies)
+
+    def test_regrouping_rewrites_are_proved_by_their_structure(self):
+        # QF_UF QG-classification (smtlib-sample qg5): an assertion that is
+        # a five-way disjunction of 25-clause conjunctions over the
+        # equalities of an operation table, written as binary gates, is
+        # logged flattened and without its tautologous clauses, and the
+        # rewrite between the two went to grind over the unfolded sides,
+        # which ran out of the heartbeats (five of the seven iso_* files,
+        # 0.5 to 3 MB of Lean, failed after 20 to 85 s). The rewrite is now
+        # first proved by the Boolean structure of its sides, the equalities
+        # opaque and the goal folded.
+        def rewrites(disjuncts, clauses):
+            """The certificate's graph and its rewrite lemmas by name."""
+            source = regrouped_gates_instance(disjuncts, clauses)
+            certificate = proof_certificate.export_clause_log_certificate(source)
+            text = proof_to_lean.reconstruct(source, certificate)
+            return proof_to_lean._validate_graph(source, certificate), {
+                re.search(r"private theorem (rewrite_\d+) ", block).group(1): block
+                for block in text.split("\n\n") if "private theorem rewrite_" in block}
+
+        def structural(disjuncts, clauses):
+            """The rewrites of the instance with a structural attempt (however Z3 splits the logged clause)."""
+            graph, lemmas = rewrites(disjuncts, clauses)
+            proved = structural_rewrites("\n\n".join(lemmas.values()))
+            self.assertTrue(proved, (disjuncts, clauses))
+            return graph, {name: block for name, block in lemmas.items() if block in proved}
+
+        graph, proved = structural(5, 15)
+        tactic = re.escape(proof_to_lean._theory_tactic(graph))
+        for block in proved.values():
+            self.assertIn(" := by\n  first\n    | (refine Iff.intro (fun (_f1 : (formula_", block)
+            self.assertNotIn("refine (Or.elim (Classical.em", block)  # no case on an equality
+            # The theory tactic over the unfolded sides stays the fallback.
+            self.assertRegex(block, r"\n    \| \(unfold [^\n]*\n       %s\)$" % tactic)
+        # The tautologous clauses are facts.
+        self.assertIn(":= (Or.elim (Classical.em (formula_", "".join(proved.values()))
+        # The proof grows with the rewrite, not faster.
+        sizes = [sum(block.count("\n") for block in structural(5, clauses)[1].values()) for clauses in (20, 40, 80)]
+        self.assertLess(sizes[1], 2.2 * sizes[0], sizes)
+        self.assertLess(sizes[2], 2.2 * sizes[1], sizes)
+        # Up to _NORMALIZED_REWRITE_ATOMS equalities a rewrite goes to the theory tactic alone, as before.
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 10 ** 6):
+            lemmas = rewrites(5, 15)[1]
+        for name in proved:
+            self.assertNotIn("first", lemmas[name])
+            self.assertRegex(lemmas[name], r" := by\n  unfold [^\n]*\n  %s$" % tactic)
+        # The benchmark itself: three such rewrites.
+        source = (_EXAMPLES / "data" / "QF_UF_QG_iso_brn041.smt2").read_text()
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertEqual(len(structural_rewrites(text)), 3)
+        self.assertNotIn("refine (Or.elim (Classical.em", text)
+
 
 class TestLegacyProofObjectValidation(unittest.TestCase):
     """QF_UF certificates from the smt core's proof object: equality rules over the carrier, without Lean."""
@@ -2018,6 +2196,77 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(text.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 65)
+
+    def test_regrouping_rewrites_verify_by_their_structure_alone(self):
+        # The rewrites between an assertion of nested binary gates and its
+        # flattened form (see the validation test), with the unfolded grind
+        # fallback dropped, so that Lean checks the structural proofs: the
+        # generated instance (grind alone: heartbeat timeout after 48 s) and
+        # smtlib-sample's QF_UF QG-classification qg5/iso_brn041 (the same
+        # after 21 s; 1.4 s and 0.7 GB now).
+        # The generated instance has one such rewrite or more (as Z3 logs
+        # the assertion's clause), the benchmark three.
+        for name, source, rewrites in (
+                ("generated", regrouped_gates_instance(5, 15), None),
+                ("iso_brn041", (_EXAMPLES / "data" / "QF_UF_QG_iso_brn041.smt2").read_text(), 3)):
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], "qf_uf")
+                text, dropped = structure_alone(proof_to_lean.reconstruct(source, certificate))
+                alone = structural_rewrites(text)
+                self.assertGreaterEqual(dropped, 1)
+                self.assertEqual(dropped, len(alone) if rewrites is None else rewrites)
+                self.assertEqual([block.count("\n    | (") for block in alone], [1] * len(alone))
+                _, report = lean_test_support.check(self, source, text=text)
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_tautological_disjunction_facts_check_in_lean(self):
+        # The prover's excluded-middle facts (see the validation test), at
+        # both positions of the pair, inside a wider disjunction, and under
+        # a gate the two sides nest differently; without and with links
+        # (the mode of the rewrites, where that gate is linked and the
+        # facts are stated in the link's proof too), over `let`-bound names
+        # as in a normalized rewrite.
+        leaf = [("leaf", index, "_atom%d" % index) for index in range(8)]
+        clauses = [("or", ("not", leaf[0]), leaf[1]), ("or", leaf[2], ("not", leaf[2])),
+                   ("or", ("not", leaf[3]), leaf[3]), ("or", leaf[4], leaf[5], ("not", leaf[4])),
+                   ("or", leaf[5], ("not", leaf[1]))]
+        nested = functools.reduce(lambda left, right: ("and", left, right), clauses)
+        flat = ("and", clauses[4], clauses[0])
+        tautology = ("or", ("not", leaf[6]), leaf[6])
+        left = ("or", nested, ("and", ("and", leaf[6], tautology), leaf[7]))
+        right = ("or", flat, ("and", leaf[7], leaf[6], tautology))
+        source = []
+        for links in (False, True):
+            prover = proof_to_lean._PropositionalProver(left, right, classical=True, links=links)
+            self.assertEqual(len(prover.tautologies), 4)
+            self.assertEqual(len(prover.links), int(links))
+            lines = prover.equivalence(left, right)
+            self.assertIsNotNone(lines, links)
+            text = "\n".join(lines)
+            self.assertGreaterEqual(text.count(":= (Or.elim (Classical.em _atom"), 3)
+            self.assertNotIn("refine (Or.elim (Classical.em", text)  # no case on a leaf
+            self.assertEqual("refine Classical.byContradiction" in text, links)
+            source += ["theorem regrouped_%s (_atoms : Nat -> Prop)%s" % (
+                           "linked" if links else "direct", "".join(" (%s : Prop)" % name for _, _, name in leaf)),
+                       "    : %s := by" % proof_to_lean._render_structure(("iff", left, right))]
+            source += ["  " + line for line in lines] + [""]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "regrouped.lean"
+            path.write_text("\n".join(source))
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(path)], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    @lean_test_support.slow("QF_UF QG-classification gensys_icl1228, 6 MB of Lean, about 25 s at 2.3 GB")
+    def test_quasigroup_rewrites_verify_within_their_heartbeats(self):
+        # smtlib-sample qg5/gensys_icl1228 (19,045 proof nodes): its four
+        # regrouping rewrites each ran out of the heartbeats in grind, and
+        # Lean rejected the file after 180 s; it verifies in about 25 s.
+        source = (_EXAMPLES / "data" / "QF_UF_QG_gensys_icl1228.smt2").read_text()
+        certificate, report = self.check(source)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(len(structural_rewrites(text)), 4)
 
     def test_reordered_distincts_verify_by_propagation_alone(self):
         # (distinct c0 ... c32) with (not (distinct c32 ... c0)) over U: the

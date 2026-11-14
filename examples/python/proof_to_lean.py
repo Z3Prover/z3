@@ -7379,6 +7379,48 @@ class _PropositionalProver:
         self.constants = [(structure, structure[0] == "true", "True.intro" if structure[0] == "true"
                            else "(fun _absurd => _absurd)")
                           for structure in (("true",), ("false",)) if structure in self.parents]
+        self._tautologies = None  # see tautologies
+        self.stated = frozenset()  # those of them that are facts of the proof under way
+
+    @property
+    def tautologies(self):
+        """The excluded-middle facts (_excluded_middles), found when the first implication asks for them.
+
+        A prover that only refutes (the cnf lemmas, a dozen provers over a
+        400-operand assertion each in QF_UF NEQ004) never states them, so it
+        does not render them either.
+        """
+        if self._tautologies is None:
+            self._tautologies = self._excluded_middles() if self.classical else []
+        return self._tautologies
+
+    def _excluded_middles(self):
+        """The disjunctions holding a disjunct and its negation, each true by excluded middle, with the proof.
+
+        A fact of every implication proved (_implication). Nothing
+        propagates into such a disjunction before one of its disjuncts has
+        a value, so the search split on an atom or leaf for each one it
+        met, both branches going on to the next: Z3's rewriter drops the
+        clauses (or (not A) A) of a conjunction, and proving the
+        conjunction with them from the one without took 2^k cases for k
+        of them (each of the five 25-clause conjunctions of a QF_UF
+        quasigroup input has five; from seven on the search gave up). The
+        case analysis of such a proof skips these disjunctions (_case_split).
+        A refutation (the cnf lemmas) is searched as before, without them.
+        """
+        found = []
+        for structure in self.order:
+            if structure[0] != "or":
+                continue
+            children = _structure_children(structure)
+            positions = {child: position for position, child in reversed(list(enumerate(children)))}
+            for negative, child in enumerate(children):
+                if child[0] == "not" and child[1] in positions:
+                    found.append((structure, True, "(Or.elim (Classical.em %s) (fun _g => %s) (fun _g => %s))" % (
+                        self._render(child[1]), _inject(positions[child[1]], len(children), "_g"),
+                        _inject(negative, len(children), "_g"))))
+                    break
+        return found
 
     def _index(self, root):
         """Index root's structures depth first, children before parents, on an explicit stack (deep chains)."""
@@ -7625,15 +7667,22 @@ class _PropositionalProver:
         on the other side, exceeded the character budget that way).
         """
         hypothesis = self.name()
+        constants = self.constants
+        if self.tautologies:
+            # Those under the two sides: a link is proved from what is below it.
+            below = self._descendants(source) | self._descendants(target)
+            stated = [fact for fact in self.tautologies if fact[0] in below]
+            constants = constants + stated
+            self.stated = frozenset(fact[0] for fact in stated)
         if self.linked:
             negation = self.name()
-            lines = self._prove(dict(), ("false",), self.constants + list(facts)
+            lines = self._prove(dict(), ("false",), constants + list(facts)
                                 + [(source, True, hypothesis), (target, False, negation)])
             if lines is None:
                 return None
             return hypothesis, ["refine Classical.byContradiction (fun (%s : Not %s) => ?_)" % (
                 negation, self._render(target))] + lines
-        lines = self._prove(dict(), target, self.constants + list(facts) + [(source, True, hypothesis)])
+        lines = self._prove(dict(), target, constants + list(facts) + [(source, True, hypothesis)])
         if lines is None:
             return None
         return hypothesis, lines
@@ -7641,6 +7690,7 @@ class _PropositionalProver:
     def refutation(self, structure, facts=()):
         """Tactic lines proving the goal Not structure under the named facts (hypotheses in scope), or None."""
         hypothesis = self.name()
+        self.stated = frozenset()
         self.names.update(name for _, name in facts)
         lines = self._prove(dict(), ("false",), self.constants + [(fact, True, name) for fact, name in facts]
                             + [(structure, True, hypothesis)])
@@ -7777,6 +7827,8 @@ class _PropositionalProver:
             value = state.get(structure)
             if structure[0] != "or" or value is None or not value[0] or not self._relevant(structure):
                 continue
+            if structure in self.stated:
+                continue  # true whatever its disjuncts are: its cases are the two values of one of them
             truths = [state.get(child, (None,))[0] for child in _structure_children(structure)]
             unknown = truths.count(None)
             if True in truths or unknown < 2:
@@ -8481,10 +8533,13 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
                 and _normalizable_rewrite(graph, node, outside, atoms)):
             lines, term = _normalized_rewrite(graph, node, outside, atoms, atom_indices, variable_indices)
         else:
-            # The rewriter's sign split of a factored product: by the signs of the factors first.
+            # The rewriter's sign split of a factored product: by the signs of
+            # the factors first. Else a regrouping of the gates over the same
+            # theory atoms: by the structure of the two sides.
             lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices,
                                        opaque_tactic=_opaque_rewrite_tactic(graph),
-                                       structural=_sign_split(graph, node, rewrite=True))
+                                       structural=(_sign_split(graph, node, rewrite=True)
+                                                   or _leaf_equivalence(graph, left, right, atom_indices)))
         return lines, set(), term
     proof, atoms = _structural_equivalence(graph, left, right, atom_indices)
     if proof is None:
@@ -8510,6 +8565,41 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     lines.append("  all_goals exact of_decide_eq_true rfl")
     term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
     return lines, atoms, term
+
+
+def _leaf_equivalence(graph, left, right, atom_indices):
+    """Tactic lines proving a rewrite between two formulas by their Boolean structure alone, or None.
+
+    Every theory atom (an equality or a distinct over terms, a comparison,
+    a predicate application) is an opaque leaf, the same leaf where the two
+    sides share the node, and the goal stays folded, as for a cnf lemma
+    (_cnf_lemma): the proof names the gates by their definitions. Z3's
+    rewriter flattens the nested conjunctions and disjunctions of an
+    assertion, sorts their operands and drops the duplicates, which the
+    prover's links relate (_equivalent_structures). Such a rewrite went to
+    grind over the unfolded sides, which case-splits the disjunctions: the
+    quasigroup inputs of QF_UF QG-classification (a five-way disjunction of
+    conjunctions of 20 or 25 clauses over the equalities of a 5 by 5
+    operation table, written as binary gates and logged flattened) ran out
+    of the heartbeats in each such rewrite, 0.5 to 3 MB certificates that
+    Lean rejected after 20 to 85 s.
+
+    Only for a rewrite over more than _NORMALIZED_REWRITE_ATOMS leaves, the
+    size from which the rewrites over arithmetic atoms leave grind too
+    (_normalized_rewrite), and only when the prover finds the proof: a
+    rewrite that rests on what an atom denotes (an equality reoriented or
+    decided) gets none here and goes to the theory tactic as before, which
+    is the fallback of this attempt as well.
+    """
+    leaves, memo = {}, {}
+    try:
+        sides = [_boolean_structure(graph, side, atom_indices, memo, leaves) for side in (left, right)]
+    except ReconstructionError:
+        return None
+    if len(leaves) <= _NORMALIZED_REWRITE_ATOMS:
+        return None
+    prover = _PropositionalProver(*sides, classical=True, names=_structure_names(graph, memo), links=True)
+    return prover.equivalence(*sides)
 
 
 def _negated_distinct_rewrite(graph, node, left, right):

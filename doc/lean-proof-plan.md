@@ -1736,6 +1736,81 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Regrouping rewrites over theory atoms proved by their structure (2026-11-13)
+
+Scale, not breadth: a QF_UF family inside the supported fragment whose
+certificates were exported and then failed in Lean on one kind of lemma.
+The quasigroup inputs of SMT-LIB's QF_UF `QG-classification` (z3test's
+`smtlib-sample`, `qg5/iso_*` and `gensys_*`) assert five-way disjunctions
+of conjunctions of 20 or 25 clauses `(or (not A) B)` over the equalities
+`(= (op ei ej) ek)` of a 5 by 5 operation table, written as binary gates.
+Z3 logs such an assertion flattened and without its tautologous clauses
+`(or (not A) A)`, and the replay ties the logged clause to the assertion
+by a rewrite. A rewrite over theory atoms that are not arithmetic went to
+`grind` over the unfolded sides, which case-splits the disjunctions and
+ran out of the lemma's heartbeats: five of the seven `iso_*` files of the
+sample (0.5 to 3 MB of Lean) failed after 20 to 85 s, and `gensys_icl1228`
+(6 MB) after 180 s.
+
+- `_leaf_equivalence` (`proof_to_lean.py`): a rewrite between two formulas
+  over more than 16 theory atoms (`_NORMALIZED_REWRITE_ATOMS`, the size
+  from which arithmetic rewrites leave grind) is first proved by the
+  Boolean structure of its sides, every atom an opaque leaf shared by node
+  and the goal folded, with the prover and the links of the normalized
+  rewrites and the cnf lemmas. The unfolded theory tactic stays the
+  fallback of the `first`; a rewrite the structure does not prove (an
+  equality reoriented or decided) gets no attempt.
+- `_PropositionalProver`: a disjunction holding a disjunct and its
+  negation is a fact of every implication it proves (classical mode), by
+  `Classical.em`, and is not a case split of that proof. Without it the
+  search split on a leaf for every dropped tautology, 2^k cases for k of
+  them, and gave up from seven. Refutations (the cnf lemmas) are searched
+  as before.
+
+Nothing is trusted: the structural proof is one more alternative that Lean
+checks, and no limit was raised.
+
+Measured (Lean text, wall time and peak memory of `lean`, before to after):
+
+| input | Lean text | before | after |
+| --- | --- | --- | --- |
+| `qg5/iso_brn041` | 0.49 to 0.54 MB | fails, 20.7 s, 2.22 GB | 1.4 s, 0.67 GB |
+| `qg5/iso_icl478` | 0.90 to 1.03 MB | fails, 37.8 s, 1.81 GB | 2.2 s, 0.91 GB |
+| `qg5/iso_brn085` | 1.31 to 1.49 MB | fails, 82.4 s, 4.90 GB | 2.7 s, 0.98 GB |
+| `qg5/iso_icl093` | 1.53 to 1.70 MB | fails, 80.8 s, 4.59 GB | 3.0 s, 1.05 GB |
+| `qg5/iso_icl701` | 2.97 to 3.28 MB | fails, 84.8 s, 3.88 GB | 5.1 s, 1.56 GB |
+| `qg5/gensys_icl1228` | 6.01 to 6.15 MB | fails, 179.7 s, 3.40 GB | 24.5 s, 2.31 GB |
+| `qg5/iso_icl484`, `iso_icl458`, `qg7/iso_brn043` | +0.03 MB each | verify | verify, same time |
+
+The other 121 sample files that export to at most 30 MB of Lean keep their
+text byte for byte. On the generated family
+`regrouped_gates_instance(disjuncts, clauses)` (`test_proof_to_lean_uf.py`)
+grind alone verifies 3 by 10 in 2.8 s and fails from 5 by 15 (heartbeats
+after 48 s; `grind` failed at 5 by 40), while the structural proof grows
+linearly: 5 by 40, 5 by 80, 8 by 80, 8 by 160 are 0.15, 0.26, 0.41, 0.74
+MB and verify in 0.9, 1.2, 1.7, 3.3 s. Tests: `test_proof_to_lean_uf.py`
+(`test_regrouping_rewrites_are_proved_by_their_structure`,
+`test_tautological_disjunctions_are_facts_of_the_prover`, the two Lean
+tests with the grind fallback dropped, and the slow `gensys_icl1228`) and
+`test_proof_to_lean_arith.py`
+(`test_normalized_regrouping_rewrite_verifies_by_its_tautology_facts`: the
+same gates over bounds on sums of Reals, `regrouped_gates_instance(...,
+logic="QF_LRA")`, where the tautology facts reach the propositional lemma
+of a normalized rewrite, checked in Lean without its grind fallback).
+
+Still open in the family: the other `gensys_*` files are 31 to 195 MB of
+Lean (80,000 to 440,000 proof nodes), beyond the memory cap whatever their
+rewrites cost: the smallest, `gensys_icl1079` (31.7 MB), now gets through
+its rewrites and runs out of kernel memory at the 8 GB cap after 93 s.
+
+Still open for the rewrite: leaves are shared by node, so a regrouping
+whose equalities Z3 also reorients gets no structural proof. The same
+gates over `(= (f xi xj) k)` in QF_UFLIA (5 by 15) are logged with the
+numeral first: 77 leaves on the assertion's side, 149 over both, no proof
+found, and Lean rejects the certificate after 36 s on the heartbeats of
+that rewrite, as before this change. The `eq_comm` bridges of the cnf
+lemmas (`_leaf_bridges`) are the natural next step.
+
 ### Int negations rendered as differences (2026-11-11, every negation and negative quotients 2026-11-12)
 
 An Int input with a term Lean evaluates to the negation of zero in an
