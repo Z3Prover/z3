@@ -726,6 +726,8 @@ namespace nla {
                 TRACE(grobner, m_solver.display(tout << "horner conflict ", e) << "\n");
                 return true;
             }
+            if (c().reslim().is_canceled())
+                return false;
             if (c().params().arith_nl_grobner_perfect_squares() && add_perfect_square_conflict(e)) {
                 TRACE(grobner, m_solver.display(tout << "perfect-square conflict ", e) << "\n");
                 return true;
