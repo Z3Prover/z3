@@ -468,6 +468,38 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_seq_replace_round_trip() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(a.mk_int()), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        app_ref x(m.mk_fresh_const("x", seq_sort), m);
+        app_ref y(m.mk_fresh_const("y", seq_sort), m);
+        app_ref z(m.mk_fresh_const("z", seq_sort), m);
+        expr_ref expanded(su.str.mk_replace(x, y, x), m);
+        expr_ref actual(su.str.mk_replace(expanded, x, y), m);
+        expr_ref contains(su.str.mk_contains(x, y), m);
+        expr_ref expected(m.mk_ite(contains, x, y), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+
+        expr_ref other_source(su.str.mk_replace(z, y, x), m);
+        expr_ref other_destination(su.str.mk_replace(x, y, z), m);
+        expr_ref wrong_source(su.str.mk_replace(other_source, x, y), m);
+        expr_ref wrong_destination(su.str.mk_replace(other_destination, x, y), m);
+        expr_ref wrong_replacement(su.str.mk_replace(expanded, x, z), m);
+        rw(wrong_source);
+        rw(wrong_destination);
+        rw(wrong_replacement);
+        ENSURE(wrong_source != expected && wrong_destination != expected &&
+               wrong_replacement != expected);
+    }
+}
+
 static void tst_positive_closure_repetition() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -546,6 +578,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_seq_replace_round_trip();
     tst_empty_language_repetition();
     tst_positive_closure_repetition();
     tst_seq_replace_prefix_suffix();

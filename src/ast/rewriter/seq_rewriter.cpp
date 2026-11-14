@@ -2175,6 +2175,15 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+    expr *source = nullptr, *pattern = nullptr, *replacement = nullptr;
+    if (str().is_replace(a, source, pattern, replacement) &&
+        source == b && replacement == b && pattern == c) {
+        // Expanding the first c inserts the first b, so contracting it restores b.
+        expr_ref contains(str().mk_contains(b, c), m());
+        result = m().mk_ite(contains, b, c);
+        return BR_REWRITE2;
+    }
+
     m_lhs.reset();
     str().get_concat(a, m_lhs);
 
