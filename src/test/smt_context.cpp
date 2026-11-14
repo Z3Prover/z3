@@ -1500,7 +1500,8 @@ static void check_horn_proof_diagnostic() {
             std::istringstream input(inputs[i]);
             ENSURE(parse_smt2_commands(cmd, input));
             params_ref p;
-            ref<solver> slv = mk_smt2_solver(m, p, symbol("HORN"));
+            scoped_ptr<solver_factory> factory = mk_smt_strategic_solver_factory();
+            ref<solver> slv = (*factory)(m, p, proofs, true, false, symbol("HORN"));
             for (expr* a : cmd.assertions())
                 slv->assert_expr(a);
             lbool result = slv->check_sat(0, nullptr);
