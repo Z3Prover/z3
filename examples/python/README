@@ -370,7 +370,23 @@ step:
     steps it uses, and a case split whose branch does not need its
     hypothesis is dropped. When the search gives up, it is repeated over the
     gates of z3's unsat core of the propositional abstraction (an untrusted
-    hint; Lean checks the proof). When neither search refutes the clause,
+    hint; Lean checks the proof). When that search gives up too, the lemma
+    is swept: Z3 logged the clause over its rewriter's form of the
+    assertion (ite terms with a constant branch as and/or, conjunctions
+    flattened, atoms normalized), and the gates of the two forms are put in
+    classes by what the rewriter makes of them, each named gate is linked
+    to its class's representative or canonical flat gate, and each link is
+    a small theorem of its own before the lemma (th_lemma_N_sK, over the
+    canonical gates th_lemma_N_kK and the leaf bridges th_lemma_N_bK),
+    proved over the few gates between its two ends; the lemma then refutes
+    the clause through the links. The classes are hints: a link is stated
+    only with its proof. The twenty- and thirty-frame circuits of QF_IDL
+    RTCL (ckt_PROP1_tf_20, ckt_PROP3_tf_30) verify that way. A sweep is
+    bounded as a whole: a formula whose and/or classes have more than
+    200,000 members in all (a conjunction nested a thousand deep) is not
+    swept, and the sweeps of a file stop once they have written 16 million
+    characters; the lemma then keeps its other proofs. When no search
+    refutes the clause,
     z3 finds theory clauses over its arithmetic and uninterpreted leaves
     (applications, constants of a sort; congruence included) that make the
     abstraction unsatisfiable (model by model, an unsat core each), each

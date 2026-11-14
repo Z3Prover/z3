@@ -27,7 +27,8 @@ import proof_to_lean
 from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
-    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, gate_inputs, make_certificate, time_step_clause,
+    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, gate_inputs, make_certificate, nested_conjunction,
+    opened_frames, swept_frames, time_step_clause,
 )
 
 
@@ -172,6 +173,61 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 path.write_text("\n".join(source) + "\n")
                 result = lean_test_support.run_check_lean(path)
                 self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    def test_sweep_declarations_check_in_lean(self):
+        # The declarations of a sweep (test_proof_to_lean checks their shape)
+        # over three frames of two forms of one formula: the gates' own
+        # definitions, as a certificate has for its nodes, the canonical
+        # gates, the links, each a theorem using the ones before it, and the
+        # refutation of the clause through them. The second family's links
+        # need a named gate tied on demand (_open).
+        binder = "(_atoms : Nat -> Prop)"
+        for family in (swept_frames, opened_frames):
+            with self.subTest(family=family.__name__):
+                clause, names = family(3)
+                plain = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names)
+                source = ["def %s %s : Prop := %s" % (name[1:].split()[0], binder, plain._shallow(structure))
+                          for structure, name in names.items()]
+                prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                            scope=("lemma", " _atoms"))
+                declarations, refutation = prover.sweep(("not", clause), [])
+                for name, statement, lines in declarations:
+                    if statement is None:
+                        source.append("def %s %s : Prop := %s" % (name, binder, lines[0]))
+                    else:
+                        source += ["theorem %s %s" % (name, binder), "    : %s := by" % statement]
+                        source += ["  " + line for line in lines]
+                source += ["theorem refutation %s" % binder, "    : Not (Not %s) := by" % names[clause]]
+                source += ["  " + line for line in refutation]
+                self.assertGreater(sum(line.startswith("theorem lemma_s") for line in source), 5)
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "sweep.lean"
+                    path.write_text("\n".join(source) + "\n")
+                    result = lean_test_support.run_check_lean(path)
+                    self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    def test_sweep_gives_up_on_a_thousand_nested_conjunctions_before_any_search(self):
+        # No Lean: the limits of a sweep as they are (test_proof_to_lean
+        # lowers them). The and classes of a conjunction nested a thousand
+        # deep have half a million members, above _SWEEP_MEMBERS, so the
+        # formula is not swept, and that is known from the classes alone;
+        # 400 deep it is within both limits (81 thousand members, 13 of
+        # the 16 million characters).
+        def sweep(count):
+            clause, names = nested_conjunction(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [])
+
+        prover, found = sweep(1000)
+        self.assertIsNone(found)
+        self.assertIsNone(prover.links)
+        self.assertEqual((prover.proved, prover.spent), ({}, 0))
+        prover, found = sweep(400)
+        self.assertIsNotNone(found)
+        self.assertLess(prover.members, proof_to_lean._SWEEP_MEMBERS // 2)
+        self.assertLess(proof_to_lean._SWEEP_CHARS // 2, prover.spent)
+        self.assertLess(prover.spent, proof_to_lean._SWEEP_CHARS)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]

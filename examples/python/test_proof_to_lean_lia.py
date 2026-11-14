@@ -562,6 +562,90 @@ def untrimmed_log():
     return patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf"))
 
 
+# Small inputs whose cnf lemmas are swept once their searches are made to
+# give up (_searches_give_up). In the first the clause is over the gates of
+# the assertion as they are: its sweep refutes it without a link, a
+# canonical gate, or the bridge between the two comparisons of x and y. In
+# the second three lemmas are swept, each with a canonical gate and a link.
+SWEPT_WITHOUT_DECLARATIONS = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (and (or (<= x y) p) (or (>= y x) q) (or a b c)))
+(assert (not c))
+(assert (not a))
+(assert (not b))
+(check-sat)
+"""
+SWEPT_THREE_TIMES = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (and (or (<= x y) p (not c)) (or (not (>= y x)) q) (or a b c) (or (not p) a) (or (not q) b)))
+(assert (not a))
+(assert (not b))
+(check-sat)
+"""
+
+
+@contextlib.contextmanager
+def _searches_give_up():
+    """Make the two searches of every cnf lemma give up, as they do on a large circuit, so that it is swept.
+
+    Yields, for the last reconstruction and by node, the characters of the
+    sweeps written (_Graph.swept) and the characters every sweep counted
+    while it ran (the links it does not keep and its failed searches
+    included).
+    """
+    prover = proof_to_lean._PropositionalProver
+    cnf_refutation, refutation, sweep = proof_to_lean._cnf_refutation, prover.refutation, prover.sweep
+    swept, spent, sweeping = {}, {}, []
+
+    def lemma(graph, memo, structure, bridges, budget=1, sweep=None):
+        sweeping.append(sweep is not None)
+        try:
+            return cnf_refutation(graph, memo, structure, bridges, budget, sweep)
+        finally:
+            sweeping.pop()
+            swept.clear()
+            swept.update(graph.swept)
+
+    def give_up(self, structure, facts=()):
+        if sweeping and sweeping[-1] and self.scope is None:
+            return None  # the plain search and the one over z3's core; the sweep's own refutation runs
+        return refutation(self, structure, facts)
+
+    def counted(self, structure, facts, chars=None):
+        try:
+            return sweep(self, structure, facts, chars)
+        finally:
+            spent[int(self.scope[0].rsplit("_", 1)[1])] = self.spent
+
+    with patch.object(proof_to_lean, "_cnf_refutation", lemma), patch.object(prover, "refutation", give_up), \
+            patch.object(prover, "sweep", counted):
+        yield swept, spent
+
+
+def _first_alternative_alone(text, name):
+    """The text with the lemma `name` proved by the first alternative of its `first` alone, and that alternative."""
+    start = text.index("private theorem %s " % name)
+    end = re.compile(r"\n(?! )").search(text, start).start()
+    head, _, attempts = text[start:end].partition("\n  first\n")
+    alternatives = attempts.split("\n    | (")
+    assert len(alternatives) > 1, name
+    return text[:start] + head + "\n  first\n" + alternatives[0] + text[end:], alternatives[0]
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -2026,6 +2110,124 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
         self.assertNotEqual(alone, text)
         _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_circuit_cnf_lemma_is_swept_when_the_search_gives_up(self):
+        # The same circuit, with the search's character limit lowered so
+        # that it gives up on the nine-case clause as it does, at its own
+        # limits, on the twenty and thirty frames of the family (tf_20 and
+        # tf_30: the search splits without end, over z3's unsat core too,
+        # and the unfolded fallback ran Lean out of heartbeats). The clause
+        # is over the rewriter's form of the assertion, so the lemma is
+        # swept (_PropositionalProver.sweep): the gates of the two forms are
+        # linked class by class, each link a theorem of its own before the
+        # lemma, th_lemma_N_sK, over the canonical gates th_lemma_N_kK and
+        # the leaf bridges th_lemma_N_bK, and the lemma refutes the clause
+        # through them in a few steps.
+        source = (_EXAMPLES / "data" / "QF_IDL_ckt_PROP1_tf_10.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertNotIn("_s0 ", proof_to_lean.reconstruct(source, certificate))  # the search suffices
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 100000):
+            text = proof_to_lean.reconstruct(source, certificate)
+        swept = sorted(set(re.findall(r"\nprivate theorem (th_lemma_\d+)_s0 ", text)))
+        self.assertEqual(len(swept), 1)
+        links = len(re.findall(r"\nprivate theorem %s_s\d+ " % swept[0], text))
+        gates = len(re.findall(r"\nprivate def %s_k\d+ " % swept[0], text))
+        bridges = len(re.findall(r"\nprivate theorem %s_b\d+ " % swept[0], text))
+        self.assertTrue(500 < links < 3000 and 100 < gates < links and 10 < bridges < 100, (links, gates, bridges))
+        proofs = [part for part in text.split("\n\n") if "private theorem %s_s" % swept[0] in part]
+        self.assertLess(max(map(len, proofs)), proof_to_lean._SWEEP_LINK_CHARS)
+        self.assertLess(sum(map(len, proofs)), 2000 * links)
+        lemma = text.split("private theorem %s " % swept[0], 1)[1].split("\n\n", 1)[0]
+        head, _, attempts = lemma.partition("\n  first\n")
+        structural, fallback = attempts.split("\n    | (")
+        self.assertTrue(structural.startswith("    | (refine Classical.byContradiction ?_\n"), structural[:80])
+        self.assertIn("(%s_s" % swept[0], structural)
+        self.assertNotIn("Classical.em", structural)
+        self.assertLess(len(structural), 20000)
+        self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+        # Lean checks the file with the fallback removed.
+        alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+        self.assertNotEqual(alone, text)
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_cnf_lemma_swept_without_a_declaration_states_no_bridge(self):
+        # A sweep may refute the clause over the gates as they are, with no
+        # link, no canonical gate, and no bridge. Its refutation names the
+        # bridges as theorems applied to the valuation
+        # ((th_lemma_N_b0 _atoms _vars)), so the lemma must not state them
+        # as hypotheses by those names: `have (th_lemma_N_b0 _atoms _vars)
+        # : ... ` is not a binder (Lean: "Invalid pattern"), and the lemma
+        # was left to its unfolded fallback, which is the proof that fails
+        # on the inputs whose searches give up.
+        source = SWEPT_WITHOUT_DECLARATIONS
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        plain = proof_to_lean.reconstruct(source, certificate)
+        with _searches_give_up() as (swept, _):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(len(swept), 1)
+        name = "th_lemma_%d" % next(iter(swept))
+        # The lemma has a bridge, which the search's proof states and the sweep's does not need.
+        self.assertIn("\n    | (have _f", plain.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0])
+        self.assertFalse("%s_" % name in text, "a declaration of the sweep, or a bridge stated by a theorem's name")
+        self.assertFalse("have (th_lemma_" in text)
+        alone, refutation = _first_alternative_alone(text, name)
+        self.assertTrue(refutation.startswith("    | (refine Classical.byContradiction ?_\n"), refutation[:80])
+        self.assertNotEqual(alone, text)  # the fallback is removed: Lean checks the sweep's refutation
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_sweeps_of_a_file_share_their_characters(self):
+        # Lean's memory grows with the file (the 12 million characters of
+        # ckt_PROP3_tf_30's one sweep take 7 GB), so _SWEEP_CHARS is what
+        # all the sweeps of a file may write: here three lemmas are swept,
+        # and with one character less than the third needs after the first
+        # two it is not; it keeps the proof it has without the sweep. A
+        # sweep counts what it writes while it runs, so it stops there, not
+        # after its last link.
+        source = SWEPT_THREE_TIMES
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with _searches_give_up() as (swept, spent):
+            text = proof_to_lean.reconstruct(source, certificate)
+            sizes, counted = dict(swept), dict(spent)
+            self.assertEqual(len(sizes), 3)
+            nodes = sorted(sizes)
+            for node in nodes:
+                self.assertIn("\nprivate theorem th_lemma_%d_s" % node, text)
+                self.assertIn("\nprivate def th_lemma_%d_k" % node, text)
+            enough = sizes[nodes[0]] + sizes[nodes[1]] + counted[nodes[2]]
+            with patch.object(proof_to_lean, "_SWEEP_CHARS", enough - 1):
+                less = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual(dict(swept), {node: sizes[node] for node in nodes[:2]})
+                self.assertEqual(spent[nodes[2]], counted[nodes[2]])  # it stopped at its last character
+            with patch.object(proof_to_lean, "_SWEEP_CHARS", enough):
+                self.assertEqual(proof_to_lean.reconstruct(source, certificate), text)
+        self.assertFalse("th_lemma_%d_" % nodes[2] in less)
+        for node in nodes[:2]:
+            self.assertIn("\nprivate theorem th_lemma_%d_s" % node, less)
+            less, refutation = _first_alternative_alone(less, "th_lemma_%d" % node)
+            self.assertIn("(th_lemma_%d_s" % node, refutation)
+        _, report = lean_test_support.check(self, source, certificate, text=less)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("a 10 MB certificate: 30 s of Lean at 4.2 GB")
+    def test_twenty_frame_circuit_verifies_by_the_sweep(self):
+        # SMT-LIB QF_IDL RTCL/b13_tf_20/ckt_PROP1_tf_20: twenty frames, a
+        # 19-case clause over the rewriter's form of the one assertion
+        # (4,000 gates each way, 77 bridged leaves). At the limits the
+        # search gives up, with and without the unsat core, and the lemma
+        # is swept: about 5,500 links over 1,500 canonical gates. Before,
+        # the unfolded fallback ran out of heartbeats after 30 s.
+        source = (_EXAMPLES / "data" / "QF_IDL_ckt_PROP1_tf_20.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        swept = sorted(set(re.findall(r"\nprivate theorem (th_lemma_\d+)_s0 ", text)))
+        self.assertEqual(len(swept), 1)
+        links = len(re.findall(r"\nprivate theorem %s_s\d+ " % swept[0], text))
+        self.assertTrue(4000 < links < 8000, links)
+        self.assertLess(len(text), 12000000)
+        _, report = lean_test_support.check(self, source, certificate, text=text)
         self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_nested_conjunction_model_checking_input_exports_with_few_solver_checks(self):

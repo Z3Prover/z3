@@ -1736,6 +1736,113 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### A cnf lemma the search gives up on is swept gate by gate (2026-11-14)
+
+Scale, not breadth: the two RTCL circuits of z3test's `smtlib-sample`
+QF_IDL that were exported and then failed in Lean on one lemma (open since
+2026-11-07, see "Propositional proofs keep the steps they use" below).
+`ckt_PROP1_tf_20` and `ckt_PROP3_tf_30` assert one formula, a circuit of
+Boolean ite chains unrolled over 20 and 30 frames. Z3 logs its clauses over
+the rewriter's form of it: `(ite c false e)` as `(and (not c) e)`,
+`(ite c true e)` as `(or c e)`, conjunctions flattened, the difference
+atoms normalized. One clause, the property over all frames (19 or 29
+cases), is tied to the assertion by a cnf lemma whose two sides are two
+forms of the whole circuit, about 4,000 gates each way. The search of
+`_PropositionalProver` relates them only by case splits on the leaves they
+share: it ran out of its budget, over z3's unsat core too (3,123 of 12,943
+gates), and the unfolded fallback ran out of heartbeats (and, on `tf_30`,
+memory: 10.5 GB).
+
+When both searches give up, the lemma is now swept, as an equivalence
+checker sweeps two circuits (`_PropositionalProver.sweep`, called by
+`_cnf_refutation`):
+
+- Every structure gets a class: what the rewriter makes of it
+  (`_swept_structures`). Bridged leaves share a class, and/or are flat
+  sets of member classes (false with a member and its negation), negations
+  cancel, an iff is keyed by its sides up to negation, and a Boolean ite
+  follows `mk_ite_core`. The classes are computed bottom up in one pass.
+- A named gate (a node's definition) is linked to the representative of
+  its class, the first structure of the class, or to the class's canonical
+  gate when the class is flattened into another: the flat and/or of the
+  members' representatives, a definition of its own, where two structures
+  that group one conjunction differently meet.
+- Each link is proved by the prover's search restricted to the few gates
+  between its two ends and the links below them (`_local`), and written as
+  a theorem of its own before the lemma (`th_lemma_N_sK`, the canonical
+  gates `th_lemma_N_kK`, the leaf bridges `th_lemma_N_bK`): a tactic block
+  counts against the heartbeats of its declaration, and the links of a
+  circuit take megabytes. A link whose search fails is retried once with
+  the structures it met tied to their canonical gates, then dropped.
+- The lemma refutes the clause through the links, in a few hundred steps.
+
+The classes are hints, like z3's unsat core: a link is stated only with a
+proof found for it, Lean checks every theorem, and the lemma keeps its
+unfolded fallback. No axiom is added and no limit is raised (a link over
+5,000 characters gets the `maxHeartbeats 1000000` every lemma has).
+
+The sweep is bounded as a whole, where a link's search is bounded by itself
+(1,000 steps, 50,000 characters). Two forms of a conjunction nested n deep
+have classes of 2 to n members and n canonical gates of as many operands,
+each a parent of its operands in every search. The and/or classes of one
+sweep may have 200,000 members in all (`_SWEEP_MEMBERS`: `tf_30` has 21
+thousand, a 400-deep conjunction 81 thousand and 1.4 s, the thousand nested
+ands of QF_IDL `FISCHER6-4-ninc` 2 million); a wider formula is not swept,
+and that is known before any link is searched. The canonical gates, the
+links proved, and the searches that failed count their characters while the
+sweep runs, and it stops at `_SWEEP_CHARS` (16 million; `tf_30` counts
+11.4), which the sweeps of one file share (`_Graph.swept`): Lean's memory
+grows with the file, not with the lemma. A lemma whose sweep gives up keeps
+the text it has without it. No file of the sample reaches either bound by
+itself; with both searches made to give up, `FISCHER6-4-ninc` reconstructs
+in 3.5 s where its sweep had not ended after 1,700 s, and the swept lemmas
+of QF_LRA `current_frame.base` stop at 16.7 MB of text where twelve wrote
+27 MB. A sweep that refutes the clause over the gates as they are writes no
+declaration at all, and its lemma then states no bridge either: the
+refutation names the bridges as theorems.
+
+Measured on 2026-11-14 (`lake env lean --trust=0 -DwarningAsError=true
+--memory=8192`, wall time and peak resident memory):
+
+| input | Lean text | reconstruction | Lean before | Lean after |
+| --- | --- | --- | --- | --- |
+| `ckt_PROP1_tf_20` | 2.22 to 10.00 MB | 6.1 to 3.0 s | fails (heartbeats), 30.5 s, 4.45 GB | verifies, 29.1 s, 4.20 GB |
+| `ckt_PROP3_tf_30` | 5.23 to 18.69 MB | 12.2 to 4.8 s | fails (heartbeats, kernel memory), 139.0 s, 10.54 GB | verifies, 55.5 s, 7.14 GB |
+
+`tf_20` takes 5,463 links over 1,469 canonical gates and 77 bridges (0.8 s
+of sweep), `tf_30` 9,786 over 2,586 and 53 (1.4 s). The text grows because
+the proof is now written out, about 1.2 kB a link; the reconstruction is
+faster because the search over a relevant set no longer walks every
+structure at each split. The other 128 sample files that export to at most
+30 MB of Lean keep their text byte for byte. `tf_10` verifies by the
+search as before, and by the sweep when the search's limit is lowered
+(2.1 MB, 3.2 s, 1.3 GB). Tests: `test_proof_to_lean.py`
+(`test_sweep_relates_two_forms_of_a_formula_gate_by_gate`: the generated
+family `swept_frames(count)`, linear in the frames;
+`test_sweep_ties_a_named_gate_a_link_reads_through`: `opened_frames(count)`,
+whose links need a named gate tied on demand;
+`test_sweep_gives_up_beyond_its_limits`: `nested_conjunction(count)`;
+`test_sweep_classes_follow_the_rewriter`),
+`test_proof_to_lean_integration.py`
+(`test_sweep_declarations_check_in_lean`, both families),
+`test_proof_to_lean_lia.py`
+(`test_circuit_cnf_lemma_is_swept_when_the_search_gives_up`: `tf_10` with
+the fallback removed;
+`test_cnf_lemma_swept_without_a_declaration_states_no_bridge` and
+`test_sweeps_of_a_file_share_their_characters`: small inputs whose searches
+are made to give up; the slow
+`test_twenty_frame_circuit_verifies_by_the_sweep`,
+`data/QF_IDL_ckt_PROP1_tf_20.smt2`).
+
+Still open: the sweep is linear in the gates but a chain of n nested
+conjunctions has n canonical gates of up to n operands, quadratic in all
+(the RTCL chains have at most 30), so a deep chain is given up on by the
+bounds above, not swept: canonical gates nested like the class's first
+structure would make it linear. `tf_30` is at 7.1 GB of the 8 GB cap.
+The rules read here are those these circuits needed; a rewriter step the
+classes miss costs links, never soundness. Theory clauses
+(`_theory_clauses`) are not combined with a sweep.
+
 ### Regrouping rewrites over theory atoms proved by their structure (2026-11-13)
 
 Scale, not breadth: a QF_UF family inside the supported fragment whose
@@ -2309,8 +2416,8 @@ plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
 hits kernel memory errors in outlined proof steps (verifies since
 2026-11-10, see "Steps under hypotheses bound inside the step using
 them"). RTCL `tf_20`/`tf_30`
-are unchanged: their cores have about 3,000 gates, and the search over
-them still runs out of budget. That retry is not free: on `tf_20` the core
+are unchanged (they verify since 2026-11-14, by the sweep): their cores
+have about 3,000 gates, and the search over them still runs out of budget. That retry is not free: on `tf_20` the core
 (3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction
 from 0.7 s to 5.4 s for identical output. The cores that help are smaller
 (plan-21 6%, the FISCHER6-4 lemmas under a 25,000-character budget 7%,
@@ -2342,8 +2449,9 @@ Results:
 - BubbleSort's cnf proof shrinks from about ten thousand steps to 853, and
   the file checks in 9 s at 1.8 GB (about a minute at 4.5 GB before).
 
-Still open: `tf_20` and `tf_30` keep the fallback. Their search explodes
-even with 100 times the budget. Restricting the search to the gates of a
+Still open (closed on 2026-11-14 by the sweep, see "A cnf lemma the search
+gives up on is swept gate by gate"): `tf_20` and `tf_30` keep the
+fallback. Their search explodes even with 100 times the budget. Restricting the search to the gates of a
 z3 unsat core (about 2,600 of 13,000) did not help, nor did other split
 orders. The search seems to need clause learning or proof guidance from
 a SAT solver's refutation.

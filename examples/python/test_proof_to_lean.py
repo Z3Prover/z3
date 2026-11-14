@@ -699,6 +699,75 @@ def gate_inputs():
     return structure, {structure, ("iff", g, h), ("iff", g, ("not", h)), ("not", h)}, g
 
 
+def swept_frames(count, extra=False):
+    """A clause tying two forms of one formula over count frames, and the names of its gates.
+
+    The first form is the conjunction of (ite p false (ite q true a)) over
+    the frames, the second the conjunction, in the other order, of what
+    Z3's rewriter makes of each: (and (not p) (or q a)). The clause is
+    (or (not first) second); with extra, the second form has one more
+    conjunct and the clause does not hold. Every gate that would be a node
+    of a certificate has a name, n<index> applied to _atoms, as
+    _structure_names gives; the two branches of an ite have none.
+    """
+    true, false = ("true",), ("false",)
+    named, first, second = [], [], []
+    for frame in range(count):
+        p, q, a = (("atom", 3 * frame + offset) for offset in range(3))
+        inner = ("or", ("and", q, true), ("and", ("not", q), a))
+        outer = ("or", ("and", p, false), ("and", ("not", p), inner))
+        disjunction = ("or", q, a)
+        rewritten = ("and", ("not", p), disjunction)
+        named += [inner, outer, disjunction, rewritten]
+        first.append(outer)
+        second.insert(0, rewritten)
+    if extra:
+        second.append(("atom", 3 * count))
+    first, second = ("and",) + tuple(first), ("and",) + tuple(second)
+    clause = ("or", ("not", first), second)
+    named += [first, second, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def opened_frames(count):
+    """A clause tying two forms of one formula whose sweep ties a named gate on demand, and the gates' names.
+
+    The first form is the conjunction over the frames of (or (and c a)
+    (and (not c) e)), the second the conjunction, in the other order, of
+    (ite c (or a false) e). The named gate (and c a) of the first form comes
+    first, so it stands for its class, and the unnamed branch (and c (or a
+    false)) of the ite shares that class: the link between the two frames
+    reads through the branch and must read the named gate too (_open).
+    """
+    false = ("false",)
+    named, first, second = [], [], []
+    for frame in range(count):
+        c, a, e = (("atom", 3 * frame + offset) for offset in range(3))
+        conjunction, then = ("and", c, a), ("or", a, false)
+        rewritten = ("or", conjunction, ("and", ("not", c), e))
+        ite = ("or", ("and", c, then), ("and", ("not", c), e))
+        named += [conjunction, then, rewritten, ite]
+        first.append(rewritten)
+        second.insert(0, ite)
+    first, second = ("and",) + tuple(first), ("and",) + tuple(second)
+    clause = ("or", ("not", first), second)
+    named += [first, second, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def nested_conjunction(count):
+    """A clause tying a conjunction nested count deep to the flat one over its operands, and the gates' names."""
+    gates = [("or", ("atom", 2 * index), ("atom", 2 * index + 1)) for index in range(count)]
+    named, nested = list(gates), gates[-1]
+    for gate in reversed(gates[:-1]):
+        nested = ("and", gate, nested)
+        named.append(nested)
+    flat = ("and",) + tuple(reversed(gates))
+    clause = ("or", ("not", nested), flat)
+    named += [flat, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
 # x + 10 and x + 5 + 5 modulo 17, each step an ite, said to differ (depth 2
 # of test_proof_to_lean_lia.modular_chains_instance).
 MODULAR_CHAINS = """\
@@ -1362,6 +1431,170 @@ class TestProofToLean(unittest.TestCase):
         term = "\n".join(lines)
         self.assertIn("refine (Or.elim (Classical.em %s)" % prover.named[g], term)
         self.assertNotIn("Classical.em (_atoms", term)
+
+    def test_sweep_relates_two_forms_of_a_formula_gate_by_gate(self):
+        # A cnf lemma whose search gives up is swept (_PropositionalProver.
+        # sweep): the gates of the assertion and of the clause Z3 logged
+        # over its rewriter's form are put in classes, each named gate is
+        # linked to the representative or the canonical gate of its class,
+        # and each link is a theorem proved over the few gates between its
+        # ends. Lean checks the declarations in test_proof_to_lean_integration.
+        def sweep(count, **options):
+            clause, names = swept_frames(count, **options)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return clause, prover, prover.sweep(("not", clause), [])
+
+        clause, prover, (declarations, refutation) = sweep(3)
+        first, second = clause[1][1], clause[2]
+        # The two forms and their frames share classes; the classes follow
+        # the rewriter: (ite p false e) is (and (not p) e), (ite q true a)
+        # is (or q a), and the conjunction is the flat set of its members.
+        self.assertEqual(prover.classes[first], prover.classes[second])
+        for outer, rewritten in zip(first[1:], reversed(second[1:])):
+            self.assertEqual(prover.classes[outer], prover.classes[rewritten])
+            self.assertEqual(prover.classes[outer[2][2]], prover.classes[rewritten[2]])
+        self.assertEqual(len(prover.keys[prover.classes[first]][1]), 6)
+        # The canonical gates are definitions, stated before the links; a
+        # link is an Iff between a gate and its class's gate or
+        # representative, and a fact of the later ones by its name.
+        kinds = [statement is None for _, statement, _ in declarations]
+        self.assertEqual(kinds, sorted(kinds, reverse=True))
+        self.assertTrue(all(name.startswith("lemma_k") for name, statement, _ in declarations if statement is None))
+        links = [(name, statement, lines) for name, statement, lines in declarations if statement is not None]
+        self.assertEqual([name for name, _, _ in links], sorted((name for name, _, _ in links),
+                                                                 key=lambda name: int(name[7:])))
+        for name, statement, lines in links:
+            self.assertTrue(name.startswith("lemma_s") and statement.startswith("(Iff ("), (name, statement))
+            self.assertEqual(lines[0][:17], "refine Iff.intro ")
+            later = int(name[7:])
+            self.assertTrue(all(int(used) < later for line in lines for used in re.findall(r"lemma_s(\d+)", line)))
+        text = "\n".join(refutation)
+        self.assertIn("(lemma_s", text)  # the clause is refuted through the links of the two forms
+        self.assertNotIn("Classical.em", text)
+        # The declarations grow linearly with the frames, and so do their
+        # characters: one canonical gate over all frames, the rest per frame.
+        sizes = {}
+        for count in (4, 8, 16):
+            _, _, (declarations, _) = sweep(count)
+            sizes[count] = (len(declarations), sum(len(statement or "") + sum(map(len, lines))
+                                                   for _, statement, lines in declarations))
+        self.assertEqual(sizes[16][0] - sizes[8][0], 2 * (sizes[8][0] - sizes[4][0]))
+        self.assertLess(sizes[16][1], 2.5 * sizes[8][1])
+        # A clause that does not hold is not refuted, and a link the
+        # classes do not give is proved only if it holds: the classes are
+        # hints, the searches are what is stated.
+        self.assertIsNone(sweep(3, extra=True)[2])
+        clause, names = swept_frames(3)
+        prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                    scope=("lemma", " _atoms"))
+        wrong = ("iff", clause[1][1][1], clause[2][1])  # the first frame of one form, the last of the other
+        prover._index(wrong)
+        prover.links.insert(0, wrong)
+        declarations, _ = prover.sweep(("not", clause), [])
+        self.assertNotIn(prover._render(wrong), [statement for _, statement, _ in declarations])
+        self.assertIn(wrong[1], prover.failed)
+        # A sweep states its links outside the proof: it needs the caller's names.
+        with self.assertRaises(ValueError):
+            proof_to_lean._PropositionalProver(("not", clause), classical=True, joined=[])
+
+    def test_sweep_ties_a_named_gate_a_link_reads_through(self):
+        # A named gate that stands for its class has no link, and a search
+        # takes it for an input, as it takes an atom. The link of a frame
+        # of opened_frames needs what is under it (the unnamed branch of
+        # the ite it is tied to is read through): when a link's search
+        # fails, the named gates it met without a fact are tied to their
+        # canonical gates (_open) and the search is repeated.
+        def sweep(count):
+            clause, names = opened_frames(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return clause, prover, prover.sweep(("not", clause), [])
+
+        clause, prover, found = sweep(3)
+        self.assertIsNotNone(found)
+        self.assertEqual(prover.failed, set())
+        conjunctions = [frame[1] for frame in clause[1][1][1:]]
+        self.assertTrue(all(conjunction in prover.gates for conjunction in conjunctions))
+        self.assertIn("(lemma_s", "\n".join(found[1]))
+        with patch.object(proof_to_lean._PropositionalProver, "_open", lambda self, untied, blocks: False):
+            clause, prover, found = sweep(3)
+        self.assertIsNone(found)
+        self.assertNotEqual(prover.failed, set())
+        self.assertFalse(any(conjunction in prover.gates for conjunction in conjunctions))
+
+    def test_sweep_gives_up_beyond_its_limits(self):
+        # A link's search has its own limits; the sweep as a whole has two.
+        # n nested conjunctions have and classes of 2 to n members, and as
+        # many canonical gates of that many operands: beyond _SWEEP_MEMBERS
+        # members the formula is not swept (the thousand nested ands of
+        # QF_IDL FISCHER6-4-ninc have two million; their sweep took half an
+        # hour without an end, and now none of the time). And a sweep stops
+        # once its links and its failed searches have written more than it
+        # may (_SWEEP_CHARS for the sweeps of a file), not after the last
+        # link. The limits as they are, on a conjunction a thousand deep:
+        # test_proof_to_lean_integration (its structures are too deep for
+        # an interpreter that does not cache the hash of a tuple).
+        def sweep(count, **options):
+            clause, names = nested_conjunction(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [], **options)
+
+        prover, found = sweep(30)
+        self.assertIsNotNone(found)
+        members = sum(range(2, 31)) + 30 * 2  # the nested ands' classes and those of the thirty ors
+        self.assertEqual(prover.members, members)
+        links, written = len(prover.proved), prover.spent
+        declarations = sum(len(statement or "") + sum(map(len, lines)) for _, statement, lines in found[0])
+        self.assertTrue(declarations <= written < 2 * declarations, (declarations, written))
+        self.assertIsNotNone(sweep(30, chars=written)[1])
+        prover, found = sweep(30, chars=written // 2)
+        self.assertIsNone(found)
+        self.assertTrue(0 < len(prover.proved) < links, len(prover.proved))
+        self.assertLess(prover.spent, written // 2 + proof_to_lean._SWEEP_LINK_CHARS)
+        with patch.object(proof_to_lean, "_SWEEP_CHARS", written // 2):  # the default of chars
+            self.assertIsNone(sweep(30)[1])
+        with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members - 1):
+            prover, found = sweep(30)
+            self.assertIsNone(found)
+            self.assertIsNone(prover.links)
+            self.assertEqual(prover.proved, {})
+        with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members):
+            self.assertIsNotNone(sweep(30)[1])
+
+    def test_sweep_classes_follow_the_rewriter(self):
+        # The classes of _swept_structures on single rules: equal classes
+        # for a formula and what Z3's rewriter makes of it, distinct ones
+        # for formulas that differ. Joined leaves share a class, or have
+        # complementary ones.
+        a, b, c = (("atom", index) for index in range(3))
+        x, y, z = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (3, 5, 7))
+        true, false = ("true",), ("false",)
+
+        def ite(condition, then, other):
+            return ("or", ("and", condition, then), ("and", ("not", condition), other))
+
+        same = [(ite(a, false, true), ("not", a)), (ite(a, true, false), a), (ite(a, false, b), ("and", ("not", a), b)),
+                (ite(a, true, b), ("or", a, b)), (ite(a, b, true), ("or", ("not", a), b)),
+                (ite(a, b, false), ("and", a, b)), (ite(a, b, a), ("and", a, b)), (ite(a, a, b), ("or", a, b)),
+                (ite(a, b, ("not", b)), ("iff", a, b)), (ite(true, b, c), b), (ite(a, b, b), b),
+                (ite(("not", a), b, c), ite(a, c, b)), (ite(a, b, c), ("or", ("and", b, a), ("and", c, ("not", a)))),
+                (("and", a, ("and", b, c)), ("and", ("and", c, a), b, true)), (("or", a, ("or", b, false)), ("or", b, a)),
+                (("and", a, ("not", a), b), false), (("or", b, ("not", b)), true), (("not", ("not", a)), a),
+                (("implies", a, b), ("or", ("not", a), b)), (("iff", a, false), ("not", a)), (("iff", true, a), a),
+                (("iff", ("not", a), b), ("not", ("iff", b, a))), (("iff", ("not", a), ("not", b)), ("iff", a, b)),
+                (("and", x, a), ("and", a, y)), (("or", x, z), true), (("iff", y, ("not", z)), true)]
+        differ = [(("and", a, b), ("or", a, b)), (ite(a, b, c), ite(a, c, b)), (("iff", a, b), ("iff", a, c)),
+                  (("not", ("and", a, b)), ("or", ("not", a), ("not", b))), (x, c)]
+        joined = [("iff", x, y), ("iff", x, ("not", z))]
+        roots = [side for pair in same + differ for side in pair]
+        prover = proof_to_lean._PropositionalProver(*roots, *joined, classical=True, names={}, joined=joined,
+                                                    scope=("lemma", ""))
+        for left, right in same:
+            self.assertEqual(prover.classes[left], prover.classes[right], (left, right))
+        for left, right in differ:
+            self.assertNotEqual(prover.classes[left], prover.classes[right], (left, right))
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"
