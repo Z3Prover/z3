@@ -223,9 +223,11 @@ namespace seq {
 
                 vector<unsigned_vector> dense;
                 unsigned_vector consts;
+                unsigned_vector widths;
                 for (auto const& row : rows) {
                     unsigned_vector v;
                     v.resize(vars.size(), 0);
+                    unsigned width = 0;
                     for (auto const& kv : row.m_coeff) {
                         unsigned idx = 0;
                         if (slot.find(kv.m_key, idx)) {
@@ -233,6 +235,8 @@ namespace seq {
                             if (c < 0)
                                 c += modulus;
                             v[idx] = static_cast<unsigned>(c);
+                            if (c != 0)
+                                width = std::max(width, idx + 1);
                         }
                     }
                     dense.push_back(v);
@@ -240,31 +244,44 @@ namespace seq {
                     if (k < 0)
                         k += modulus;
                     consts.push_back(static_cast<unsigned>(k));
+                    widths.push_back(width);
                 }
                 unsigned_vector asg;
                 asg.resize(vars.size(), 0);
                 bool feasible = false;
+                unsigned depth = 0;
                 while (true) {
                     if (!m.limit().inc())
                         throw default_exception(m.limit().get_cancel_msg());
                     bool ok = true;
                     for (unsigned i = 0; ok && i < rows.size(); ++i) {
+                        // Prune as soon as every variable of this row is assigned.
+                        if (widths[i] != depth)
+                            continue;
                         unsigned t = consts[i];
-                        for (unsigned j = 0; j < vars.size(); ++j)
+                        for (unsigned j = 0; j < depth; ++j)
                             t += dense[i][j] * asg[j];
                         ok = (rows[i].m_mask >> (t % modulus)) & 1;
                     }
                     if (ok) {
-                        feasible = true;
-                        break;
-                    }
-                    unsigned j = 0;
-                    for (; j < vars.size(); ++j) {
-                        if (++asg[j] < modulus)
+                        if (depth == vars.size()) {
+                            feasible = true;
                             break;
-                        asg[j] = 0;
+                        }
+                        ++depth;
+                        continue;
                     }
-                    if (j == vars.size())
+                    bool advanced = false;
+                    while (depth > 0) {
+                        --depth;
+                        if (++asg[depth] < modulus) {
+                            ++depth;
+                            advanced = true;
+                            break;
+                        }
+                        asg[depth] = 0;
+                    }
+                    if (!advanced)
                         break;
                 }
                 if (!feasible) {
