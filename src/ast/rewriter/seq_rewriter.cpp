@@ -2215,6 +2215,15 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+    expr *at_source = nullptr, *at_index = nullptr;
+    if (str().is_empty(c) && str().is_at(b, at_source, at_index) &&
+        at_source == a && m_autil.is_zero(at_index)) {
+        expr_ref one(m_autil.mk_int(1), m());
+        expr_ref length(str().mk_length(a), m());
+        result = str().mk_substr(a, one, length);
+        return BR_REWRITE2;
+    }
+
     if (str().is_string(a, s1) && s1.length() == 1) {
         expr_ref empty_pattern(str().mk_is_empty(b), m());
         expr_ref match(m().mk_eq(b, a), m());

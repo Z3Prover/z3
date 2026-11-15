@@ -469,6 +469,41 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_delete_first_character() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util au(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(au.mk_int()), m);
+    expr_ref zero(au.mk_int(0), m);
+    expr_ref one(au.mk_int(1), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        expr_ref source(m.mk_fresh_const("source", seq_sort), m);
+        expr_ref replacement(m.mk_fresh_const("replacement", seq_sort), m);
+        expr_ref other(m.mk_fresh_const("other", seq_sort), m);
+        expr_ref empty(su.str.mk_empty(seq_sort), m);
+        expr_ref length(su.str.mk_length(source), m);
+        expr_ref suffix(su.str.mk_substr(source, one, length), m);
+        expr_ref pattern(su.str.mk_at(source, zero), m);
+        expr_ref actual(su.str.mk_replace(source, pattern, empty), m);
+        rw(actual);
+        rw(suffix);
+        ENSURE(actual == suffix);
+        actual = su.str.mk_replace(source, pattern, replacement);
+        rw(actual);
+        ENSURE(su.str.is_replace(actual));
+        pattern = su.str.mk_at(source, one);
+        actual = su.str.mk_replace(source, pattern, empty);
+        rw(actual);
+        ENSURE(actual != suffix);
+        pattern = su.str.mk_at(other, zero);
+        actual = su.str.mk_replace(source, pattern, empty);
+        rw(actual);
+        ENSURE(actual != suffix);
+    }
+}
+
 static void tst_symbolic_union_membership() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -839,6 +874,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_delete_first_character();
     tst_symbolic_union_membership();
     tst_empty_source_replace();
     tst_unit_source_replace();
