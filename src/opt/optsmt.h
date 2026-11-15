@@ -117,7 +117,7 @@ namespace opt {
 
         void set_max(vector<objective_value>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 
-        expr_ref update_lower();
+        bool update_lower(expr_ref& bound);
 
         void update_lower_lex(unsigned idx, inf_eps const& r, bool is_maximize);
 

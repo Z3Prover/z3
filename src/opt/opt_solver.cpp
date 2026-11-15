@@ -205,7 +205,7 @@ namespace opt {
         return r;
     }
 
-    bool opt_solver::maximize_objectives1(expr_ref_vector& blockers) {
+    bool opt_solver::maximize_objectives1(expr_ref_vector& blockers, unsigned num_assumptions, expr* const* assumptions) {
         // Save the baseline model before any push/pop corrupts LP state.
         // Push/pop isolates SMT assertions but does not restore LP column
         // values, so maximize may return stale values for non-linear
@@ -215,7 +215,7 @@ namespace opt {
 
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
             expr_ref blocker(m);
-            if (!maximize_objective_isolated(i, baseline_model, blocker))
+            if (!maximize_objective_isolated(i, baseline_model, blocker, num_assumptions, assumptions))
                 return false;
             blockers.push_back(blocker);
         }
@@ -227,13 +227,21 @@ namespace opt {
     // baseline_model is the satisfying model obtained before optimization
     // and guards against LP state corruption for non-linear objectives
     // like mod, fixes #9012.
-    bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
+    bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker,
+                                                  unsigned num_assumptions, expr* const* assumptions) {
         inf_eps val;
         model_ref mdl;
         {
             m_context.push();
             // Keep internal scopes separate from the public assumption stack.
             on_scope_exit pop([&] { m_context.pop(1); });
+
+            // push() backtracks the satisfying assignment. Recheck with the
+            // assumptions asserted in this scope so nested validation sees them too.
+            for (unsigned j = 0; j < num_assumptions; ++j)
+                m_context.assert_expr(assumptions[j]);
+            if (adjust_result(m_context.check(0, nullptr)) != l_true)
+                return false;
 
             if (!maximize_objective(i, blocker).bound_valid)
                 return false;
