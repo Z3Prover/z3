@@ -469,6 +469,35 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_empty_source_replace() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util au(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(au.mk_int()), m);
+    expr_ref character(su.str.mk_string("a"), m);
+    expr_ref element(au.mk_int(1), m);
+    expr_ref unit(su.str.mk_unit(element), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        expr_ref empty(su.str.mk_empty(seq_sort), m);
+        expr_ref pattern(m.mk_fresh_const("pattern", seq_sort), m);
+        expr_ref replacement(m.mk_fresh_const("replacement", seq_sort), m);
+        expr_ref condition(m.mk_eq(pattern, empty), m);
+        expr_ref expected(m.mk_ite(condition, replacement, empty), m);
+        expr_ref actual(su.str.mk_replace(empty, pattern, replacement), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+
+        expr* nonempty = seq_sort == su.str.mk_string_sort() ? character.get() : unit.get();
+        expr_ref compound(su.str.mk_concat(nonempty, pattern), m);
+        actual = su.str.mk_replace(empty, compound, replacement);
+        rw(actual);
+        ENSURE(actual == empty);
+    }
+}
+
 static void tst_unit_source_replace() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -755,6 +784,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_empty_source_replace();
     tst_unit_source_replace();
     tst_equal_index_searches();
     tst_conditional_regex_membership();

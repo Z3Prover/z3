@@ -2244,7 +2244,9 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
             result = a;
             return BR_DONE;
         }
-        return BR_FAILED;
+        expr_ref empty_pattern(str().mk_is_empty(b), m());
+        result = m().mk_ite(empty_pattern, c, a);
+        return BR_REWRITE2;
     }
 
     // a := b + rest
