@@ -73,6 +73,50 @@ namespace {
         ENSURE(s->check_sat(0, nullptr) == l_true);
     }
 
+    static void tst_symbolic_word_star_complement() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 5000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref text(m.mk_const("text", u.str.mk_string_sort()), m);
+        expr_ref word(m.mk_const("word", u.str.mk_string_sort()), m);
+        expr_ref text_len(u.str.mk_length(text), m);
+        expr_ref word_len(u.str.mk_length(word), m);
+        expr_ref zero(a.mk_int(0), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref aa(u.str.mk_string("aa"), m);
+        expr_ref aaa(u.str.mk_string("aaa"), m);
+        expr_ref aaaa(u.str.mk_string("aaaa"), m);
+        expr_ref re(u.re.mk_to_re(word), m);
+        re = u.re.mk_star(re);
+        expr_ref member(u.re.mk_in_re(text, re), m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        s->assert_expr(m.mk_not(member));
+        s->push();
+        s->assert_expr(m.mk_eq(word_len, zero));
+        s->assert_expr(m.mk_eq(text_len, one));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->pop(1);
+        s->push();
+        s->assert_expr(m.mk_eq(word, aa));
+        s->assert_expr(m.mk_eq(text, aaa));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->pop(1);
+        s->push();
+        s->assert_expr(m.mk_eq(word, aa));
+        s->assert_expr(m.mk_eq(text, aaaa));
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        s->pop(1);
+        s->push();
+        s->assert_expr(m.mk_eq(text_len, zero));
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        s->pop(1);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+    }
+
     static void tst_predicate_algebra() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1597,6 +1641,7 @@ namespace {
 
 void tst_seq_mem_facet() {
     tst_symbolic_word_star();
+    tst_symbolic_word_star_complement();
     tst_predicate_algebra();
     tst_letter_count_benchmark(false);
     tst_letter_count_benchmark(true);

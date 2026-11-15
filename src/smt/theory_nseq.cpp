@@ -418,10 +418,37 @@ namespace smt {
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* body = nullptr, *word = nullptr;
-            if (is_true && m_seq.is_string(e1->get_sort()) &&
+            if (m_seq.is_string(e1->get_sort()) &&
                 m_seq.re.is_star(e2, body) && m_seq.re.is_to_re(body, word) &&
                 !m_seq.re.is_ground(body)) {
                 mk_var(ensure_enode(word));
+                if (!is_true) {
+                    expr_ref lhs(m_seq.str.mk_concat(e1, word), m);
+                    expr_ref rhs(m_seq.str.mk_concat(word, e1), m);
+                    expr_ref commute(m.mk_eq(lhs, rhs), m);
+                    expr_ref len(m_seq.str.mk_length(e1), m);
+                    expr_ref word_len(m_seq.str.mk_length(word), m);
+                    m_th_rewriter(len);
+                    m_th_rewriter(word_len);
+                    expr_ref zero(m_autil.mk_int(0), m);
+                    expr_ref empty_word(m.mk_eq(word_len, zero), m);
+                    expr_ref empty_text(m.mk_eq(len, zero), m);
+                    expr_ref remainder(m_autil.mk_mod(len, word_len), m);
+                    expr_ref multiple(m.mk_eq(remainder, zero), m);
+                    // A negated membership needs the exact remainder test, not an existential count.
+                    expr_ref length_ok(m.mk_ite(empty_word, empty_text, multiple), m);
+                    expr_ref inside(m.mk_and(commute, length_ok), m);
+                    expr_ref not_inside(m.mk_not(inside), m);
+                    // Expose epsilon's membership to arithmetic before word reasoning.
+                    expr_ref nonempty(m_autil.mk_gt(len, zero), m);
+                    expr_ref outside(m.mk_and(nonempty, not_inside), m);
+                    m_th_rewriter(outside);
+                    expr_ref_vector clause(m);
+                    clause.push_back(e);
+                    clause.push_back(outside);
+                    m_ax.add_axiom_clause(clause);
+                    return;
+                }
                 expr_ref count(m.mk_fresh_const("reps", m_autil.mk_int()), m);
                 expr_ref len(m_seq.str.mk_length(e1), m);
                 expr_ref word_len(m_seq.str.mk_length(word), m);
