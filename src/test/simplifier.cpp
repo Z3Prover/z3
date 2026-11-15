@@ -1698,6 +1698,56 @@ static void test_seq_regular() {
         ENSURE(state[0].fml() == mixed);
     }
     {
+        expr_ref upper(a.mk_le(len, integer(8)), m);
+        expr_ref shifted(a.mk_sub(len, integer(2)), m);
+        expr_ref lower(a.mk_le(shifted, integer(7)), m);
+        lower = m.mk_not(lower);
+        expr_ref nested(m.mk_and(upper, m.mk_true()), m);
+        expr_ref t(m.mk_const("regular-bound-t", u.str.mk_string_sort()), m);
+        expr_ref relational(m.mk_eq(s, t), m);
+        expr_ref hi_label(m.mk_const("regular-upper", m.mk_bool_sort()), m);
+        expr_ref lo_label(m.mk_const("regular-lower", m.mk_bool_sort()), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, nested, nullptr, m.mk_leaf(hi_label)));
+        state.add(dependent_expr(m, lower, nullptr, m.mk_leaf(lo_label)));
+        state.add(dependent_expr(m, relational, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state.inconsistent() && m.is_false(state[0].fml()));
+        ptr_vector<expr> premises;
+        m.linearize(state[0].dep(), premises);
+        ENSURE(premises.size() == 2 && premises.contains(hi_label) && premises.contains(lo_label));
+    }
+    for (bool guarded : {false, true}) {
+        expr_ref upper(a.mk_le(len, integer(8)), m);
+        expr_ref lower(a.mk_gt(len, integer(guarded ? 9 : 7)), m);
+        if (guarded) {
+            expr_ref boundary(m.mk_eq(len, integer(8)), m);
+            lower = m.mk_or(lower, boundary);
+        }
+        expr_ref t(m.mk_const("regular-sat-bound-t", u.str.mk_string_sort()), m);
+        expr_ref relational(m.mk_eq(s, t), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, upper, nullptr, nullptr));
+        state.add(dependent_expr(m, lower, nullptr, nullptr));
+        state.add(dependent_expr(m, relational, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(!state.inconsistent());
+        ENSURE(state[0].fml() == upper && state[1].fml() == lower && state[2].fml() == relational);
+    }
+    for (int coefficient : {2, -2}) {
+        expr_ref twice(a.mk_mul(integer(coefficient), len), m);
+        expr_ref upper(a.mk_lt(twice, integer(coefficient > 0 ? 16 : -15)), m);
+        expr_ref lower(a.mk_gt(twice, integer(coefficient > 0 ? 15 : -16)), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, upper, nullptr, nullptr));
+        state.add(dependent_expr(m, lower, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state.inconsistent());
+    }
+    {
         base_dependent_expr_state state(m);
         state.add(dependent_expr(m, cases.get(0), nullptr, nullptr));
         params_ref p;
