@@ -37,6 +37,7 @@ class regular_compiler {
     unsigned max_steps;
     unsigned& steps;
     unsigned& preimages;
+    bool m_automatic;
     enum class comparison_kind { eq, ne, le, ge, lt, gt };
     std::unordered_map<expr*, expr*> normalized;
     std::unordered_map<expr*, expr*> decimal_normalized;
@@ -49,7 +50,7 @@ class regular_compiler {
     std::vector<decimal_rewrite> decimal_rewrites;
     struct linear {
         rational constant;
-        std::map<expr*, rational> terms;
+        std::map<expr*, rational, ast_lt_proc> terms;
         void add(linear const& b, rational const& scale) {
             constant += scale * b.constant;
             for (auto const& [e, n] : b.terms) {
@@ -125,7 +126,7 @@ class regular_compiler {
         expr *s, *begin, *length;
         if (!u.str.is_extract(e, s, begin, length)) return false;
         linear b = affine(begin), len = affine(length);
-        std::set<expr*> candidates;
+        std::set<expr*, ast_lt_proc> candidates;
         for (auto const& [t, _] : b.terms) candidates.insert(t);
         for (auto const& [t, _] : len.terms) candidates.insert(t);
         for (expr* t : candidates) {
@@ -787,7 +788,8 @@ class regular_compiler {
         if (depth > 256) throw failure::budget;
         if (m.is_true(e) || m.is_false(e)) return e;
         expr *condition, *yes, *no;
-        if (m.is_ite(e, condition, yes, no)) {
+        // Automatic regex branching can overwhelm the shared arithmetic path.
+        if (!m_automatic && m.is_ite(e, condition, yes, no)) {
             expr* guard = translate(condition, false, depth + 1);
             expr_ref_vector positive(m), negative(m), branches(m);
             positive.push_back(guard);
@@ -802,7 +804,7 @@ class regular_compiler {
             bool conjunction = m.is_and(e);
             expr_ref_vector children(m), rest(m);
             std::map<unsigned, expr*> pending;
-            std::unordered_map<expr*, expr*> groups;
+            std::map<expr*, expr*, ast_lt_proc> groups;
             for (expr* arg : *to_app(e)) {
                 expr* child = translate(arg, conjunction, depth + 1);
                 expr *s, *r;
@@ -870,9 +872,9 @@ class regular_compiler {
         return e;
     }
 public:
-    regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages):
+    regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages, bool automatic):
         m(m), u(m), a(m), rw(m), br(m), pin(m), empty(m), epsilon(m), character(m), all(m),
-        max_steps(limit), steps(steps), preimages(preimages) {
+        max_steps(limit), steps(steps), preimages(preimages), m_automatic(automatic) {
         sort* s = u.str.mk_string_sort();
         sort* re = u.re.mk_re(s);
         empty = u.re.mk_empty(re);
@@ -1037,12 +1039,37 @@ void seq_regular_simplifier::reduce() {
             has_strings = has_string_terms(m, m_fmls[i].fml());
         if (!has_strings)
             return;
+        seq_util u(m);
+        arith_util a(m);
+        obj_hashtable<expr> seen;
+        ptr_vector<expr> todo;
+        for (unsigned i = qhead(); i < qtail(); ++i) todo.push_back(m_fmls[i].fml());
+        bool conversion = false, nonzero_search = false;
+        while (!todo.empty()) {
+            if (!m.inc()) return;
+            expr* e = todo.back();
+            todo.pop_back();
+            if (seen.contains(e)) continue;
+            seen.insert(e);
+            if (u.str.is_stoi(e) || u.str.is_itos(e)) {
+                conversion = true;
+                break;
+            }
+            expr *source, *needle, *offset;
+            rational value;
+            nonzero_search |= u.str.is_index(e, source, needle, offset) &&
+                a.is_numeral(offset, value) && value.is_pos();
+            if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);
+        }
+        // Positive search offsets are outside regular preimages; retain decimal lowering when needed.
+        if (nonzero_search && !conversion)
+            return;
     }
     scoped_watch watch(m_watch);
     if (proofs_enabled() || m_fmls.has_quantifiers()) { ++m_skipped; return; }
     unsigned preimages_before = m_preimages;
     unsigned steps = 0;
-    regular_compiler compiler(m, m_max_steps, steps, m_preimages);
+    regular_compiler compiler(m, m_max_steps, steps, m_preimages, m_automatic);
     expr_ref_vector decimals(m), results(m);
     bool labeled = false;
     for (unsigned i = qhead(); i < qtail(); ++i) labeled |= m_fmls[i].dep() != nullptr;

@@ -1525,6 +1525,73 @@ static void test_seq_regular() {
         ENSURE(u.str.is_in_re(state[0].fml(), root, language) && root == s);
     }
     {
+        expr_ref t(m.mk_const("regular-order-t", u.str.mk_string_sort()), m);
+        expr_ref v(m.mk_const("regular-order-v", u.str.mk_string_sort()), m);
+        expr_ref_vector observations(m);
+        observations.push_back(contains(v, "a"));
+        observations.push_back(contains(s, "b"));
+        observations.push_back(contains(t, ":"));
+        ptr_vector<expr> first_order;
+        for (bool reverse : {false, true}) {
+            base_dependent_expr_state state(m);
+            for (unsigned i = 0; i < observations.size(); ++i)
+                state.add(dependent_expr(m, observations.get(reverse ? observations.size() - i - 1 : i), nullptr, nullptr));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            ENSURE(m.is_and(state[0].fml()));
+            app* conjunction = to_app(state[0].fml());
+            ENSURE(conjunction->get_num_args() == 3);
+            unsigned index = 0;
+            for (expr* conjunct : *conjunction) {
+                expr *source, *language;
+                ENSURE(u.str.is_in_re(conjunct, source, language));
+                if (reverse) {
+                    ENSURE(source == first_order[index]);
+                }
+                else
+                    first_order.push_back(source);
+                ++index;
+            }
+        }
+    }
+    for (bool automatic : {false, true}) {
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("seq.regular", true);
+        expr_ref number(u.str.mk_stoi(first), m);
+        expr_ref valid(a.mk_ge(number, zero), m);
+        expr_ref mixed(m.mk_ite(prefix_a, valid, tail_b), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, mixed, nullptr, nullptr));
+        seq_regular_simplifier simp(m, p, state, automatic);
+        for (unsigned pass = 0; pass < 2; ++pass) {
+            simp.reduce();
+            ENSURE(occurs(prefix_a, state[0].fml()) == automatic);
+        }
+
+        base_dependent_expr_state regular(m);
+        regular.add(dependent_expr(m, conditional, nullptr, nullptr));
+        seq_regular_simplifier compose(m, p, regular, automatic);
+        compose.reduce();
+        ENSURE(occurs(prefix_a, regular[0].fml()) == automatic);
+
+        expr_ref search(u.str.mk_index(s, colon, integer(2)), m);
+        expr_ref found(a.mk_ge(search, zero), m);
+        base_dependent_expr_state offset(m);
+        offset.add(dependent_expr(m, found, nullptr, nullptr));
+        seq_regular_simplifier skip_offset(m, p, offset, automatic);
+        skip_offset.reduce();
+        ENSURE(offset[0].fml() == found);
+
+        base_dependent_expr_state decimal_offset(m);
+        decimal_offset.add(dependent_expr(m, found, nullptr, nullptr));
+        decimal_offset.add(dependent_expr(m, valid, nullptr, nullptr));
+        seq_regular_simplifier lower_offset(m, p, decimal_offset, automatic);
+        lower_offset.reduce();
+        ENSURE(decimal_offset[0].fml() == found);
+        ENSURE(!occurs(number, decimal_offset[1].fml()));
+    }
+    {
         expr_ref binding(eq(s, "ab:"), m);
         base_dependent_expr_state state(m);
         state.add(dependent_expr(m, binding, nullptr, nullptr));

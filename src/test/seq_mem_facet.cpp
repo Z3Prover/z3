@@ -1082,7 +1082,9 @@ namespace {
     static void tst_medium_repetition_witness() {
         fixture f;
         expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
-        expr_ref digit(f.u.re.mk_range(f.u.str.mk_string("0"), f.u.str.mk_string("9")), f.m);
+        expr_ref lo(f.u.str.mk_string("0"), f.m);
+        expr_ref hi(f.u.str.mk_string("9"), f.m);
+        expr_ref digit(f.u.re.mk_range(lo, hi), f.m);
         expr_ref prefix(f.u.re.mk_plus(digit), f.m);
         expr_ref zero(f.u.str.mk_string("0"), f.m);
         expr_ref block(f.u.re.mk_to_re(zero), f.m);
@@ -1110,7 +1112,9 @@ namespace {
 
     static void tst_long_flat_ground_membership(bool accepted) {
         fixture f;
-        expr_ref digit(f.u.re.mk_range(f.u.str.mk_string("0"), f.u.str.mk_string("9")), f.m);
+        expr_ref lo(f.u.str.mk_string("0"), f.m);
+        expr_ref hi(f.u.str.mk_string("9"), f.m);
+        expr_ref digit(f.u.re.mk_range(lo, hi), f.m);
         expr_ref prefix(f.u.re.mk_plus(digit), f.m);
         expr_ref zero(f.u.str.mk_string("0"), f.m);
         expr_ref block(f.u.re.mk_to_re(zero), f.m);
