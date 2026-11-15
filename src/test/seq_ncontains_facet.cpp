@@ -26,10 +26,44 @@ Author:
 #include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_skolem.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "smt/smt_solver.h"
 #include "smt/seq_solver_facet.h"
+#include "solver/solver.h"
 #include <iostream>
 
 namespace {
+
+    static void tst_ncontains_fixed_length_choices() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 5000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref haystack(m.mk_const("haystack", u.str.mk_string_sort()), m);
+        expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+        expr_ref y(m.mk_const("y", u.str.mk_string_sort()), m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        s->assert_expr(u.str.mk_contains(haystack, x));
+        s->assert_expr(u.str.mk_contains(haystack, y));
+        s->assert_expr(m.mk_not(u.str.mk_contains(x, y)));
+        s->assert_expr(m.mk_not(u.str.mk_contains(y, x)));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->push();
+        s->assert_expr(m.mk_eq(x, y));
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        s->pop(1);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->push();
+        expr_ref len_x(u.str.mk_length(x), m);
+        expr_ref len_y(u.str.mk_length(y), m);
+        s->assert_expr(m.mk_eq(len_x, a.mk_int(3)));
+        s->assert_expr(m.mk_eq(len_y, a.mk_int(2)));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->pop(1);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+    }
 
     class counted_sub_solver : public seq::sub_solver {
     public:
@@ -555,6 +589,7 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_fixed_length_choices();
     tst_ncontains_symbolic_needle_nonempty(false);
     tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();

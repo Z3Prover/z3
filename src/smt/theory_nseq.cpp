@@ -1028,7 +1028,9 @@ namespace smt {
                           ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root()) ||
                          (m_seq.str.is_replace(t) &&
                           (ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root() ||
-                           ctx.get_enode(t->get_arg(1))->get_root() == get_enode(v)->get_root())))) {
+                           ctx.get_enode(t->get_arg(1))->get_root() == get_enode(v)->get_root())) ||
+                         (m_seq.str.is_contains(t) && ctx.b_internalized(t) &&
+                          ctx.get_assignment(ctx.get_literal(t)) == l_false))) {
                         selected = true;
                         break;
                     }
