@@ -78,12 +78,12 @@ module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
 module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
 module FE = FStar.FunctionalExtensionality
 module ID = FStar.IndefiniteDescription
-module IDV = Z3IntegerDivision
+module IDV = Z3OperatorTags
 
 (* ---------------------------------------------------------------------- *)
 (* Carriers                                                                 *)
@@ -737,8 +737,8 @@ let supported_document (sch:S.schema) (es:list expr) : bool =
 (* ---------------------------------------------------------------------- *)
 
 let datatype_kind (f:func_decl) : bool =
-  f.interp = Some Z3DatatypeLemma.op_constructor || f.interp = Some Z3DatatypeLemma.op_recognizer ||
-  f.interp = Some Z3DatatypeLemma.op_accessor
+  f.interp = Some Z3DatatypeSyntax.op_constructor || f.interp = Some Z3DatatypeSyntax.op_recognizer ||
+  f.interp = Some Z3DatatypeSyntax.op_accessor
 
 type interp (u:uninterpreted) (sch:S.checked_schema) = V.interpretation (carrier u) (S.signature sch)
 
@@ -911,21 +911,21 @@ let lemma_constructor_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u
    tag, so a recognizer or an accessor is never a registered constructor,
    and an accessor is never a recognizer. *)
 let lemma_constructor_interp (sch:S.checked_schema) (f:func_decl)
-  : Lemma (requires L.mem f (S.signature sch)) (ensures f.interp == Some Z3DatatypeLemma.op_constructor) =
+  : Lemma (requires L.mem f (S.signature sch)) (ensures f.interp == Some Z3DatatypeSyntax.op_constructor) =
   S.lemma_case_of sch.cases f;
   let c = Some?.v (S.case_of sch.cases f) in
   S.lemma_case_member (S.signature sch) sch.sorts sch.cases c
 
 let rec lemma_recognizer_interp (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_recognizer f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_recognizer) (decreases cs) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_recognizer) (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest -> if Some? (S.find_recognizer f rest) then lemma_recognizer_interp f rest
 
 let rec lemma_accessor_interp (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_accessor f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_accessor) (decreases cs) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_accessor) (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest -> if Some? (S.find_accessor f rest) then lemma_accessor_interp f rest

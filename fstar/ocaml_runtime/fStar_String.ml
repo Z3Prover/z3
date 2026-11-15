@@ -2,9 +2,13 @@
    with only what the extracted checker uses and no Batteries dependency.
    F*'s Custard extraction (v2026.10.25) realizes `list_of_string` inline
    with Batteries (ulib FStar.String-ocaml.fst); build_ocaml_checker.ps1
-   replaces that realization, at its one use (Z3UnifiedProof.name_length),
+   replaces that realization, at its one use (Z3BinderScopeSyntax.name_length),
    by `list_of_string` below, and stops on any other Batteries use. This is
-   a trusted runtime binding.
+   a trusted runtime binding. The independent OCaml builder realizes the
+   complete `Z3BinderScopeSyntax.name_length` binding with `strlen` below,
+   using `Z3BinderScopeIndependent.lemma_name_length`; this avoids allocating
+   the decoded character list without changing the charged length. The
+   Cherry implementation is unchanged.
 
    `list_of_string` decodes the string as the Cherry runtime's
    `FStar.String.list_of_string` (ulib `FStar.String-c.cherry.fst`) does: one
@@ -16,7 +20,7 @@
    value is a surrogate or above U+10FFFF. Overlong 3- and 4-byte forms keep
    their value, as in the Cherry runtime. One difference: the Cherry runtime
    maps the valid scalar U+D7FF to U+FFFD; here it is U+D7FF. The checker uses
-   only the length of this list (`Z3UnifiedProof.name_length`), which agrees
+   only the length of this list (`Z3BinderScopeSyntax.name_length`), which agrees
    with the Cherry runtime by construction (the same step widths) and was equal
    on the tested corpus; there is no proof for arbitrary bytes. It is a loop,
    with no stack in the length of the string.

@@ -126,11 +126,7 @@ let lemma_mixed_comparison (i:interpretation value) (rho:env value)
           (ensures ((eval i source rho == eval i target rho) <==> lit_true i rho result))
   = let c, t, u = Some?.v (A.ite_parts source) in
     let width, n = Some?.v (BV.numeral target) in
-    (match source with
-     | App _ _ ->
-       assert (eval i source rho ==
-         (if B.bool_value (eval i c rho) then eval i t rho else eval i u rho))
-     | _ -> ());
+    A.lemma_ite_parts i rho source c t u;
     if Some? (BV.numeral t) then (
       let _, k = Some?.v (BV.numeral t) in
       assert (project width (eval i t rho) == k);

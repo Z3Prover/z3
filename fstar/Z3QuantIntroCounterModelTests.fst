@@ -21,7 +21,7 @@ module Z3QuantIntroCounterModelTests
    from R1 of the same model (RD.lemma_forall_model). *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature

@@ -213,9 +213,9 @@ let view_datatypes roots =
   let declaration c d =
     let op = operator (Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d)) in
     let interp = match op with
-      | DatatypeConstructor -> Z3DatatypeLemma.op_constructor
-      | DatatypeRecognizer -> Z3DatatypeLemma.op_recognizer
-      | DatatypeAccessor -> Z3DatatypeLemma.op_accessor
+      | DatatypeConstructor -> Z3DatatypeSyntax.op_constructor
+      | DatatypeRecognizer -> Z3DatatypeSyntax.op_recognizer
+      | DatatypeAccessor -> Z3DatatypeSyntax.op_accessor
       | _ -> fail "Non-datatype declaration in native datatype signature" in
     { A.decl_name = symbol c (Z3native.get_decl_name c d);
       domain = List.init (Z3native.get_domain_size c d)

@@ -10,7 +10,7 @@
    the existing `Z3QuantifierInstantiation.check`, unchanged: `args` are
    closed and their sorts are `bs` pointwise, the quantifier is closed, and
    `inst` is the capture-avoiding substitution of `L.rev args` into `body`
-   (`Z3BinderSubstitution.substitute`).
+   (`Z3Substitution.substitute`).
 
    * `lemma_check_typed` (the typed replacement of the legacy
      `Z3QuantifierInstantiation.lemma_check_sound`): in every quantifier
@@ -19,7 +19,7 @@
      `L.rev bs` (`Z3TypedQuantifier.lemma_reversed_arguments_typed`),
      eliminates the `forall` at exactly that typed list, relates the body
      there to `inst` with the existing substitution theorem
-     `Z3BinderSubstitution.lemma_substitute` (which needs only
+     `Z3Substitution.lemma_substitute` (which needs only
      `quant_extensional`), and closes the clause with the canonical
      `not`/`or` contracts and the core typing of `forall` (Boolean).
    * `Some` is not certification. For an instantiation node,
@@ -63,7 +63,7 @@ module CO = Z3CoreModel
 module TQ = Z3TypedQuantifier
 module K = Z3CoreKernel
 module Q = Z3QuantifierInstantiation
-module S = Z3BinderSubstitution
+module S = Z3Substitution
 module C = Z3CanonicalOps
 module SK = Z3Skolemization
 module L = FStar.List.Tot

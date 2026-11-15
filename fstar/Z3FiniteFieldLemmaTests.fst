@@ -8,7 +8,7 @@
 module Z3FiniteFieldLemmaTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 module FF = Z3FiniteFieldLemma
 module TN = Z3TheoryNormalize

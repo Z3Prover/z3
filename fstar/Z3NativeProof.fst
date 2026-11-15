@@ -4,16 +4,16 @@ open FStar.List.Tot
 
 open Z3AstTheory
 open Z3OperatorTags
-open Z3UnifiedProof
+open Z3UnifiedProofSyntax
 open Z3ProofIndex
 module N = Z3Native
-module P = Z3ProofDocument
+module P = Z3DocumentSyntax
 module L = FStar.List.Tot
 module C = Z3LpCertificate
-module BV = Z3BvLemma
-module FF = Z3FiniteFieldLemma
-module FP = Z3FiniteFieldPac
-module DT = Z3DatatypeLemma
+module BV = Z3BvSyntax
+module FF = Z3FiniteFieldTags
+module FP = Z3FiniteFieldCertificate
+module DT = Z3DatatypeSyntax
 module CP = Z3ClauseProof
 module R = Z3ClauseSyntax
 
@@ -141,7 +141,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Add -> Some (if binary_int then op_plus else op_arith_add)
   | N.Mul -> Some (if binary_int then op_mul else op_arith_mul)
   | N.Sub -> Some op_arith_sub | N.Div -> Some op_arith_div
-  | N.IDiv -> Some Z3IntegerDivision.op_idiv | N.Mod -> Some Z3IntegerDivision.op_mod
+  | N.IDiv -> Some Z3IntegerDivisionSyntax.op_idiv | N.Mod -> Some Z3IntegerDivisionSyntax.op_mod
   | N.Le -> Some op_arith_le | N.Lt -> Some op_arith_lt
   | N.Ge -> Some op_arith_ge | N.Gt -> Some op_arith_gt
   | N.ToReal -> Some op_to_real | N.Rational -> Some op_num_rational
@@ -320,7 +320,7 @@ let native_rule (view:N.proof_view) (formula:expr) : ML rule =
     | Some Commutativity ->
       (match classify_fact formula with
        | Some (Equal a b) ->
-         if Z3Commutativity.commutativity_step a b then Commutativity else Unverified view.proof_name
+         if Z3CommutativitySyntax.commutativity_step a b then Commutativity else Unverified view.proof_name
        | _ -> Unverified view.proof_name)
     | Some rule -> rule
 
@@ -567,7 +567,7 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
           | Some ("lp-gomory", [N.ParameterRational index denominator]), context :: _ ->
             if denominator = 1 && index >= 0 then
               index_get st.lp_certificates (N.ast_id context) >>= (fun certificate ->
-              Z3LpGomory.candidate certificate index)
+              Z3LpGomorySyntax.candidate certificate index)
             else None
           | _, _ -> None in
         let kind = match candidate with

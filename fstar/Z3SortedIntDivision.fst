@@ -37,8 +37,8 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
 module AR = Z3SortedArithmetic
-module D = Z3Definitions
-module IDV = Z3IntegerDivision
+module D = Z3ExprScope
+module IDV = Z3OperatorTags
 module R = Z3ClauseSyntax
 module L = FStar.List.Tot
 

@@ -17,3 +17,11 @@ and scoped_args (scope:list sort) (args:list expr) : Tot bool (decreases args) =
   match args with
   | [] -> true
   | a :: rest -> scoped scope a && scoped_args scope rest
+
+let rec lemma_scoped_reverse_acc (scope:list sort) (args acc:list expr)
+  : Lemma (requires scoped_args scope args /\ scoped_args scope acc)
+          (ensures scoped_args scope (L.rev_acc args acc))
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest -> lemma_scoped_reverse_acc scope rest (a :: acc)

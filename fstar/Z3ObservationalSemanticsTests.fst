@@ -3,7 +3,12 @@ module Z3ObservationalSemanticsTests
 open Z3AstTheory
 module C = Z3CanonicalOps
 module OS = Z3ObservationalSemantics
-module O = Z3ObservationalEquality
+module O = Z3ObservationalProof
+module Syntax = Z3ObservationalSyntax
+module D = Z3ExprScope
+module V = Z3DatatypeValue
+module S = Z3DatatypeSignature
+module T = Z3SortedSemantics
 
 let atom (name:string) (s:sort) : expr =
   App { decl_name = name; domain = []; range = s; interp = None; int_params = [] } []
@@ -79,3 +84,24 @@ let boolean_completeness_is_required ()
 let different_sorts_do_not_agree ()
   : Lemma (not (OS.observations_agree 1 (O.denotation model rho) p a))
   = ()
+
+let sorted_observational_modus_ponens (#base:sort -> Type0) (s:S.checked_schema)
+                                    (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                    (other:V.interpretation base (S.signature s))
+                                    (scope:list sort)
+                                    (env:V.environment base (S.signature s) scope)
+                                    (x:expr{D.scoped scope x}) (y:expr{D.scoped scope y})
+  : Lemma (requires get_sort x == get_sort y /\
+                    T.observations_agree_at s bc eq other scope env x y /\
+                    T.evaluate_at s bc eq other scope env x == T.boolean s bc true)
+          (ensures T.evaluate_at s bc eq other scope env y == T.boolean s bc true) =
+  let relation = Syntax.mk_oeq_expr x y in
+  assert (Syntax.decide_mp_oeq x relation == Some y);
+  Syntax.lemma_decide_mp_oeq (T.boolean s bc true)
+    (T.observation_denotation_at s bc eq other scope env) x relation
+
+let observational_modus_ponens_rejects_mismatch ()
+  : Lemma (Syntax.decide_mp_oeq q (Syntax.mk_oeq_expr p q) == None /\
+           Syntax.decide_mp_oeq p (Syntax.mk_oeq_expr p a) == None) =
+  assert_norm (Syntax.decide_mp_oeq q (Syntax.mk_oeq_expr p q) == None /\
+               Syntax.decide_mp_oeq p (Syntax.mk_oeq_expr p a) == None)

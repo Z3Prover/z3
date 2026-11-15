@@ -1,5 +1,9 @@
 # Scoping a resolution/clausal proof-step checker
 
+The benchmark motivation below describes the retired exporter and concrete
+rewrite-matcher examples. The resolution calculus remains; see
+[proof checking](PROOF_CHECKING.md) for the current native checker.
+
 ## Motivation
 
 Sampling real Z3 `(get-proof)` output on QF_AX/QF_UF benchmarks (see

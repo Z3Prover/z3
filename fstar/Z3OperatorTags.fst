@@ -36,3 +36,5 @@ let op_arith_ge : decl_kind = 29
 let op_arith_gt : decl_kind = 30
 let op_to_real : decl_kind = 31
 let op_const_array : decl_kind = 32
+let op_idiv : decl_kind = 33
+let op_mod : decl_kind = 34

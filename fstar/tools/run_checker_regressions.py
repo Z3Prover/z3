@@ -30,7 +30,8 @@ ERRORS = {"ERROR", "CRASH", "PROTOCOL_ERROR"}
 STATISTICS = re.compile(
     r"^solve_ms=([\d.]+) marshal_ms=([\d.]+) check_ms=([\d.]+) "
     r"expressions=(\d+) declarations=(\d+) proof_nodes=(\d+)"
-    r"(?: semantics=(legacy|sorted-datatype|sorted-core))?$", re.MULTILINE)
+    r"(?: semantics=([a-z][a-z0-9-]*))?"
+    r"(?: [a-z_][a-z0-9_]*=[^\s]+)*$", re.MULTILINE)
 
 
 def classify(returncode, stdout):
@@ -174,6 +175,7 @@ def run_suite(args):
         "case_timeout_seconds": args.case_timeout_seconds,
         "total_timeout_seconds": args.total_timeout_seconds,
         "memory_limit_mb": args.memory_limit_mb,
+        "checker_arguments": getattr(args, "checker_arg", []),
         **metadata,
     }
     (output / "selection.json").write_text(json.dumps(selection, indent=2) + "\n", encoding="utf-8")
@@ -188,7 +190,8 @@ def run_suite(args):
                 row = {"path": relative, "outcome": "NOT_RUN", "reason": "Total time budget exhausted"}
             else:
                 row = run_case(
-                    [str(checker), "--stats", "--timeout-ms", str(args.solver_timeout_ms), str(path)],
+                    [str(checker), *getattr(args, "checker_arg", []),
+                     "--stats", "--timeout-ms", str(args.solver_timeout_ms), str(path)],
                     relative, output, index, min(args.case_timeout_seconds, remaining),
                     args.memory_limit_mb)
             if metadata:
@@ -275,7 +278,8 @@ def diagnose(args):
                        "reason": "Diagnostic budget exhausted"}
             else:
                 row = run_case(
-                    [str(checker), "--stats", "--diagnostics", "--timeout-ms",
+                    [str(checker), *selection.get("checker_arguments", []),
+                     "--stats", "--diagnostics", "--timeout-ms",
                      str(selection["solver_timeout_ms"]), str(path)],
                     relative, output, index,
                     min(2 * selection["case_timeout_seconds"], remaining),
@@ -402,6 +406,8 @@ def report(output):
         f'- Build wall time: {build.get("wall_seconds", "not recorded")} seconds.',
         f'- Z3 commit: `{cell(source_sha)}`; '
         f'checker producer version: `{cell(selection.get("checker_version", "not recorded"))}`.',
+        f'- Additional checker arguments: '
+        f'`{cell(" ".join(selection.get("checker_arguments", [])) or "none")}`.',
         f'- Corpus commit: `{cell(selection.get("corpus_commit", "not recorded"))}`; '
         f'path: `{cell(selection.get("corpus_path", "not recorded"))}`.',
         f'- Discovered: {selection.get("discovered", 0)}; selected: {len(results)}; '
@@ -521,6 +527,8 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run")
     run.add_argument("--checker", type=Path, required=True)
+    run.add_argument("--checker-arg", action="append", default=[],
+                     help="Additional checker argument; repeat as --checker-arg=--definition-replay")
     run.add_argument("--corpus", type=Path, required=True)
     run.add_argument("--corpus-path", default="regressions/proofs")
     run.add_argument("--corpus-commit", required=True)

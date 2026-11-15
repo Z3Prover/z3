@@ -34,7 +34,7 @@ open Z3AstTheory
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module D = Z3Definitions
+module Scope = Z3ExprScope
 module L = FStar.List.Tot
 
 let int_s : sort = (SortApp IntSymbol [])
@@ -247,13 +247,13 @@ let selected : expr = App children [Var 0 tree_s]
 
 let rho : V.environment bits sigma [tree_s] = fun _ -> fork_value
 
-let a3_scoped () : Lemma (D.scoped [tree_s] selected) = assert_norm (D.scoped [tree_s] selected)
+let a3_scoped () : Lemma (Scope.scoped [tree_s] selected) = assert_norm (Scope.scoped [tree_s] selected)
 
-let a3_evaluate () : Lemma (D.scoped [tree_s] selected /\ V.evaluate sigma interpreted [tree_s] rho selected == cons_value) =
+let a3_evaluate () : Lemma (Scope.scoped [tree_s] selected /\ V.evaluate sigma interpreted [tree_s] rho selected == cons_value) =
   a3_scoped ();
   assert_norm (V.evaluate sigma interpreted [tree_s] rho selected == cons_value)
 
-let a3_mutant () : Lemma (D.scoped [tree_s] selected /\ ~(V.evaluate sigma interpreted [tree_s] rho selected == nil_value)) =
+let a3_mutant () : Lemma (Scope.scoped [tree_s] selected /\ ~(V.evaluate sigma interpreted [tree_s] rho selected == nil_value)) =
   a3_evaluate ();
   assert_norm (~(nil_t == cons_t))
 
@@ -266,14 +266,14 @@ let quantified : expr = Quantifier Forall_k [int_s; bool_s] bool_s (Var 0 bool_s
 
 let empty : V.environment bits sigma [] = fun _ -> FStar.Pervasives.false_elim ()
 
-let a4_scoped () : Lemma (D.scoped [] quantified /\ D.scoped (L.rev [int_s; bool_s] @ []) (Var 0 bool_s)) =
-  assert_norm (D.scoped [] quantified);
-  assert_norm (D.scoped (L.rev [int_s; bool_s] @ []) (Var 0 bool_s))
+let a4_scoped () : Lemma (Scope.scoped [] quantified /\ Scope.scoped (L.rev [int_s; bool_s] @ []) (Var 0 bool_s)) =
+  assert_norm (Scope.scoped [] quantified);
+  assert_norm (Scope.scoped (L.rev [int_s; bool_s] @ []) (Var 0 bool_s))
 
 (* Inside `other`: the evaluator's body at [Bool true; Int false] is Bool
    true, because Var 0 is the LAST binder (Bool). *)
 let a4_body ()
-  : Lemma (D.scoped [] quantified /\
+  : Lemma (Scope.scoped [] quantified /\
            V.evaluate_body sigma interpreted [] empty [int_s; bool_s] (Var 0 bool_s) reversed_arguments ==
            V.Scalar bool_s true) =
   a4_scoped ();
@@ -283,7 +283,7 @@ let a4_body ()
   assert (V.evaluate sigma interpreted (L.rev [int_s; bool_s] @ []) env (Var 0 bool_s) == V.Scalar bool_s true)
 
 let a4_evaluate ()
-  : Lemma (D.scoped [] quantified /\ V.evaluate sigma interpreted [] empty quantified == V.Scalar bool_s true) =
+  : Lemma (Scope.scoped [] quantified /\ V.evaluate sigma interpreted [] empty quantified == V.Scalar bool_s true) =
   a4_body ();
   assert (V.evaluate sigma interpreted [] empty quantified ==
           other_quantification Forall_k [int_s; bool_s] bool_s
@@ -293,7 +293,7 @@ let a4_evaluate ()
 (* Mutants: the value is not false, and not the first binder's (Int false)
    value, which a non-reversed binding would have read. *)
 let a4_mutants ()
-  : Lemma (D.scoped [] quantified /\
+  : Lemma (Scope.scoped [] quantified /\
            ~(V.evaluate sigma interpreted [] empty quantified == V.Scalar bool_s false) /\
            ~(V.evaluate sigma interpreted [] empty quantified == V.Scalar int_s false)) =
   a4_evaluate ()

@@ -12,6 +12,7 @@ module A = Z3LinearArithmeticAst
 module E = Z3LinearArithmeticEmbed
 module P = Z3LinearArithmeticTheory
 module G = Z3LpGomory
+module GS = Z3LpGomorySyntax
 module I = Z3IntegerRewrite
 module L = FStar.List.Tot
 
@@ -96,7 +97,7 @@ let rec small (rows:list A.search_row) : Tot bool (decreases rows) =
 
 let at_most (lhs:expr) (k:int) : expr =
   App { decl_name = "<="; domain = [A.int_s; A.int_s]; range = bool_sort;
-        interp = Some op_arith_le; int_params = [] } [lhs; G.integer k]
+        interp = Some op_arith_le; int_params = [] } [lhs; GS.integer k]
 
 let rec nonzero_terms (ms:list (int & expr)) : Tot (list (int & expr)) (decreases ms) =
   match ms with
@@ -110,9 +111,9 @@ let rec integer_terms (ms:list (int & expr)) : Tot bool (decreases ms) =
 
 let rec sum_terms (ms:list (int & expr)) : Tot expr (decreases ms) =
   match ms with
-  | [] -> G.integer 0
-  | [(n, e)] -> G.multiply n e
-  | (n, e) :: rest -> G.add (G.multiply n e) (sum_terms rest)
+  | [] -> GS.integer 0
+  | [(n, e)] -> GS.multiply n e
+  | (n, e) :: rest -> GS.add (GS.multiply n e) (sum_terms rest)
 
 let rec divide_terms (d:pos) (ms:list (int & expr)) : Tot (list (int & expr)) (decreases ms) =
   match ms with

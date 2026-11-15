@@ -156,7 +156,7 @@ class CheckerRegressionTests(unittest.TestCase):
             args.output.mkdir()
             paths, _ = runner.discover(args.corpus, ".", 0)
             selection = {"solver_timeout_ms": 10, "case_timeout_seconds": 2,
-                         "memory_limit_mb": 0,
+                         "memory_limit_mb": 0, "checker_arguments": ["--definition-replay"],
                          **runner.verify_manifest(args.corpus, ".", args.manifest, paths)}
             (args.output / "selection.json").write_text(json.dumps(selection))
             results = [{"path": "QF_LIA/example.smt2", "outcome": "PARTIAL", "verdict": "PARTIAL 3"},
@@ -167,6 +167,7 @@ class CheckerRegressionTests(unittest.TestCase):
 
             def replay(command, path, output, index, timeout, megabytes, log_directory):
                 self.assertIn("--diagnostics", command)
+                self.assertEqual(command[1], "--definition-replay")
                 self.assertEqual(timeout, 4)
                 stderr = f"{log_directory}/{index:06d}.stderr"
                 (output / stderr).write_text("diagnostic\tchecked\tpending=3\tfamilies=1\n"
@@ -185,6 +186,7 @@ class CheckerRegressionTests(unittest.TestCase):
             self.assertEqual(summary["obligation_families"][0]["sole_family_proofs"], 1)
             self.assertEqual(summary["obligation_families"][0]["obligations"], 3)
             self.assertIn("Remaining obligation families", (args.output / "report.md").read_text())
+            self.assertIn("--definition-replay", (args.output / "report.md").read_text())
             rows = [json.loads((args.output / "diagnostics.jsonl").read_text())]
             rows[0]["matches_original"] = False
             self.assertEqual(runner.obligation_coverage(rows), [])
@@ -314,6 +316,35 @@ class CheckerRegressionTests(unittest.TestCase):
             self.assertEqual(summary["success_rate"], 0.5)
             self.assertIn("Per-logic coverage", (args.output / "report.md").read_text())
             self.assertIn("input_sha256", (args.output / "results.csv").read_text())
+
+    def test_replay_arguments_are_executed_and_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            args.checker_arg = ["--definition-replay", "--diagnostics"]
+            with patch.object(runner.subprocess, "run",
+                              return_value=argparse.Namespace(stdout="test-version")), \
+                    patch.object(runner, "run_case",
+                                 return_value={"outcome": "ACCEPT"}) as execute, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.run_suite(args), 0)
+            for call in execute.call_args_list:
+                self.assertEqual(call.args[0][1:3], args.checker_arg)
+            selection = json.loads((args.output / "selection.json").read_text())
+            self.assertEqual(selection["checker_arguments"], args.checker_arg)
+
+    def test_statistics_accept_new_replays_and_legacy_metadata(self):
+        for suffix, expected in (
+                ("semantics=sorted-definition", "sorted-definition"),
+                ("semantics=sorted-skolem", "sorted-skolem"),
+                ("semantics=sorted-array", "sorted-array"),
+                ("semantics=sorted-datatype assertions=2 proof_edges=4 pending=0",
+                 "sorted-datatype")):
+            with self.subTest(suffix=suffix):
+                match = runner.STATISTICS.fullmatch(
+                    "solve_ms=1.250 marshal_ms=2.500 check_ms=0.500 "
+                    "expressions=7 declarations=3 proof_nodes=9 " + suffix)
+                self.assertIsNotNone(match)
+                self.assertEqual(match[7], expected)
 
     def test_manifest_budget_exhaustion_after_one_case_fails_the_run(self):
         with tempfile.TemporaryDirectory() as directory:

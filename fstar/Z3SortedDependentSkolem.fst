@@ -8,7 +8,7 @@ module Z3SortedDependentSkolem
        (exists bs. body) ~ body[f_k(x_1, .., x_m) / bound_k]
    (or the negative form (not (forall bs. body)) ~ (not body[..])) at an
    OPEN scope: its free variables x_1..x_m are outer binders. The definition
-   d = Z3Skolemization.definition_of(source, target) records the bound
+   d = Z3SkolemSyntax.definition_of(source, target) records the bound
    sorts, the dependencies deps = [(n_1, t_1); ..; (n_m, t_m)] (de Bruijn
    index in the outer scope and sort, in the order of the functions'
    arguments) and the witness functions f_k (domain = dependency sorts,
@@ -65,8 +65,8 @@ module T = Z3SortedSemantics
 module I = Z3SortedInteger
 module Q = Z3SortedQuantifier
 module E = Z3SortedSkolem
-module SK = Z3Skolemization
-module D = Z3Definitions
+module SK = Z3SkolemSyntax
+module Scope = Z3ExprScope
 module R = Z3ClauseSyntax
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
@@ -107,7 +107,7 @@ let closure_binders (d:SK.definition) : list sort =
   then L.rev (padded d.SK.dependencies 0 (dependency_bound d.SK.dependencies))
   else []
 
-(* The scope of the closure's body (L.rev of its binder list, as D.scoped
+(* The scope of the closure's body (L.rev of its binder list, as Scope.scoped
    reads a quantifier). *)
 let closure_scope (d:SK.definition) : list sort = L.rev (closure_binders d) @ []
 
@@ -130,10 +130,10 @@ let eligible (s:S.checked_schema) (d:SK.definition) : bool =
   SK.valid d && Cons? d.SK.dependencies && safe_functions s d.SK.witnesses &&
   dependency_bound d.SK.dependencies <= scope_limit &&
   deps_typed (closure_scope d) d.SK.dependencies &&
-  D.scoped (L.rev d.SK.bound_sorts @ closure_scope d) d.SK.body &&
+  Scope.scoped (L.rev d.SK.bound_sorts @ closure_scope d) d.SK.body &&
   (match SK.substitute 0 (L.length d.SK.bound_sorts) d.SK.dependencies d.SK.witnesses d.SK.body,
          SK.instantiation d with
-   | Some target, Some b -> D.scoped (closure_scope d) target && D.scoped [] (closure_of d b)
+   | Some target, Some b -> Scope.scoped (closure_scope d) target && Scope.scoped [] (closure_of d b)
    | _, _ -> false)
 
 type definition (s:S.checked_schema) = d:SK.definition{eligible s d}
@@ -218,7 +218,7 @@ let lemma_compatible_extend (#base:sort -> Type0) (sigma:V.signature) (a b bound
 let rec lemma_coincide (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
                        (a b:list sort) (rho:V.environment base sigma a) (eta:V.environment base sigma b)
                        (e:expr)
-  : Lemma (requires D.scoped a e /\ D.scoped b e /\ compatible sigma a b rho eta)
+  : Lemma (requires Scope.scoped a e /\ Scope.scoped b e /\ compatible sigma a b rho eta)
           (ensures (V.evaluate sigma i a rho e <: V.tree base) == (V.evaluate sigma i b eta e <: V.tree base))
           (decreases e) =
   match e with
@@ -237,7 +237,7 @@ let rec lemma_coincide (#base:sort -> Type0) (sigma:V.signature) (i:V.interpreta
 and lemma_coincide_args (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
                         (a b:list sort) (rho:V.environment base sigma a) (eta:V.environment base sigma b)
                         (args:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args a args /\ D.scoped_args b args /\ sorts_match args ss /\
+  : Lemma (requires Scope.scoped_args a args /\ Scope.scoped_args b args /\ sorts_match args ss /\
                     compatible sigma a b rho eta)
           (ensures V.evaluate_args sigma i a rho args ss == V.evaluate_args sigma i b eta args ss)
           (decreases args) =
@@ -273,7 +273,7 @@ let lemma_covered_extend (#base:sort -> Type0) (sigma:V.signature) (scope bound:
 let rec lemma_covered (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
                       (scope:list sort) (rho eta:V.environment base sigma scope)
                       (depth:nat) (deps:list SK.dependency) (e:expr)
-  : Lemma (requires D.scoped scope e /\ SK.covered depth deps e /\ covered_agree sigma scope rho eta depth deps)
+  : Lemma (requires Scope.scoped scope e /\ SK.covered depth deps e /\ covered_agree sigma scope rho eta depth deps)
           (ensures V.evaluate sigma i scope rho e == V.evaluate sigma i scope eta e)
           (decreases e) =
   match e with
@@ -293,7 +293,7 @@ let rec lemma_covered (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretat
 and lemma_covered_args (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
                        (scope:list sort) (rho eta:V.environment base sigma scope)
                        (depth:nat) (deps:list SK.dependency) (args:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ SK.covered_args depth deps args /\
+  : Lemma (requires Scope.scoped_args scope args /\ sorts_match args ss /\ SK.covered_args depth deps args /\
                     covered_agree sigma scope rho eta depth deps)
           (ensures V.evaluate_args sigma i scope rho args ss == V.evaluate_args sigma i scope eta args ss)
           (decreases args) =
@@ -357,7 +357,7 @@ let rec lemma_dependency_arguments (#base:sort -> Type0) (sigma:V.signature) (i:
                                    (b:list sort) (eta:V.environment base sigma b) (depth:nat)
                                    (deps:list SK.dependency) (args:list (V.tree base)) (ss:list sort)
   : Lemma (requires agrees sigma b eta depth deps args /\
-                    D.scoped_args b (SK.dependency_arguments depth deps) /\
+                    Scope.scoped_args b (SK.dependency_arguments depth deps) /\
                     sorts_match (SK.dependency_arguments depth deps) ss)
           (ensures (V.evaluate_args sigma i b eta (SK.dependency_arguments depth deps) ss <: list (V.tree base)) == args)
           (decreases deps) =
@@ -452,7 +452,7 @@ let rec lemma_substitute (#base:sort -> Type0) (sigma:V.signature) (i:V.interpre
                          (args:V.arguments base sigma (SK.dependency_sorts deps))
                          (vs:V.arguments base sigma bound) (depth:nat) (a b:list sort)
                          (rho:V.environment base sigma a) (eta:V.environment base sigma b) (e r:expr)
-  : Lemma (requires D.scoped a e /\ D.scoped b r /\
+  : Lemma (requires Scope.scoped a e /\ Scope.scoped b r /\
                     SK.substitute depth (L.length bound) deps ws e == Some r /\
                     subst_envs sigma bound vs depth a b rho eta /\
                     agrees sigma b eta depth deps args /\
@@ -492,7 +492,7 @@ and lemma_substitute_args (#base:sort -> Type0) (sigma:V.signature) (i:V.interpr
                           (vs:V.arguments base sigma bound) (depth:nat) (a b:list sort)
                           (rho:V.environment base sigma a) (eta:V.environment base sigma b)
                           (xs ys:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args a xs /\ D.scoped_args b ys /\ sorts_match xs ss /\ sorts_match ys ss /\
+  : Lemma (requires Scope.scoped_args a xs /\ Scope.scoped_args b ys /\ sorts_match xs ss /\ sorts_match ys ss /\
                     SK.substitute_args depth (L.length bound) deps ws xs == Some ys /\
                     subst_envs sigma bound vs depth a b rho eta /\
                     agrees sigma b eta depth deps args /\
@@ -617,7 +617,7 @@ let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
                     (eq:T.scalar_model base) (choice:E.hilbert_choice base s) (d:definition s)
                     (other:V.interpretation base (S.signature s))
                     (scope:list sort) (rho:V.environment base (S.signature s) scope) (e:expr)
-  : Lemma (requires D.scoped scope e /\ SK.fresh d.SK.witnesses e)
+  : Lemma (requires Scope.scoped scope e /\ SK.fresh d.SK.witnesses e)
           (ensures T.evaluate_at s bc eq other scope rho e ==
                    T.evaluate_at s bc eq (doverride s bc eq choice d other) scope rho e)
           (decreases e) =
@@ -648,7 +648,7 @@ and lemma_fresh_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
                      (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope)
                      (args:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ SK.fresh_args d.SK.witnesses args)
+  : Lemma (requires Scope.scoped_args scope args /\ sorts_match args ss /\ SK.fresh_args d.SK.witnesses args)
           (ensures V.evaluate_args (S.signature s) (T.interpretation s bc eq other) scope rho args ss ==
                    V.evaluate_args (S.signature s) (T.interpretation s bc eq (doverride s bc eq choice d other))
                      scope rho args ss)
@@ -666,8 +666,8 @@ and lemma_fresh_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
 let lemma_negate_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                     (scope:list sort) (rho:V.environment base (S.signature s) scope) (e:expr)
-  : Lemma (requires D.scoped scope e /\ get_sort e == bool_sort)
-          (ensures D.scoped scope (SK.negate e) /\ get_sort (SK.negate e) == bool_sort /\
+  : Lemma (requires Scope.scoped scope e /\ get_sort e == bool_sort)
+          (ensures Scope.scoped scope (SK.negate e) /\ get_sort (SK.negate e) == bool_sort /\
                    T.truth_at s bc eq other scope rho (SK.negate e) == not (T.truth_at s bc eq other scope rho e)) =
   match e with
   | App f [a] ->
@@ -680,7 +680,7 @@ let lemma_exists_truth (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
                        (scope:list sort) (rho:V.environment base (S.signature s) scope)
                        (bound:list sort) (body:expr)
   : Lemma (requires E.exists_model s bc other /\
-                    D.scoped (L.rev bound @ scope) body /\ get_sort body == bool_sort)
+                    Scope.scoped (L.rev bound @ scope) body /\ get_sort body == bool_sort)
           (ensures
             T.truth_at s bc eq other scope rho (Quantifier Exists_k bound bool_sort body) <==>
             (exists (vs:V.arguments base (S.signature s) (L.rev bound)).
@@ -828,8 +828,8 @@ let lemma_instance (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
   let q = Quantifier (if d.SK.negative then Forall_k else Exists_k) d.SK.bound_sorts bool_sort d.SK.body in
   if d.SK.negative then (
     Q.lemma_forall_truth s bc eq j c rho d.SK.bound_sorts d.SK.body;
-    assert (D.scoped c q);
-    assert (D.scoped_args c [q]);
+    assert (Scope.scoped c q);
+    assert (Scope.scoped_args c [q]);
     T.lemma_evaluate_core_at s bc eq j c rho R.not_decl [q];
     assert (T.truth_at s bc eq j c rho q == T.truth_at s bc eq j c rho (target_of d));
     lemma_negate_at s bc eq j c rho (target_of d);
@@ -856,7 +856,7 @@ let lemma_closure (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carri
   let eqn = R.mk_eq_expr (SK.source d) (instance_of d) in
   E.lemma_quantification_models s bc other j;
   SK.lemma_substitute_sort 0 (L.length d.SK.bound_sorts) d.SK.dependencies d.SK.witnesses d.SK.body (target_of d);
-  assert (D.scoped (L.rev cb @ []) eqn);
+  assert (Scope.scoped (L.rev cb @ []) eqn);
   Q.lemma_forall_truth s bc eq j [] empty cb eqn;
   let at (vs:V.arguments base sigma (L.rev cb))
     : Lemma (T.truth_at s bc eq j (L.rev cb @ []) (V.extend sigma [] (L.rev cb) vs empty) eqn) =
@@ -1010,7 +1010,7 @@ let rec lemma_build_inputs (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
       match es with
       | [] -> ()
       | e :: tail ->
-        if D.scoped [] e && get_sort e = bool_sort then
+        if Scope.scoped [] e && get_sort e = bool_sort then
           lemma_fresh s bc eq choice d older [] (T.empty_environment (S.signature s)) e;
         all tail in
     all inputs

@@ -5,97 +5,22 @@ open Z3ValueTheory
 open Z3ProofTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
+module Syntax = Z3ArraySyntax
 
-let scalar_sort (s:sort) : bool =
-  s <> bool_sort && (match s with BaseSort _ | SortApp _ [] -> true | _ -> false)
-
-let select_app (f:func_decl) (a k:expr) : bool =
-  match get_sort a with
-  | ArraySort [index] element ->
-    scalar_sort index && scalar_sort element && get_sort k = index &&
-    f = { decl_name = "select"; domain = [get_sort a; index]; range = element;
-          interp = Some op_select; int_params = [] }
-  | _ -> false
-
-let store_app (f:func_decl) (a k v:expr) : bool =
-  match get_sort a with
-  | ArraySort [index] element ->
-    scalar_sort index && scalar_sort element && get_sort k = index && get_sort v = element &&
-    f = { decl_name = "store"; domain = [get_sort a; index; element]; range = get_sort a;
-          interp = Some op_store; int_params = [] }
-  | _ -> false
-
-let ext_app (f:func_decl) (a b:expr) : bool =
-  match get_sort a with
-  | ArraySort [index] element ->
-    scalar_sort index && scalar_sort element && get_sort b = get_sort a &&
-    f = { decl_name = "array-ext"; domain = [get_sort a; get_sort a]; range = index;
-          interp = Some op_array_ext; int_params = [] }
-  | _ -> false
-
-let select_parts (e:expr) : option (expr & expr) =
-  match e with App f [a; k] -> if select_app f a k then Some (a, k) else None | _ -> None
-
-let store_parts (e:expr) : option (expr & expr & expr) =
-  match e with App f [a; k; v] -> if store_app f a k v then Some (a, k, v) else None | _ -> None
-
-let ext_parts (e:expr) : option (expr & expr) =
-  match e with App f [a; b] -> if ext_app f a b then Some (a, b) else None | _ -> None
-
-let equality_parts (e:expr) : option (expr & expr) =
-  match e with
-  | App f [a; b] ->
-    if get_sort a = get_sort b && f = eq_decl (get_sort a) then Some (a, b) else None
-  | _ -> None
-
-let same_indices (a b x y:expr) : bool = (a = x && b = y) || (a = y && b = x)
-
-let read_over_write_same (a b:expr) : bool =
-  match select_parts a with
-  | Some (s, k) ->
-    (match store_parts s with Some (_, j, v) -> k = j && b = v | None -> false)
-  | None -> false
-
-let read_over_write_other (guard a b:expr) : bool =
-  match equality_parts guard, select_parts a, select_parts b with
-  | Some (i, j), Some (s, k), Some (base, k') ->
-    (match store_parts s with
-     | Some (base', index, _) -> base = base' && k = k' && same_indices i j index k
-     | None -> false)
-  | _, _, _ -> false
-
-let extensionality (a b x y:expr) : bool =
-  match select_parts x, select_parts y with
-  | Some (a', k), Some (b', k') ->
-    a = a' && b = b' && k = k' &&
-    (match ext_parts k with Some (s, t) -> same_indices s t a b | None -> false)
-  | _, _ -> false
-
-let array_clause (p q:expr) : bool =
-  match equality_parts p, equality_parts q with
-  | _, Some (a, b) -> read_over_write_other p a b || read_over_write_other p b a
-  | Some (a, b), None ->
-    (match q with
-     | App f [negated] ->
-       if f = { decl_name = "not"; domain = [bool_sort]; range = bool_sort;
-                interp = Some op_not; int_params = [] } then
-         (match equality_parts negated with
-          | Some (x, y) -> extensionality a b x y || extensionality b a x y
-          | None -> false)
-       else false
-     | _ -> false)
-  | _, _ -> false
-
-let array_lemma (e:expr) : bool =
-  match equality_parts e with
-  | Some (a, b) -> read_over_write_same a b || read_over_write_same b a
-  | None ->
-    (match e with
-     | App f [p; q] ->
-       f = { decl_name = "or"; domain = [bool_sort; bool_sort]; range = bool_sort;
-             interp = Some op_or; int_params = [] } &&
-       (array_clause p q || array_clause q p)
-     | _ -> false)
+let scalar_sort = Syntax.scalar_sort
+let select_app = Syntax.select_app
+let store_app = Syntax.store_app
+let ext_app = Syntax.ext_app
+let select_parts = Syntax.select_parts
+let store_parts = Syntax.store_parts
+let ext_parts = Syntax.ext_parts
+let equality_parts = Syntax.equality_parts
+let same_indices = Syntax.same_indices
+let read_over_write_same = Syntax.read_over_write_same
+let read_over_write_other = Syntax.read_over_write_other
+let extensionality = Syntax.extensionality
+let array_clause = Syntax.array_clause
+let array_lemma = Syntax.array_lemma
 
 (* The existing value domain represents flat scalar arrays by Int -> Int.
    array-ext must carry the built-in operator tag, not merely its name.

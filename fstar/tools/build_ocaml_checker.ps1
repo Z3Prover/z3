@@ -151,29 +151,29 @@ try {
   $z3Version = $versionMatch.Groups[1].Value
   Write-Host "Installed F*/Pulse SMT solver: $Z3Exe ($versionOutput)"
 
-  # Ghost-only Z3ObservationalSemantics is verified but emits no OCaml file.
+  # Ghost-only semantic modules emit no OCaml files.
   $order = @(
     "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3List.ml",
-    "Z3AstTheory.ml", "Z3OperatorTags.ml", "Z3ExprScope.ml", "Z3DatatypeSyntax.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
-    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
-    "Z3ClausalSemantics.ml", "Z3ClauseSyntax.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
-    "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
-    "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
-    "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
-    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
-    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
-    "Z3NlaLemma.ml", "Z3ArithmeticFactor.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3LpIntegerCut.ml", "Z3IntegerDivision.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldPac.ml",
-    "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
-    "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
-    "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
-    "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
-    "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
+    "Z3AstTheory.ml", "Z3OperatorTags.ml", "Z3ExprScope.ml", "Z3ExprBinding.ml", "Z3Substitution.ml", "Z3DatatypeSyntax.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
+    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3DefinitionSyntax.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
+    "Z3ClausalSemantics.ml", "Z3ClauseSyntax.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalSyntax.ml", "Z3ObservationalEquality.ml",
+    "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanSyntax.ml", "Z3BooleanNormalForm.ml", "Z3BooleanRewriteSyntax.ml",
+    "Z3CommutativitySyntax.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml", "Z3ArraySyntax.ml",
+    "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml", "Z3DefinitionRecognition.ml",
+    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml", "Z3PolynomialSemantics.ml", "Z3ArithmeticSyntax.ml", "Z3ArrayEqualitySyntax.ml",
+    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewriteSyntax.ml", "Z3ConditionalRewriteSyntax.ml",
+    "Z3NlaLemma.ml", "Z3ArithmeticFactorSyntax.ml", "Z3LpCertificate.ml", "Z3LpReplaySyntax.ml", "Z3LpGomorySyntax.ml", "Z3LpIntegerCut.ml", "Z3IntegerDivisionSyntax.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldCertificate.ml", "Z3FiniteFieldPac.ml",
+    "Z3QuantifierNnfSyntax.ml", "Z3QuantifierVacuitySyntax.ml", "Z3QuantifierPullSyntax.ml", "Z3BinderSubstitution.ml",
+    "Z3QuantifierInstantiationSyntax.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
+    "Z3QuantifierDer.ml", "Z3SkolemSyntax.ml", "Z3Skolemization.ml",
+    "Z3LambdaSyntax.ml", "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvSyntax.ml", "Z3BvFreshSyntax.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
+    "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalizeSyntax.ml", "Z3TheoryNormalize.ml",
+    "Z3UnifiedProofSyntax.ml", "Z3CongruenceSyntax.ml", "Z3RelationalRuleSyntax.ml", "Z3ModusPonensSyntax.ml", "Z3UnifiedNode.ml", "Z3DocumentSyntax.ml", "Z3DocumentPreparation.ml", "Z3DocumentReplay.ml", "Z3BinderScopeSyntax.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedIntDivision.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
     "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3SortedProof.ml",
-    "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
+    "Z3FiniteFieldTags.ml", "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
   $extracted = @($order | Where-Object {

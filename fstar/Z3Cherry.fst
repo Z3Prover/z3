@@ -8,7 +8,7 @@ module P = Z3ProofDocument
 let constructor_op = Z3DatatypeLemma.op_constructor
 let recognizer_op = Z3DatatypeLemma.op_recognizer
 let accessor_op = Z3DatatypeLemma.op_accessor
-let rational_op = Z3ValueTheory.op_num_rational
+let rational_op = Z3OperatorTags.op_num_rational
 
 type marshaled = {
   document: P.document;

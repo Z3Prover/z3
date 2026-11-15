@@ -3,7 +3,7 @@
 
    A resolution/clausal proof-step layer sitting *above* the
    equational rewrite calculus already modeled by
-   `Z3ProofTheory.fst`/`Z3PatternMatchedProofChecker.fst`. See
+   `Z3ProofTheory.fst`. See
    `RESOLUTION_CHECKER_SCOPE.md` for the full rule inventory and
    tiering rationale.
 

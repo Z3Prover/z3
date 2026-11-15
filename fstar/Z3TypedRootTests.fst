@@ -23,7 +23,7 @@
 module Z3TypedRootTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue

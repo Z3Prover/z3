@@ -23,6 +23,19 @@ let not_decl : func_decl =
     interp = Some op_not; int_params = [] }
 let mk_not_expr (a:expr) : expr = App not_decl [a]
 
+let rec boolean_domain (args:list expr) : Tot (list sort) (decreases args) =
+  match args with
+  | [] -> []
+  | _ :: rest -> bool_sort :: boolean_domain rest
+
+let and_decl (args:list expr) : func_decl =
+  { decl_name = "and"; domain = boolean_domain args; range = bool_sort;
+    interp = Some op_and; int_params = [] }
+
+let or_decl (args:list expr) : func_decl =
+  { decl_name = "or"; domain = boolean_domain args; range = bool_sort;
+    interp = Some op_or; int_params = [] }
+
 let formula_clause (e:expr) : CS.clause =
   match e with
   | App f args ->

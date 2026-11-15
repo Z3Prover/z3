@@ -60,17 +60,17 @@ open Z3OperatorTags
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module T = Z3SortedSemantics
 module SR = Z3SortedRoot
 module Q = Z3SortedQuantifier
 module SP = Z3SortedProof
-module P = Z3ProofDocument
-module U = Z3UnifiedProof
+module P = Z3DocumentSyntax
+module U = Z3UnifiedProofSyntax
 module E = Z3SortedSkolem
-module SK = Z3Skolemization
+module SK = Z3SkolemSyntax
 module NR = Z3NnfReplay
 module R = Z3ClauseSyntax
 module DS = Z3SortedDependentSkolem
@@ -940,7 +940,7 @@ let lemma_oeq_sides (sigma:V.signature) (formula a b:expr)
           (ensures TR.supported_sort sigma bool_sort /\ TR.supported_expression sigma a /\
                    TR.supported_expression sigma b) =
   match formula with
-  | App f [x; y] -> assert (Z3ObservationalEquality.is_oeq formula == Some (x, y))
+  | App f [x; y] -> assert (Z3ObservationalSyntax.is_oeq formula == Some (x, y))
   | _ -> ()
 
 let lemma_boolean_equation_covered (sigma:V.signature) (a b:expr)

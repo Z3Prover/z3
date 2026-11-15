@@ -7,8 +7,9 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
 module Q = Z3SortedQuantifier
-module SK = Z3Skolemization
-module D = Z3Definitions
+module SK = Z3SkolemSyntax
+module Scope = Z3ExprScope
+module SB = Z3Substitution
 module R = Z3ClauseSyntax
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
@@ -29,12 +30,12 @@ let terms (d:SK.definition) : list expr = L.map (fun (_, f) -> App f []) d.witne
 
 let eligible (s:S.checked_schema) (d:SK.definition) : bool =
   SK.valid d && d.dependencies = [] && safe_witnesses s d.witnesses &&
-  D.scoped (L.rev d.bound_sorts) d.body &&
+  Scope.scoped (L.rev d.bound_sorts) d.body &&
   (match SK.instantiation d, SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body with
    | Some b, Some target ->
-     D.scoped [] b && D.scoped [] target &&
+     Scope.scoped [] b && Scope.scoped [] target &&
      SK.definition_of (SK.source d) b = Some d &&
-     D.instantiate 0 (variables d) (terms d) d.body = Some target
+     SB.instantiate 0 (variables d) (terms d) d.body = Some target
    | _, _ -> false)
 
 type definition (s:S.checked_schema) = d:SK.definition{eligible s d}
@@ -42,7 +43,7 @@ type definition (s:S.checked_schema) = d:SK.definition{eligible s d}
 let definition_of (s:S.checked_schema) (a b:expr) : option (definition s) =
   match SK.definition_of a b with
   | Some d ->
-    if eligible s d && D.scoped [] a && D.scoped [] b
+    if eligible s d && Scope.scoped [] a && Scope.scoped [] b
     then Some d else None
   | None -> None
 
@@ -168,7 +169,7 @@ let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                     (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
                     (scope:list sort) (rho:V.environment base (S.signature s) scope) (e:expr)
-  : Lemma (requires D.scoped scope e /\ SK.fresh d.witnesses e)
+  : Lemma (requires Scope.scoped scope e /\ SK.fresh d.witnesses e)
           (ensures T.evaluate_at s bc eq other scope rho e ==
                    T.evaluate_at s bc eq (override s d vs other) scope rho e)
           (decreases e) =
@@ -199,7 +200,7 @@ and lemma_fresh_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
                     (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
                     (args:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ SK.fresh_args d.witnesses args)
+  : Lemma (requires Scope.scoped_args scope args /\ sorts_match args ss /\ SK.fresh_args d.witnesses args)
           (ensures V.evaluate_args (S.signature s) (T.interpretation s bc eq other) scope rho args ss ==
                    V.evaluate_args (S.signature s) (T.interpretation s bc eq (override s d vs other))
                      scope rho args ss)
@@ -212,12 +213,12 @@ and lemma_fresh_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
 
 let rec lemma_terms (s:S.checked_schema) (ws:list SK.witness)
   : Lemma (requires safe_witnesses s ws)
-          (ensures D.scoped_args [] (L.map (fun (_, f) -> App f []) ws))
+          (ensures Scope.scoped_args [] (L.map (fun (_, f) -> App f []) ws))
           (decreases ws) =
   match ws with [] -> () | _ :: rest -> lemma_terms s rest
 
 let rec lemma_argument (ws:list SK.witness) (n:nat) (term:expr)
-  : Lemma (requires D.argument n (L.map fst ws) (L.map (fun (_, f) -> App f []) ws) == Some term)
+  : Lemma (requires SB.argument n (L.map fst ws) (L.map (fun (_, f) -> App f []) ws) == Some term)
           (ensures exists (f:func_decl). term == App f [] /\ SK.lookup n ws == Some f)
           (decreases ws) =
   match ws with
@@ -248,17 +249,17 @@ let lemma_instance_environment (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   LP.append_length (L.rev d.bound_sorts) [];
   let at (n:nat{n < L.length ([] @ L.rev d.bound_sorts)})
     : Lemma (
-        forall (term:expr{D.scoped [] term}).
-          D.argument n (variables d) (terms d) == Some term ==>
+        forall (term:expr{Scope.scoped [] term}).
+          SB.argument n (variables d) (terms d) == Some term ==>
           V.extend (S.signature s) [] (L.rev d.bound_sorts) vs
             (T.empty_environment (S.signature s)) n ==
           T.evaluate s bc eq (override s d vs other) term) =
-    let term_at (term:expr{D.scoped [] term})
-      : Lemma (D.argument n (variables d) (terms d) == Some term ==>
+    let term_at (term:expr{Scope.scoped [] term})
+      : Lemma (SB.argument n (variables d) (terms d) == Some term ==>
                        V.extend (S.signature s) [] (L.rev d.bound_sorts) vs
                          (T.empty_environment (S.signature s)) n ==
                        T.evaluate s bc eq (override s d vs other) term) =
-      if D.argument n (variables d) (terms d) = Some term then (
+      if SB.argument n (variables d) (terms d) = Some term then (
       lemma_argument d.witnesses n term;
       let use (f:func_decl)
         : Lemma ((term == App f [] /\ SK.lookup n d.witnesses == Some f) ==>
@@ -278,8 +279,8 @@ let lemma_instance_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                          (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
                          (target:expr)
-  : Lemma (requires D.scoped [] target /\
-                    D.instantiate 0 (variables d) (terms d) d.body == Some target)
+  : Lemma (requires Scope.scoped [] target /\
+                    SB.instantiate 0 (variables d) (terms d) d.body == Some target)
           (ensures T.evaluate_at s bc eq (override s d vs other) (L.rev d.bound_sorts)
                      (V.extend (S.signature s) [] (L.rev d.bound_sorts) vs
                        (T.empty_environment (S.signature s))) d.body ==
@@ -294,8 +295,8 @@ let lemma_instance_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
 
 let lemma_negate (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s)) (e:expr)
-  : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
-          (ensures D.scoped [] (SK.negate e) /\ get_sort (SK.negate e) == bool_sort /\
+  : Lemma (requires Scope.scoped [] e /\ get_sort e == bool_sort)
+          (ensures Scope.scoped [] (SK.negate e) /\ get_sort (SK.negate e) == bool_sort /\
                    T.truth s bc eq other (SK.negate e) == not (T.truth s bc eq other e)) =
   match e with
   | App f [a] ->
@@ -324,10 +325,10 @@ let lemma_source_goal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
 let lemma_definition_parts (s:S.checked_schema) (a b:expr) (d:definition s)
   : Lemma (requires definition_of s a b == Some d)
           (ensures SK.source d == a /\ SK.instantiation d == Some b /\
-                   D.scoped [] a /\ D.scoped [] b /\
+                   Scope.scoped [] a /\ Scope.scoped [] b /\
                    get_sort a == bool_sort /\ get_sort b == bool_sort /\
                    Some? (SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body) /\
-                   D.instantiate 0 (variables d) (terms d) d.body ==
+                   SB.instantiate 0 (variables d) (terms d) d.body ==
                      SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body) =
   let target = Some?.v (SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body) in
   SK.lemma_substitute_sort 0 (L.length d.bound_sorts) [] d.witnesses d.body target
@@ -396,7 +397,7 @@ and lemma_substitute_args_fresh (newer older:list SK.witness) (depth count:nat) 
   | _, _ -> ()
 
 let lemma_source_scoped (s:S.checked_schema) (d:definition s)
-  : Lemma (D.scoped [] (SK.source d) /\ get_sort (SK.source d) == bool_sort) =
+  : Lemma (Scope.scoped [] (SK.source d) /\ get_sort (SK.source d) == bool_sort) =
   Q.lemma_closed_syntax (L.rev d.bound_sorts) [] 0 0 d.body
 
 let lemma_source_fresh (s:S.checked_schema) (newer:definition s) (older:SK.definition)
@@ -550,7 +551,7 @@ let rec lemma_build_inputs (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
       match es with
       | [] -> ()
       | e :: tail ->
-        if D.scoped [] e && get_sort e = bool_sort then
+        if Scope.scoped [] e && get_sort e = bool_sort then
           lemma_fresh s bc eq older d vs [] (T.empty_environment (S.signature s)) e;
         all tail in
     all inputs

@@ -1,7 +1,7 @@
 module Z3ResolutionProofCheckerTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ProofTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
@@ -214,7 +214,7 @@ let division_axiom_checks () : bool =
   let s = (SortApp IntSymbol []) in
   let x = typed_atom "x" s in
   let b = typed_atom "b" s in
-  let n = Z3LpGomory.integer in
+  let n = Z3LpGomorySyntax.integer in
   let div a b = arithmetic_app "div" ID.op_idiv s [a; b] in
   let rem a b = arithmetic_app "mod" ID.op_mod s [a; b] in
   let add a b = arithmetic_app "+" op_plus s [a; b] in

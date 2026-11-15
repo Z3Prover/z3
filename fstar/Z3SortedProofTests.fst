@@ -6,10 +6,10 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module DT = Z3SortedDatatype
 module K = Z3SortedProof
-module U = Z3UnifiedProof
-module P = Z3ProofDocument
-module R = Z3ResolutionProofTheory
-module BR = Z3BooleanRewrite
+module U = Z3UnifiedProofSyntax
+module P = Z3DocumentSyntax
+module R = Z3ClauseSyntax
+module BR = Z3BooleanRewriteSyntax
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
@@ -996,8 +996,8 @@ let linear_consequences_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (
            (T.truths core_schema bc eq other lin_tight ==> T.truth core_schema bc eq other lin_tight_target) /\
            (T.truths core_schema bc eq other lin_chain ==> T.truth core_schema bc eq other lin_chain_target)) =
   checked_linear_consequences ();
-  assert_norm (Z3Definitions.scoped [] lin_canon_target /\ Z3Definitions.scoped [] lin_constants_target /\
-               Z3Definitions.scoped [] lin_tight_target /\ Z3Definitions.scoped [] lin_chain_target);
+  assert_norm (Z3ExprScope.scoped [] lin_canon_target /\ Z3ExprScope.scoped [] lin_constants_target /\
+               Z3ExprScope.scoped [] lin_tight_target /\ Z3ExprScope.scoped [] lin_chain_target);
   if T.truths core_schema bc eq other lin_canon then
     K.lemma_linear_consequence core_schema bc eq other lin_canon lin_canon_target;
   if T.truths core_schema bc eq other lin_constants then
@@ -1013,7 +1013,7 @@ let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier ba
   : Lemma (not (T.truths core_schema bc eq other lin_conflict)) =
   checked_linear_consequences ();
   if T.truths core_schema bc eq other lin_conflict then (
-    assert_norm (Z3Definitions.scoped [] R.false_expr);
+    assert_norm (Z3ExprScope.scoped [] R.false_expr);
     K.lemma_linear_consequence core_schema bc eq other lin_conflict R.false_expr;
     assert (T.truth core_schema bc eq other R.false_expr);
     assert_norm (T.cut 1 R.false_expr == Z3BoundedBoolEquiv.Bool false);

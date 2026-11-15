@@ -63,6 +63,7 @@ module SM = Z3StandardModel
 module BE = Z3BvExhaustive
 module SK = Z3Skolemization
 module L = FStar.List.Tot
+module Reach = Z3RelationalReachability
 
 (* --- Scoped judgments ---------------------------------------------------- *)
 
@@ -166,29 +167,37 @@ let lemma_edge_values (i:interpretation value) (dom:CO.domains) (scope:list sort
         CO.lemma_typed_bool i dom scope b rho);
       lemma_observations_values_typed i rho a b
 
-let rec lemma_matching (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
-                       (r:relation) (a b:expr) (js:list judgment)
+let rec lemma_scoped_value_edges (i:interpretation value) (dom:CO.domains)
+                                 (scope:list sort) (rho:env value)
+                                 (r:relation) (js:list judgment)
+  : Lemma (requires context i dom scope rho /\ judgments_wf js /\ judgments_scoped scope js /\
+                    judgments_hold i rho js)
+          (ensures Reach.edges_hold (equal_values i rho) r js)
+          (decreases js) =
+  match js with
+  | [] -> ()
+  | j :: rest ->
+    (match edge r j with
+     | Some (a, b) -> lemma_edge_values i dom scope rho r j a b
+     | None -> ());
+    lemma_scoped_value_edges i dom scope rho r rest
+
+let lemma_matching (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
+                   (r:relation) (a b:expr) (js:list judgment)
   : Lemma (requires context i dom scope rho /\ judgments_wf js /\ judgments_scoped scope js /\
                     judgments_hold i rho js /\ matching r a b js)
-          (ensures eval i a rho == eval i b rho)
-          (decreases js)
-  = match js with
-    | [] -> ()
-    | j :: rest ->
-      if edge r j = Some (a, b) then lemma_edge_values i dom scope rho r j a b
-      else lemma_matching i dom scope rho r a b rest
+          (ensures eval i a rho == eval i b rho) =
+  lemma_scoped_value_edges i dom scope rho r js;
+  Reach.lemma_matching (equal_values i rho) r a b js
 
-let rec lemma_arguments (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
-                        (r:relation) (xs ys:list expr) (js:list judgment)
+let lemma_arguments (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
+                    (r:relation) (xs ys:list expr) (js:list judgment)
   : Lemma (requires context i dom scope rho /\ judgments_wf js /\ judgments_scoped scope js /\
                     judgments_hold i rho js /\ arguments_match r xs ys js)
-          (ensures eval_args i xs rho == eval_args i ys rho)
-          (decreases xs)
-  = match xs, ys with
-    | [], [] -> ()
-    | x :: xs', y :: ys' ->
-      (if x = y then () else lemma_matching i dom scope rho r x y js);
-      lemma_arguments i dom scope rho r xs' ys' js
+          (ensures eval_args i xs rho == eval_args i ys rho) =
+  lemma_scoped_value_edges i dom scope rho r js;
+  Reach.lemma_arguments (equal_values i rho) r xs ys js;
+  lemma_equal_arguments i rho xs ys
 
 let lemma_bool_values (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
                       (a b:expr)

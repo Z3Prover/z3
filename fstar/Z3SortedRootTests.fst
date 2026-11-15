@@ -11,13 +11,13 @@
 module Z3SortedRootTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module I = Z3SortedInteger

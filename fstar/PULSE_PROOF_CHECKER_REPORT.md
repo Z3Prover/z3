@@ -3,6 +3,9 @@
 **Tooling update:** the in-memory Pulse checkers and their formal tests
 remain, but the Python exporter, generated proof snapshots, and JSON
 compatibility layer described in historical sections have been removed.
+The concrete example interpreters, pattern-matched example checker, and
+rewrite-synthesis wrappers have also been retired; the sections describing
+them below are historical, not current checker coverage.
 See [the native checker report](OCAML_CHECKER_REPORT.md) for the current
 single-executable SMT-LIB interface.
 
@@ -1042,18 +1045,20 @@ a separate blanket lemma over the list.
 All five files verify with zero errors ("All verification conditions
 discharged successfully" for each).
 
-## Files
+## Files (historical inventory)
+
+Retired interpreter and synthesis modules are listed without source links.
 
 | File | Role |
 |---|---|
 | [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) | Pulse port of `fact`/`facts_of` (the rewriter-calculus checker) |
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
-| [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly; its top-level `interp_app` composes each theory's own `interp_app` (below) plus a local `core_interp_app` for bool/arith/`eq`/literal ops |
+| `Z3InterpretedProofChecker.fst` (retired) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly; its top-level `interp_app` composes each theory's own `interp_app` (below) plus a local `core_interp_app` for bool/arith/`eq`/literal ops |
 | [`Z3OperatorTags.fst`](Z3OperatorTags.fst) | Checker-internal `op_*` transport tags, independent of concrete semantic carriers |
-| [`Z3ValueTheory.fst`](Z3ValueTheory.fst) | Legacy `value` semantic domain (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) used by the example interpreters below and existing unindexed proofs; retains compatibility aliases for `op_*`. New semantics use sort-indexed carriers instead |
-| [`Z3ArrayInterp.fst`](Z3ArrayInterp.fst), [`Z3SeqInterp.fst`](Z3SeqInterp.fst), [`Z3BvInterp.fst`](Z3BvInterp.fst) | Thin, `value`-level companions to `Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`, each exposing one theory-scoped `interp_app (k:decl_kind) (int_params:list int) (args:list value) : option value` (`Some` iff that theory owns `k`) that `Z3InterpretedProofChecker.fst`'s top-level dispatcher tries in turn |
-| [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Decidable pattern-matching compiler recognizing six rewrite-rule schemas across array/seq/bool/bv theories for *arbitrary* nested sub-expressions (not just named constants), auto-discharging `all_leaves_sound` via a structural "type soundness" lemma plus the matching theory lemma; also provides a "partial" mode (`collect_unmatched`/`lemma_partial_proof_true`) that reduces an unrecognized leaf's proof obligation to an explicit, minimal leftover-fact list instead of rejecting the whole proof |
+| [`Z3ValueTheory.fst`](Z3ValueTheory.fst) | Legacy `value` semantic domain (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) still used by unindexed proofs; retains compatibility aliases for `op_*`. The example interpreters below are retired. New semantics use sort-indexed carriers instead |
+| `Z3ArrayInterp.fst`, `Z3SeqInterp.fst`, `Z3BvInterp.fst` (retired) | Thin, `value`-level companions to `Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`, each exposing one theory-scoped `interp_app (k:decl_kind) (int_params:list int) (args:list value) : option value` (`Some` iff that theory owns `k`) that `Z3InterpretedProofChecker.fst`'s top-level dispatcher tries in turn |
+| `Z3PatternMatchedProofChecker.fst` (retired) | Decidable pattern-matching compiler recognizing six rewrite-rule schemas across array/seq/bool/bv theories for *arbitrary* nested sub-expressions (not just named constants), auto-discharging `all_leaves_sound` via a structural "type soundness" lemma plus the matching theory lemma; also provides a "partial" mode (`collect_unmatched`/`lemma_partial_proof_true`) that reduces an unrecognized leaf's proof obligation to an explicit, minimal leftover-fact list instead of rejecting the whole proof |
 | [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
 | [`tools/test_not_not.smt2`](tools/test_not_not.smt2), [`Z3ExtractedProof_FromFile.fst`](Z3ExtractedProof_FromFile.fst) | Same `not(not(x)) == x` example, but driven from an `.smt2` file path instead of a built-in Python formula |
@@ -1063,11 +1068,11 @@ discharged successfully" for each).
 | [`tools/test_store_same_twice.smt2`](tools/test_store_same_twice.smt2), [`Z3ExtractedProof_StoreSameTwice.fst`](Z3ExtractedProof_StoreSameTwice.fst) | `(store (store a i x) i y) == (store a i y)`, exercising the `store_same_twice` matcher |
 | [`tools/test_store_redundant.smt2`](tools/test_store_redundant.smt2), [`Z3ExtractedProof_StoreRedundant.fst`](Z3ExtractedProof_StoreRedundant.fst) | `(store a i (select a i)) == a`, exercising the `store_redundant` matcher |
 | [`tools/test_select_store_diff.smt2`](tools/test_select_store_diff.smt2), [`Z3ExtractedProof_SelectStoreDiff.fst`](Z3ExtractedProof_SelectStoreDiff.fst) | `(select (store a i x) j) == (select a j)` under `i <> j` -- a rewrite that is *not* wired into any matcher (no `i <> j` side-condition support); Z3 in fact proves it via `PR_TH_LEMMA`, not `PR_REWRITE`, so it never reaches the matcher at all |
-| [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst) | `apply_lemma_x : expr -> option expr` rewrite-*synthesis* functions for `select_store_same`/`store_same_twice`/`store_redundant`/`select_store_diff`/`store_commute`, plus `apply_lemmas`/`is_rewrite` |
-| [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst) | Same, for `concat_assoc` |
-| [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst) | Same, for `not_not` |
-| [`Z3BvEmbed.fst`](Z3BvEmbed.fst) | Same, for `bvand_self` |
-| [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) | Same, for the two theory-agnostic matchers, `reflexivity` and `eq_symm` |
+| `Z3ArrayEmbed.fst` (retired) | `apply_lemma_x : expr -> option expr` rewrite-*synthesis* functions for `select_store_same`/`store_same_twice`/`store_redundant`/`select_store_diff`/`store_commute`, plus `apply_lemmas`/`is_rewrite` |
+| `Z3SeqEmbed.fst` (retired) | Same, for `concat_assoc` |
+| `Z3BoolEmbed.fst` (retired) | Same, for `not_not` |
+| `Z3BvEmbed.fst` (retired) | Same, for `bvand_self` |
+| `Z3CoreEmbed.fst` (retired) | Same, for the two theory-agnostic matchers, `reflexivity` and `eq_symm` |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero

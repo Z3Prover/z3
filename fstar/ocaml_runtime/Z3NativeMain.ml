@@ -17,62 +17,62 @@ let read_all channel =
   Buffer.contents buffer
 
 let diagnostic_rule = function
-  | Z3UnifiedProof.Unverified name -> name
-  | Z3UnifiedProof.ArithmeticFarkas _ -> "arith/farkas"
-  | Z3UnifiedProof.ArithmeticGomory _ -> "arith/lp-gomory"
-  | Z3UnifiedProof.FiniteFieldPac _ -> "th-lemma"
-  | Z3UnifiedProof.RewriteRule -> "rewrite"
-  | Z3UnifiedProof.PullQuantifier -> "pull-quant"
-  | Z3UnifiedProof.DestructiveEqualityResolution -> "der"
-  | Z3UnifiedProof.Skolemization -> "sk"
-  | Z3UnifiedProof.ElimUnused -> "elim-unused"
-  | Z3UnifiedProof.PushQuantifier -> "push-quant"
-  | Z3UnifiedProof.DestructiveEquality -> "der"
-  | Z3UnifiedProof.DefAxiom -> "def-axiom"
-  | Z3UnifiedProof.Asserted -> "asserted"
-  | Z3UnifiedProof.DefinitionIntroduction -> "intro-def"
-  | Z3UnifiedProof.ApplyDefinition -> "apply-def"
-  | Z3UnifiedProof.Hypothesis -> "hypothesis"
-  | Z3UnifiedProof.LemmaRule -> "lemma"
-  | Z3UnifiedProof.Reflexivity -> "refl"
-  | Z3UnifiedProof.Symmetry -> "symm"
-  | Z3UnifiedProof.Transitivity -> "trans"
-  | Z3UnifiedProof.TransitivityPath -> "trans*"
-  | Z3UnifiedProof.Congruence -> "monotonicity"
-  | Z3UnifiedProof.Commutativity -> "commutativity"
-  | Z3UnifiedProof.ModusPonens -> "mp"
-  | Z3UnifiedProof.ObservationalMP -> "mp~"
-  | Z3UnifiedProof.IffObservational -> "iff~"
-  | Z3UnifiedProof.UnitResolution -> "unit-resolution"
-  | Z3UnifiedProof.AndElimination -> "and-elim"
-  | Z3UnifiedProof.NotOrElimination -> "not-or-elim"
-  | Z3UnifiedProof.IffTrue -> "iff-true"
-  | Z3UnifiedProof.IffFalse -> "iff-false"
-  | Z3UnifiedProof.QuantifierIntroduction certificate ->
-      let root = certificate.Z3UnifiedProof.binder_root in
+  | Z3UnifiedProofSyntax.Unverified name -> name
+  | Z3UnifiedProofSyntax.ArithmeticFarkas _ -> "arith/farkas"
+  | Z3UnifiedProofSyntax.ArithmeticGomory _ -> "arith/lp-gomory"
+  | Z3UnifiedProofSyntax.FiniteFieldPac _ -> "th-lemma"
+  | Z3UnifiedProofSyntax.RewriteRule -> "rewrite"
+  | Z3UnifiedProofSyntax.PullQuantifier -> "pull-quant"
+  | Z3UnifiedProofSyntax.DestructiveEqualityResolution -> "der"
+  | Z3UnifiedProofSyntax.Skolemization -> "sk"
+  | Z3UnifiedProofSyntax.ElimUnused -> "elim-unused"
+  | Z3UnifiedProofSyntax.PushQuantifier -> "push-quant"
+  | Z3UnifiedProofSyntax.DestructiveEquality -> "der"
+  | Z3UnifiedProofSyntax.DefAxiom -> "def-axiom"
+  | Z3UnifiedProofSyntax.Asserted -> "asserted"
+  | Z3UnifiedProofSyntax.DefinitionIntroduction -> "intro-def"
+  | Z3UnifiedProofSyntax.ApplyDefinition -> "apply-def"
+  | Z3UnifiedProofSyntax.Hypothesis -> "hypothesis"
+  | Z3UnifiedProofSyntax.LemmaRule -> "lemma"
+  | Z3UnifiedProofSyntax.Reflexivity -> "refl"
+  | Z3UnifiedProofSyntax.Symmetry -> "symm"
+  | Z3UnifiedProofSyntax.Transitivity -> "trans"
+  | Z3UnifiedProofSyntax.TransitivityPath -> "trans*"
+  | Z3UnifiedProofSyntax.Congruence -> "monotonicity"
+  | Z3UnifiedProofSyntax.Commutativity -> "commutativity"
+  | Z3UnifiedProofSyntax.ModusPonens -> "mp"
+  | Z3UnifiedProofSyntax.ObservationalMP -> "mp~"
+  | Z3UnifiedProofSyntax.IffObservational -> "iff~"
+  | Z3UnifiedProofSyntax.UnitResolution -> "unit-resolution"
+  | Z3UnifiedProofSyntax.AndElimination -> "and-elim"
+  | Z3UnifiedProofSyntax.NotOrElimination -> "not-or-elim"
+  | Z3UnifiedProofSyntax.IffTrue -> "iff-true"
+  | Z3UnifiedProofSyntax.IffFalse -> "iff-false"
+  | Z3UnifiedProofSyntax.QuantifierIntroduction certificate ->
+      let root = certificate.Z3UnifiedProofSyntax.binder_root in
       if Z.sign root < 0 || not (Z.fits_int root) then "binder"
-      else (match List.nth_opt certificate.Z3UnifiedProof.binder_entries (Z.to_int root) with
-        | Some entry -> entry.Z3UnifiedProof.binder_name
+      else (match List.nth_opt certificate.Z3UnifiedProofSyntax.binder_entries (Z.to_int root) with
+        | Some entry -> entry.Z3UnifiedProofSyntax.binder_name
         | None -> "binder")
-  | Z3UnifiedProof.QuantifierInstantiation _ -> "quant-inst"
+  | Z3UnifiedProofSyntax.QuantifierInstantiation _ -> "quant-inst"
 
 let diagnostic_stage = function
-  | Z3ProofDocument.LogicalDeclarations -> "logical-declarations"
-  | Z3ProofDocument.ExpressionWellFormedness -> "expression-well-formedness"
-  | Z3ProofDocument.OriginalAssertions -> "original-assertions"
-  | Z3ProofDocument.AssertionScope -> "assertion-scope"
-  | Z3ProofDocument.DefinitionCollection -> "definition-collection"
-  | Z3ProofDocument.DefinitionCycle -> "definition-cycle"
-  | Z3ProofDocument.DefinitionExpansion -> "definition-expansion"
-  | Z3ProofDocument.SkolemCollection -> "skolem-collection"
-  | Z3ProofDocument.SkolemCycle -> "skolem-cycle"
-  | Z3ProofDocument.SkolemFreshness -> "skolem-freshness"
-  | Z3ProofDocument.InputClassification -> "input-classification"
-  | Z3ProofDocument.ProofEntry -> "proof-entry"
-  | Z3ProofDocument.MissingPremise -> "missing-premise"
-  | Z3ProofDocument.MissingRoot -> "missing-root"
-  | Z3ProofDocument.OpenRoot -> "open-root"
-  | Z3ProofDocument.DefinitionFreshness -> "definition-freshness"
+  | Z3DocumentSyntax.LogicalDeclarations -> "logical-declarations"
+  | Z3DocumentSyntax.ExpressionWellFormedness -> "expression-well-formedness"
+  | Z3DocumentSyntax.OriginalAssertions -> "original-assertions"
+  | Z3DocumentSyntax.AssertionScope -> "assertion-scope"
+  | Z3DocumentSyntax.DefinitionCollection -> "definition-collection"
+  | Z3DocumentSyntax.DefinitionCycle -> "definition-cycle"
+  | Z3DocumentSyntax.DefinitionExpansion -> "definition-expansion"
+  | Z3DocumentSyntax.SkolemCollection -> "skolem-collection"
+  | Z3DocumentSyntax.SkolemCycle -> "skolem-cycle"
+  | Z3DocumentSyntax.SkolemFreshness -> "skolem-freshness"
+  | Z3DocumentSyntax.InputClassification -> "input-classification"
+  | Z3DocumentSyntax.ProofEntry -> "proof-entry"
+  | Z3DocumentSyntax.MissingPremise -> "missing-premise"
+  | Z3DocumentSyntax.MissingRoot -> "missing-root"
+  | Z3DocumentSyntax.OpenRoot -> "open-root"
+  | Z3DocumentSyntax.DefinitionFreshness -> "definition-freshness"
 
 let fingerprint judgment =
   let module A = Z3AstTheory in
@@ -125,12 +125,12 @@ let fingerprint judgment =
           (if args = [] then "" else "(" ^ String.concat "," (arguments 8 args) ^ ")"))
   in
   match judgment with
-  | Z3UnifiedProof.Holds e -> "holds(" ^ expression 5 e ^ ")"
-  | Z3UnifiedProof.Equal (left, right) ->
+  | Z3UnifiedProofSyntax.Holds e -> "holds(" ^ expression 5 e ^ ")"
+  | Z3UnifiedProofSyntax.Equal (left, right) ->
       let left = expression 5 left in
       let right = expression 5 right in
       "eq(" ^ left ^ " -> " ^ right ^ ")"
-  | Z3UnifiedProof.Observational (left, right) ->
+  | Z3UnifiedProofSyntax.Observational (left, right) ->
       let left = expression 5 left in
       let right = expression 5 right in
       "oeq(" ^ left ^ " -> " ^ right ^ ")"
@@ -239,33 +239,33 @@ let pretty_judgment judgment =
       if precedence < minimum then "(" ^ text ^ ")" else text)
   in
   match judgment with
-  | Z3UnifiedProof.Holds e -> expression 12 [] 0 e
-  | Z3UnifiedProof.Equal (left, right) ->
+  | Z3UnifiedProofSyntax.Holds e -> expression 12 [] 0 e
+  | Z3UnifiedProofSyntax.Equal (left, right) ->
       let left = expression 12 [] 31 left in
       left ^ " = " ^ expression 12 [] 31 right
-  | Z3UnifiedProof.Observational (left, right) ->
+  | Z3UnifiedProofSyntax.Observational (left, right) ->
       let left = expression 12 [] 31 left in
       left ^ " ~ " ^ expression 12 [] 31 right
 
-let pretty_expr e = pretty_judgment (Z3UnifiedProof.Holds e)
+let pretty_expr e = pretty_judgment (Z3UnifiedProofSyntax.Holds e)
 
 (* Inspect argument structure, not just the shared connective declaration. *)
 let assertion_hash value = Z.of_int (Hashtbl.hash_param 64 256 value)
 
 let report_diagnostics diagnostic expected =
   match diagnostic, expected with
-  | Z3ProofDocument.DocumentChecked (pending, obligations), Some actual
+  | Z3DocumentSyntax.DocumentChecked (pending, obligations), Some actual
       when Z.equal pending actual ->
       let families = Hashtbl.create 32 and total = ref Z.zero in
       List.iter (fun obligation ->
-        let key = diagnostic_rule obligation.Z3ProofDocument.obligation_rule,
-                  fingerprint obligation.Z3ProofDocument.obligation_conclusion in
+        let key = diagnostic_rule obligation.Z3DocumentSyntax.obligation_rule,
+                  fingerprint obligation.Z3DocumentSyntax.obligation_conclusion in
         let count, first, conclusion =
           match Hashtbl.find_opt families key with
           | Some value -> value
-          | None -> Z.zero, obligation.Z3ProofDocument.obligation_index,
-                    obligation.Z3ProofDocument.obligation_conclusion in
-        let local = obligation.Z3ProofDocument.obligation_count in
+          | None -> Z.zero, obligation.Z3DocumentSyntax.obligation_index,
+                    obligation.Z3DocumentSyntax.obligation_conclusion in
+        let local = obligation.Z3DocumentSyntax.obligation_count in
         total := Z.add !total local;
         Hashtbl.replace families key (Z.add count local, first, conclusion)) obligations;
       if not (Z.equal !total pending) then Z3Native.fail "Diagnostic obligation count mismatch";
@@ -279,10 +279,10 @@ let report_diagnostics diagnostic expected =
             rule (Z.to_string count) (Z.to_string first) shape;
           Printf.eprintf "expression\t%s\t%s\t%s\t%s\n"
             rule (Z.to_string count) (Z.to_string first) (pretty_judgment conclusion))
-  | Z3ProofDocument.DocumentRejected (stage, index, source), None ->
+  | Z3DocumentSyntax.DocumentRejected (stage, index, source), None ->
       Printf.eprintf "diagnostic\trejected\tstage=%s\tindex=%s%s\n"
         (diagnostic_stage stage) (match index with None -> "-" | Some n -> Z.to_string n)
-        (match source with None -> "" | Some e -> "\t" ^ fingerprint (Z3UnifiedProof.Holds e))
+        (match source with None -> "" | Some e -> "\t" ^ fingerprint (Z3UnifiedProofSyntax.Holds e))
   | _ -> Z3Native.fail "Diagnostic result disagrees with document checker"
 
 let result_text = function
@@ -297,7 +297,8 @@ let result_text = function
 module Readable = struct
   module A = Z3AstTheory
   module P = Z3ProofDocument
-  module U = Z3UnifiedProof
+  module PS = Z3DocumentSyntax
+  module U = Z3UnifiedProofSyntax
 
   let max_depth = 48 and max_nodes = 1000 and max_chars = 4096 and max_name_bytes = 96
   and max_digits = 100 and max_params = 16 and max_families = 20 and max_premises = 8
@@ -521,7 +522,7 @@ module Readable = struct
   (* One readable block per query: the representative of each of the first [max_families]
      obligation families, in the order of the machine rows. The node index is the position of the
      obligation in the document's proof entries, which is where its premise ids are read from. *)
-  let report_text query verdict (doc : P.document) diagnostic =
+  let report_text query verdict (doc : PS.document) diagnostic =
     let out = Buffer.create 1024 and full = ref false in
     let emit block =
       if not !full then
@@ -529,7 +530,7 @@ module Readable = struct
         else Buffer.add_string out block
     in
     let entry_at index =
-      if Z.sign index >= 0 && Z.fits_int index then List.nth_opt doc.P.entries (Z.to_int index)
+      if Z.sign index >= 0 && Z.fits_int index then List.nth_opt doc.PS.entries (Z.to_int index)
       else None
     in
     let premise_list = function
@@ -540,19 +541,19 @@ module Readable = struct
                              |> List.map (fun id -> "#" ^ integer id)) ^
           (if extra > 0 then Printf.sprintf " ...<%d more>" extra else "")
     in
-    let family_block position total rule count members (first : P.unmet_obligation) =
+    let family_block position total rule count members (first : PS.unmet_obligation) =
       let b = Buffer.create 512 in
-      let index = first.P.obligation_index in
+      let index = first.PS.obligation_index in
       Printf.bprintf b "readable\tfamily=%d/%d\trule=%s\tcount=%s\tmembers=%d\tnode=%s\tnode-pending=%s\n"
         position total rule (integer count) members (integer index)
-        (integer first.P.obligation_count);
-      let premises = first.P.obligation_premises in
+        (integer first.PS.obligation_count);
+      let premises = first.PS.obligation_premises in
       let ids = match entry_at index with
         | None -> Error "no document entry at this index"
-        | Some e when diagnostic_rule e.P.rule <> diagnostic_rule first.P.obligation_rule
-                      || List.length e.P.premise_ids <> List.length premises ->
+        | Some e when diagnostic_rule e.PS.rule <> diagnostic_rule first.PS.obligation_rule
+                      || List.length e.PS.premise_ids <> List.length premises ->
             Error "the document entry at this index has another rule or premise count"
-        | Some e -> Ok e.P.premise_ids in
+        | Some e -> Ok e.PS.premise_ids in
       (match ids with
        | Ok ids -> Printf.bprintf b "  node %s: premises: %s\n" (integer index) (premise_list ids)
        | Error reason ->
@@ -566,26 +567,26 @@ module Readable = struct
           Printf.bprintf b "  premise %s: %s\n" label (fst (judgment_text premise)))) premises;
       let extra = List.length premises - max_premises in
       if extra > 0 then Printf.bprintf b "  ...<%d more premises omitted>\n" extra;
-      let conclusion, conclusion_cut = judgment_text first.P.obligation_conclusion in
+      let conclusion, conclusion_cut = judgment_text first.PS.obligation_conclusion in
       Printf.bprintf b "  conclusion: %s\n" conclusion;
-      let source, source_cut = judgment_text (U.Holds first.P.obligation_source) in
+      let source, source_cut = judgment_text (U.Holds first.PS.obligation_source) in
       if source = conclusion && not conclusion_cut && not source_cut
       then Buffer.add_string b "  source formula: same as conclusion\n"
       else Printf.bprintf b "  source formula: %s\n" source;
       Buffer.contents b
     in
     (match diagnostic with
-     | P.DocumentChecked (pending, obligations) ->
+     | PS.DocumentChecked (pending, obligations) ->
          let families = Hashtbl.create 32 in
          List.iter (fun obligation ->
-           let key = diagnostic_rule obligation.P.obligation_rule,
-                     fingerprint obligation.P.obligation_conclusion in
+           let key = diagnostic_rule obligation.PS.obligation_rule,
+                     fingerprint obligation.PS.obligation_conclusion in
            let count, members, first =
              match Hashtbl.find_opt families key with
              | Some value -> value
              | None -> Z.zero, 0, obligation in
            Hashtbl.replace families key
-             (Z.add count obligation.P.obligation_count, members + 1, first)) obligations;
+             (Z.add count obligation.PS.obligation_count, members + 1, first)) obligations;
          let ordered =
            Hashtbl.to_seq families |> List.of_seq |>
            List.sort (fun (key1, (n1, _, _)) (key2, (n2, _, _)) ->
@@ -600,16 +601,16 @@ module Readable = struct
          if total > shown then
            emit (Printf.sprintf "readable\tomitted\tfamilies=%d\treason=family-limit\n" (total - shown));
          if !full then Buffer.add_string out "readable\tomitted\treason=report-size\n"
-     | P.DocumentRejected (stage, index, source) ->
+     | PS.DocumentRejected (stage, index, source) ->
          let b = Buffer.create 256 in
          Printf.bprintf b "readable\tquery=%d\tverdict=%s\tstage=%s\tindex=%s\n" query verdict
            (diagnostic_stage stage) (match index with None -> "-" | Some n -> integer n);
          (match stage, index with
-          | (P.ProofEntry | P.MissingPremise), Some i ->
+          | (PS.ProofEntry | PS.MissingPremise), Some i ->
               (match entry_at i with
                | Some e ->
                    Printf.bprintf b "  node %s: rule=%s premises: %s\n" (integer i)
-                     (diagnostic_rule e.P.rule) (premise_list e.P.premise_ids)
+                     (diagnostic_rule e.PS.rule) (premise_list e.PS.premise_ids)
                | None ->
                    Printf.bprintf b "  node %s: no source-node mapping (no document entry at this index)\n"
                      (integer i))
@@ -659,14 +660,14 @@ let check_proof statistics diagnostics readable query sorted_core start solved a
        if statistics then
          Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
-    count + List.length entry.Z3ProofDocument.premise_ids) 0 doc.entries in
+    count + List.length entry.Z3DocumentSyntax.premise_ids) 0 doc.entries in
   let binder_nodes, binder_edges = List.fold_left (fun (nodes, edges) entry ->
-    match entry.Z3ProofDocument.rule with
-    | Z3UnifiedProof.QuantifierIntroduction certificate ->
-        nodes + List.length certificate.Z3UnifiedProof.binder_entries,
+    match entry.Z3DocumentSyntax.rule with
+    | Z3UnifiedProofSyntax.QuantifierIntroduction certificate ->
+        nodes + List.length certificate.Z3UnifiedProofSyntax.binder_entries,
         List.fold_left (fun count entry ->
-            count + List.length entry.Z3UnifiedProof.binder_premises)
-          edges certificate.Z3UnifiedProof.binder_entries
+            count + List.length entry.Z3UnifiedProofSyntax.binder_premises)
+          edges certificate.Z3UnifiedProofSyntax.binder_entries
     | _ -> nodes, edges) (0, 0) doc.entries in
   result, Printf.sprintf
     "%s assertions=%d proof_edges=%d binder_nodes=%d binder_edges=%d pending=%s"

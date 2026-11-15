@@ -8,7 +8,7 @@ open FStar.Real
 open FStar.List.Tot
 module A = Z3LinearArithmeticAst
 module B = Z3BoundedBoolEquiv
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module LIN = Z3SortedRealLinear
 module R = Z3ClauseSyntax

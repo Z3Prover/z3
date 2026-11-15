@@ -4,8 +4,8 @@ module Z3DistinctAst
    basic-family decl_kind_of numbering in Z3BasicExprTheory. *)
 open Z3AstTheory
 open Z3OperatorTags
-open Z3ResolutionProofTheory
-open Z3BooleanRewrite
+open Z3ClauseSyntax
+open Z3BooleanRewriteSyntax
 open FStar.List.Tot
 module L = FStar.List.Tot
 
@@ -62,7 +62,35 @@ let expanded (args:list expr) : expr =
   | [a; b] -> mk_not_expr (mk_eq_expr a b)
   | _ ->
     let pairs = disequalities args in
-    App (connective_decl Conjunction pairs) pairs
+    App (and_decl pairs) pairs
 
 let lemma_expanded_sort (args:list expr) : Lemma (get_sort (expanded args) == bool_sort) =
   match args with [] | [_] | [_; _] -> () | _ -> ()
+
+let apply_lemma_distinct (e:expr) : option expr =
+  match distinct_parts e with
+  | Some args -> Some (expanded args)
+  | None -> None
+
+let expansion_rewrite (a b:expr) : bool =
+  apply_lemma_distinct a = Some b || apply_lemma_distinct b = Some a
+
+let negation (e:expr) : option expr =
+  match e with
+  | App f [a] -> if f = not_decl && get_sort a = bool_sort then Some a else None
+  | _ -> None
+
+let distinct_clause (a b:expr) : bool =
+  (match negation a with
+   | Some d -> apply_lemma_distinct d = Some b
+   | None -> false) ||
+  (match apply_lemma_distinct a with
+   | Some p -> negation b = Some p || negation p = Some b
+   | None -> false)
+
+let distinct_axiom (e:expr) : bool =
+  match e with
+  | App f [a; b] ->
+    connective_app Disjunction f [a; b] &&
+    (distinct_clause a b || distinct_clause b a)
+  | _ -> false
