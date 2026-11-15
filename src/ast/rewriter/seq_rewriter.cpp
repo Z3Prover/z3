@@ -3868,7 +3868,9 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             visited.mark(choice);
             expr *condition = nullptr, *then_word = nullptr, *else_word = nullptr;
             if (m().is_ite(choice, condition, then_word, else_word) &&
-                str().is_string(then_word) && str().is_string(else_word)) {
+                ((str().is_string(then_word) && str().is_string(else_word)) ||
+                 (u().is_re(then_word->get_sort()) &&
+                  re().is_ground(then_word) && re().is_ground(else_word)))) {
                 expr_safe_replace replace(m());
                 expr_ref then_regex(m()), else_regex(m());
                 replace.insert(choice, then_word);
@@ -4082,6 +4084,14 @@ bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     expr* s = nullptr, *i = nullptr;
     if (str().is_at(a, s, i)) {
+        zstring text;
+        if (str().is_unit(s) || (str().is_string(s, text) && text.length() == 1)) {
+            expr_ref at_zero(m().mk_eq(i, zero()), m());
+            expr_ref non_empty(re().mk_to_re(s), m());
+            expr_ref empty(re().mk_to_re(str().mk_empty(a->get_sort())), m());
+            result = m().mk_ite(at_zero, non_empty, empty);
+            return BR_REWRITE_FULL;
+        }
         expr_ref non_negative(m_autil.mk_ge(i, zero()), m());
         expr_ref below_length(m_autil.mk_lt(i, str().mk_length(s)), m());
         expr_ref valid(m().mk_and(non_negative, below_length), m());

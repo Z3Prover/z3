@@ -878,6 +878,51 @@ static void tst_conditional_regex_membership() {
     expr_ref member(su.re.mk_in_re(x, independent), m);
     rw(member);
     ENSURE(occurs(choice, member) && occurs(other_choice, member));
+
+    expr_ref epsilon(su.re.mk_to_re(empty), m);
+    expr_ref regex_choice(m.mk_ite(p, then_literal, epsilon), m);
+    expr_ref b_literal(su.re.mk_to_re(b), m);
+    expr_ref mixed(su.re.mk_union(regex_choice, b_literal), m);
+    expr_ref nested(su.re.mk_star(mixed), m);
+    actual = su.re.mk_in_re(x, nested);
+    expr_ref then_union(su.re.mk_union(then_literal, b_literal), m);
+    expr_ref then_star(su.re.mk_star(then_union), m);
+    then_member = su.re.mk_in_re(x, then_star);
+    expr_ref else_star(su.re.mk_star(b_literal), m);
+    else_member = su.re.mk_in_re(x, else_star);
+    expected = m.mk_ite(p, then_member, else_member);
+    rw(actual);
+    rw(expected);
+    ENSURE(actual == expected);
+
+    expr_ref other_regex_choice(m.mk_ite(q, b_literal, epsilon), m);
+    mixed = su.re.mk_union(regex_choice, other_regex_choice);
+    nested = su.re.mk_star(mixed);
+    member = su.re.mk_in_re(x, nested);
+    rw(member);
+    ENSURE(occurs(regex_choice, member) && occurs(other_regex_choice, member));
+}
+
+static void tst_singleton_index_regex() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util arith(m);
+    seq_rewriter rw(m);
+    expr_ref index(m.mk_fresh_const("index", arith.mk_int()), m);
+    expr_ref zero(arith.mk_int(0), m);
+    expr_ref at_zero(m.mk_eq(index, zero), m);
+    for (bool is_string : {true, false}) {
+        expr_ref element(m.mk_fresh_const("element", arith.mk_int()), m);
+        expr_ref source(is_string ? su.str.mk_string("a") : su.str.mk_unit(element), m);
+        expr_ref at(su.str.mk_at(source, index), m);
+        expr_ref literal(su.re.mk_to_re(source), m);
+        expr_ref empty(su.str.mk_empty(source->get_sort()), m);
+        expr_ref epsilon(su.re.mk_to_re(empty), m);
+        expr_ref expected(m.mk_ite(at_zero, literal, epsilon), m);
+        expr_ref actual(rw.mk_to_re(at), m);
+        ENSURE(actual == expected);
+    }
 }
 
 static void tst_from_code_star_membership() {
@@ -947,6 +992,7 @@ void tst_seq_rewriter() {
     tst_unit_source_replace();
     tst_equal_index_searches();
     tst_conditional_regex_membership();
+    tst_singleton_index_regex();
     tst_from_code_star_membership();
     tst_seq_replace_round_trip();
     tst_empty_language_repetition();
