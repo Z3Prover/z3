@@ -1255,6 +1255,9 @@ namespace smt {
         if (!m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient, true))
             return FC_CONTINUE;
         bool conversions = !m_ambient->stoi_facet(*m_root).terms().empty();
+        if (conversions && m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64 &&
+            branch_stoi_digit())
+            return FC_CONTINUE;
         unsigned const fixed_length_head_start = 2048 + 128;
         // Keep the head start cumulative across final checks; conversion coherence takes precedence.
         if (!conversions && m_tree.get_stats().m_num_dfs_nodes >= fixed_length_head_start && check_fixed_lengths())
@@ -1674,21 +1677,64 @@ namespace smt {
     }
 
     bool theory_nseq::branch_stoi_digit(bool stalled) {
-        // Give ordinary snapshot/coherence reconciliation a query-local head start.
-        if (!stalled && m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64)
-            return false;
-        for (auto const& term : m_ambient->stoi_facet(*m_root).terms()) {
+        bool early = !stalled && m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64;
+        auto const& terms = m_ambient->stoi_facet(*m_root).terms();
+        if (early) {
+            unsigned digits = 0;
+            for (auto const& term : terms)
+                if (m_seq.str.max_length(to_app(term.first)->get_arg(0)) == 1 && ++digits > 4)
+                    return false;
+        }
+        for (auto const& term : terms) {
             expr* e = term.first;
             expr* arg = to_app(e)->get_arg(0);
             if (m_seq.str.max_length(arg) != 1 ||
                 (!m_seq.str.is_at(arg) && !m_seq.str.is_extract(arg)))
                 continue;
+            unsigned first_digit = 0, last_digit = 9;
+            if (early) {
+                expr* source = nullptr, *index = nullptr;
+                if (!m_seq.str.is_at(arg, source, index) || !is_uninterp_const(source) ||
+                    !m_autil.is_add(index))
+                    continue;
+                bool narrow = false;
+                for (auto const& member : m_ambient->mem_facet(*m_root).memberships()) {
+                    if (!member.active() || !member.is_plain() || member.m_str.size() != 1 ||
+                        member.m_str[0] != source)
+                        continue;
+                    expr* range = member.m_view.m_state;
+                    expr* head = nullptr, *tail = nullptr, *body = nullptr;
+                    if (m_seq.re.is_concat(range, head, tail) && m_seq.re.is_star(tail, body) && head == body)
+                        range = head;
+                    else if (m_seq.re.is_star(range, body) || m_seq.re.is_plus(range, body))
+                        range = body;
+                    unsigned lo, hi;
+                    if (m_seq.re.is_range(range, lo, hi) && lo >= '0' && hi <= '9' &&
+                        lo <= hi && hi - lo <= 1) {
+                        first_digit = lo - '0';
+                        last_digit = hi - '0';
+                        narrow = true;
+                        break;
+                    }
+                }
+                if (!narrow)
+                    continue;
+                expr_ref length(m_seq.str.mk_length(source), m);
+                expr_ref delta(m_autil.mk_sub(index, length), m);
+                m_th_rewriter(delta);
+                rational offset;
+                if (!m_autil.is_numeral(delta, offset) || !offset.is_int() || !offset.is_neg())
+                    continue;
+            }
             rational value;
             if (!get_num_value(e, value))
                 continue;
             if (!value.is_unsigned() || value.get_unsigned() > 9)
                 continue;
-            char digit[] = {static_cast<char>('0' + value.get_unsigned()), 0};
+            unsigned digit_value = value.get_unsigned();
+            if (early && (digit_value < first_digit || digit_value > last_digit))
+                continue;
+            char digit[] = {static_cast<char>('0' + digit_value), 0};
             expr_ref word(m_seq.str.mk_string(digit), m);
             expr_ref word_eq(m.mk_eq(arg, word), m);
             literal b = mk_literal(word_eq);

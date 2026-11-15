@@ -224,6 +224,66 @@ namespace {
         }
     }
 
+    static void tst_ncontains_reverse_stoi_alphabet_scope() {
+        for (unsigned first : {0u, 2u}) {
+            for (unsigned count : {1u, 4u, 5u}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                scoped_rlimit limit(m.limit(), 5000000);
+                seq_util u(m);
+                arith_util a(m);
+                th_rewriter rw(m);
+                expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
+                expr_ref length(u.str.mk_length(source), m);
+                expr_ref bound(a.mk_int(5), m);
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+                s->assert_expr(a.mk_le(length, bound));
+                for (unsigned i = 1; i <= count; ++i) {
+                    expr_ref offset(a.mk_int(i), m);
+                    expr_ref index(a.mk_sub(length, offset), m);
+                    rw(index);
+                    expr_ref digit(u.str.mk_at(source, index), m);
+                    expr_ref value(u.str.mk_stoi(digit), m);
+                    expr_ref numeral(a.mk_int(first + (i - 1) % 2), m);
+                    s->assert_expr(m.mk_eq(value, numeral));
+                }
+                expr_ref lo(u.str.mk_string(first == 0 ? "0" : "2"), m);
+                expr_ref hi(u.str.mk_string(first == 0 ? "1" : "3"), m);
+                expr_ref range(u.re.mk_range(lo, hi), m);
+                expr_ref digits(u.re.mk_plus(range), m);
+                expr_ref member(u.re.mk_in_re(source, digits), m);
+                expr_ref word(u.str.mk_string(first == 0 ? "01010" : "23232"), m);
+                expr_ref wrong(u.str.mk_string(first == 0 ? "01011" : "23233"), m);
+                expr_ref empty(u.str.mk_empty(source->get_sort()), m);
+                s->push();
+                s->assert_expr(member);
+                ENSURE(s->check_sat(0, nullptr) == l_true);
+                s->push();
+                s->assert_expr(m.mk_eq(source, word));
+                ENSURE(s->check_sat(0, nullptr) == l_true);
+                s->pop(1);
+                s->push();
+                s->assert_expr(m.mk_eq(source, wrong));
+                ENSURE(s->check_sat(0, nullptr) == l_false);
+                s->pop(1);
+                s->push();
+                s->assert_expr(m.mk_eq(source, empty));
+                ENSURE(s->check_sat(0, nullptr) == l_false);
+                s->pop(2);
+                s->push();
+                s->assert_expr(m.mk_not(member));
+                s->assert_expr(m.mk_eq(source, word));
+                ENSURE(s->check_sat(0, nullptr) == l_false);
+                s->pop(1);
+                s->assert_expr(member);
+                s->assert_expr(m.mk_eq(source, word));
+                ENSURE(s->check_sat(0, nullptr) == l_true);
+            }
+        }
+    }
+
     class counted_sub_solver : public seq::sub_solver {
     public:
         using seq::sub_solver::sub_solver;
@@ -754,6 +814,7 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_unit_tail_preimage_scope();
     tst_ncontains_replace_witness_scope();
     tst_ncontains_self_replace_witness_scope();
+    tst_ncontains_reverse_stoi_alphabet_scope();
     tst_ncontains_symbolic_needle_nonempty(false);
     tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();
