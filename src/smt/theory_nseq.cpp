@@ -565,8 +565,27 @@ namespace smt {
                 }
             }
             else {
-                // not contains(e1,e2) is tracked by ncontains_facet.
-                m_ambient->ncontains_facet(*m_root).add_ncontains(tokenize(dep, e1), tokenize(dep, e2), dep);
+                expr* source = nullptr, *offset = nullptr, *length = nullptr, *length_source = nullptr;
+                rational position;
+                zstring needle;
+                if (m_seq.str.is_extract(e1, source, offset, length) &&
+                    is_uninterp_const(source) &&
+                    m_seq.str.is_length(length, length_source) && length_source == source &&
+                    m_autil.is_numeral(offset, position) && position.is_one() &&
+                    m_seq.str.is_string(e2, needle) && needle.length() == 1) {
+                    expr_ref forbidden(m_seq.re.mk_to_re(e2), m);
+                    expr_ref all_chars(m_seq.re.mk_full_char(forbidden->get_sort()), m);
+                    expr_ref allowed(m_seq.re.mk_diff(all_chars, forbidden), m);
+                    expr_ref avoiding(m_seq.re.mk_star(allowed), m);
+                    // The optional prefix also admits a source shorter than the cut.
+                    expr_ref first(m_seq.re.mk_opt(all_chars), m);
+                    expr_ref language(m_seq.re.mk_concat(first, avoiding), m);
+                    expr_ref_vector word = tokenize(dep, source);
+                    m_ambient->mem_facet(*m_root).add(seq::str_mem(
+                        m, word, seq::view::membership(language, m), dep));
+                }
+                else
+                    m_ambient->ncontains_facet(*m_root).add_ncontains(tokenize(dep, e1), tokenize(dep, e2), dep);
             }
             return;
         }

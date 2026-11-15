@@ -65,6 +65,63 @@ namespace {
         ENSURE(s->check_sat(0, nullptr) == l_true);
     }
 
+    static void tst_ncontains_unit_tail_preimage_scope() {
+        for (unsigned code : {45u, 0x1f600u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            scoped_rlimit limit(m.limit(), 5000000);
+            seq_util u(m);
+            arith_util a(m);
+            th_rewriter rw(m);
+            expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
+            expr_ref character(u.str.mk_char(code), m);
+            expr_ref needle(u.str.mk_unit(character), m);
+            rw(needle);
+            expr_ref letter(u.str.mk_string("a"), m);
+            expr_ref length(u.str.mk_length(source), m);
+            expr_ref one(a.mk_int(1), m);
+            expr_ref tail(u.str.mk_substr(source, one, length), m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            s->push();
+            s->assert_expr(m.mk_not(u.str.mk_contains(tail, needle)));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            expr_ref_vector words(m);
+            words.push_back(u.str.mk_empty(source->get_sort()));
+            words.push_back(needle);
+            words.push_back(letter);
+            words.push_back(u.str.mk_concat(needle, letter));
+            words.push_back(u.str.mk_concat(letter, needle));
+            words.push_back(u.str.mk_concat(needle, needle));
+            bool expected[] = {true, true, true, true, false, false};
+            for (unsigned j = 0; j < words.size(); ++j) {
+                s->push();
+                s->assert_expr(m.mk_eq(source, words.get(j)));
+                ENSURE(s->check_sat(0, nullptr) == (expected[j] ? l_true : l_false));
+                s->pop(1);
+            }
+            s->push();
+            expr_ref ten(a.mk_int(10), m);
+            expr_ref later(u.str.mk_substr(source, ten, length), m);
+            s->assert_expr(u.str.mk_contains(later, needle));
+            ENSURE(s->check_sat(0, nullptr) == l_false);
+            s->pop(2);
+            s->push();
+            s->assert_expr(m.mk_eq(source, words.get(4)));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->pop(1);
+            s->push();
+            expr_ref partial(u.str.mk_substr(source, one, one), m);
+            expr_ref pair(u.str.mk_concat(letter, letter), m);
+            expr_ref word(u.str.mk_concat(pair, needle), m);
+            s->assert_expr(m.mk_not(u.str.mk_contains(partial, needle)));
+            s->assert_expr(m.mk_eq(source, word));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->pop(1);
+        }
+    }
+
     class counted_sub_solver : public seq::sub_solver {
     public:
         using seq::sub_solver::sub_solver;
@@ -590,6 +647,7 @@ namespace {
 
 void tst_seq_ncontains_facet() {
     tst_ncontains_fixed_length_choices();
+    tst_ncontains_unit_tail_preimage_scope();
     tst_ncontains_symbolic_needle_nonempty(false);
     tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();
