@@ -242,6 +242,10 @@ static void tst_isolated_maximize_assumption() {
         ENSURE(s.check_sat(named ? 0 : 1, assumptions) == l_true);
         model_ref baseline;
         s.get_model(baseline);
+        // As in optsmt::setup, register objectives at the base level.
+        {
+            solver::scoped_push scope(s);
+        }
         s.add_objective(to_app(x));
         expr_ref blocker(m);
         ENSURE(s.maximize_objective_isolated(0, baseline, blocker, named ? 0 : 1, assumptions));
