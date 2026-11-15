@@ -142,9 +142,9 @@ namespace seq {
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
 
         // Keep keys and opaque witnesses alive across search-tree backtracking.
-        expr* mk_fresh_var(char const* caller, unsigned idx, sort* s, std::initializer_list<expr*> args) {
-            parameter ps[] = { parameter(symbol("seq.fresh")), parameter(symbol(caller)), parameter(idx) };
-            expr_ref key(m.mk_app(u.get_family_id(), _OP_SEQ_SKOLEM, 3, ps,
+        expr* mk_fresh_var(char const* caller, sort* s, std::initializer_list<expr*> args) {
+            parameter ps[] = { parameter(symbol("seq.fresh")), parameter(symbol(caller)) };
+            expr_ref key(m.mk_app(u.get_family_id(), _OP_SEQ_SKOLEM, 2, ps,
                                  static_cast<unsigned>(args.size()), args.begin(), s), m);
             expr* result = nullptr;
             if (!m_fresh_vars.find(key, result)) {
@@ -236,8 +236,8 @@ namespace seq {
         node_t& node() const { return m_node; }
 
         bool is_var(expr* e) const { return m_ac.is_var(e); }
-        expr* mk_fresh_var(char const* caller, unsigned idx, sort* s, std::initializer_list<expr*> args) const {
-            return m_ac.mk_fresh_var(caller, idx, s, args);
+        expr* mk_fresh_var(char const* caller, sort* s, std::initializer_list<expr*> args) const {
+            return m_ac.mk_fresh_var(caller, s, args);
         }
         bool lower_bound(expr* e, rational& lo, dep_tracker_t& dep) const { return m_ac.lower_bound(e, lo, dep); }
         bool upper_bound(expr* e, rational& hi, dep_tracker_t& dep) const { return m_ac.upper_bound(e, hi, dep); }

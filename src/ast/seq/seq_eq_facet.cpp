@@ -548,8 +548,8 @@ namespace seq {
                     expr* v1 = lh;
                     expr* v2 = rh;
                     sort* s = v1->get_sort();
-                    expr* v1p = ac.mk_fresh_var("word-eq", 2 * dir, s, { v1, v2 });
-                    expr* v2p = ac.mk_fresh_var("word-eq", 2 * dir + 1, s, { v1, v2 });
+                    expr* v1p = ac.mk_fresh_var(fwd ? "word-eq-forward-lhs" : "word-eq-backward-lhs", s, { v1, v2 });
+                    expr* v2p = ac.mk_fresh_var(fwd ? "word-eq-forward-rhs" : "word-eq-backward-rhs", s, { v1, v2 });
 
                     // The equal/extension branches require the eliminated
                     // variable to be non-empty.
@@ -693,7 +693,8 @@ namespace seq {
                     return repl;
                 };
                 expr_ref block_expr(u.str.mk_concat(block, var->get_sort()), m);
-                expr* var2 = ac.mk_fresh_var("word-eq-block", dir, var->get_sort(), { var, block_expr });
+                expr* var2 = ac.mk_fresh_var(fwd ? "word-eq-block-forward" : "word-eq-block-backward",
+                                           var->get_sort(), { var, block_expr });
                 expr* next_tok = var_side.size() > 1 ? (fwd ? var_side[1] : var_side[var_side.size() - 2]) : nullptr;
 
                 iterator* it = alloc(iterator, n, m, u);
@@ -883,7 +884,7 @@ namespace seq {
                 sort* s = eq.m_lhs[0]->get_sort();
                 expr_ref lhs(u.str.mk_concat(eq.m_lhs, s), m);
                 expr_ref rhs(u.str.mk_concat(eq.m_rhs, s), m);
-                pad = ac.mk_fresh_var("eq-split", 0, s, { lhs, rhs });
+                pad = ac.mk_fresh_var("eq-split", s, { lhs, rhs });
             }
             expr_ref_vector eq1_lhs(m), eq1_rhs(m), eq2_lhs(m), eq2_rhs(m);
             eq1_lhs.append(lhs_prefix);

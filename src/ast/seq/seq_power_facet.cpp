@@ -265,12 +265,12 @@ namespace seq {
         expr_ref lhs(u.str.mk_concat(eq.m_lhs, s), m);
         expr_ref rhs(u.str.mk_concat(eq.m_rhs, s), m);
         expr_ref prefix(u.str.mk_concat(Y, s), m);
-        char const* caller = m_t.m_pow_on_lhs ? "fine-wilf-lhs" : "fine-wilf-rhs";
-
         if (this_case == 2) {
             // Case 2: U^n = Y . R1, W^m = R1 . R2, V = R2 . Z.
-            expr* r1 = ac.mk_fresh_var(caller, 0, s, { lhs, rhs, prefix });
-            expr* r2 = ac.mk_fresh_var(caller, 1, s, { lhs, rhs, prefix });
+            expr* r1 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-r1" : "fine-wilf-rhs-r1",
+                                     s, { lhs, rhs, prefix });
+            expr* r2 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-r2" : "fine-wilf-rhs-r2",
+                                     s, { lhs, rhs, prefix });
             expr_ref_vector un_lhs(m); un_lhs.push_back(p_u.m_e.get());
             expr_ref_vector un_rhs(m); un_rhs.append(Y); un_rhs.push_back(r1);
             expr_ref_vector wm_lhs(m); wm_lhs.push_back(p_w.m_e.get());
@@ -295,8 +295,10 @@ namespace seq {
         }
         else {
             // Case 3: U^n = S1 . S2, S1 = Y . W^m, Z = S2 . V.
-            expr* s1 = ac.mk_fresh_var(caller, 2, s, { lhs, rhs, prefix });
-            expr* s2 = ac.mk_fresh_var(caller, 3, s, { lhs, rhs, prefix });
+            expr* s1 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-s1" : "fine-wilf-rhs-s1",
+                                     s, { lhs, rhs, prefix });
+            expr* s2 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-s2" : "fine-wilf-rhs-s2",
+                                     s, { lhs, rhs, prefix });
             expr_ref_vector un_lhs(m); un_lhs.push_back(p_u.m_e.get());
             expr_ref_vector un_rhs(m); un_rhs.push_back(s1); un_rhs.push_back(s2);
             expr_ref_vector s1_lhs(m); s1_lhs.push_back(s1);
