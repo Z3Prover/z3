@@ -29,3 +29,6 @@ val diagnose_document (s:S.checked_schema) (doc:P.document)
                       (memo:cache s doc.P.assertions)
   : result:(P.document_diagnostic & cache s doc.P.assertions){
       fst result == SP.diagnose_document s doc}
+
+val check_document (s:S.checked_schema) (doc:P.document)
+  : result:option nat{result == SP.check_document s doc}

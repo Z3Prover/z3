@@ -260,6 +260,19 @@ val check_definition_diagnosed (schema:S.schema) (doc:P.document)
       snd result == (if fst result == Root.RootCertified
                      then P.DocumentChecked 0 []
                      else diagnose schema doc)}
+val check_definition_array (schema:S.schema) (doc:P.document)
+  : result:Root.root_verdict{
+      result == (match check_definition schema doc with
+        | Root.RootPending _ ->
+          if check_array schema doc == Root.RootCertified
+          then Root.RootCertified else check_definition schema doc
+        | verdict -> verdict)}
+val check_definition_array_diagnosed (schema:S.schema) (doc:P.document)
+  : result:(Root.root_verdict & P.document_diagnostic){
+      fst result == check_definition_array schema doc /\
+      snd result == (if fst result == Root.RootCertified
+                     then P.DocumentChecked 0 []
+                     else diagnose schema doc)}
 val diagnose_definition (schema:S.schema) (doc:P.document)
   : result:P.document_diagnostic{
       SP.diagnostic_result result ==
@@ -339,3 +352,8 @@ val lemma_certified_definition (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (model:TR.interp u schema)
   : Lemma (requires check_definition schema doc == Root.RootCertified /\ TR.root_model u schema model)
     (ensures not (Root.root_truths u schema model doc.P.assertions))
+
+val lemma_certified_definition_array (u:TR.uninterpreted) (schema:S.checked_schema)
+  (doc:P.document) (symbols:TR.symbols u schema)
+  : Lemma (requires check_definition_array schema doc == Root.RootCertified)
+    (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions))

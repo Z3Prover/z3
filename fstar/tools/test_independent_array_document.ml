@@ -59,6 +59,13 @@ let () =
       "augmented document was not certified";
     require (D.check schema input = Root.RootCertified) "array document was not certified";
     require (Checker.check_array schema input = Root.RootCertified) "array checker did not certify";
+    require (Checker.check_definition schema input = Root.RootPending Z.one)
+      "array control was not pending in definition mode";
+    require (Checker.check_definition_array schema input = Root.RootCertified)
+      "definition-array checker did not certify";
+    require (Checker.check_definition_array_diagnosed schema input =
+             (Root.RootCertified, P.DocumentChecked (Z.zero, [])))
+      "definition-array diagnostic did not reflect certification";
     require (Checker.diagnose_array schema input = P.DocumentChecked (Z.zero, []))
       "array checker diagnostic did not reflect replay"
   ) [th; rewrite];

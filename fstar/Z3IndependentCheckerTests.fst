@@ -47,6 +47,11 @@ let definition_preserves_nonpending (schema:S.schema) (doc:P.document)
           (ensures C.check_definition schema doc == C.check schema doc) =
   ()
 
+let definition_array_preserves_nonpending (schema:S.schema) (doc:P.document)
+  : Lemma (requires not (Root.RootPending? (C.check_definition schema doc)))
+          (ensures C.check_definition_array schema doc == C.check_definition schema doc) =
+  ()
+
 let definition_gate_preserves_eligibility (schema:S.checked_schema) (doc:P.document)
   : Lemma (Definition.eligible schema doc ==
            (Definition.has_definition doc.P.entries && Definition.eligible schema doc)) =

@@ -25,6 +25,7 @@ module DefinitionNnf = Z3IndependentDefinitionNnfDocument
 module DefinitionSkolem = Z3IndependentDefinitionSkolemDocument
 module CertificateFallback = Z3IndependentCertificateFallback
 module RootReplay = Z3IndependentRootReplay
+module Cached = Z3IndependentCachedReplay
 
 let check (schema:S.schema) (doc:P.document) : Root.root_verdict =
   RootReplay.check_recovering schema doc
@@ -169,6 +170,17 @@ let diagnose_array (schema:S.schema) (doc:P.document) : P.document_diagnostic =
            | None -> diagnose schema doc)))
   | _ -> diagnose schema doc
 
+let check_root_document_cached (schema:S.schema) (doc:P.document)
+  : result:Root.root_verdict{result == Root.check_root_document schema doc} =
+  if S.valid schema then
+    match Cached.check_document schema doc with
+    | None -> Root.RootRejected
+    | Some n ->
+      if n > 0 then Root.RootPending n
+      else if Root.root_covered schema doc then Root.RootCertified
+      else Root.RootUncovered
+  else Root.RootRejected
+
 let definition_augmented_prepared (schema:S.checked_schema) (doc:P.document)
   : result:option P.document{
       result == (if Definition.eligible schema doc then
@@ -181,11 +193,11 @@ let definition_augmented_prepared (schema:S.checked_schema) (doc:P.document)
   let items, prepared = Definition.prepare schema doc in
   if Definition.eligible_context schema doc items then
     let augmented = Definition.augment_prepared schema doc items prepared in
-    if Root.check_root_document schema augmented = Root.RootCertified
+    if check_root_document_cached schema augmented = Root.RootCertified
     then Some augmented
     else
       let nnf_augmented = DefinitionNnf.augment_prepared schema doc items augmented in
-      if Root.check_root_document schema nnf_augmented = Root.RootCertified
+      if check_root_document_cached schema nnf_augmented = Root.RootCertified
       then Some nnf_augmented else None
   else None
 
@@ -198,7 +210,7 @@ let combined_augmented (schema:S.schema) (doc:P.document) : option P.document =
   if S.valid schema && skolem_with_definitions doc.P.entries false false &&
      DefinitionSkolem.eligible schema doc then
     let augmented = DefinitionSkolem.augment schema doc in
-    if Root.check_root_document schema augmented = Root.RootCertified
+    if check_root_document_cached schema augmented = Root.RootCertified
     then Some augmented else None
   else None
 
@@ -206,7 +218,7 @@ let combined_dependent_augmented (schema:S.schema) (doc:P.document) : option P.d
   if S.valid schema && has_definition doc.P.entries && DReplay.may_change schema doc &&
      DefinitionSkolem.eligible_dependent schema doc then
     let augmented = DefinitionSkolem.augment_dependent schema doc in
-    if Root.check_root_document schema augmented = Root.RootCertified
+    if check_root_document_cached schema augmented = Root.RootCertified
     then Some augmented else None
   else None
 
@@ -215,7 +227,7 @@ let combined_binder_augmented (schema:S.schema) (doc:P.document) : option P.docu
      DefinitionSkolem.eligible_dependent schema doc then
     let prepared = DefinitionSkolem.augment_dependent schema doc in
     let augmented, selected = Binder.augment_with_selection schema prepared in
-    if selected <> [] && Root.check_root_document schema augmented = Root.RootCertified
+    if selected <> [] && check_root_document_cached schema augmented = Root.RootCertified
     then Some augmented else None
   else None
 
@@ -245,6 +257,36 @@ let check_definition_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
   let base, diagnostic = check_diagnosed schema doc in
   let verdict = check_definition_from schema doc base in
+  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+
+let check_array_from (schema:S.schema) (doc:P.document)
+  (base:Root.root_verdict{base == check schema doc})
+  : result:Root.root_verdict{result == check_array schema doc} =
+  match base with
+  | Root.RootPending _ ->
+    if Some? (Array.selected schema doc) ||
+       Some? (ArrayDefinition.selected schema doc) ||
+       (Definition.has_definition doc.P.entries && Some? (ArrayGround.selected schema doc))
+    then Root.RootCertified else base
+  | _ -> base
+
+let check_definition_array (schema:S.schema) (doc:P.document) : Root.root_verdict =
+  let core = check schema doc in
+  let base = check_definition_from schema doc core in
+  match base with
+  | Root.RootPending _ ->
+    if check_array_from schema doc core = Root.RootCertified then Root.RootCertified else base
+  | _ -> base
+
+let check_definition_array_diagnosed (schema:S.schema) (doc:P.document)
+  : Root.root_verdict & P.document_diagnostic =
+  let core, diagnostic = check_diagnosed schema doc in
+  let base = check_definition_from schema doc core in
+  let verdict =
+    match base with
+    | Root.RootPending _ ->
+      if check_array_from schema doc core = Root.RootCertified then Root.RootCertified else base
+    | _ -> base in
   verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
 
 let diagnose_definition (schema:S.schema) (doc:P.document) : P.document_diagnostic =
@@ -376,3 +418,13 @@ let lemma_certified_definition (u:TR.uninterpreted) (schema:S.checked_schema)
       GroundDocument.lemma_certified u schema doc model
     else Skolem.lemma_certified_binder_selected u schema doc model
   | _ -> lemma_certified u schema doc model
+
+let lemma_certified_definition_array (u:TR.uninterpreted) (schema:S.checked_schema)
+  (doc:P.document) (symbols:TR.symbols u schema)
+  : Lemma (requires check_definition_array schema doc == Root.RootCertified)
+    (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions)) =
+  match check_definition schema doc with
+  | Root.RootPending _ -> lemma_certified_array u schema doc symbols
+  | _ ->
+    TR.lemma_standard_root u schema symbols;
+    lemma_certified_definition u schema doc (TR.standard u schema symbols)

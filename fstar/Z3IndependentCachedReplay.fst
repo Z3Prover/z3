@@ -103,3 +103,9 @@ let diagnose_document (s:S.checked_schema) (doc:P.document)
            then P.DocumentChecked pending unmet
            else P.DocumentRejected P.OpenRoot None None) in
     diagnostic, memo
+
+let check_document (s:S.checked_schema) (doc:P.document)
+  : result:option nat{result == SP.check_document s doc} =
+  let diagnostic, _ = diagnose_document s doc (empty s doc.P.assertions) in
+  SP.lemma_diagnose_document s doc;
+  SP.diagnostic_result diagnostic

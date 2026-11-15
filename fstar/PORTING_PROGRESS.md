@@ -14,7 +14,7 @@ and sort-indexed values `Z3DatatypeValue.value base sigma s`. The name
 "Definition" identifies additional proof replay, not a different value-domain
 architecture. See [values](Z3DatatypeValue.fst) and [mode contracts](Z3IndependentChecker.fsti).
 
-Updated: **2026-11-15T10:08:55-08:00** (America/Los_Angeles).
+Updated: **2026-11-15T13:26:26-08:00** (America/Los_Angeles).
 
 **Goal:** beat the legacy `fstar-build` baseline before retiring `Z3ValueTheory.fst`.
 Not established yet. Finite-field work remains paused.
@@ -186,6 +186,30 @@ Observed pending judgments by rule (proof shapes may differ):
 
 Rule-level REJECTED attribution is not available from these CLI logs; REJECT proof totals are shown above. Full-corpus parity is **not yet established**. Evidence: session `files\current-corpus-summary-01.json` and its listed pinned raw-log cohorts.
 <!-- END CURRENT CORPUS -->
+
+<!-- BEGIN RETAINED TIMEOUT GAP CONTROLS -->
+### Retained-checker timeout-gap controls (completed)
+
+Updated `2026-11-15T11:23:07-08:00`. Four pinned source sessions, three rotated serial arms, 10,000-ms solver / 60-s session / 4,096-MiB / 900-s stage caps. Legacy and retained checkers contain different producers: aligned query indices do not establish identical proofs.
+
+| Route | Completed | TIMEOUT | NOT_RUN | Error/crash | ACCEPT | PARTIAL | Proof UNKNOWN | REJECT | Solver UNKNOWN | nnf-pos roots / pending | nnf-neg roots / pending |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy | 4 | 0 | 0 | 0 | 244 | 41 | 0 | 0 | 3 | N/A | N/A |
+| current-core | 3 | 1 | 0 | 0 | 233 | 42 | 0 | 0 | 3 | 2584 / 0 | 76 / 3 |
+| current-definition | 2 | 2 | 0 | 0 | 241 | 34 | 0 | 0 | 5 | 2702 / 0 | 73 / 2 |
+
+Legacy/Definition completed pairs **2/4**, aligned UNSAT queries **167**, raw query-index ACCEPT differences **0**, solver/query differences **1**. Interrupted-prefix results are retained; unobserved tails are not successes. No per-rule coverage gain or identical-proof loss is inferred from these producer-dependent runs.
+Legacy NNF data unavailable. Per-query results, diagnostic obligations, pins, raw logs and input hashes: `files\retained-timeout-gap-controls-01`.
+
+**Diagnostic completed Nov 15 11:29:34 PST:** ABI01 captured `Math.Lemmas-3`
+queries 2/4 from both producers; Core completed and Definition timed out after
+both captures. Each origin's two documents replayed in all three kernels:
+legacy/Core were PARTIAL on both; Definition was PARTIAL on q2, ACCEPT on q4.
+Per origin, `nnf-pos` **19 roots / 0 pending** in all kernels; `nnf-neg`
+**2 / 2** legacy/Core and **2 / 1** Definition. No new rules implemented.
+These are older ABI01 diagnostics, not retained-checker performance evidence;
+producer histories can differ. `files\math-lemmas-hotspot-isolation-01.json`.
+<!-- END RETAINED TIMEOUT GAP CONTROLS -->
 
 <!-- BEGIN ABI CORRECTED CORPUS -->
 ## ABI-corrected end-to-end corpus rollout (live)
@@ -588,142 +612,247 @@ Single-pair checker timings, not full-corpus speedup or significance claims.
 | `Pulse.Checker.Bind-1`, each legacy/core/definition | 1 | 0 | 0 | 0 | 0 | 582 other sessions; one solver UNKNOWN in each arm |
 | Frozen UInt-3 legacy-origin, each old/core/definition | 77 | 0 | 0 | 0 | 0 | Only completed replay subset; core producer capture TIMEOUT, definition capture unrun |
 
+<!-- BEGIN SAMPLE PARTIAL CONTROLS -->
+### SMT-LIB sample PARTIAL investigation
+
+Updated `2026-11-15T11:40:33-08:00`; **source diagnostics completed**. 103 cases selected from the 2026-11-15 Definition sample PARTIAL outcomes. Source reruns use pinned inputs/checkers, 10,000-ms solver / 60-s case / 4,096-MiB / 900-s stage caps. Legacy and Definition can produce different proofs; these are not identical-proof comparisons.
+
+| Route | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | REJECT | Error/crash | NOT_RUN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy | 100 | 3 | 0 | 0 | 0 | 0 | 0 |
+| definition | 0 | 103 | 0 | 0 | 0 | 0 | 0 |
+
+PARTIAL columns count weighted pending obligations (and, in parentheses, partial proofs containing the rule); multiple rules may occur in one proof. Accepted rule instances are **not yet measured**; they cannot be inferred from these aggregated diagnostics.
+
+| Rule | Legacy ACCEPT | Legacy PARTIAL (proofs) | Definition ACCEPT | Definition PARTIAL (proofs) |
+| --- | ---: | ---: | ---: | ---: |
+| `apply-def` | N/A | 0 (0) | N/A | 203 (9) |
+| `def-axiom` | N/A | 0 (0) | N/A | 3 (3) |
+| `der` | N/A | 0 (0) | N/A | 7 (6) |
+| `intro-def` | N/A | 0 (0) | N/A | 272 (16) |
+| `quant-intro` | N/A | 0 (0) | N/A | 42 (16) |
+| `rewrite` | N/A | 3 (3) | N/A | 1866 (66) |
+| `th-lemma` | N/A | 0 (0) | N/A | 3514 (34) |
+
+Case logs, input hashes, diagnostics and checker pins: `files\sample-partial-controls-01`. Identical-document capture/replay and accepted-rule attribution remain planned; no parity or speedup is inferred.
+
+**11:42:10 PST, identical-document calibration:** five AUFLIA documents,
+10/10 replay arms complete: legacy **5 ACCEPT**, Definition **5 PARTIAL**.
+The same captured documents and compiler-checked wire layouts were used; unsupported
+Gomory/finite-field payloads were excluded. These five are a subset, not the
+entire 103-case investigation. No new rule implemented.
+
+| Outer rule | Legacy ACCEPT / PARTIAL entries | Definition ACCEPT / PARTIAL entries |
+| --- | ---: | ---: |
+| `der` | 4 / 0 | 0 / 4 |
+| `quant-intro` | 26 / 0 | 23 / 3 |
+| `nnf-pos` | 7 / 0 | 7 / 0 |
+| Other observed rules | 200 / 0 | 200 / 0 |
+
+Entry PARTIAL counts are distinct diagnostic indices, not weighted obligations;
+these five Definition proofs remained PARTIAL, so no recovery-promoted entries
+are counted as individually accepted. The initial harness build failed on OCaml
+syntax before proof replay. Evidence: `files\sample-identical-replay-01.json`
+and `files\sample-identical-replay-02.json`.
+**11:56:08 PST:** the bounded identical-document stage attempted 91 of its
+98 cases; all 91 completed both replay arms. The remaining seven were
+completed at **11:58:35 PST**; now **0 NOT_RUN**. Evidence:
+`files\sample-identical-replay-03.json` and `files\sample-identical-replay-04.json`.
+
+**11:57:13 PST:** on four identical QF_AX documents, Definition **4 PARTIAL**
+and the existing array route **4 ACCEPT** (8/8 replay arms). No implementation
+change yet; coverage gain is confined to this control. Definition proof-check
+times total **5.803 s**, array **10.558 s**, single serial observation, not
+an end-to-end speed claim. Both routes observed `nnf-pos` / `nnf-neg` **0 / 0**.
+`files\sample-array-controls-01.json`.
+
+**12:01:07 PST:** the internal Definition-plus-array candidate passed strict F*
+checking, six native test suites and non-field CLI tests. Its soundness
+contract is explicitly for standard models; existing modes are unchanged.
+**12:03:01 PST:** the new preservation lemma also passed strict F*. Matched
+frozen-proof measurements are running. **12:05:12 PST snapshot:** all four
+QF_AX documents improved PARTIAL to ACCEPT; checker time was 5.575 s baseline
+versus 15.665 s candidate. **12:08:15 PST:** all ten fstar-build streams
+completed in both arms: 144 ACCEPT / 3 PARTIAL, identical diagnostics,
+`nnf-pos` 2785 / 0 pending and `nnf-neg` 70 / 1 pending in each. Checker times
+were 128.197 s baseline / 160.274 s candidate; no timeouts or errors.
+This is neither full-corpus parity nor an end-to-end comparison. The fallback
+rechecks Core for pending proofs. **12:10:51 PST:** a candidate that reuses the
+Core verdict passed strict F*, six native suites and non-field CLI tests.
+Exact identical-proof comparisons against the first candidate are running;
+it is not yet retained. **12:12:39 PST snapshot:** all four QF_AX verdicts and
+diagnostics match, with checker time 15.536 s before / 9.993 s after Core
+reuse. **12:16:58 PST:** all ten fstar-build streams match exactly: 144
+ACCEPT / 3 PARTIAL, `nnf-pos` 2785 / 0 pending and `nnf-neg` 70 / 1 pending
+in each. Checker time was 159.719 / 137.807 s; no timeout, error or unrun
+replay. A bounded comparison against retained Definition on the 103 sample
+PARTIAL documents restarted after an incorrect capture directory stopped the
+first attempt before replay; all 103 capture hashes now pass preflight.
+**12:33:12 PST:** all 103 selected cases attempted. Definition: 103 PARTIAL;
+candidate: 32 ACCEPT / 70 PARTIAL / 1 TIMEOUT. Promotions: QF_AUFLIA 11,
+QF_AX 21. The candidate timeout follows a 53.207-s Definition PARTIAL. On
+102 completed pairs, checker times were 259.656 / 432.198 s; there were no
+errors or unrun cases. These are root promotions, not claims that individual
+original proof entries are now locally supported. Some unsuccessful non-array
+fallbacks approximately double checking time. Keep this experimental route
+unexposed while investigating performance. **12:34 PST:** profiling two
+retained fstar-build Math.Lemmas proofs for the next performance target.
+**12:36:48 PST:** all four instrumented Core/Definition replays matched their
+baseline verdicts and diagnostics. Definition inclusive CPU time for
+`consequence` was 9.871 / 7.909 s, `monotonicity` 5.706 / 3.858 s, and
+`nnf_verdict` 0.980 / 0.741 s on queries 2 / 4. Categories overlap and
+instrumentation adds cost. Query 2 remained PARTIAL; query 4 was ACCEPT.
+**12:40:13 PST:** an exact-verdict cached replay candidate for Definition's
+augmented roots passed strict F*, six native suites and non-field CLI tests.
+Identical-proof timing and diagnostic guards are running on the two profiled
+proofs and ten frozen fstar-build streams; the candidate is not yet retained.
+**12:47:05 PST:** all 149 proofs match exactly. Math.Lemmas allocations were
+unchanged and checker time was 43.203 / 42.256 s; the 147-proof fstar-build
+cohort was 128.616 / 127.138 s, with `nnf-pos` 2785 / 0 pending and
+`nnf-neg` 70 / 1 pending in each. No timeout or error. This small, single-run
+difference is not a speedup claim. **12:47 PST:** a second candidate applies
+the exact cached-document contract to Skolem/binder replay and is undergoing
+strict verification and native tests; it is not retained. **12:49 PST:**
+strict source checks passed, but extraction stopped on a stale RootReplay
+checked cache. **12:52:16 PST:** the retry verified the dependency, passed
+strict F*, extraction, six native suites and non-field CLI tests. Exact
+matched-proof replay is running. **12:54:48 PST snapshot:** both Math.Lemmas
+proofs match exactly; checker time is 43.133 / 36.910 s and allocations are
+19.497 / 17.157 GB cumulatively. **12:58:30 PST:** all ten other fstar-build
+streams match (144 ACCEPT / 3 PARTIAL). `nnf-pos` 2785 / 0 pending and
+`nnf-neg` 70 / 1 pending in each; checker time 129.081 / 120.373 s. No
+timeout or error. These are single-run checker-only measurements, not
+full-corpus parity. **12:59 PST:** paired legacy, retained Definition and
+candidate Definition source controls are running on 11 sessions.
+**13:09:46 PST:** legacy 11 completed; retained Definition 10
+completed / 1 TIMEOUT; candidate Definition 11 completed. Across 11
+legacy/candidate completed pairs, 176 aligned UNSAT queries include 17
+PARTIAL-to-ACCEPT differences and one ACCEPT-to-PARTIAL difference (Math.Lemmas
+query 26); five solver/query differences were also observed. Proof producers may
+differ; the ACCEPT-to-PARTIAL difference needs identical-document
+isolation. Retained Definition's interrupted prefix reported solver UNKNOWN at
+that query, so it cannot establish a checker regression. Candidate emitted
+`nnf-pos` 2778 / 0 pending and `nnf-neg` 99 / 2 pending. On ten completed
+retained/candidate pairs there were no verdict differences; session wall time
+was 156.736 / 149.523 s. Legacy/candidate wall time on 11 pairs was
+146.759 / 205.306 s. Solver/model, CLI help and Windows
+Python binding smoke checks passed.
+**13:14:14 PST:** Query-26 isolation: on the legacy-produced document,
+legacy, retained Definition and candidate all ACCEPT; retained/candidate
+diagnostics match exactly. The candidate producer instead returned solver
+UNKNOWN at query 26 during capture, so its original UNSAT/PARTIAL document
+remains unobserved and the source difference remains unresolved. Both capture
+query counters passed controls; the legacy capture passed wire validation.
+**13:16:15 PST:** A second candidate capture again returned solver UNKNOWN
+at query 26; no candidate document was captured.
+Evidence: `files\math-lemmas-retained-profile-01.json`,
+`files\definition-cached-root-01.json`, `files\definition-cached-root-frozen-01.json`,
+`files\skolem-cached-replay-01.json`, `files\skolem-cached-replay-02.json`,
+`files\skolem-cached-frozen-01.json`, `files\skolem-cached-native-controls-01`,
+`files\skolem-cached-basic-controls-01.json`,
+`files\math-lemmas-q26-skolem-isolation-01.json`,
+`files\math-lemmas-q26-skolem-isolation-02.json`.
+This is checker-only evidence on small cohorts, not corpus parity.
+The three remaining fstar-build PARTIAL proofs are two in
+`FractionalAnchoredPreorder` (two `rewrite` obligations, also pending in
+legacy) and one in `Heap-4` (`nnf-neg`, `quant-intro`, `sk` obligations;
+legacy also leaves that stream PARTIAL). Counts are weighted obligations.
+Evidence:
+`files\definition-array-candidate-01.json`, `files\definition-array-frozen-01.json`,
+`files\definition-array-reuse-01.json`, `files\definition-array-reuse-frozen-01.json`,
+`files\definition-array-sample-01.json`, `files\definition-array-sample-02.json`.
+
+**11:58:35 PST:** all **103** selected partial-case proofs were replayed:
+**100** legacy ACCEPT / Definition PARTIAL; **3** PARTIAL in both. This is
+the partial-case subset, not the full sample or an end-to-end speed comparison.
+
+<details><summary>All outer-rule entries in the 103 matched partial-case proofs</summary>
+
+| Rule | Legacy ACCEPT / PARTIAL | Definition ACCEPT / PARTIAL |
+| --- | ---: | ---: |
+| `and-elim` | 8732 / 0 | 8732 / 0 |
+| `apply-def` | 272 / 0 | 69 / 203 |
+| `arith/farkas` | 36550 / 0 | 36550 / 0 |
+| `asserted` | 5393 / 0 | 5393 / 0 |
+| `commutativity` | 1448 / 0 | 1448 / 0 |
+| `def-axiom` | 3484 / 0 | 3481 / 3 |
+| `der` | 7 / 0 | 0 / 7 |
+| `elim-unused` | 6 / 0 | 6 / 0 |
+| `hypothesis` | 6519 / 0 | 6519 / 0 |
+| `iff-false` | 198 / 0 | 198 / 0 |
+| `iff-true` | 50 / 0 | 50 / 0 |
+| `intro-def` | 272 / 0 | 0 / 272 |
+| `lemma` | 31251 / 0 | 31251 / 0 |
+| `monotonicity` | 176676 / 0 | 176676 / 0 |
+| `mp` | 100554 / 0 | 100554 / 0 |
+| `mp~` | 60 / 0 | 60 / 0 |
+| `nnf-neg` | 9 / 0 | 9 / 0 |
+| `nnf-pos` | 44 / 0 | 44 / 0 |
+| `not-or-elim` | 170 / 0 | 170 / 0 |
+| `pull-quant` | 6 / 0 | 6 / 0 |
+| `quant-inst` | 113 / 0 | 113 / 0 |
+| `quant-intro` | 385 / 0 | 343 / 42 |
+| `refl` | 8 / 0 | 8 / 0 |
+| `rewrite` | 30205 / 3 | 28342 / 1866 |
+| `sk` | 15 / 0 | 15 / 0 |
+| `symm` | 84326 / 0 | 84326 / 0 |
+| `th-lemma` | 5533 / 0 | 2019 / 3514 |
+| `trans` | 38174 / 0 | 38174 / 0 |
+| `trans*` | 102748 / 0 | 102748 / 0 |
+| `unit-resolution` | 213615 / 0 | 213615 / 0 |
+
+Counts are outer entries, not whole-proof verdicts; PARTIAL is the number of
+distinct pending entry indices. Both routes checked all entries in these
+PARTIAL Definition proofs; no Definition recovery promotion is counted.
+</details>
+<!-- END SAMPLE PARTIAL CONTROLS -->
+
 <!-- BEGIN PERIODIC SMTLIB -->
 ### Six-hour SMT-LIB measurements (Definition)
 
-Updated `2026-11-15T10:08:55-08:00`; cycle `periodic-smtlib-20261115T180643Z` **in_progress**; checker `1147416d9a4c`. Schedule **#3**, every six hours.
+Updated `2026-11-15T11:13:21-08:00`; cycle `periodic-smtlib-20261115T180643Z` **completed**; checker `1147416d9a4c`. Schedule **#3**, every six hours.
 Fixed hashed inputs; serial native cases; 10,000-ms queries / 60-s cases / 4,096-MiB / 3,600-s budget per cohort. A 30-s quiet pause precedes each cohort. Finite fields are excluded; QF_BV is excluded from extended as in the workflow.
 
 | Cohort | State | ACCEPT | PARTIAL | Solver UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | RUNNING | 21 | 21 | 1 | 1 | 0 | 0 | 0 | 181 |
-| smtlib-extended | QUEUED | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 285 |
+| smtlib-sample | COMPLETED | 83 | 103 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | COMPLETED | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 NOT_RUN includes cases not yet observed, including any active case; solver UNKNOWN is not checker success. Historical nine-case guards remain separate.
-Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261115T180643Z`. Active case: `smtlib-sample/QF_AUFLIA/swap/swap_t1_pp_nf_ai_00008_001.cvc.smt2`.
+Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261115T180643Z`. Active case: `none`.
 
 <details><summary>Per-logic outcomes and input pins</summary>
 
 | Cohort / logic | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | smtlib-sample / AUFLIA | 13 | 11 | 1 | 0 | 0 | 0 | 0 | 0 |
-| smtlib-sample / QF_AUFLIA | 8 | 10 | 0 | 1 | 0 | 0 | 0 | 6 |
-| smtlib-sample / QF_AX | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / QF_IDL | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / QF_LIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / QF_LRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / QF_UF | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / QF_UFLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-sample / UFLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_AUFLIA | 8 | 14 | 0 | 3 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_AX | 1 | 22 | 0 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_IDL | 11 | 5 | 2 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_LIA | 12 | 6 | 5 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_LRA | 5 | 11 | 8 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_UF | 22 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_UFLIA | 2 | 22 | 1 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / UFLIA | 9 | 9 | 3 | 4 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_ABV | 0 | 21 | 3 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_AUFBV | 0 | 13 | 10 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_DT | 11 | 0 | 13 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_NIA | 0 | 17 | 8 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_NRA | 9 | 13 | 2 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFBV | 0 | 22 | 2 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFDT | 0 | 0 | 25 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFLRA | 8 | 16 | 0 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UF | 14 | 9 | 2 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFDT | 11 | 10 | 4 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFDTLIA | 11 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFLRA | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 smtlib-sample: seed `independent-checker-b09a2011`; manifest SHA-256 `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`.
-| smtlib-extended / QF_ABV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_AUFBV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_DT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_NIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_NRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_UFBV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_UFDT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / QF_UFLRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / UF | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / UFDT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / UFDTLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
-| smtlib-extended / UFLRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |
 
 smtlib-extended: seed `42`; manifest SHA-256 `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
 
 </details>
 <!-- END PERIODIC SMTLIB -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 <!-- BEGIN SMTLIB STATUS -->
 SMT-LIB guard updated: `2026-11-15T09:59:52-08:00`; checker `z3-independent-congruence-entry-01`; evidence: session `files\congruence-entry-validation-01-smtlib`.
@@ -819,6 +948,24 @@ excludes solver/marshalling costs, so this does not discharge the session timeou
 Evidence: `files\heap4-frozen-01.json`.
 Frozen replay excludes solver cost. Last end-to-end paired cohort included a
 candidate TIMEOUT; **legacy/full-corpus parity is still open**.
+
+<!-- BEGIN SKOLEM CANDIDATE CORPUS -->
+### Cached candidate corpus rollout (live)
+
+Updated: `2026-11-15T13:26:26-08:00`. Planned: 583 per arm; current batch `skolem-cached-corpus-batch-003`. Serial, 10,000-ms query / 60-s session / 4,096-MiB limits; 900-s stage cap.
+
+| Arm | Completed | TIMEOUT | NOT_RUN | Proof ACCEPT | PARTIAL | Solver UNKNOWN | nnf-pos roots / pending | nnf-neg roots / pending |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Legacy | 41 | 0 | 542 | 434 | 26 | 5 | - | - |
+| Retained Definition | 40 | 1 | 542 | 450 | 4 | 10 | 5591 / 0 | 258 / 4 |
+| Candidate Definition | 41 | 0 | 542 | 452 | 5 | 8 | 5597 / 0 | 261 / 4 |
+
+Proof counts include timeout prefixes. Legacy has no comparable NNF totals. Producer histories can differ; raw verdict differences do not establish identical-proof regressions or full-corpus parity.
+Candidate vs legacy: 41 completed session pairs, 456 aligned UNSAT queries, 20 raw promotions, 1 raw ACCEPT losses, 5 solver/query differences; paired wall 261.209 / 343.111 s.
+Candidate vs retained Definition: 40 completed session pairs, 425 aligned UNSAT queries, 0 raw promotions, 0 raw ACCEPT losses, 0 solver/query differences; paired wall 299.461 / 287.327 s.
+
+Evidence: `files\skolem-cached-corpus-batch-003` and earlier pinned batches.
+<!-- END SKOLEM CANDIDATE CORPUS -->
 
 ## Active / next
 
@@ -1052,7 +1199,8 @@ candidate TIMEOUT; **legacy/full-corpus parity is still open**.
   `congruence-entry-validation-01.json`.
   Full **smtlib-sample 225 / smtlib-extended 285** measurements requested
   **Nov 15**; six-hour schedule **#3** active. Initial serial full-cohort cycle
-  started **10:06:43 PST**, using retained checker `1147416d`; live counts above.
+  started **10:06:43 PST** and completed **11:13:21 PST**, using retained checker
+  `1147416d`; final counts and per-logic outcomes above.
   The nine-case guard is separate, not a full-cohort measurement.
   Runner: session `files\run_periodic_smtlib_cohorts.py --checker <retained-checker>`.
   State: `files\periodic-smtlib-state.json`; shared native and cycle locks prevent
@@ -1414,12 +1562,14 @@ candidate TIMEOUT; **legacy/full-corpus parity is still open**.
 
 | File(s), relative to `fstar` | Change |
 | --- | --- |
-| `Z3IndependentChecker.fst`, `.fsti` | Share replay and diagnostics |
+| `Z3IndependentChecker.fst`, `.fsti` | Cache roots; array candidate |
+| `Z3IndependentCheckerTests.fst` | Guard candidate preservation |
 | `Z3IndependentBooleanContext.fst`, `.fsti` | Cache equivalent checks |
 | `Z3IndependentCertificateFallback.fst`, `.fsti` | Recheck pruned certificates |
 | `Z3IndependentRootReplay.fst`, `.fsti` | Share replay contexts |
 | `Z3IndependentCongruence.fst`, `.fsti` | Shortcut application congruence |
-| `Z3IndependentCachedReplay.fst`, `.fsti` | Dispatch exact congruence |
+| `Z3IndependentCachedReplay.fst`, `.fsti` | Cache exact document replay |
+| `Z3IndependentSkolemModel.fst`, `Z3IndependentSkolemRoot.fst` | Cache Skolem replay |
 | `Z3IndependentScopeLookup.fst`, `.fsti` | Fast index-zero lookup |
 | `Z3IndependentNative.fst` | Extract verified adapters |
 | `ocaml_runtime\Z3IndependentMain.ml` | Reuse Definition diagnostics |
@@ -1430,11 +1580,14 @@ candidate TIMEOUT; **legacy/full-corpus parity is still open**.
 | `tools\test_independent_boolean_context.ml` | Compare Boolean results |
 | `tools\test_independent_scope_lookup.ml` | Compare scoped variables |
 | `tools\test_independent_cached_replay.ml` | Guard congruence shortcut |
+| `tools\test_independent_array_document.ml` | Test array candidate |
 | `tools\test_independent_binder_replay.ml` | Test certificate recovery |
 | `tools\test_independent_skolem_replay.ml` | Compare cached diagnostics |
 | `tools\run_checker_regressions.py`, `test_checker_regressions.py` | Preserve replay flags |
 | `tools\run_independent_incremental.py`, `test_independent_incremental.py` | Count every query |
 | `PROOF_CHECKING.md` | Document measured guarantees |
+| `INDEPENDENT_CHECKER_REPORT.tex`, `.pdf` | Explain checker guarantees |
+| `README.md` | Link architecture report |
 | `PORTING_PROGRESS.md` | Summarize measured deltas |
 | `PORTING_INSTANCES.csv` | Ledger all instances |
 | `..\src\api\ml\CMakeLists.txt` | Match runtime headers |
@@ -1452,6 +1605,10 @@ Session-only tools (not repository files):
 | `measure_definition_diagnostics.py` | Pin exact comparison |
 | `validate_definition_diagnostics.py` | Run serial controls |
 | `measure_definition_native_heap4.py` | Measure native timeout control |
+| `measure_definition_array_candidate.py` | Compare frozen candidates |
+| `build_skolem_cached_replay.py` | Build Skolem cache candidate |
+| `measure_skolem_native_controls.py` | Compare native sessions |
+| `profile_math_lemmas_retained_01.py` | Profile retained hotspots |
 
 </details>
 

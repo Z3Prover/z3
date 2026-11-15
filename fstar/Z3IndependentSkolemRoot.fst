@@ -6,6 +6,7 @@ module D = Z3DefinitionSyntax
 module U = Z3UnifiedProofSyntax
 module Root = Z3SortedRootDocument
 module TR = Z3TypedRoot
+module Cached = Z3IndependentCachedReplay
 module SR = Z3SortedRoot
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot
@@ -126,7 +127,7 @@ let check_binder_with (require_selection:bool) (schema:S.schema) (doc:P.document
     if require_selection && selected = [] then Root.RootPending 1
     else if require_selection && not (binder_root_covered_selected schema doc expanded selected)
     then Root.RootUncovered
-    else match SP.check_document schema augmented with
+    else match Cached.check_document schema augmented with
     | None -> Root.RootRejected
     | Some n ->
       if n > 0 then Root.RootPending n

@@ -19,6 +19,7 @@ module DReplay = Z3IndependentDependentReplay
 module Binder = Z3IndependentBinderElaboration
 module TR = Z3TypedRoot
 module Root = Z3SortedRootDocument
+module Cached = Z3IndependentCachedReplay
 
 let dependent_context (larger:bool) (s:S.checked_schema) (doc:P.document)
                       (ds:list (E.definition s){Z3SkolemSyntax.ordered_context (E.erase s ds)})
@@ -37,12 +38,12 @@ let elaborate_binder (s:S.checked_schema) (doc:P.document) : P.document =
   Binder.augment s (elaborate_dependent s doc)
 
 let check_with (larger:bool) (schema:S.schema) (doc:P.document) : option nat =
-  if S.valid schema then SP.check_document schema (elaborate_with larger schema doc) else None
+  if S.valid schema then Cached.check_document schema (elaborate_with larger schema doc) else None
 
 let check (schema:S.schema) (doc:P.document) : option nat = check_with false schema doc
 let check_dependent (schema:S.schema) (doc:P.document) : option nat = check_with true schema doc
 let check_binder (schema:S.schema) (doc:P.document) : option nat =
-  if S.valid schema then SP.check_document schema (elaborate_binder schema doc) else None
+  if S.valid schema then Cached.check_document schema (elaborate_binder schema doc) else None
 
 let lemma_same_dependent_context (s:S.checked_schema) (doc:P.document)
   : Lemma (requires DReplay.context s doc (Replay.context s doc) ==
