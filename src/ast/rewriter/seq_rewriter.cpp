@@ -1342,6 +1342,22 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+    expr* search_source = nullptr, *pattern = nullptr, *search_offset = nullptr;
+    expr_ref character(m());
+    if (str().is_index(c, search_source, pattern, search_offset) &&
+        str().is_unit_string(search_source, character)) {
+        // A unit search is positive only for an empty pattern at offset one.
+        expr_ref zero(m_autil.mk_int(0), m());
+        expr_ref one(m_autil.mk_int(1), m());
+        expr_ref empty_pattern(str().mk_is_empty(pattern), m());
+        expr_ref at_one(m().mk_eq(search_offset, one), m());
+        expr_ref guard(m().mk_and(empty_pattern, at_one), m());
+        expr_ref length(m().mk_ite(guard, one, zero), m());
+        expr* position = b == search_offset ? one.get() : b;
+        result = str().mk_substr(a, position, length);
+        return BR_REWRITE3;
+    }
+
     if (extract_pop_suffix(as, b, c, result))
         return BR_REWRITE1;
 

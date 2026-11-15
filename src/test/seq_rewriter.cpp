@@ -173,6 +173,37 @@ static void tst_extract_equal_offset_length() {
     }
 }
 
+static void tst_extract_unit_index_length() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref two(a.mk_int(2), m);
+    expr_ref offset(m.mk_const("offset", a.mk_int()), m);
+    expr_ref other_offset(m.mk_const("other_offset", a.mk_int()), m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        expr_ref word(m.mk_const("word", seq_sort), m);
+        expr_ref pattern(m.mk_const("pattern", seq_sort), m);
+        expr_ref first(is_string ? su.str.mk_string("A") : su.str.mk_unit(one), m);
+        expr_ref second(is_string ? su.str.mk_string("B") : su.str.mk_unit(two), m);
+        expr_ref first_index(su.str.mk_index(first, pattern, offset), m);
+        expr_ref second_index(su.str.mk_index(second, pattern, offset), m);
+        expr_ref actual(su.str.mk_substr(word, offset, first_index), m);
+        expr_ref expected(su.str.mk_substr(word, one, second_index), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.str.mk_substr(word, other_offset, first_index);
+        expected = su.str.mk_substr(word, other_offset, second_index);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+    }
+}
+
 static void tst_extract_length_products() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1032,6 +1063,7 @@ void tst_seq_rewriter() {
     tst_seq_index_empty_pattern();
     tst_seq_last_index();
     tst_extract_equal_offset_length();
+    tst_extract_unit_index_length();
     tst_extract_length_products();
     tst_eq_skolem_arity();
     tst_length_matched_suffix_equality();
