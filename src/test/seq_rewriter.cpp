@@ -469,6 +469,41 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_first_character_stoi() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util au(m);
+    th_rewriter rw(m);
+    expr_ref source(m.mk_fresh_const("source", su.str.mk_string_sort()), m);
+    expr_ref index(m.mk_fresh_const("index", au.mk_int()), m);
+    expr_ref zero(au.mk_int(0), m);
+    expr_ref one(au.mk_int(1), m);
+    expr_ref two(au.mk_int(2), m);
+    expr_ref at(su.str.mk_at(source, zero), m);
+    expr_ref short_extract(su.str.mk_substr(source, zero, one), m);
+    for (expr* term : {at.get(), short_extract.get()}) {
+        expr_ref word(term, m);
+        rw(word);
+        expr_ref code(su.str.mk_to_code(word), m);
+        expr_ref actual(su.str.mk_stoi(word), m);
+        rw(code);
+        rw(actual);
+        ENSURE(m.is_ite(actual) && occurs(code, actual));
+        expr_ref again(actual, m);
+        rw(again);
+        ENSURE(again == actual);
+    }
+    expr_ref longer(su.str.mk_substr(source, index, two), m);
+    expr_ref other_at(su.str.mk_at(source, one), m);
+    expr_ref indexed_at(su.str.mk_at(source, index), m);
+    for (expr* word : {source.get(), longer.get(), other_at.get(), indexed_at.get()}) {
+        expr_ref actual(su.str.mk_stoi(word), m);
+        rw(actual);
+        ENSURE(su.str.is_stoi(actual));
+    }
+}
+
 static void tst_delete_first_character() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -874,6 +909,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_first_character_stoi();
     tst_delete_first_character();
     tst_symbolic_union_membership();
     tst_empty_source_replace();

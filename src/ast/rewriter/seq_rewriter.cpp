@@ -3103,7 +3103,20 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
             result = minus_one();
         }
         return BR_DONE;
-    }        
+    }
+
+    expr* at_source = nullptr, *at_index = nullptr;
+    if (str().is_at(a, at_source, at_index) && m_autil.is_zero(at_index)) {
+        expr_ref code(str().mk_to_code(a), m());
+        expr_ref first(m_autil.mk_int('0'), m());
+        expr_ref last(m_autil.mk_int('9'), m());
+        expr_ref lower(m_autil.mk_ge(code, first), m());
+        expr_ref upper(m_autil.mk_le(code, last), m());
+        expr_ref digit(m().mk_and(lower, upper), m());
+        expr_ref value(m_autil.mk_sub(code, first), m());
+        result = m().mk_ite(digit, value, minus_one());
+        return BR_REWRITE_FULL;
+    }
 
     expr_ref_vector as(m());
     str().get_concat_units(a, as);
