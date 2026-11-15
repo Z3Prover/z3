@@ -535,19 +535,26 @@ namespace smt {
                     (is_uninterp_const(e2) || m_seq.str.is_string(e2))) {
                     // Replacement axioms already use the first-match Skolems.
                     enode* match = nullptr;
+                    bool multiple = false, self_replacement = false;
+                    bool nonempty_literal = false, empty_literal = false;
                     for (enode* parent : ctx.get_enode(e1)->get_root()->get_parents()) {
                         expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
                         if (ctx.is_relevant(parent) &&
                             m_seq.str.is_replace(parent->get_expr(), source, needle, replacement) &&
                             source == e1 && needle == e2) {
-                            // Keep multiple replacement outputs on the existing search path.
-                            if (match && match != parent) {
-                                match = nullptr;
-                                break;
+                            multiple |= match && match != parent;
+                            self_replacement |= replacement == e1;
+                            zstring value;
+                            if (m_seq.str.is_string(replacement, value)) {
+                                nonempty_literal |= value.length() > 0;
+                                empty_literal |= value.length() == 0;
                             }
                             match = parent;
                         }
                     }
+                    if (multiple && (!is_uninterp_const(e2) || !self_replacement ||
+                                     !nonempty_literal || empty_literal))
+                        match = nullptr;
                     if (match && m_seq.str.is_string(e2)) {
                         // Keep literal replacement search independent of integer conversion.
                         for (enode* parent : match->get_root()->get_parents()) {

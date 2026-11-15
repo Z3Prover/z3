@@ -177,6 +177,53 @@ namespace {
         }
     }
 
+    static void tst_ncontains_self_replace_witness_scope() {
+        for (unsigned code : {65u, 66u, 0x1f600u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            scoped_rlimit limit(m.limit(), 5000000);
+            seq_util u(m);
+            th_rewriter rw(m);
+            expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
+            expr_ref pattern(m.mk_const("pattern", source->get_sort()), m);
+            expr_ref empty(u.str.mk_empty(source->get_sort()), m);
+            expr_ref character(u.str.mk_char(code), m);
+            expr_ref literal(u.str.mk_unit(character), m);
+            rw(literal);
+            expr_ref self(u.str.mk_replace(source, pattern, source), m);
+            expr_ref left(u.str.mk_replace(self, pattern, literal), m);
+            expr_ref inner(u.str.mk_replace(source, pattern, literal), m);
+            expr_ref right(u.str.mk_replace(source, pattern, inner), m);
+            expr_ref same(m.mk_eq(left, right), m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            auto check = [&](lbool expected, char const* phase) {
+                lbool actual = s->check_sat(0, nullptr);
+                if (actual != expected)
+                    std::cerr << "self-replace " << code << " " << phase << ": " << actual << std::endl;
+                ENSURE(actual == expected);
+            };
+            s->assert_expr(m.mk_not(same));
+            s->push();
+            expr_ref word(u.str.mk_string("abba"), m);
+            expr_ref needle(u.str.mk_string("ba"), m);
+            s->assert_expr(m.mk_eq(source, word));
+            s->assert_expr(m.mk_eq(pattern, needle));
+            check(l_true, "fixed counterexample");
+            s->pop(1);
+            s->push();
+            expr_ref letter(u.str.mk_string("a"), m);
+            s->assert_expr(m.mk_eq(source, letter));
+            s->assert_expr(m.mk_eq(pattern, empty));
+            check(l_false, "empty needle");
+            s->pop(1);
+            s->assert_expr(m.mk_eq(source, word));
+            s->assert_expr(m.mk_eq(pattern, needle));
+            check(l_true, "rollback fixed counterexample");
+        }
+    }
+
     class counted_sub_solver : public seq::sub_solver {
     public:
         using seq::sub_solver::sub_solver;
@@ -706,6 +753,7 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_fixed_length_choices();
     tst_ncontains_unit_tail_preimage_scope();
     tst_ncontains_replace_witness_scope();
+    tst_ncontains_self_replace_witness_scope();
     tst_ncontains_symbolic_needle_nonempty(false);
     tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();
