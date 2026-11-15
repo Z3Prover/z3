@@ -223,25 +223,30 @@ static void tst_arithmetic_scope_exits() {
 }
 
 static void tst_isolated_maximize_assumption() {
-    ast_manager m;
-    reg_decl_plugins(m);
-    arith_util a(m);
-    params_ref p;
-    p.set_uint("arith.solver", 5);
-    generic_model_converter fm(m, "isolated assumption");
-    opt::opt_solver s(m, p, fm);
-    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
-    expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
-    expr_ref zero(a.mk_numeral(rational(0), false), m);
-    s.assert_expr(m.mk_implies(b, m.mk_eq(x, zero)));
-    expr* assumptions[] = {b};
-    ENSURE(s.check_sat(1, assumptions) == l_true);
-    model_ref baseline;
-    s.get_model(baseline);
-    s.add_objective(to_app(x));
-    expr_ref blocker(m);
-    ENSURE(s.maximize_objective_isolated(0, baseline, blocker, 1, assumptions));
-    ENSURE(s.saved_objective_value(0) == opt::inf_eps(rational(0)));
+    for (bool named : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        params_ref p;
+        p.set_uint("arith.solver", 5);
+        generic_model_converter fm(m, "isolated assumption");
+        opt::opt_solver s(m, p, fm);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
+        expr_ref zero(a.mk_numeral(rational(0), false), m);
+        if (named)
+            s.assert_expr(m.mk_eq(x, zero), b);
+        else
+            s.assert_expr(m.mk_implies(b, m.mk_eq(x, zero)));
+        expr* assumptions[] = {b};
+        ENSURE(s.check_sat(named ? 0 : 1, assumptions) == l_true);
+        model_ref baseline;
+        s.get_model(baseline);
+        s.add_objective(to_app(x));
+        expr_ref blocker(m);
+        ENSURE(s.maximize_objective_isolated(0, baseline, blocker, named ? 0 : 1, assumptions));
+        ENSURE(s.saved_objective_value(0) == opt::inf_eps(rational(0)));
+    }
 }
 
 // A branch may cap x at 1 although another branch permits x > 1. Test both

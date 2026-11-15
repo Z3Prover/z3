@@ -238,6 +238,8 @@ namespace opt {
 
             // push() backtracks the satisfying assignment. Recheck with the
             // assumptions asserted in this scope so nested validation sees them too.
+            for (expr* assumption : m_assumptions)
+                m_context.assert_expr(assumption);
             for (unsigned j = 0; j < num_assumptions; ++j)
                 m_context.assert_expr(assumptions[j]);
             if (adjust_result(m_context.check(0, nullptr)) != l_true)
