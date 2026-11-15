@@ -12,6 +12,7 @@ Abstract:
 
 --*/
 #include "ast/simplifiers/seq_regular_simplifier.h"
+#include "ast/simplifiers/bound_propagator.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_range_collapse.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -872,6 +873,66 @@ class regular_compiler {
         return e;
     }
 public:
+    bool arithmetic_conflict(expr_ref_vector const& inputs) {
+        unsynch_mpq_manager nm;
+        small_object_allocator allocator;
+        bound_propagator bounds(nm, allocator, params_ref());
+        std::unordered_map<expr*, unsigned> variables;
+        obj_hashtable<expr> seen;
+        ptr_vector<expr> todo;
+        for (expr* input : inputs) todo.push_back(input);
+        while (!todo.empty()) {
+            tick();
+            expr* e = todo.back();
+            todo.pop_back();
+            if (seen.contains(e)) continue;
+            seen.insert(e);
+            bool positive = true;
+            while (m.is_not(e, e)) {
+                tick();
+                positive = !positive;
+            }
+            if (m.is_true(e) || m.is_false(e)) {
+                if (m.is_true(e) != positive) return true;
+                continue;
+            }
+            if (positive && m.is_and(e)) {
+                for (expr* arg : *to_app(e)) todo.push_back(arg);
+                continue;
+            }
+            if (!is_app(e) || to_app(e)->get_num_args() != 2) continue;
+            app* t = to_app(e);
+            if (!a.is_int(t->get_arg(0)) && !a.is_real(t->get_arg(0))) continue;
+            bool equality = m.is_eq(e);
+            bool lower = a.is_ge(e) || a.is_gt(e);
+            bool strict = a.is_lt(e) || a.is_gt(e);
+            if (!equality && !lower && !a.is_le(e) && !a.is_lt(e)) continue;
+            linear value = affine(t->get_arg(0));
+            value.add(affine(t->get_arg(1)), rational(-1));
+            if (value.terms.empty()) {
+                bool holds = equality ? value.constant.is_zero() :
+                    lower ? (strict ? value.constant > 0 : value.constant >= 0) :
+                            (strict ? value.constant < 0 : value.constant <= 0);
+                if (holds != positive) return true;
+                continue;
+            }
+            if (value.terms.size() != 1 || (equality && !positive)) continue;
+            if (!positive) { lower = !lower; strict = !strict; }
+            auto [term, coefficient] = *value.terms.begin();
+            if (coefficient.is_neg()) lower = !lower;
+            rational limit = -value.constant / coefficient;
+            auto [it, fresh] = variables.emplace(term, static_cast<unsigned>(variables.size()));
+            unsigned v = it->second;
+            if (fresh) bounds.mk_var(v, a.is_int(term));
+            scoped_mpq n(nm);
+            nm.set(n, limit.to_mpq());
+            if (equality || lower) bounds.assert_lower(v, n, strict);
+            if (equality || !lower) bounds.assert_upper(v, n, strict);
+            if (bounds.inconsistent()) return true;
+        }
+        return false;
+    }
+
     regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages, bool automatic):
         m(m), u(m), a(m), rw(m), br(m), pin(m), empty(m), epsilon(m), character(m), all(m),
         max_steps(limit), steps(steps), preimages(preimages), m_automatic(automatic) {
@@ -1070,11 +1131,24 @@ void seq_regular_simplifier::reduce() {
     unsigned preimages_before = m_preimages;
     unsigned steps = 0;
     regular_compiler compiler(m, m_max_steps, steps, m_preimages, m_automatic);
-    expr_ref_vector decimals(m), results(m);
+    expr_ref_vector originals(m), decimals(m), results(m);
     bool labeled = false;
-    for (unsigned i = qhead(); i < qtail(); ++i) labeled |= m_fmls[i].dep() != nullptr;
+    for (unsigned i = qhead(); i < qtail(); ++i) {
+        labeled |= m_fmls[i].dep() != nullptr;
+        originals.push_back(m_fmls[i].fml());
+    }
     bool decimal_changed = false;
     try {
+        if (compiler.arithmetic_conflict(originals)) {
+            expr_dependency_ref dep(m);
+            for (unsigned i = qhead(); i < qtail(); ++i)
+                dep = m.mk_join(dep, m_fmls[i].dep());
+            m_fmls.update(qhead(), dependent_expr(m, m.mk_false(), nullptr, dep));
+            m_steps += steps;
+            ++m_arith_refuted;
+            ++m_rewritten;
+            return;
+        }
         for (unsigned i = qhead(); i < qtail(); ++i) {
             expr* input = m_fmls[i].fml();
             expr* result = compiler.normalize(input, true);
@@ -1136,7 +1210,7 @@ void seq_regular_simplifier::reduce() {
 }
 
 void seq_regular_simplifier::reset_statistics() {
-    m_steps = m_preimages = m_rewritten = m_stoi_rewritten = m_unsupported = m_budget = m_skipped = 0;
+    m_steps = m_preimages = m_rewritten = m_stoi_rewritten = m_unsupported = m_budget = m_skipped = m_arith_refuted = 0;
     m_watch.reset();
 }
 
@@ -1145,6 +1219,7 @@ void seq_regular_simplifier::collect_statistics(statistics& st) const {
     st.update("seq-regular-preimages", m_preimages);
     st.update("seq-regular-rewritten", m_rewritten);
     st.update("seq-regular-stoi-rewritten", m_stoi_rewritten);
+    st.update("seq-regular-arith-refuted", m_arith_refuted);
     st.update("seq-regular-unsupported", m_unsupported);
     st.update("seq-regular-budget", m_budget);
     st.update("seq-regular-skipped", m_skipped);
