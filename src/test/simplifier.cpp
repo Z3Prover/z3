@@ -1593,14 +1593,14 @@ static void test_seq_regular() {
         seq_regular_simplifier simp(m, p, state, automatic);
         for (unsigned pass = 0; pass < 2; ++pass) {
             simp.reduce();
-            ENSURE(occurs(prefix_a, state[0].fml()) == automatic);
+            ENSURE(!occurs(prefix_a, state[0].fml()));
         }
 
         base_dependent_expr_state regular(m);
         regular.add(dependent_expr(m, conditional, nullptr, nullptr));
         seq_regular_simplifier compose(m, p, regular, automatic);
         compose.reduce();
-        ENSURE(occurs(prefix_a, regular[0].fml()) == automatic);
+        ENSURE(!occurs(prefix_a, regular[0].fml()));
 
         expr_ref search(u.str.mk_index(s, colon, integer(2)), m);
         expr_ref found(a.mk_ge(search, zero), m);

@@ -38,7 +38,6 @@ class regular_compiler {
     unsigned max_steps;
     unsigned& steps;
     unsigned& preimages;
-    bool m_automatic;
     enum class comparison_kind { eq, ne, le, ge, lt, gt };
     std::unordered_map<expr*, expr*> normalized;
     std::unordered_map<expr*, expr*> decimal_normalized;
@@ -820,8 +819,7 @@ class regular_compiler {
         if (depth > 256) throw failure::budget;
         if (m.is_true(e) || m.is_false(e)) return e;
         expr *condition, *yes, *no;
-        // Automatic regex branching can overwhelm the shared arithmetic path.
-        if (!m_automatic && m.is_ite(e, condition, yes, no)) {
+        if (m.is_ite(e, condition, yes, no)) {
             expr* guard = translate(condition, false, depth + 1);
             expr_ref_vector positive(m), negative(m), branches(m);
             positive.push_back(guard);
@@ -964,9 +962,9 @@ public:
         return false;
     }
 
-    regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages, bool automatic):
+    regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages):
         m(m), u(m), a(m), rw(m), br(m), pin(m), empty(m), epsilon(m), character(m), all(m),
-        max_steps(limit), steps(steps), preimages(preimages), m_automatic(automatic) {
+        max_steps(limit), steps(steps), preimages(preimages) {
         sort* s = u.str.mk_string_sort();
         sort* re = u.re.mk_re(s);
         empty = u.re.mk_empty(re);
@@ -1161,7 +1159,7 @@ void seq_regular_simplifier::reduce() {
     if (proofs_enabled() || m_fmls.has_quantifiers()) { ++m_skipped; return; }
     unsigned preimages_before = m_preimages;
     unsigned steps = 0;
-    regular_compiler compiler(m, m_max_steps, steps, m_preimages, m_automatic);
+    regular_compiler compiler(m, m_max_steps, steps, m_preimages);
     expr_ref_vector originals(m), decimals(m), results(m);
     bool labeled = false;
     for (unsigned i = qhead(); i < qtail(); ++i) {
