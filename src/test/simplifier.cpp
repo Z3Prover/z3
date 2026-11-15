@@ -1443,7 +1443,23 @@ static void test_seq_regular() {
     cases.push_back(hold(m.mk_not(contains(twice, "a"))));
     cases.push_back(contains(replaced, "a"));
     cases.push_back(eq(replaced, "b"));
+    cases.push_back(eq(replaced, "ab"));
+    cases.push_back(eq(replaced, "ba"));
     cases.push_back(eq(replaced, ""));
+    expr* replaced_index = hold(u.str.mk_index(replaced, colon, zero));
+    expr* replaced_after = hold(a.mk_add(replaced_index, one));
+    expr* replaced_len = hold(u.str.mk_length(replaced));
+    expr* replaced_tail_len = hold(a.mk_sub(replaced_len, replaced_after));
+    expr* replaced_tail = hold(u.str.mk_substr(replaced, replaced_after, replaced_tail_len));
+    cases.push_back(contains(replaced_tail, ":"));
+    expr* a_range = hold(u.re.mk_range(a_word, a_word));
+    expr* b_range = hold(u.re.mk_range(b_word, b_word));
+    expr* ab_range = hold(u.re.mk_union(a_range, b_range));
+    expr* ab_loop = hold(u.re.mk_loop(ab_range, 1, 2));
+    expr* colon_re = hold(u.re.mk_to_re(colon));
+    expr* ab_suffix = hold(u.re.mk_concat(ab_loop, colon_re));
+    expr* surrounded = hold(u.re.mk_concat(colon_re, ab_suffix));
+    cases.push_back(hold(u.re.mk_in_re(replaced, surrounded)));
     expr* erase = hold(u.str.mk_replace(s, text("aa"), empty));
     cases.push_back(eq(erase, "b"));
     expr* prepend = hold(u.str.mk_replace(s, empty, a_word));
@@ -1489,6 +1505,17 @@ static void test_seq_regular() {
         ENSURE(next == begin);
     }
     th_rewriter rw(m);
+    {
+        expr* expanded = hold(u.str.mk_replace(s, a_word, text("bb")));
+        expr* character = hold(u.re.mk_full_char(colon_re->get_sort()));
+        expr* two_chars = hold(u.re.mk_loop(character, 2, 2));
+        expr* formula = hold(u.re.mk_in_re(expanded, two_chars));
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, formula, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == formula);
+    }
     for (expr* formula : cases) {
         base_dependent_expr_state state(m);
         state.add(dependent_expr(m, formula, nullptr, nullptr));
