@@ -1246,6 +1246,14 @@ namespace smt {
                     if (r == l_true)
                         continue;
                     if (r == l_false) {
+                        if (m_lits_qhead == ctx.assigned_literals().size()) {
+                            // The flush cursor may have passed this assignment before it became relevant.
+                            expr* atom = ctx.bool_var2expr(bv);
+                            expr_ref assigned(lit.sign() ? atom : m.mk_not(atom), m);
+                            unsigned idx = mk_dep(assumption(~lit));
+                            auto dep = m_tree.dep_mgr().mk_leaf(idx);
+                            m_ambient->solver_facet(*m_root).add_constraint(assigned, dep);
+                        }
                         m_pending_assumptions.reset();
                         return FC_CONTINUE;
                     }

@@ -1427,6 +1427,18 @@ namespace {
         }
     }
 
+    static void tst_nseq_rejected_snapshot() {
+        check_nseq_candidate_model(R"(
+            (declare-const i4 Int)
+            (declare-const i7 Int)
+            (declare-const str5 String)
+            (assert (xor
+                (= (str.from_int 18) (str.++ str5 (str.from_int (* i4 i7))))
+                (= (str.from_int i4) (str.++ (str.from_int (* i7 18)) (str.from_int 0)))))
+            (assert (not (= i7 0)))
+        )");
+    }
+
     static void tst_itos_concrete_binding(bool reverse) {
         eq_approx_fixture f;
         seq::sub_solver solver(f.m, f.a, f.tree.dep_mgr());
@@ -2101,6 +2113,7 @@ void tst_seq_eq_facet() {
     tst_nseq_length_model();
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
+    tst_nseq_rejected_snapshot();
     tst_nseq_candidate_model();
     tst_nseq_equality_lengths();
     tst_nseq_stoi_value_languages();
