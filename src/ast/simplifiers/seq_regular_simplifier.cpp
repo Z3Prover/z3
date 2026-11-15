@@ -472,12 +472,43 @@ class regular_compiler {
     }
     expr* reverse(expr* r) { tick(); return keep(rw.mk_reverse(r)); }
 
+    // Indistinguishable letters can be changed at any positions, including just the first occurrence.
+    bool replacement_invariant(expr* r, unsigned from, unsigned to, unsigned depth = 0) {
+        tick();
+        if (depth > 256) throw failure::budget;
+        if (from == to || u.re.is_empty(r) || u.re.is_full_seq(r) || u.re.is_full_char(r))
+            return true;
+        seq::range_predicate chars(u.max_char());
+        if (seq::regex_to_range_predicate(u, r, chars))
+            return chars.contains(from) == chars.contains(to);
+        expr* x;
+        zstring word;
+        if (u.re.is_to_re(r, x) && u.str.is_string(x, word)) {
+            for (unsigned ch : word)
+                if (ch == from || ch == to) return false;
+            return true;
+        }
+        if (u.re.is_concat(r) || u.re.is_union(r) ||
+            u.re.is_intersection(r) || u.re.is_diff(r)) {
+            for (expr* arg : *to_app(r))
+                if (!replacement_invariant(arg, from, to, depth + 1)) return false;
+            return true;
+        }
+        if (u.re.is_complement(r) || u.re.is_star(r) || u.re.is_plus(r) ||
+            u.re.is_opt(r) || u.re.is_loop(r) || u.re.is_reverse(r))
+            return replacement_invariant(to_app(r)->get_arg(0), from, to, depth + 1);
+        return false;
+    }
+
     expr* replace_preimage(expr* r, zstring const& needle, zstring const& replacement, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
         if (needle.empty()) return derivative(r, replacement);
         if (needle.length() > 16 || replacement.length() > 64) throw failure::budget;
         if (u.re.is_empty(r) || u.re.is_full_seq(r)) return r;
+        if (needle.length() == 1 && replacement.length() == 1 &&
+            replacement_invariant(r, needle[0], replacement[0]))
+            return r;
         auto known = occurrence_languages.find(r);
         bool known_counts = known != occurrence_languages.end() && known->second.needle == needle;
         expr *x, *y;
