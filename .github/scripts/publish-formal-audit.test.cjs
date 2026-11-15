@@ -10,6 +10,7 @@ function registerPublisherTests(backend) {
     const extension = backend === "fstar" ? ".fst" : ".cpp";
     const language = backend === "fstar" ? "fstar" : "cpp";
     const source = backend === "fstar" ? "module PrAudit\n" : "int audit() { return 0; }\n";
+    const commitSources = backend === "vercors";
 
     const sha = "a".repeat(40);
     function payload(overrides = {}) {
@@ -52,21 +53,32 @@ function registerPublisherTests(backend) {
         return { args, pr, commits, comments, outputs };
     }
 
-    test("same-repository publication appends only audit files at the exact head", async t => {
-        const { args, commits, comments } = fixture(t);
-        assert.equal((await publish(args)).status, "committed");
-        assert.equal(commits.length, 1);
-        assert.equal(commits[0].expectedHeadOid, sha);
-        assert.equal(commits[0].branch.branchName, "feature");
-        assert.equal(commits[0].fileChanges.additions.length, 4);
-        for (const file of commits[0].fileChanges.additions)
-            assert.ok(file.path.startsWith(`${backend}/audits/pr-7/${sha}/`));
+    test("same-repository publication uses the backend's evidence destination", async t => {
+        const { args, commits, comments, outputs } = fixture(t);
+        if (!commitSources)
+            args.github.graphql = async () => { throw new Error("F* must not write to the PR branch"); };
+        assert.equal((await publish(args)).status, commitSources ? "committed" : "artifact");
+        assert.equal(commits.length, commitSources ? 1 : 0);
+        if (commitSources) {
+            assert.equal(commits[0].expectedHeadOid, sha);
+            assert.equal(commits[0].branch.branchName, "feature");
+            assert.equal(commits[0].fileChanges.additions.length, 4);
+            for (const file of commits[0].fileChanges.additions)
+                assert.ok(file.path.startsWith(`${backend}/audits/pr-7/${sha}/`));
+        }
+        assert.equal(fs.readFileSync(path.join(args.artifactDir, `PrAudit${extension}`), "utf8"), source);
+        assert.equal(fs.readFileSync(path.join(args.artifactDir, "REPORT.md"), "utf8"), "Scoped audit report.");
+        assert.equal(fs.readFileSync(path.join(args.artifactDir, "verification.log"), "utf8"), "Verifier exited 0.");
+        assert.deepEqual(outputs, [["artifact-path", args.artifactDir]]);
         const manifest = JSON.parse(fs.readFileSync(path.join(args.artifactDir, "manifest.json")));
         assert.equal(manifest.base_sha, "b".repeat(40));
         assert.equal(manifest.path_prefix, `${backend}/audits/pr-7/${sha}/`);
         assert.equal(manifest.files.length, 3);
         assert.equal(comments.length, 1);
-        assert.ok(comments[0].body.includes("https://github.com/commit/audit"));
+        assert.equal(comments[0].body.includes("https://github.com/commit/audit"), commitSources);
+        assert.ok(comments[0].body.includes("https://github.com/Z3Prover/z3/actions/runs/99"));
+        if (!commitSources)
+            assert.ok(comments[0].body.includes("no branch writes"));
         assert.ok(comments[0].body.includes(`\`\`\`${language}\n${source}\n\`\`\``));
         assert.ok(comments[0].body.includes(`<!-- ${backend}-nfv-audit:${sha} -->`));
     });
@@ -138,12 +150,14 @@ function registerPublisherTests(backend) {
         }
     });
 
-    test("a head race fails explicitly without posting a success comment", async t => {
-        const { args, comments } = fixture(t);
-        args.github.graphql = async () => { throw new Error("expectedHeadOid does not match"); };
-        await assert.rejects(publish(args), /expectedHeadOid/);
-        assert.equal(comments.length, 0);
-    });
+    if (commitSources) {
+        test("a head race fails explicitly without posting a success comment", async t => {
+            const { args, comments } = fixture(t);
+            args.github.graphql = async () => { throw new Error("expectedHeadOid does not match"); };
+            await assert.rejects(publish(args), /expectedHeadOid/);
+            assert.equal(comments.length, 0);
+        });
+    }
 
     test("staged output cannot write to GitHub", async t => {
         const { args, commits, comments } = fixture(t);
@@ -181,8 +195,10 @@ function registerPublisherTests(backend) {
         const { args, commits } = fixture(t);
         args.context.eventName = "workflow_dispatch";
         args.context.payload = { inputs: { pr_number: "7", head_sha: sha } };
-        assert.equal((await publish(args)).status, "committed");
-        assert.equal(commits[0].expectedHeadOid, sha);
+        assert.equal((await publish(args)).status, commitSources ? "committed" : "artifact");
+        assert.equal(commits.length, commitSources ? 1 : 0);
+        if (commitSources)
+            assert.equal(commits[0].expectedHeadOid, sha);
     });
 
     test("manual dispatch rejects invalid, closed, stale, and wrong-base targets", async t => {

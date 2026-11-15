@@ -5,12 +5,14 @@ const path = require("node:path");
 const profiles = {
     fstar: {
         label: "F*", title: "Fstar NFV PR audit", language: "fstar",
+        commitSources: false,
         filename: /^[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*\.fst$/,
         preview: "F* model",
         scope: "This is a scoped semantic source audit, not mechanized verification of the C++ implementation or the entire PR.",
     },
     vercors: {
         label: "VerCors", title: "VerCors C++ NFV PR audit", language: "cpp",
+        commitSources: true,
         filename: /^[A-Za-z][A-Za-z0-9_]*\.(?:cpp|hpp)$/,
         preview: "VerCors C++ audit sources",
         scope: "This verifies selected annotated C++ extracts within VerCors's supported semantics, not the complete C++ implementation or the entire PR. Source correspondence and environment assumptions remain explicit review obligations.",
@@ -115,14 +117,15 @@ async function publish({ github, context, core, payload, artifactDir, staged = f
 
     const sameRepo = pr.head.repo.full_name.toLowerCase() ===
         `${repo.owner}/${repo.repo}`.toLowerCase();
-    if (sameRepo && pr.head.ref === pr.base.ref)
+    const commitToBranch = sameRepo && profile.commitSources;
+    if (commitToBranch && pr.head.ref === pr.base.ref)
         throw new Error("Refusing to modify the base branch");
     if (staged) {
-        core.info(`Staged audit: ${sameRepo ? "commit" : "artifact only"} for ${prefix}`);
+        core.info(`Staged audit: ${commitToBranch ? "commit" : "artifact only"} for ${prefix}`);
         return { status: "staged" };
     }
     let commitUrl;
-    if (sameRepo) {
+    if (commitToBranch) {
         // No PR checkout or force push: GitHub appends to exactly the audited head.
         const result = await github.graphql(`
           mutation($input: CreateCommitOnBranchInput!) {
@@ -147,7 +150,7 @@ async function publish({ github, context, core, payload, artifactDir, staged = f
     }
     const evidence = commitUrl
         ? `Audit sources, report, and verification log: ${commitUrl}`
-        : "Fork PR: no branch writes were attempted. Download the audit sources, report, and log from the run artifacts.";
+        : "Download the audit sources, report, and log from the run artifacts; no branch writes were attempted.";
     const summary = data.summary.replace(/@/g, "@\u200b");
     const modelCharacters = Array.from(data.files.map(file => file.content).join("\n\n"));
     const preview = modelCharacters.slice(0, 5000).join("");
@@ -172,7 +175,7 @@ async function publish({ github, context, core, payload, artifactDir, staged = f
     await github.rest.issues.createComment({
         ...repo, issue_number: pr.number, body,
     });
-    return { status: sameRepo ? "committed" : "artifact", commitUrl };
+    return { status: commitToBranch ? "committed" : "artifact", commitUrl };
 }
 
 function forBackend(backend) {
