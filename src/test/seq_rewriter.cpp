@@ -142,6 +142,37 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_extract_equal_offset_length() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref index(m.mk_const("index", a.mk_int()), m);
+    expr_ref offset(a.mk_sub(index, one), m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        expr_ref word(m.mk_const("word", seq_sort), m);
+        expr_ref head(is_string ? su.str.mk_string("A") : su.str.mk_unit(one), m);
+        expr_ref prefixed(su.str.mk_concat(head, word), m);
+        expr_ref doubled(su.str.mk_concat(head, prefixed), m);
+        expr_ref actual(su.str.mk_substr(prefixed, index, index), m);
+        expr_ref expected(su.str.mk_substr(word, offset, index), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.str.mk_substr(doubled, index, index);
+        expected = su.str.mk_substr(prefixed, offset, index);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.str.mk_substr(head, index, index);
+        rw(actual);
+        ENSURE(actual == su.str.mk_empty(seq_sort));
+    }
+}
+
 static void tst_extract_length_products() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1000,6 +1031,7 @@ void tst_seq_rewriter() {
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();
+    tst_extract_equal_offset_length();
     tst_extract_length_products();
     tst_eq_skolem_arity();
     tst_length_matched_suffix_equality();

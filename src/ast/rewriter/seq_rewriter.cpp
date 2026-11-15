@@ -1429,8 +1429,17 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     }
  
 
-    if (!constantPos) 
+    if (!constantPos) {
+        // extract(unit ++ s, i, i) = extract(s, i-1, i), including i <= 0.
+        if (b == c && str().is_unit(as.get(0))) {
+            expr_ref tail(str().mk_concat(as.size() - 1, as.data() + 1, a_sort), m());
+            expr_ref one(m_autil.mk_int(1), m());
+            expr_ref position(m_autil.mk_sub(b, one), m());
+            result = str().mk_substr(tail, position, c);
+            return BR_REWRITE3;
+        }
         return BR_FAILED;
+    }
 
     unsigned offset = 0;
     for (; offset < as.size() && str().is_unit(as.get(offset)) && offset < pos; ++offset) {};
