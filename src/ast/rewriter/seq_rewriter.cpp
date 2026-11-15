@@ -3980,6 +3980,15 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
        return BR_REWRITE_FULL;
     }
     expr* c = nullptr, *d = nullptr, *e = nullptr;
+    // A ground singleton becomes equality, so membership coalescing cannot reverse this split.
+    if (!re().is_ground(b) && re().is_union(b, c, d) &&
+        ((re().is_to_re(c, e) && m().is_value(e)) ||
+         (re().is_to_re(d, e) && m().is_value(e)))) {
+        expr_ref left(re().mk_in_re(a, c), m());
+        expr_ref right(re().mk_in_re(a, d), m());
+        result = m().mk_or(left, right);
+        return BR_REWRITE_FULL;
+    }
     if (re().is_concat(b, c, d) && re().is_to_re(c, e) && re().is_full_seq(d)) {
         result = str().mk_prefix(e, a);
         return BR_REWRITE1;

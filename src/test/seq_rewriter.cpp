@@ -469,6 +469,61 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_symbolic_union_membership() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util au(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(au.mk_int()), m);
+    expr_ref character(su.str.mk_string("z"), m);
+    expr_ref element(au.mk_int(42), m);
+    expr_ref unit(su.str.mk_unit(element), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        expr_ref x(m.mk_fresh_const("x", seq_sort), m);
+        expr_ref p(m.mk_fresh_const("p", seq_sort), m);
+        expr_ref q(m.mk_fresh_const("q", seq_sort), m);
+        expr* word = seq_sort == su.str.mk_string_sort() ? character.get() : unit.get();
+        expr_ref left(su.re.mk_to_re(p), m);
+        expr_ref right(su.re.mk_to_re(word), m);
+        expr_ref alternatives(su.re.mk_union(left, right), m);
+        expr_ref actual(su.re.mk_in_re(x, alternatives), m);
+        expr_ref eq_left(m.mk_eq(x, p), m);
+        expr_ref eq_right(m.mk_eq(x, word), m);
+        expr_ref expected(m.mk_or(eq_left, eq_right), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.re.mk_in_re(p, alternatives);
+        rw(actual);
+        ENSURE(m.is_true(actual));
+        right = su.re.mk_to_re(q);
+        alternatives = su.re.mk_union(left, right);
+        actual = su.re.mk_in_re(x, alternatives);
+        rw(actual);
+        ENSURE(su.str.is_in_re(actual) && occurs(p, actual) && occurs(q, actual));
+    }
+    expr_ref other(su.str.mk_string("a"), m);
+    expr_ref left(su.re.mk_to_re(character), m);
+    expr_ref right(su.re.mk_to_re(other), m);
+    expr_ref alternatives(su.re.mk_union(left, right), m);
+    expr_ref x(m.mk_fresh_const("x", su.str.mk_string_sort()), m);
+    expr_ref ground(su.re.mk_in_re(x, alternatives), m);
+    rw(ground);
+    ENSURE(su.str.is_in_re(ground));
+    expr_ref p(m.mk_fresh_const("p", su.str.mk_string_sort()), m);
+    expr_ref symbolic(su.re.mk_to_re(p), m);
+    symbolic = su.re.mk_star(symbolic);
+    expr_ref repeated(su.re.mk_star(left), m);
+    expr_ref range(su.re.mk_range(other, character), m);
+    for (expr* alternative : {repeated.get(), range.get()}) {
+        alternatives = su.re.mk_union(symbolic, alternative);
+        ground = su.re.mk_in_re(x, alternatives);
+        rw(ground);
+        ENSURE(su.str.is_in_re(ground));
+    }
+}
+
 static void tst_empty_source_replace() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -784,6 +839,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_symbolic_union_membership();
     tst_empty_source_replace();
     tst_unit_source_replace();
     tst_equal_index_searches();
