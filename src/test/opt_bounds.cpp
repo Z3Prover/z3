@@ -2410,6 +2410,35 @@ static void tst_symba_bounds() {
     // bounds. Witness selection is not changed by the value representation.
 }
 
+static void tst_symba_boolean_equality_bounds() {
+    scoped_auto_config restore_auto_config;
+    gparams::set("auto_config", "false");
+    for (char const* priority : {"box", "lex"}) {
+        for (char const* engine : {"basic", "symba"}) {
+            for (bool maximize : {false, true}) {
+                opt_fixture f(priority, 64, true, 100000, engine);
+                Z3_ast x = f.real("x"), y = f.real("y");
+                Z3_ast args[] = {Z3_mk_eq(f.ctx, x, f.num(0)),
+                                 Z3_mk_eq(f.ctx, f.num(0), y)};
+                f.add(Z3_mk_distinct(f.ctx, 2, args));
+                f.add(Z3_mk_gt(f.ctx, y, f.num(0)));
+                unsigned h = f.objective(x, maximize);
+                ENSURE(f.check() == Z3_L_TRUE);
+                ensure_finite_bounds(f, h, f.num(0), Z3_INT_SORT);
+            }
+        }
+        opt_fixture unbounded(priority, 64, true, 100000, "symba");
+        Z3_ast x = unbounded.real("x"), y = unbounded.real("y");
+        Z3_ast args[] = {Z3_mk_eq(unbounded.ctx, x, unbounded.num(0)),
+                         Z3_mk_eq(unbounded.ctx, unbounded.num(0), y)};
+        unbounded.add(Z3_mk_distinct(unbounded.ctx, 2, args));
+        unbounded.add(Z3_mk_eq(unbounded.ctx, y, unbounded.num(0)));
+        unsigned h = unbounded.objective(x);
+        ENSURE(unbounded.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(unbounded, h, 1, 0, 0);
+    }
+}
+
 // Check unsigned BV maximum 9 and minimum 3 as Int scalar bounds,
 // with coefficient vectors [0, 9, 0] and [0, 3, 0].
 static void tst_bitvector_bounds() {
@@ -2487,5 +2516,6 @@ void tst_opt_bounds() {
     tst_rational_bounds();
     tst_infinity_and_epsilon();
     tst_symba_bounds();
+    tst_symba_boolean_equality_bounds();
     tst_bitvector_bounds();
 }
