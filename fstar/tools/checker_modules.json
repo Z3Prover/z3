@@ -10,7 +10,7 @@
     "Z3ArrayRewrite.fst", "Z3DefinitionRecognition.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3PolynomialSemantics.fst", "Z3ArithmeticSyntax.fst", "Z3ArrayEqualitySyntax.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewriteSyntax.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewriteSyntax.fst", "Z3ConditionalRewrite.fst",
-    "Z3NlaLemma.fst", "Z3ArithmeticFactorSyntax.fst", "Z3ArithmeticFactor.fst", "Z3LpCertificate.fst", "Z3LpReplaySyntax.fst", "Z3LpReplay.fst", "Z3LpGomorySyntax.fst", "Z3LpGomory.fst", "Z3LpIntegerCut.fst", "Z3IntegerDivisionSyntax.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldCertificate.fst", "Z3FiniteFieldPac.fst",
+    "Z3NlaLemma.fst", "Z3ArithmeticFactorSyntax.fst", "Z3ArithmeticFactor.fst", "Z3LpCertificate.fst", "Z3LpReplaySyntax.fst", "Z3LpReplay.fst", "Z3LpGomorySyntax.fst", "Z3LpGomory.fst", "Z3LpIntegerCutSyntax.fsti", "Z3LpIntegerCutSyntax.fst", "Z3LpIntegerCut.fst", "Z3IntegerDivisionSyntax.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldCertificate.fst", "Z3FiniteFieldPac.fst",
     "Z3QuantifierNnfSyntax.fst", "Z3QuantifierNnf.fst", "Z3QuantifierVacuitySyntax.fst", "Z3QuantifierVacuitySemantics.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPullSyntax.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
     "Z3QuantifierInstantiationSyntax.fst", "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
     "Z3QuantifierDer.fst", "Z3SkolemSyntax.fst", "Z3Skolemization.fst",

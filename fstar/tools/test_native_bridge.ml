@@ -3015,12 +3015,17 @@ let sorted_integer_farkas () =
      (declare-const r Real)(declare-const p Bool)\
      (assert (> (field t) 0))(assert (< (field t) 1))\
      (assert (> r 0.0))(assert (< r 0.0))(assert p)\
-     (assert (<= (field t) 0))(assert (>= (field t) 0))" in
+     (assert (<= (field t) 0))(assert (>= (field t) 0))\
+     (assert (not (>= (field t) 0)))(assert (<= (field t) (- 1)))\
+     (assert (<= (field t) (- 2)))\
+     (assert (not (<= (field t) 0)))(assert (>= (field t) 1))" in
   let st = B.marshal_expressions (B.empty_state ()) native in
   let schema = N.view_datatypes st.B.retained_sorts in
   let expressions = List.map (B.cached_expression st) native in
-  let x, y, real_x, real_y, p, le, ge = match expressions with
-    | [x; y; real_x; real_y; p; le; ge] -> x, y, real_x, real_y, p, le, ge
+  let x, y, real_x, real_y, p, le, ge, neg_ge, le_minus_one, le_minus_two, neg_le, ge_one =
+    match expressions with
+    | [x; y; real_x; real_y; p; le; ge; neg_ge; le_minus_one; le_minus_two; neg_le; ge_one] ->
+      x, y, real_x, real_y, p, le, ge, neg_ge, le_minus_one, le_minus_two, neg_le, ge_one
     | _ -> failwith "expected integer Farkas regression formulas" in
   let one = Z.one, Z.one in
   let zero = Z.zero, Z.one in
@@ -3061,6 +3066,19 @@ let sorted_integer_farkas () =
        require (Z.equal pending Z.zero && result.US.hypotheses = [p])
          "typed Farkas lost inherited hypotheses or retained an obligation"
    | None -> failwith "typed Farkas rejected well-sorted premises");
+  let bridge premise conclusion =
+    { node with US.conclusion = Option.get (US.classify_fact conclusion); premises = [fact premise] } in
+  List.iter (fun (premise, conclusion) ->
+      let bridge_node = bridge premise conclusion in
+      require (K.arithmetic_farkas bridge_node) "integer-bound bridge was not replayed";
+      match K.check_node schema [] bridge_node with
+      | Some (result, pending) ->
+        require (Z.equal pending Z.zero && result.US.hypotheses = [p])
+          "integer-bound bridge lost hypotheses or retained an obligation"
+      | None -> failwith "integer-bound bridge was rejected")
+    [neg_ge, le_minus_one; neg_le, ge_one];
+  require (not (K.arithmetic_farkas (bridge neg_ge le_minus_two)))
+    "integer-bound bridge accepted an invalid stronger bound";
   let fake_or = A.App
     ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
        range = A.bool_sort; interp = None; int_params = [] }, [le; ge]) in

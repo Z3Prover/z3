@@ -14,10 +14,25 @@ and sort-indexed values `Z3DatatypeValue.value base sigma s`. The name
 "Definition" identifies additional proof replay, not a different value-domain
 architecture. See [values](Z3DatatypeValue.fst) and [mode contracts](Z3IndependentChecker.fsti).
 
-Updated: **2026-11-15T14:23:46-08:00** (America/Los_Angeles).
+Updated: **2026-11-15T15:55:37-08:00** (America/Los_Angeles).
 
 **Goal:** beat the legacy `fstar-build` baseline before retiring `Z3ValueTheory.fst`.
 Not established yet. Finite-field work remains paused.
+
+**Latest cut candidate, 15:47:** six matched sample proofs: legacy 6 ACCEPT;
+retained and candidate 1 ACCEPT / 5 PARTIAL each. The candidate checks all
+15 previously pending ring `th-lemma` entries; 28 other entries still block
+that proof. Ten matched fstar-build streams: both arms 144 ACCEPT / 3 PARTIAL,
+identical diagnostics; no corpus-wide gain or performance conclusion is
+established.
+
+| Frozen guard | Checker | ACCEPT | PARTIAL | UNKNOWN | REJECT | TIMEOUT | Crash | NOT_RUN |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Sample, 6 proofs | Legacy | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Sample, 6 proofs | Retained / candidate | 1 | 5 | 0 | 0 | 0 | 0 | 0 |
+| Sample, 10 other proofs | Legacy | 10 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Sample, 10 other proofs | Retained / candidate | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
+| fstar-build, 147 proofs | Retained / candidate | 144 | 3 | 0 | 0 | 0 | 0 | 0 |
 
 **Toolchain correction, Nov 15 00:45 PST:** the independent checker's native
 stubs used OCaml 5.4 headers with a 5.3 runtime (GC roots at `0xc0` instead
@@ -901,7 +916,7 @@ These are **local corrected-candidate results**, not the latest Actions results.
 | `qfff` (QF_FF) | 25 | NOT_MEASURED (25) | NOT_MEASURED (25) | NOT_RUN (25); **paused** |
 
 **835 planned cases: 810 non-field + 25 paused finite-field cases.** This table
-preserves the last completed nine-case guard; the running full sample/extended
+preserves the last completed nine-case guard; the latest full sample/extended
 cycle is reported separately above. The guard observed no SAT, REJECT, crash
 or error. Its actual execution ended
 `2026-11-15T09:59:52-08:00`, using seed `independent-checker-b09a2011`,
@@ -992,6 +1007,194 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 
 ## Active / next
 
+- **Nov 15 14:42 PST, bound bridge:** shell build and version, SMT/model,
+  and help smoke checks passed. Four rotated source sessions gave:
+
+  | Route | Sessions complete / TIMEOUT | Proof ACCEPT / PARTIAL / UNKNOWN | Solver UNKNOWN | REJECT / crash / NOT_RUN | Wall seconds |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | Legacy | 4 / 0 | 33 / 4 / 0 | 0 | 0 / 0 / 0 | 44.68 |
+  | Retained Definition | 4 / 0 | 34 / 3 / 0 | 0 | 0 / 0 / 0 | 69.26 |
+  | Bridge Definition | 3 / 1 | 18 / 2 / 0 | 2 | 0 / 0 / 0 | 70.82 |
+
+  The bridge arm timed out on `FStar.Math.Lemmas-3`; totals include its
+  partial output and are not directly comparable. Three completed paired
+  sessions had no retained-to-bridge verdict changes across five aligned
+  UNSAT queries. Producers can generate different proofs; no identical-proof
+  rule recovery or speedup is established. In the timed-out session bridge
+  queries 8 and 14 returned solver UNKNOWN where both controls returned UNSAT;
+  the cause has not been isolated. Evidence:
+  `files\bound-bridge-fstar-controls-01`. Focused independent     F* extracted replay accepted both strict-bound directions and rejected an
+  invalid stronger bound; this checks the bridge's node shape, not an emitted
+  producer proof. Two initial harness builds failed on legacy-only interfaces.
+  Evidence: `files\bound-bridge-fstar-test-03.json`. The five-case rotated
+  SMT-LIB sample screen completed:
+
+  | Route | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | REJECT / crash / NOT_RUN | Pending `der` / `quant-intro` |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Legacy | 5 | 0 | 0 | 0 | 0 / 0 / 0 | 0 / 0 |
+  | Retained Definition | 1 | 4 | 0 | 0 | 0 / 0 / 0 | 3 / 3 |
+  | Bridge Definition | 1 | 4 | 0 | 0 | 0 / 0 / 0 | 3 / 3 |
+
+  Relative to retained Definition, no source-run `der` or `quant-intro`
+  instances were newly handled; each still has three pending. This is not an
+  identical-proof comparison or a full sample. Evidence:
+  `files\bound-bridge-sample-controls-01`. **14:50:** both rotated repeats of
+  `FStar.Math.Lemmas-3` reproduced the bridge TIMEOUT; both retained runs
+  completed. Per run: retained **30 ACCEPT / 2 PARTIAL / 0 UNKNOWN**, bridge
+  emitted **15 ACCEPT / 1 PARTIAL / 3 solver UNKNOWN** before timeout; queries
+  8, 14 and 18 diverged. No REJECT, crash, or NOT_RUN. Retained wall times
+  **56.05 / 54.88 s**, bridge **60.05 / 60.05 s** (censored). Proof histories
+  and linkage may differ, so causation is not established. Evidence:
+  `files\bound-bridge-timeout-repeat-01`. A relinked unmodified-producer
+  control built successfully. **14:56:** same-link control completed both
+  runs (**30 / 2 / 0** and **29 / 2 / 1** ACCEPT / PARTIAL / solver UNKNOWN,
+  **55.79 / 54.54 s**); bridge timed out twice (**15 / 1 / 3** before each
+  timeout, **60.06 / 60.07 s**). No REJECT, crash, or NOT_RUN. The modified
+  producer archive is associated with a reproducible regression; its only
+  changed non-index archive member is `lp_proof.cpp.o`. The mechanism is not
+  yet isolated. Evidence:
+  `files\bound-bridge-relink-repeat-01`. **15:01:** an isolated instrumented
+  run observed **320 successful bridge bindings** before TIMEOUT, with
+  **22 ACCEPT / 2 PARTIAL / 3 solver UNKNOWN** emitted; no REJECT, crash, or
+  NOT_RUN. Instrumentation changed the proof history, so it establishes
+  activation, not causation or comparable performance. Evidence:
+  `files\bound-bridge-hits-01.json`. **15:03:** a follow-up trace constructed
+  **146 closed conflict derivations containing bridge inputs** from **317
+  bindings** before TIMEOUT, emitting **21 ACCEPT / 2 PARTIAL / 2 solver
+  UNKNOWN**, with no REJECT, crash, or NOT_RUN. Construction does not prove
+  that these derivations were emitted or independently replayed. **15:08:**
+  four captured proofs independently replayed as **3 ACCEPT / 1 PARTIAL**;
+  none contained the inspected bridge-shaped node. The capture run completed
+  with **24 ACCEPT / 2 PARTIAL / 6 solver UNKNOWN**, no TIMEOUT, REJECT,
+  crash, or NOT_RUN; instrumentation changed the proof history. Evidence:
+  `files\bound-bridge-hits-02.json` and
+  `files\bound-bridge-emitted-replay-02.json`. Because the producer experiment
+  regressed the paired control without demonstrated coverage gain, it was
+  removed from the worktree and preserved as `files\bound-bridge-experimental.patch`;
+  restored `test-z3` and `shell` rebuilt successfully, and `lp_evidence`,
+  version, SMT/model, and help checks passed. Evidence:
+  `files\bound-bridge-restored-validation-01.json`.
+- **Nov 15 15:12 PST, sample `th-lemma`:** the identical captured QF_LIA ring
+  proof is legacy **ACCEPT**, Definition **PARTIAL 43**, including **15 pending
+  `th-lemma`** entries. Entries 270 and 279 have five integer linear premises;
+  other pending conflicts have 8–17 premises. In 270, the premises imply
+  `a < 16`, `c < 0`, `z = 0`, `d >= 0`, `d = a + c`, and
+  `c = 16*k - z` for integer expressions `a`, `c`, `d`, `k`, `z`. Integer
+  divisibility gives `c <= -16` and contradicts `d >= 0`. Its integer-rounded
+  linear relaxation is satisfiable (`a = 1`, `c = -1`, `d = z = 0`,
+  `k = -1/16`), so one ordinary Farkas combination cannot establish this
+  conflict. Entry 279 has the corresponding positive-multiple conflict.
+  Native hint parameters and the producer evidence path remain untraced; this
+  does not establish whether an explicit cut certificate was emitted. No new
+  instances handled. **15:15:** local Z3 returned UNSAT for abstracted integer
+  controls for 270 and 279, SAT for both real relaxations, and SAT for a
+  weakened integer control. The Windows Python binding smoke also passed.
+  These controls validate the analysis, not an independent proof-checker
+  replay. **15:17:** on the same captured entries the pinned legacy integer-cut
+  synthesis and certificate check succeeds on **15/15**; its theory
+  normalization and inferred split checks return false on those entries.
+  The independent sort-indexed checker has not yet replayed these certificates:
+  **0 newly handled / 15 pending**. The five recorded `arith/farkas` entries
+  in this document were already accepted by both checkers. Port the bounded
+  cut search with independently verified, sort-indexed certificate replay;
+  measure its cost and coverage before retaining it. Evidence:
+  `files\sample-theory-probe-01.json`,
+  `files\sample-ring-rounding-controls-01.json`, and
+  `files\sample-legacy-ring-cut-02.json`. **15:18:** the existing cut search
+  was separated from legacy value semantics; the first strict verification
+  caught an interface/type duplication, corrected for a rerun. **15:20:**
+  a sort-indexed replay candidate has been added for false-conclusion
+  `th-lemma` nodes. It validates every proposed cut and final refutation with
+  the independent integer arithmetic kernel. The candidate is unverified and
+  unmeasured; no recovery is claimed. **15:23:** strict verification of the
+  separated syntax, legacy replay, legacy cut tests, and independent replay
+  passed. After removing an initial legacy semantic import, all four passed
+  strict verification again; each verification had a 300-second timeout, but
+  this rerun did not enforce the intended memory cap. Evidence:
+  `files\integer-cut-split-verification-03.json`. **15:26:** extraction,
+  closure validation and focused tests are running with a 4-GiB per-process
+  cap; the known unrelated finite-field compact PAC metered test is excluded.
+  **15:27:** checker build-tool unit tests passed (9). Build progress:
+  `files\integer-cut-candidate-build-01.json`. **15:30:** in the separate
+  `theory_lra.cpp` `lia_move::cut` producer path, `reset_evidence()` clears
+  the parameters and the path constructs no explicit cut certificate before
+  calling `assign`. The ring entries have not been traced to this path, so
+  this is not an attribution of their producer. The candidate reconstructs
+  cuts with bounded search, not linear-time certificate replay; exporting
+  validated cut derivations remains a separate producer task. **15:31:**
+  downstream strict verification has reached the independent binder replay;
+  extraction and native tests are not yet complete. **15:33:** checker-scope tests passed
+  (18, 7 skipped) after updating a stale registered-implementation count.
+  **15:36:** the ValueTheory-free checker extracted and linked; its focused
+  integer-cut native test passed. The build then stopped because the wrapper
+  excluded compilation, but not execution, of the known unrelated finite-field
+  metered test. Remaining non-field validation is resuming with that test and
+  the later compact-certificate field test excluded. No replay gain claimed yet.
+  Evidence: `files\integer-cut-build-initial.log` and
+  `files\integer-cut-candidate-build-resumed-01.json`. **15:37:** the resumed
+  closure, integer-cut, array and ground-definition tests passed; the
+  definition-document test failed on an uncovered-binder expectation.
+  **15:38:** the identical test fails with the same message on the retained
+  checker; this is a pre-existing validation failure. **15:39:** the
+  192-file ValueTheory-free closure and all 20 non-field CLI tests passed.
+  **15:40:** sample replay initially stopped before measurement because its
+  auxiliary linker received an empty dependency order; the harness was fixed
+  and the paired replay restarted. Evidence:
+  `files\integer-cut-definition-fixture-01.json` and
+  `files\integer-cut-candidate-validation-01.json`;
+  failed harness attempt: `files\integer-cut-sample-01.json`. **15:41:** six
+  identical sample documents: legacy **6 ACCEPT**, retained and candidate
+  each **1 ACCEPT / 5 PARTIAL**, with no other outcomes. On the ring document,
+  candidate `th-lemma` **15 newly handled / 0 pending** (legacy 15 / 0;
+  retained 0 / 15); `rewrite` **210 / 20**, `intro-def` **0 / 4**, and
+  `apply-def` **0 / 4** remain unchanged. The document remains PARTIAL.
+  Single replay elapsed: retained 2.341 s, candidate 2.308 s; not a performance
+  conclusion. **15:42:** paired 10-stream fstar-build guard running; first
+  two streams have identical verdicts and diagnostics. **15:44:** six
+  completed pairs have identical verdicts and diagnostics. **15:46:** nine
+  pairs match; the last candidate replay is running. **15:47:** all ten
+  matched streams completed: retained and candidate each **144 ACCEPT /
+  3 PARTIAL / 0 UNKNOWN / 0 REJECT / 0 TIMEOUT / 0 crash / 0 NOT_RUN**;
+  diagnostics identical. Total process time 147.795 / 143.730 s, respectively
+  (one run, 60-s case / 4-GiB limits; not a full-corpus comparison). A fresh
+  native ring hint probe is running; it is not the frozen document.
+  **15:47:** that fresh proof has **15 `arith unsupported`**, four labeled
+  Farkas and one bound hint. The matching count does not establish identity
+  with frozen entries or their producer path. **15:48:** a second sample
+  guard is running on ten diverse pinned documents, including array and
+  arithmetic workloads; 60-s case / 900-s stage / 4-GiB limits. In current
+  source, `set_proof_params` emits `unsupported` when evidence is absent,
+  linearization or reconstruction fails, or the generated Farkas
+  contradiction fails validation (`src\smt\theory_lra.cpp:4002-4041`).
+  The fresh native binary was built from earlier checkout `1e136dcde`;
+  `theory_lra.cpp` is identical between that revision and current HEAD.
+  These fresh unsupported hints are consistent with that fallback, but
+  their exact failure condition remains unverified.
+  **15:51:** seven of ten additional sample documents completed across all
+  three arms; no timeouts or crashes so far. **15:52:** all ten completed:
+  legacy **10 ACCEPT**, retained and candidate each **10 PARTIAL**, with
+  identical retained/candidate rule counts and no other outcomes. Their
+  process times were 18.574 / 105.992 / 106.223 s (legacy / retained /
+  candidate; single runs). The ten retain **681 `th-lemma`, 1,019 `rewrite`,
+  109 `intro-def`, 76 `apply-def`, 9 `quant-intro`, and 1 `def-axiom`**
+  pending; all 3,740 `arith/farkas` entries are accepted. No new instances
+  handled in these ten; legacy is substantially faster on this selection.
+  **15:54:** inspecting remaining `th-lemma`, `rewrite`, and definition
+  obligations in four pinned array/arithmetic documents. **15:55:** the
+  first array cases contain premise-free array-extensionality clauses;
+  the ring and Real cases include ITE definition pairs, while the Real
+  rewrites include `(x = y) = (x <= y && x >= y)`. These are candidate
+  next targets, not newly checked instances. Probe:
+  `files\sample-gaps-01.json`.
+  Evidence:
+  `files\integer-cut-sample-02.json`, `files\integer-cut-fstar-01.json`,
+  `files\sample-ring-native-hints-01.json`,
+  `files\integer-cut-sample-03.json`.
+- **Nov 15 14:58 PST, sample quantifiers:** five hash-pinned documents inspected;
+  Definition still has **3 `der` / 3 `quant-intro` pending**. The `der` cases
+  include equal bound variables and Boolean/conjunctive witness substitutions;
+  `quant-intro` cases include nested witness elimination and binder regrouping.
+  No new instances handled. Evidence: `files\sample-quant-probe-01.json`.
 - **Nov 15 13:54 PST, smtlib-sample `der`:** probing captured
   `AUFLIA/20170829-Rodin/smt1038795333874449350.smt2`. On the identical
   document legacy **ACCEPT**, Definition **PARTIAL 1** (`der`); no new rule
@@ -1031,7 +1234,30 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
   reconstruct or validate these steps from those weights alone. An internal
   evidence check is not an independent F* proof. Matching logs:
   `files\bound-evidence-ids-01.json`; isolated build:
-  `files\bound-evidence-trace-02.json`. Probe output and
+  `files\bound-evidence-trace-02.json`. **14:27:** an isolated exporter
+  probe reproduced the same serialized document. Existing `mk_lp_proof`
+  materialized the matched index **61** DAG with a conclusion normalized as
+  `(* 1 term) <= 0`, but returned no proof for matched index **1108**; the
+  **14:30:** index 1108 leaves two inputs unbound: the DAG uses integer
+  `x <= -1` facts while the native premises are `not (x >= 0)`; current
+  binding only recognizes rewriter equivalence and does not prove integer
+  strict-bound normalization. The other five inputs bind. A checked unit-weight
+  Farkas bridge for strict integer premises passed the LP evidence unit suite,
+  including invalid-bound, different-variable and Real negative controls.
+  An isolated producer rerun with the bridge produced a **different proof**:
+  `PARTIAL 3` instead of `PARTIAL 50`; original target nodes did not recur, so
+  this is not an identical-proof recovery or parity claim. Evidence:
+  `files\z3-bound-export-probe-03.json`. **14:35:** legacy, retained and
+  candidate replay of this same new document all gave **PARTIAL 3**:
+  `arith/farkas` **10 accepted / 0 pending**, `assumed:nlsat` **2 pending**,
+  `th-lemma` **1 pending**; no timeout/reject/crash. Evidence:
+  `files\bound-bridge-identical-replay-01.json`. No recovery is counted until producer
+  and checker replay pass. Neither original DAG is currently propagated to
+  the F* checker. Exporting it requires preserving premise bindings, proving
+  the root-to-consequent normalization/implication, and independently
+  validating each replayed step. Evidence: `files\bound-export-probe-01.json`,
+  `files\z3-bound-export-probe-02.json`.
+  Probe output and
   hashes: `/home/nbjorner/z3-independent-farkas-commmonoid-probe-02`.
   Probe's raw Core diagnostic has 51 pending; Definition's elaborated
   diagnostic has 50. Native trace:
@@ -1655,8 +1881,14 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 
 | File(s), relative to `fstar` | Change |
 | --- | --- |
+| `..\src\ast\proofs\lp_proof.cpp` | Experimental bridge removed |
+| `..\src\test\lp_evidence.cpp` | Experimental tests removed |
+| `tools\test_native_bridge.ml` | Test F* bound replay |
+| `tools\test_independent_integer_cut.ml` | Test candidate cuts |
+| `Z3LpIntegerCutSyntax.fst`, `.fsti` | Share cut synthesis |
+| `Z3LpIntegerCut.fst` | Separate legacy replay |
 | `Z3IndependentExistentialDer.fst`, `.fsti` | Existential witness proof |
-| `Z3SortedProof.fst` | Replay existential DER |
+| `Z3SortedProof.fst` | DER; candidate cut replay |
 | `Z3IndependentChecker.fst`, `.fsti` | Cache roots; array candidate |
 | `Z3IndependentCheckerTests.fst` | Guard candidate preservation |
 | `Z3IndependentBooleanContext.fst`, `.fsti` | Cache equivalent checks |
@@ -1669,7 +1901,7 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 | `Z3IndependentNative.fst` | Extract verified adapters |
 | `ocaml_runtime\Z3IndependentMain.ml` | Reuse Definition diagnostics |
 | `ocaml_runtime\fStar_String.ml` | Document name counting |
-| `tools\build_independent_checker.py` | Wire native realizations |
+| `tools\build_independent_checker.py` | Wire realizations; cut test |
 | `tools\checker_modules.json` | Register verified helper |
 | `tools\test_build_independent_checker.py`, `test_checker_scope.py` | Test extraction guards |
 | `tools\test_independent_boolean_context.ml` | Compare Boolean results |

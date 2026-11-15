@@ -24,6 +24,7 @@ module NR = Z3NnfReplay
 module ED = Z3IndependentExistentialDer
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
+module IC = Z3LpIntegerCutSyntax
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
@@ -2279,6 +2280,69 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
       lemma_refutes s bc eq other facts R.false_expr)
     else lemma_unit_refuted s bc eq other facts conclusion
 
+let rec check_integer_cut_steps (steps:list IC.step) (facts:list expr)
+  : Tot bool (decreases steps) =
+  match steps with
+  | [] -> true
+  | step :: rest ->
+    R.formula_clause step.IC.bound = [step.IC.bound] &&
+    AR.check_contradiction (LA.assumptions step.IC.bound facts) step.IC.weights &&
+    check_integer_cut_steps rest (facts @ [step.IC.bound])
+
+let rec integer_cut_facts (steps:list IC.step) (facts:list expr)
+  : Tot (list expr) (decreases steps) =
+  match steps with
+  | [] -> facts
+  | step :: rest -> integer_cut_facts rest (facts @ [step.IC.bound])
+
+let check_integer_cut (facts:list expr) : bool =
+  if not (linear_inputs (LA.assumptions R.false_expr facts)) then false
+  else match IC.synthesize R.false_expr facts with
+  | None -> false
+  | Some certificate ->
+    check_integer_cut_steps certificate.IC.steps facts &&
+    AR.check_contradiction
+      (LA.assumptions R.false_expr (integer_cut_facts certificate.IC.steps facts))
+      certificate.IC.refutation
+
+let lemma_cut_refutation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (facts:list expr) (conclusion:expr) (weights:list LA.coefficient)
+  : Lemma (requires T.truths s bc eq other facts /\
+                    AR.check_contradiction (LA.assumptions conclusion facts) weights /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or
+                           (L.map B.Atom (R.formula_clause conclusion))))
+          (ensures False) =
+  lemma_arithmetic_assumptions s bc eq other facts (R.formula_clause conclusion);
+  AR.lemma_check_contradiction s bc eq other (LA.assumptions conclusion facts) weights
+
+let rec lemma_integer_cut_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (steps:list IC.step) (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ check_integer_cut_steps steps facts)
+          (ensures T.truths s bc eq other (integer_cut_facts steps facts))
+          (decreases steps) =
+  match steps with
+  | [] -> ()
+  | step :: rest ->
+    if not (T.truth s bc eq other step.IC.bound) then (
+      assert_norm (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom [step.IC.bound]) ==
+                   B.combine B.Or (T.truth s bc eq other step.IC.bound) (B.neutral B.Or));
+      lemma_cut_refutation s bc eq other facts step.IC.bound step.IC.weights);
+    DT.lemma_truths_append s bc eq other facts [step.IC.bound];
+    lemma_integer_cut_steps s bc eq other rest (facts @ [step.IC.bound])
+
+let lemma_integer_cut (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ check_integer_cut facts)
+          (ensures False) =
+  let certificate = Some?.v (IC.synthesize R.false_expr facts) in
+  lemma_integer_cut_steps s bc eq other certificate.IC.steps facts;
+  assert_norm (R.formula_clause R.false_expr == []);
+  lemma_cut_refutation s bc eq other (integer_cut_facts certificate.IC.steps facts)
+    R.false_expr certificate.IC.refutation
+
 let int_zero : expr =
   App { decl_name = "0"; domain = []; range = LA.int_s;
         interp = Some Z3OperatorTags.op_num_rational; int_params = [0; 1] } []
@@ -2986,6 +3050,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
+      (node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
+       check_integer_cut (propositions node.premises)) ||
       (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
       real_product_clause s node ||
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
@@ -3257,6 +3323,11 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
+    else if node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
+            check_integer_cut (propositions node.premises) then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_integer_cut s bc eq other (propositions node.premises)))
     else if node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
