@@ -19,13 +19,59 @@ Abstract:
 #include "ast/rewriter/seq_regex_witness.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
+#include "smt/smt_solver.h"
 #include "smt/seq_solver_facet.h"
+#include "solver/solver.h"
 #include "util/rlimit.h"
 #include "util/z3_exception.h"
 #include <iostream>
 #include <string>
 
 namespace {
+
+    static void tst_symbolic_word_star() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 5000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
+        expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+        expr_ref v(m.mk_const("v", u.str.mk_string_sort()), m);
+        expr_ref zero(a.mk_int(0), m);
+        expr_ref two(a.mk_int(2), m);
+        expr_ref three(a.mk_int(3), m);
+        expr_ref four(a.mk_int(4), m);
+        expr_ref x_len(u.str.mk_length(x), m);
+        expr_ref word(u.str.mk_substr(source, zero, x_len), m);
+        expr_ref suffix(u.str.mk_string("B"), m);
+        expr_ref text(u.str.mk_concat(v, suffix), m);
+        expr_ref word_len(u.str.mk_length(word), m);
+        expr_ref text_len(u.str.mk_length(text), m);
+        expr_ref re(u.re.mk_to_re(word), m);
+        re = u.re.mk_star(re);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        s->assert_expr(u.re.mk_in_re(text, re));
+        s->assert_expr(a.mk_ge(x_len, three));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->push();
+        s->assert_expr(m.mk_eq(word_len, zero));
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        s->pop(1);
+        s->push();
+        s->assert_expr(m.mk_eq(word_len, two));
+        s->assert_expr(m.mk_eq(text_len, three));
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        s->pop(1);
+        s->push();
+        s->assert_expr(m.mk_eq(word_len, two));
+        s->assert_expr(m.mk_eq(text_len, four));
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        s->pop(1);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+    }
 
     static void tst_predicate_algebra() {
         ast_manager m;
@@ -1550,6 +1596,7 @@ namespace {
 }
 
 void tst_seq_mem_facet() {
+    tst_symbolic_word_star();
     tst_predicate_algebra();
     tst_letter_count_benchmark(false);
     tst_letter_count_benchmark(true);

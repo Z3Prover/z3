@@ -417,6 +417,30 @@ namespace smt {
             // Membership facets interpret predicate lambdas without activating array theory.
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            expr* body = nullptr, *word = nullptr;
+            if (is_true && m_seq.is_string(e1->get_sort()) &&
+                m_seq.re.is_star(e2, body) && m_seq.re.is_to_re(body, word) &&
+                !m_seq.re.is_ground(body)) {
+                mk_var(ensure_enode(word));
+                expr_ref count(m.mk_fresh_const("reps", m_autil.mk_int()), m);
+                expr_ref len(m_seq.str.mk_length(e1), m);
+                expr_ref word_len(m_seq.str.mk_length(word), m);
+                m_th_rewriter(len);
+                m_th_rewriter(word_len);
+                expr_ref multiple(m_autil.mk_mul(count, word_len), m);
+                expr_ref nonnegative(m_autil.mk_ge(count, m_autil.mk_int(0)), m);
+                expr_ref length_eq(m.mk_eq(len, multiple), m);
+                expr_ref_vector str = tokenize(dep, e1);
+                expr_ref_vector pattern = tokenize(dep, word);
+                expr_ref_vector lhs(str), rhs(pattern);
+                lhs.append(pattern);
+                rhs.append(str);
+                // Commutation and an integral length ratio characterize word powers, including epsilon.
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                m_ambient->solver_facet(*m_root).add_constraint(nonnegative, dep);
+                m_ambient->solver_facet(*m_root).add_constraint(length_eq, dep);
+                return;
+            }
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
             seq::view mv = seq::view::membership(re, m);
             expr_ref_vector ts = tokenize(dep, e1);
