@@ -768,6 +768,28 @@ def nested_conjunction(count):
     return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
 
 
+def chained_text(count, namespace="Z3Proofs.NativeCertificate.pchained"):
+    """A Lean text laid out as proof_to_lean.reconstruct writes a certificate: `count` definitions,
+    each over the one before it, a private lemma per definition with its `set_option .. in` and
+    comment lines, and the theorem, which uses every lemma. Lean accepts it."""
+    signature = "(_atoms : Nat -> Prop)"
+    lines = ["import Init", "", "-- Original input SHA-256: chained", "-- Atom 0: \"p\"", "namespace " + namespace,
+             "", "set_option maxRecDepth 100000", "", "structure Interpretation where", "  U : Type", "",
+             "def formula_0 %s : Prop := _atoms 0" % signature]
+    lines += ["def formula_%d %s : Prop := (And (formula_%d _atoms) (_atoms %d))" % (index, signature, index - 1, index)
+              for index in range(1, count)]
+    proof = "_h0"
+    for index in range(count - 1, 0, -1):
+        lines += ["", "set_option maxHeartbeats 1000000 in", "-- the left conjunct of formula_%d" % index,
+                  "private theorem lemma_%d %s" % (index, signature),
+                  "    : (formula_%d _atoms) -> (formula_%d _atoms) := by" % (index, index - 1),
+                  "  intro _h", "  unfold formula_%d at _h" % index, "  exact _h.left"]
+        proof = "(lemma_%d _atoms %s)" % (index, proof)
+    lines += ["", "theorem unsat %s" % signature, "    (_h0 : (formula_%d _atoms))" % (count - 1),
+              "    (_h1 : Not (formula_0 _atoms))", "    : False :=", "  _h1 %s" % proof, "", "end " + namespace, ""]
+    return "\n".join(lines)
+
+
 # x + 10 and x + 5 + 5 modulo 17, each step an ite, said to differ (depth 2
 # of test_proof_to_lean_lia.modular_chains_instance).
 MODULAR_CHAINS = """\
@@ -2217,6 +2239,211 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("@ite", statement)
                 self.assertLessEqual(set(re.findall(r"(?:term|formula)_\d+", statement)), unfolded, statement)
         self.assertNotIn("sorry", text)
+
+
+class TestCertificateModules(unittest.TestCase):
+    """proof_to_lean.modules: a certificate above _MODULE_CHARS is checked as a chain of modules, one
+    Lean process each, because one process keeps what it elaborated of the whole file (no Lean here;
+    test_proof_to_lean_integration checks chains in Lean)."""
+
+    @staticmethod
+    def body(module):
+        """The lines of a module between its namespace's options and its end."""
+        lines = module.split("\n")
+        start = next(index for index, line in enumerate(lines) if line.startswith("namespace "))
+        end = lines.index("end " + lines[start][len("namespace "):])
+        return lines[:start], lines[start + 4:end], lines[end + 1:]
+
+    def test_a_text_within_the_limit_is_one_module(self):
+        text = chained_text(40)
+        self.assertEqual(proof_to_lean.modules(text), [(None, text)])
+        self.assertEqual(proof_to_lean.modules(text, len(text)), [(None, text)])
+        self.assertGreater(len(proof_to_lean.modules(text, len(text) // 2)), 1)
+        # The limit in force is read at the call, so a test or a caller can lower it.
+        with patch.object(proof_to_lean, "_MODULE_CHARS", 2000):
+            self.assertGreater(len(proof_to_lean.modules(text)), 3)
+        self.assertEqual((proof_to_lean._MODULE_CHARS, proof_to_lean._MODULE_SIZE), (8000000, 1000000))
+        # Above the limit a module holds _MODULE_SIZE characters of declarations, not the limit.
+        coarse = proof_to_lean.modules(text, 4000)
+        self.assertEqual(coarse, proof_to_lean.modules(text, 4000, 4000))
+        with patch.object(proof_to_lean, "_MODULE_CHARS", 4000), patch.object(proof_to_lean, "_MODULE_SIZE", 1000):
+            modules = proof_to_lean.modules(text)
+            self.assertEqual(modules, proof_to_lean.modules(text, 4000, 1000))
+            self.assertGreater(len(modules), 2 * len(coarse))
+            self.assertLessEqual(max(len(module) for _, module in modules[:-1]), 1000 + 400)
+            self.assertEqual(proof_to_lean.modules(text[:4000]), [(None, text[:4000])])
+
+    def test_a_large_text_is_split_into_a_chain_of_modules(self):
+        text = chained_text(40) + "\n#print axioms Z3Proofs.NativeCertificate.pchained.unsat\n"
+        limit = 2000
+        modules = proof_to_lean.modules(text, limit)
+        names = [name for name, _ in modules]
+        self.assertGreater(len(modules), 5)
+        self.assertIsNone(names[-1])
+        self.assertEqual(len(set(names)), len(names))
+        for index, name in enumerate(names[:-1]):
+            self.assertRegex(name, r"\AZ3Certificate_[0-9a-f]{16}_%d\Z" % index)
+        # The indices are zero-padded to one width: sorted by name the modules are in checking
+        # order, so `check_lean.sh --chain DIR/Z3Certificate_<digest>_*.lean LAST` is the chain.
+        finer = [name for name, _ in proof_to_lean.modules(text, limit, 500)[:-1]]
+        self.assertGreater(len(finer), 11)
+        self.assertLess(len(finer), 100)
+        self.assertEqual(finer, ["%s_%02d" % (names[0][:-2], index) for index in range(len(finer))])
+        self.assertEqual(sorted(finer), finer)
+        original, declarations = self.body(text)[1], []
+        for index, (name, module) in enumerate(modules):
+            head, body, tail = self.body(module)
+            # Imports: Init and the module before it, which imports the ones before that.
+            imports = [line for line in module.split("\n") if line.startswith("import ")]
+            self.assertEqual(imports, ["import Init"] + (["import " + names[index - 1]] if index else []))
+            self.assertEqual(head[:len(imports)], imports)
+            # The namespace and its options are those of the text, in every module.
+            self.assertIn("\nnamespace Z3Proofs.NativeCertificate.pchained\n\nset_option maxRecDepth 100000\n\n",
+                          module)
+            self.assertEqual(module.count("namespace "), 1)
+            # Whole declarations: a module starts at one and never ends on a prefix line.
+            self.assertTrue(body[0].startswith(("def ", "theorem ", "structure ", "set_option ")), body[0])
+            last = [line for line in body if line][-1]
+            self.assertFalse(last.startswith(("set_option ", "-- ")), last)
+            self.assertLessEqual(sum(len(line) + 1 for line in body), limit)
+            self.assertFalse([line for line in body if line.startswith("private ")])
+            declarations += body
+            if name is None:
+                self.assertIn("-- Original input SHA-256: chained", head)
+                self.assertIn("-- Atom 0: \"p\"", head)
+                self.assertIn("chain of %d modules" % len(modules), module)
+                self.assertIn(names[0], module)
+                self.assertIn("\ntheorem unsat ", module)
+                self.assertEqual(tail, ["", "#print axioms Z3Proofs.NativeCertificate.pchained.unsat", ""])
+            else:
+                self.assertNotIn("theorem unsat", module)
+                self.assertNotIn("#print", module)
+                self.assertEqual(tail, [""])
+        # Nothing is lost, reordered, or rewritten but the `private` of the declarations.
+        self.assertEqual(declarations, [line[len("private "):] if line.startswith("private ") else line
+                                        for line in original])
+        self.assertEqual(sum(line.startswith("private theorem ") for line in original), 39)
+        # A lemma's option and comment lines stay with it.
+        for _, module in modules:
+            self.assertEqual(module.count("set_option maxHeartbeats 1000000 in\n-- the left conjunct of formula_"),
+                             module.count("\ntheorem lemma_"))
+        # The names are the text's: another text has other modules.
+        self.assertNotEqual(names[0], proof_to_lean.modules(chained_text(41), limit)[0][0])
+        self.assertEqual(modules, proof_to_lean.modules(text, limit))
+
+    def test_the_number_of_modules_is_linear_in_the_text(self):
+        counts = []
+        for size in (50, 100, 200):
+            text = chained_text(size)
+            modules = proof_to_lean.modules(text, 3000)
+            counts.append(len(modules))
+            # (The last module holds the theorem, whose one proof term names every lemma.)
+            self.assertLessEqual(max(len(module) for _, module in modules[:-1]), 3000 + 400)
+            self.assertLess(abs(len(modules) - len(text) / 3000), 0.25 * len(modules) + 2)
+        self.assertLess(counts[2], 2.3 * counts[1])
+        self.assertLess(counts[1], 2.3 * counts[0])
+        # A declaration above the limit is a module of its own, not an error.
+        text = chained_text(12)
+        modules = proof_to_lean.modules(text, 40)
+        self.assertEqual(len(modules), text.count("\ndef ") + text.count(" theorem ") + text.count("\ntheorem ") + 1)
+
+    def test_a_text_that_is_not_laid_out_as_a_certificate_is_not_split(self):
+        text = chained_text(20)
+        marker = "\ndef formula_7 "
+        self.assertIn(marker, text)
+        for label, changed in (
+                ("an axiom", text.replace(marker, "\naxiom absurd : False" + marker)),
+                ("an instance", text.replace(marker, "\ninstance : Inhabited Nat := (Inhabited.mk 0)" + marker)),
+                ("an open command", text.replace(marker, "\nopen Classical" + marker)),
+                ("an option for the rest of the file", text.replace(marker, "\nset_option maxHeartbeats 0" + marker)),
+                ("a section", text.replace(marker, "\nsection\nend" + marker)),
+                ("a block comment", text.replace(marker, "\n/- def formula_7 -/" + marker)),
+                ("a second namespace", text + text.partition("\n")[2]),
+                ("no namespace", text.replace("namespace ", "-- ").replace("\nend ", "\n-- ")),
+                ("a block comment after a line comment",
+                 text.replace(marker, "\n-- then\n/- def formula_7 -/" + marker)),
+                ("a block comment opened inside a declaration",
+                 text.replace(marker, " /-\n-- hidden" + marker).replace("\ndef formula_9 ", " -/\ndef formula_9 ")),
+                ("a command before the namespace", text.replace("\nnamespace ", "\nopen Classical\nnamespace ")),
+                ("an option before the namespace",
+                 text.replace("\nnamespace ", "\nset_option maxHeartbeats 0\nnamespace ")),
+                ("text before the first declaration", text.replace("\nstructure ", "\n  trivial\nstructure "))):
+            with self.subTest(label=label):
+                self.assertEqual(proof_to_lean.modules(changed), [(None, changed)])  # one file, as it is
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot split Lean text"):
+                    proof_to_lean.modules(changed, 2000)
+        # A line comment cannot open a block comment: `/-` in one (an SMT symbol named in the
+        # header, or in the comment of a lemma) does not stop the split, and stays where it was.
+        changed = text.replace("-- Atom 0: \"p\"", "-- Atom 0: \"a/-b\"").replace(
+            "-- the left conjunct of formula_7\n", "-- the left conjunct of formula_7, a/-b\n")
+        self.assertEqual(changed.count("/-"), 2)
+        modules = proof_to_lean.modules(changed, 2000)
+        self.assertEqual(len(modules), len(proof_to_lean.modules(text, 2000)))
+        self.assertIn("\n-- Atom 0: \"a/-b\"\n", modules[-1][1])
+        self.assertEqual(sum(module.count("/-") for _, module in modules), 2)
+        self.assertEqual(sum("formula_7, a/-b\ntheorem lemma_7 " in module for _, module in modules), 1)
+
+    def test_modules_are_written_next_to_the_file_and_checked_as_a_chain(self):
+        text = chained_text(30)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "proof.lean"
+            self.assertEqual(proof_to_lean.write_modules(text, output), [output])
+            self.assertEqual(output.read_text(), text)
+            self.assertEqual(proof_to_lean.check_command([output]), [str(proof_to_lean._CHECK_LEAN), str(output)])
+            modules = proof_to_lean.modules(text, 2000)
+            paths = proof_to_lean.write_modules(text, output, 2000)
+            self.assertEqual(paths, [Path(directory) / (name + ".lean") for name, _ in modules[:-1]] + [output])
+            self.assertEqual([path.read_text() for path in paths], [module for _, module in modules])
+            self.assertEqual(sorted(Path(directory).iterdir()), sorted(paths))
+            self.assertEqual(proof_to_lean.check_command(paths),
+                             [str(proof_to_lean._CHECK_LEAN), "--chain"] + [str(path) for path in paths])
+
+    def test_a_split_certificate_is_published_with_its_modules_only_after_the_chain_is_checked(self):
+        certificate = proof_certificate.export_certificate(BRANCHING)
+        text = proof_to_lean.reconstruct(BRANCHING, certificate)
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean, "_MODULE_CHARS", 600):
+            directory = Path(directory)
+            modules = proof_to_lean.modules(text)
+            self.assertGreater(len(modules), 3)
+            output = directory / "proof.lean"
+            output.write_text("old proof")
+            commands = []
+
+            def checker(command, **options):
+                # What Lean is given: the staged chain in its order, nothing published yet.
+                commands.append(command)
+                self.assertTrue(options["check"])
+                self.assertEqual(command[:2], [str(proof_to_lean._CHECK_LEAN), "--chain"])
+                paths = [Path(path) for path in command[2:]]
+                self.assertEqual([path.name for path in paths],
+                                 [name + ".lean" for name, _ in modules[:-1]] + ["proof.lean"])
+                self.assertEqual([path.read_text() for path in paths], [module for _, module in modules])
+                self.assertEqual({path.parent for path in paths}, {paths[0].parent})
+                self.assertEqual(sorted(directory.iterdir()), sorted([output, paths[0].parent]))
+                # The chain's compiled modules go to the staging directory, removed with it.
+                self.assertEqual(options["env"]["Z3_LEAN_CHAIN_DIR"], str(paths[0].parent.resolve()))
+                self.assertIn("PATH", options["env"])  # the caller's environment, plus that
+                self.assertEqual(output.read_text(), "old proof")
+                if len(commands) == 1:
+                    raise subprocess.CalledProcessError(1, command, stderr="rejected")
+
+            with patch.object(proof_to_lean.subprocess, "run", side_effect=checker):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    proof_to_lean.check_and_write(BRANCHING, certificate, output)
+                self.assertEqual(output.read_text(), "old proof")
+                self.assertEqual(list(directory.iterdir()), [output])
+                published = proof_to_lean.check_and_write(BRANCHING, certificate, output)
+            self.assertEqual(len(commands), 2)
+            self.assertEqual(published, [directory / (name + ".lean") for name, _ in modules[:-1]] + [output])
+            self.assertEqual([path.read_text() for path in published], [module for _, module in modules])
+            self.assertEqual(sorted(directory.iterdir()), sorted(published))
+        # Under the limit in force nothing changes: one file, checked alone.
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            self.assertEqual(proof_to_lean.check_and_write(BRANCHING, certificate, output), [output])
+            self.assertEqual(checker.call_args.args[0][0], str(proof_to_lean._CHECK_LEAN))
+            self.assertEqual(len(checker.call_args.args[0]), 2)
+            self.assertEqual(output.read_text(), text)
 
 
 if __name__ == "__main__":

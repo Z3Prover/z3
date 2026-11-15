@@ -24,6 +24,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -277,6 +278,26 @@ _THEORY_CLAUSE_BUDGET = 10
 # Farkas lemmas over twenty variables) exhausts the cap in parallel and
 # peaks at 6.7 GB serially. No other test file exceeds 4 MB.
 _SERIAL_ELABORATION_CHARS = 5000000
+# Characters of Lean text above which a certificate is checked as a chain of
+# modules (`modules`), one Lean process each, and the characters of
+# declarations per module. Lean's command line keeps what it elaborated of
+# every command (the info trees) until the end of its file, so the memory of
+# one process grows with the text it has read: about 0.25 GB per MB of proof
+# steps written as terms, about 2 GB per MB of the tactic lemmas of array
+# certificates. Up to 8 MB every measured file checks as one file below 5.5
+# GB; above, one file is near the 8 GB `--memory` cap of check_lean.sh (the
+# 23 MB of QF_IDL DTP_k2_n35: 7.45 GB) or past it (the 31.7 MB of QF_UF
+# gensys_icl1079 after 94 s, the 35.7 MB of QF_AUFLIA
+# swap_t1_pp_sf_ai_00010_008 after 123 s, inside its array lemmas). The
+# module size is from that swap file: with 8 MB modules the one holding its
+# lemmas still stops at the cap, with 2 MB modules the file checks in 346 s
+# at 4.85 GB, with 1 MB modules in 348 s at 2.66 GB. DTP as 24 modules: 143 s
+# (122 s as one file) at 1.75 GB.
+_MODULE_CHARS = 8000000
+_MODULE_SIZE = 1000000
+# What a top-level declaration of `reconstruct`'s text starts with (after its
+# own `set_option .. in` and comment lines, if any).
+_MODULE_DECLARATIONS = ("def ", "private def ", "noncomputable def ", "theorem ", "private theorem ", "structure ")
 _RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
 # The uninterpreted sorts are one type variable; constants, functions, and
 # predicates are indexed families over argument lists, so one signature serves
@@ -11209,24 +11230,138 @@ def reconstruct(source, certificate):
     return text
 
 
+def modules(text, limit=None, size=None):
+    """Split the Lean text of one certificate into a chain of modules: [(name, text)] in checking
+    order, the last one unnamed and holding the end of the text (the theorem). A text of at most
+    `limit` characters (_MODULE_CHARS unless given) is its own single module, unchanged.
+
+    Each module holds whole top-level declarations, at most `size` characters of them (_MODULE_SIZE
+    unless given, and never more than `limit`) or one declaration that is longer, inside the
+    text's namespace and under its options; it imports the module before it, and so, transitively,
+    every earlier one. `private` is dropped from the declarations, which later modules name (the
+    namespace is the certificate's own). Nothing else is rewritten, and every module is checked by
+    the kernel like the one file would be (`check_command`): a text that is not laid out as
+    `reconstruct` writes it is rejected here, and a wrong split could only be rejected by Lean.
+    The modules are named `Z3Certificate_<16 hex digits of the text's SHA-256>_<index>`, the
+    indices zero-padded to one width, so the names sort in checking order.
+    """
+    limit = _MODULE_CHARS if limit is None else limit
+    size = min(limit, _MODULE_SIZE) if size is None else size
+    if len(text) <= limit:
+        return [(None, text)]
+    lines = text.split("\n")
+    opening = [index for index, line in enumerate(lines) if line.startswith("namespace ")]
+    closing = [index for index, line in enumerate(lines)
+               if opening and line == "end " + lines[opening[0]][len("namespace "):]]
+    # A block comment could hold lines that look like declarations. A line comment cannot open
+    # one, so `/-` in a comment line (an SMT symbol named in the header, say) is not one.
+    if len(opening) != 1 or len(closing) != 1 or any(
+            "/-" in line for line in lines if not line.lstrip().startswith("--")):
+        raise ReconstructionError("cannot split Lean text that is not one namespace of declarations")
+    start, end = opening[0], closing[0]
+    for line in lines[:start]:
+        # Before the namespace `reconstruct` writes imports and comments; the imports go to every
+        # module and the comments to the last one, and a command there would hold for one module.
+        if line and not line.startswith(("import ", "--")):
+            raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+    body = start + 1
+    while body < end and (not lines[body] or (
+            lines[body].startswith("set_option ") and not lines[body].endswith(" in"))):
+        body += 1
+    options = lines[start + 1:body]  # the namespace's own options, repeated in every module
+    declarations = []  # the lines of each declaration, with the blank lines after it
+    prefixed = False  # the last declaration has only its prefix lines so far
+    for line in lines[body:end]:
+        if line[:1] not in ("", " "):
+            if line.startswith(_MODULE_DECLARATIONS):
+                if not prefixed:
+                    declarations.append([])
+                prefixed = False
+                line = line[len("private "):] if line.startswith("private ") else line
+            elif line.startswith("-- ") or (line.startswith("set_option ") and line.endswith(" in")):
+                if not prefixed:
+                    declarations.append([])
+                prefixed = True
+            else:
+                raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+        elif not declarations:
+            raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+        declarations[-1].append(line)
+    groups, held = [[]], 0
+    for declaration in declarations:
+        length = sum(len(line) + 1 for line in declaration)
+        if groups[-1] and held + length > size:
+            groups.append([])
+            held = 0
+        groups[-1].extend(declaration)
+        held += length
+    if len(groups) == 1:
+        return [(None, text)]
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    # The indices have one width, so the names sort in checking order (a shell's
+    # `Z3Certificate_<digest>_*.lean` lists the modules as `check_lean.sh --chain` needs them).
+    width = len(str(len(groups) - 2))
+    names = ["Z3Certificate_%s_%0*d" % (digest, width, index) for index in range(len(groups) - 1)] + [None]
+    imports = [line for line in lines[:start] if line.startswith("import ")]
+    result = []
+    for index, group in enumerate(groups):
+        chained = imports + (["import " + names[index - 1]] if index else [])
+        if names[index] is None:
+            # The published file: the text's own header, then where the rest of it is.
+            head = chained + [line for line in lines[:start] if not line.startswith("import ")] + [
+                "-- This certificate is checked as a chain of %d modules: the %d before this one, %s to %s, hold"
+                % (len(groups), len(groups) - 1, names[0], names[-2]),
+                "-- its other declarations. scripts/check_lean.sh --chain checks them in that order, this file last.",
+            ]
+            tail = lines[end:]
+        else:
+            head = chained + ["", "-- Module %d of the %d of a certificate checked as a chain; see the last one."
+                              % (index + 1, len(groups))]
+            tail = [lines[end], ""]
+        result.append((names[index], "\n".join(head + [lines[start]] + options + group + tail)))
+    return result
+
+
+def write_modules(text, output, limit=None, size=None):
+    """Write a certificate's Lean text as its chain of modules (`modules`): the last one at
+    `output`, the others next to it under their module names. Returns the files in checking order."""
+    output = Path(output)
+    paths = []
+    for name, module in modules(text, limit, size):
+        paths.append(output if name is None else output.with_name(name + ".lean"))
+        paths[-1].write_text(module, encoding="utf-8")
+    return paths
+
+
+def check_command(paths):
+    """The command that checks the files `write_modules` wrote: one file, or a chain of modules."""
+    return [str(_CHECK_LEAN)] + (["--chain"] if len(paths) > 1 else []) + [str(path) for path in paths]
+
+
 def check_and_write(source, certificate, output):
-    """Publish a Lean file atomically, only after the pinned checker accepts it."""
+    """Publish a Lean file, only after the pinned checker accepts it. A certificate above
+    _MODULE_CHARS is checked as a chain of modules, and the modules the file imports are published
+    next to it, before it. Returns the published files in checking order, `output` last.
+
+    While a chain is checked, the compiled modules (.olean, 5 to 9 MB per MB of Lean text) are
+    in the staging directory next to `output` (Z3_LEAN_CHAIN_DIR of check_lean.sh), which is
+    removed here: a check that is killed leaves them next to the output, not in the system's
+    temporary directory."""
     text = reconstruct(source, certificate)
     output = Path(output)
     if output.suffix != ".lean":
         raise ReconstructionError("the output filename must end in .lean")
-    temporary = None
+    staging = Path(tempfile.mkdtemp(prefix="z3_proof_", dir=output.parent))
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".lean",
-                                         prefix="z3_proof_", dir=output.parent, delete=False) as stream:
-            temporary = Path(stream.name)
-            stream.write(text)
-        subprocess.run([str(_CHECK_LEAN), str(temporary)], check=True, capture_output=True, text=True)
-        os.replace(temporary, output)
-        temporary = None
+        paths = write_modules(text, staging / output.name)
+        subprocess.run(check_command(paths), check=True, capture_output=True, text=True,
+                       env=dict(os.environ, Z3_LEAN_CHAIN_DIR=str(staging.resolve())))
+        published = [output.with_name(path.name) for path in paths]
+        for path, target in zip(paths, published):
+            os.replace(path, target)
+        return published
     finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def main():
@@ -11244,7 +11379,7 @@ def main():
             source = stream.read()
         with args.certificate.open(encoding="utf-8") as stream:
             certificate = load_certificate(stream)
-        check_and_write(source, certificate, args.output)
+        published = check_and_write(source, certificate, args.output)
     except subprocess.CalledProcessError as error:
         sys.stderr.write(error.stdout or "")
         sys.stderr.write(error.stderr or "")
@@ -11252,6 +11387,8 @@ def main():
     except (ReconstructionError, ProofExportError, z3.Z3Exception, OSError, ValueError) as error:
         parser.exit(2, "%s: error: %s\n" % (parser.prog, error))
     print("Lean checked the refutation; wrote %s" % args.output)
+    for path in published[:-1]:
+        print("imported module, checked before it: %s" % path)
 
 
 if __name__ == "__main__":

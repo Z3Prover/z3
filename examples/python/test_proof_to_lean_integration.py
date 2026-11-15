@@ -27,9 +27,28 @@ import proof_to_lean
 from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
-    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, gate_inputs, make_certificate, nested_conjunction,
-    opened_frames, swept_frames, time_step_clause,
+    MODULAR_CHAINS, STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, chained_text, gate_inputs,
+    make_certificate, nested_conjunction, opened_frames, swept_frames, time_step_clause,
 )
+
+# One small input per kind of certificate text, for the chains of modules: a propositional
+# refutation (legacy proof object; a private rewrite lemma and the decidability helper), linear real
+# arithmetic (Farkas lemmas), an uninterpreted sort (grind lemmas over the carrier), integer ites
+# (MODULAR_CHAINS: omega, gates stated over folded definitions and unfolded), and arrays (the
+# private lemmas of the array prelude).
+MODULE_INPUTS = {
+    "propositional": (BRANCHING, False),
+    "real arithmetic": ("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
+                        "(assert (or (< x y) (< x z)))(assert (<= y x))(assert (<= z x))", True),
+    # The symbol a/-b is named in a header comment of the text: `/-` there opens no block comment.
+    "uninterpreted sort": ("(declare-sort U 0)(declare-fun f (U) U)(declare-const a U)(declare-const b U)"
+                           "(declare-const a/-b U)(assert (or (= a b) (= a a/-b)))(assert (not (= (f a) (f b))))"
+                           "(assert (not (= (f a) (f a/-b))))", True),
+    "integer ites": (MODULAR_CHAINS, True),
+    "arrays": ("(declare-const a (Array Int Int))(declare-const b (Array Int Int))(declare-const i Int)"
+               "(declare-const j Int)(assert (= b (store a i 5)))(assert (or (= j i) (= (select a j) 7)))"
+               "(assert (not (= (select b j) 5)))(assert (not (= (select b j) 7)))", True),
+}
 
 
 class TestProofToLeanIntegration(unittest.TestCase):
@@ -205,6 +224,120 @@ class TestProofToLeanIntegration(unittest.TestCase):
                     path.write_text("\n".join(source) + "\n")
                     result = lean_test_support.run_check_lean(path)
                     self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    @staticmethod
+    def axioms(report):
+        """The `#print axioms` part of a check's report (the rest names the checked files)."""
+        return report[report.index("'Z3Proofs.NativeCertificate."):]
+
+    def test_certificates_split_into_modules_verify_as_chains(self):
+        # A certificate above proof_to_lean._MODULE_CHARS is checked as a chain of modules, one Lean
+        # process each (test_proof_to_lean checks the split itself). Here the limit is lowered so
+        # that small certificates of every kind of text are split into four modules or more, and
+        # Lean checks each chain: the declarations name those of earlier modules (private in the
+        # one file), unfold their definitions, and the theorem's axioms are those of the one file.
+        for label, (source, clause_log) in MODULE_INPUTS.items():
+            with self.subTest(label=label):
+                certificate = (proof_certificate.export_clause_log_certificate(source) if clause_log
+                               else proof_certificate.export_certificate(source))
+                text, whole = lean_test_support.check(self, source, certificate)
+                self.assertIn("\nprivate theorem ", text)
+                self.assertEqual("/-" in text, "/-" in source)
+                limit = len(text) // 5
+                modules = proof_to_lean.modules(text, limit)
+                self.assertGreaterEqual(len(modules), 4)
+                with patch.object(proof_to_lean, "_MODULE_CHARS", limit):
+                    _, chained = lean_test_support.check(self, source, text=text)
+                self.assertEqual(chained.count("Checking "), len(modules))
+                self.assertEqual(self.axioms(chained), self.axioms(whole))
+                self.assertIn(".unsat' ", self.axioms(chained))
+
+    def test_a_chain_is_rejected_with_any_module_lean_rejects(self):
+        # Every module of a chain is checked under the flags of a single file, and a module is
+        # only read by the later ones after Lean accepted it: a wrong proof, or a `sorry`, in any
+        # module stops the chain there; a module left out, or the last file alone, is rejected;
+        # and an axiom declared in an earlier module is in the theorem's `#print axioms` report.
+        ns = "Z3Proofs.NativeCertificate.pchained"
+        text = chained_text(24) + "\n#print axioms %s.unsat\n" % ns
+        proof = "  intro _h\n  unfold formula_12 at _h\n  exact _h.left\n"
+        lemma = "theorem lemma_12 (_atoms : Nat -> Prop)\n    : (formula_12 _atoms) -> (formula_11 _atoms)"
+        with tempfile.TemporaryDirectory() as directory:
+            paths = proof_to_lean.write_modules(text, Path(directory) / "checked.lean", 1500)
+            self.assertGreaterEqual(len(paths), 5)
+            holder = next(path for path in paths if proof in path.read_text())
+            self.assertNotIn(holder, (paths[0], paths[-1]))
+            self.assertIn(lemma + " := by\n" + proof, holder.read_text())
+            original = holder.read_text()
+            result = lean_test_support.run_check_lean(paths)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            self.assertEqual(result.stdout.count("Checking "), len(paths))
+            self.assertIn("'%s.unsat' does not depend on any axioms" % ns, result.stdout)
+            for label, changed in (("a wrong proof", original.replace(proof, proof.replace("left", "right"))),
+                                   ("sorry", original.replace(proof, "  sorry\n"))):
+                with self.subTest(label=label):
+                    holder.write_text(changed)
+                    result = lean_test_support.run_check_lean(paths)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("error", result.stdout + result.stderr)
+                    self.assertNotIn("Lean checks passed.", result.stdout)
+                    # The chain stops at the rejected module: nothing after it is checked.
+                    self.assertEqual(result.stdout.count("Checking "), paths.index(holder) + 1)
+                    self.assertNotIn("depend", result.stdout)
+            holder.write_text(original.replace(lemma + " := by\n" + proof, "axiom" + lemma[len("theorem"):] + "\n"))
+            result = lean_test_support.run_check_lean(paths)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            self.assertIn("'%s.unsat' depends on axioms: [%s.lemma_12]" % (ns, ns), " ".join(result.stdout.split()))
+            holder.write_text(original)
+            for label, files in (("the last file alone", paths[-1]), ("a module left out", paths[:1] + paths[2:]),
+                                 ("the modules out of order", paths[1:-1] + paths[:1] + paths[-1:])):
+                with self.subTest(label=label):
+                    result = lean_test_support.run_check_lean(files)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertNotIn("Lean checks passed.", result.stdout)
+                    self.assertNotIn("depend", result.stdout)
+
+    def test_check_requires_every_reconstructed_text_to_split_into_modules(self):
+        # No Lean. Only a certificate above proof_to_lean._MODULE_CHARS is split, and the fast
+        # tier has none; so lean_test_support.check splits every text it reconstructs, of any
+        # size, and a top-level command the splitter does not know fails the test of the small
+        # certificate that has it (2026-11-14: the 1,632 texts of these tests all split).
+        text = chained_text(6)
+        with patch.object(lean_test_support, "run_check_lean") as checker:
+            checker.return_value = subprocess.CompletedProcess([], 0, "'x.unsat' Lean checks passed.\n", "")
+            with patch.object(proof_to_lean, "reconstruct", return_value=text):
+                self.assertEqual(lean_test_support.check(self, "chained", {})[0], text)
+            self.assertEqual(checker.call_count, 1)
+            changed = text.replace("\ndef formula_3 ", "\nopen Classical\ndef formula_3 ")
+            with patch.object(proof_to_lean, "reconstruct", return_value=changed):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot split Lean text at the line"):
+                    lean_test_support.check(self, "chained", {})
+            self.assertEqual(checker.call_count, 1)  # rejected before Lean is run
+            # A text the caller supplies is checked as it is (tests alter texts on purpose).
+            lean_test_support.check(self, "chained", text=changed)
+            self.assertEqual(checker.call_count, 2)
+
+    def test_a_split_certificate_is_published_with_the_modules_it_imports(self):
+        # check_and_write through the real checker: the chain is checked, and the published
+        # files (the modules next to the output, under their module names) check again as they are.
+        certificate = proof_certificate.export_certificate(BRANCHING)
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean, "_MODULE_CHARS", 1000):
+            output = Path(directory) / "proof.lean"
+            published = proof_to_lean.check_and_write(BRANCHING, certificate, output)
+            self.assertGreaterEqual(len(published), 3)
+            self.assertEqual(published[-1], output)
+            self.assertEqual(sorted(Path(directory).iterdir()), sorted(published))
+            self.assertIn("\nimport %s\n" % published[-2].stem, output.read_text())
+            self.assertIn("\ntheorem unsat ", output.read_text())
+            result = lean_test_support.run_check_lean(published)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            # A chain Lean rejects publishes nothing: here it is given last file first, so the
+            # modules that file imports have not been checked.
+            (Path(directory) / "other").mkdir()
+            with patch.object(proof_to_lean, "check_command", lambda paths: [
+                    str(proof_to_lean._CHECK_LEAN), "--chain"] + [str(path) for path in reversed(paths)]):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    proof_to_lean.check_and_write(BRANCHING, certificate, Path(directory) / "other" / "proof.lean")
+            self.assertEqual(list((Path(directory) / "other").iterdir()), [])
 
     def test_sweep_gives_up_on_a_thousand_nested_conjunctions_before_any_search(self):
         # No Lean: the limits of a sweep as they are (test_proof_to_lean

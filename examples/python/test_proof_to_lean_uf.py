@@ -2268,6 +2268,43 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(len(structural_rewrites(text)), 4)
 
+    def test_quasigroup_certificate_verifies_as_a_chain_of_modules(self):
+        # smtlib-sample qg5/iso_brn041 (0.54 MB of Lean) under a module limit of 150,000
+        # characters: four modules, one Lean process each, the theorem in the last. The files of
+        # this family that exceed the real limit (proof_to_lean._MODULE_CHARS) are 31 to 195 MB
+        # of Lean, which one process cannot check under its 8 GB cap; see the slow test below.
+        source = (_EXAMPLES / "data" / "QF_UF_QG_iso_brn041.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        modules = proof_to_lean.modules(text, 150000)
+        self.assertEqual(len(modules), 4)
+        self.assertLessEqual(max(len(module) for _, module in modules), 152000)
+        self.assertEqual(sum(module.count("\ntheorem unsat ") for _, module in modules[:-1]), 0)
+        self.assertEqual(modules[-1][1].count("\ntheorem unsat "), 1)
+        with patch.object(proof_to_lean, "_MODULE_CHARS", 150000):
+            _, report = lean_test_support.check(self, source, text=text)
+        self.assertEqual(report.count("Checking "), 4)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("QF_UF QG-classification gensys_icl1079, 31.7 MB of Lean in 32 modules, about two "
+                            "minutes (one file: kernel memory at the 8 GB cap after 94 s)")
+    def test_a_certificate_above_the_memory_of_one_lean_process_verifies_as_modules(self):
+        # smtlib-sample qg5/gensys_icl1079 (84,058 proof nodes): as one file Lean stops with
+        # `(kernel) excessive memory consumption` at the 8 GB cap of check_lean.sh, because the
+        # command line keeps what it elaborated of every command until the end of the file. As
+        # the chain of modules of at most 1 MB that lean_test_support.check and check_and_write
+        # make of it, no process comes near the cap.
+        source = (_EXAMPLES / "data" / "QF_UF_QG_gensys_icl1079.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertGreater(len(text), 3 * proof_to_lean._MODULE_CHARS)
+        modules = proof_to_lean.modules(text)
+        self.assertGreaterEqual(len(modules), len(text) // proof_to_lean._MODULE_SIZE)
+        self.assertLessEqual(max(len(module) for _, module in modules), proof_to_lean._MODULE_SIZE + 2000)
+        _, report = lean_test_support.check(self, source, text=text)
+        self.assertEqual(report.count("Checking "), len(modules))
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
     def test_reordered_distincts_verify_by_propagation_alone(self):
         # (distinct c0 ... c32) with (not (distinct c32 ... c0)) over U: the
         # two distincts were unrelated leaves of the cnf lemma tying them

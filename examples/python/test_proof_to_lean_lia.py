@@ -2211,7 +2211,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         _, report = lean_test_support.check(self, source, certificate, text=less)
         self.assertIn(_STANDARD_AXIOMS, report)
 
-    @lean_test_support.slow("a 10 MB certificate: 30 s of Lean at 4.2 GB")
+    @lean_test_support.slow("a 10 MB certificate: 30 s of Lean at 4.2 GB as one file, 33 s at 0.9 GB as the chain "
+                            "of 10 modules it is checked as")
     def test_twenty_frame_circuit_verifies_by_the_sweep(self):
         # SMT-LIB QF_IDL RTCL/b13_tf_20/ckt_PROP1_tf_20: twenty frames, a
         # 19-case clause over the rewriter's form of the one assertion
@@ -2484,7 +2485,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                          + len(text.split("\nprivate theorem proof_step_")[1:]),
                          sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
 
-    @lean_test_support.slow("QF_IDL plan-21, 20.4 MB of Lean, about 80 s at 6.5 GB")
+    @lean_test_support.slow("QF_IDL plan-21, 20.4 MB of Lean, about 80 s at 6.5 GB as one file, 90 s at 1.0 GB "
+                            "as the chain of 21 modules it is checked as")
     def test_planning_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL planning/plan-21.cvc (110 KB): 25,842 proof steps.
         # Its 33 MB of Lean ran out of the 8 GB cap of check_lean.sh after
@@ -2495,6 +2497,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # with single imports applied in place 21.4 MB (79 s, 6.6 GB); with
         # resolution types inferred and re-applications applied in place it
         # is 20.4 MB, verified in 78 s at a 6.5 GB peak (see the tests above).
+        # Those are the numbers of the text as one file; above 8 MB a text is
+        # checked as a chain of modules (proof_to_lean.modules, 2026-11-14).
         source = (_EXAMPLES / "data" / "QF_IDL_plan-21.cvc.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 25000)
@@ -2502,7 +2506,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertLess(len(text), 21000000)
         self.assertIn(_STANDARD_AXIOMS, report)
 
-    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 23.2 MB of Lean, about 115 s at 7.5 GB")
+    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 23.2 MB of Lean, about 120 s at 7.5 GB as one file, "
+                            "145 s at 1.8 GB as the chain of 24 modules it is checked as")
     def test_disjunctive_temporal_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL DTP/DTP_k2_n35_c245_s9 (14 KB): 69,000 proof steps,
         # 16,557 outlined lemmas. Its Lean ran out of the 8 GB cap in every
@@ -2517,8 +2522,10 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 60000)
         text, report = lean_test_support.check(self, source, certificate)
-        # 23,155,182 characters; the peak leaves little margin, so the bound
-        # fails before a text regression runs Lean out of memory.
+        # 23,155,182 characters. As one file the peak left little margin, and
+        # the bound failed before a text regression ran Lean out of memory;
+        # as the chain of modules it is checked as since 2026-11-14 the peak
+        # is 1.75 GB, and the bound is on the text alone.
         self.assertLess(len(text), 23500000)
         self.assertIn(_STANDARD_AXIOMS, report)
 

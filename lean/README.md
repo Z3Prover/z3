@@ -185,6 +185,9 @@ From the repository root:
 
 # Check several files, stopping at the first failure.
 ./scripts/check_lean.sh path/to/first.lean path/to/second.lean
+
+# Check a chain of modules: each file may import the ones before it by file name.
+./scripts/check_lean.sh --chain path/to/Part_0.lean path/to/Part_1.lean path/to/proof.lean
 ```
 
 The script can be invoked from other directories too. Relative file arguments
@@ -195,7 +198,29 @@ The helper builds the local library before checking supplied files, so they can
 use `import Z3Proofs`. It selects the toolchain from `lean-toolchain` explicitly,
 independently of your default toolchain.
 
-Checks use `--trust=0` to recheck imported modules and
+With `--chain` the files are one certificate split into modules
+(`proof_to_lean.py` does this above 8 MB of Lean text, because one `lean`
+process keeps what it elaborated of a whole file in memory). Every file is
+checked by its own `lean` process under the flags below; each file but the last
+is also compiled to an `.olean` in a temporary directory that is on the search
+path of the later files only, and is removed when the run ends. A file that is
+imported must be named `IDENTIFIER.lean`; the last file can have any name. The
+chain stops at the first file Lean rejects, so a later file never reads a module
+that was not accepted. The later processes read those `.olean` files as they
+read Lean's own library: the kernel checked each declaration once, in the
+process that compiled it.
+
+While a chain runs, its `.olean` files take 5 to 9 MB of disk per MB of Lean
+text (176 MB for a 31.7 MB certificate). The directory that holds them is a
+fresh one made by `mktemp -d`, and a run that is killed with SIGKILL cannot
+remove it. A caller that runs chains under a deadline sets `Z3_LEAN_CHAIN_DIR`
+to a directory it removes itself: the fresh directory is then made there
+(`proof_to_lean.check_and_write` names its staging directory next to the
+output).
+
+Checks use `--trust=0`, so the kernel checks every declaration of the file a
+`lean` process elaborates (a module it imports is read from its `.olean` and
+not checked again; for a chain that is the paragraph above), and
 `-DwarningAsError=true` to treat warnings, including ordinary `sorry`/`admit`
 placeholders, as errors. Every `lean` process, including the library build, runs
 with `--memory=8192`, so a proof that needs more than 8 GB fails with
