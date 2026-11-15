@@ -1,0 +1,4 @@
+No F* verification was invoked.
+fstar.exe --version: F* 2026.09.27 (platform=Linux_x86_64)
+z3 --version: Z3 version 4.13.3 - 64 bit
+Exit codes: none, since no proofs were run.
