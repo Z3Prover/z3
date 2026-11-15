@@ -14,7 +14,7 @@ and sort-indexed values `Z3DatatypeValue.value base sigma s`. The name
 "Definition" identifies additional proof replay, not a different value-domain
 architecture. See [values](Z3DatatypeValue.fst) and [mode contracts](Z3IndependentChecker.fsti).
 
-Updated: **2026-11-15T13:26:26-08:00** (America/Los_Angeles).
+Updated: **2026-11-15T14:23:46-08:00** (America/Los_Angeles).
 
 **Goal:** beat the legacy `fstar-build` baseline before retiring `Z3ValueTheory.fst`.
 Not established yet. Finite-field work remains paused.
@@ -30,6 +30,20 @@ each completes **16 ACCEPT**, versus 11 ACCEPT then abort before correction.
 Corrected-binary strict F*, 185-file independent closure, 20 non-field CLI tests,
 OCaml example and nine-case SMT-LIB guard pass. Corrected observations now cover
 all **583 inputs per mode**; coverage/performance parity remains unestablished.
+The current DER candidate passed strict verification of `Z3SortedProof` and
+its independent checker dependencies, extraction, native linking and focused
+native tests. Full build-script validation stopped at the unrelated
+finite-field compact PAC metered test (`F.all_used` is unbound); field work
+remains paused. Five paired frozen sample proofs and 20 non-field CLI tests
+completed. Checker
+build-tool unit tests passed (9); the existing Windows Z3 binary passed SMT,
+Python binding and CLI-help smoke checks, not checker validation.
+The fstar-build candidate guard completed ten previously captured streams:
+both arms **144 ACCEPT / 3 PARTIAL / 0 UNKNOWN / 0 REJECT / 0 TIMEOUT /
+0 crash / 0 NOT_RUN** across **147 proofs**, with identical diagnostics.
+Checker-only times were 147.449 / 147.026 seconds (single run, retained /
+candidate). This is not a full-corpus measurement. Evidence:
+`files\der-fstar-guard-01.json`.
 
 <!-- BEGIN ALL INSTANCE STATUS -->
 ## All 583 fstar-build instances
@@ -388,9 +402,9 @@ gate; assertions, scope checks and rejection behavior are preserved by proof.
 All **18 guarded comparisons passed**; only zero-obligation UNKNOWN-to-ACCEPT
 promotions occurred. The previous 58-proof guard stayed identical.
 
-Across **2,109 `nnf-pos` / 60 `nnf-neg` outer roots**, local pending counts remain
-**definition: 0 / 0; core: 10 / 5**. SMT-LIB per-rule counts remain unmeasured.
-Other `rewrite`/Farkas partials are not targets without demonstrated legacy ACCEPT.
+Across **2,109 `nnf-pos` / 60 `nnf-neg` outer roots**, local pending counts were
+**definition: 0 / 0; core: 10 / 5**. Later SMT-LIB per-rule measurements and
+the current `rewrite`/Farkas priorities are reported separately below.
 **Open query-level difference:** `PCM.FractionalPreorder`, query 4:
 legacy ACCEPT -> definition PARTIAL, one arithmetic `rewrite`.
 Three subsequent captures ACCEPT in both modes. Legacy has the same arithmetic
@@ -614,6 +628,15 @@ Single-pair checker timings, not full-corpus speedup or significance claims.
 
 <!-- BEGIN SAMPLE PARTIAL CONTROLS -->
 ### SMT-LIB sample PARTIAL investigation
+
+**Nov 15 14:11 PST, paired candidate:** five identical previously PARTIAL
+sample proofs: legacy **5 ACCEPT**, retained Definition **5 PARTIAL**,
+candidate **1 ACCEPT / 4 PARTIAL**; all arms **0 UNKNOWN / TIMEOUT / crash /
+NOT_RUN**. `der`: **+1 accepted**, **3 pending** in these five proofs (legacy
+0 pending); `quant-intro`: **0 newly accepted**, **3 pending** (legacy 0).
+These are frozen-proof results, not full-cohort or source-instance parity.
+Candidate SHA-256 `702a6993aaac18fa2c2fc5c099a65f4829c44f44aa1ee3861be328a6f8a28bb1`;
+evidence: `files\existential-der-measure-01.json`.
 
 Updated `2026-11-15T11:40:33-08:00`; **source diagnostics completed**. 103 cases selected from the 2026-11-15 Definition sample PARTIAL outcomes. Source reruns use pinned inputs/checkers, 10,000-ms solver / 60-s case / 4,096-MiB / 900-s stage caps. Legacy and Definition can produce different proofs; these are not identical-proof comparisons.
 
@@ -952,23 +975,93 @@ candidate TIMEOUT; **legacy/full-corpus parity is still open**.
 <!-- BEGIN SKOLEM CANDIDATE CORPUS -->
 ### Cached candidate corpus rollout (live)
 
-Updated: `2026-11-15T13:26:26-08:00`. Planned: 583 per arm; current batch `skolem-cached-corpus-batch-003`. Serial, 10,000-ms query / 60-s session / 4,096-MiB limits; 900-s stage cap.
+Updated: `2026-11-15T13:44:05-08:00`. Planned: 583 per arm; current batch `skolem-cached-corpus-batch-007`. Serial, 10,000-ms query / 60-s session / 4,096-MiB limits; 900-s stage cap.
 
 | Arm | Completed | TIMEOUT | NOT_RUN | Proof ACCEPT | PARTIAL | Solver UNKNOWN | nnf-pos roots / pending | nnf-neg roots / pending |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Legacy | 41 | 0 | 542 | 434 | 26 | 5 | - | - |
-| Retained Definition | 40 | 1 | 542 | 450 | 4 | 10 | 5591 / 0 | 258 / 4 |
-| Candidate Definition | 41 | 0 | 542 | 452 | 5 | 8 | 5597 / 0 | 261 / 4 |
+| Legacy | 81 | 0 | 502 | 695 | 35 | 9 | - | - |
+| Retained Definition | 79 | 2 | 502 | 718 | 5 | 14 | 9526 / 0 | 470 / 4 |
+| Candidate Definition | 80 | 1 | 502 | 720 | 6 | 12 | 9532 / 0 | 473 / 4 |
 
 Proof counts include timeout prefixes. Legacy has no comparable NNF totals. Producer histories can differ; raw verdict differences do not establish identical-proof regressions or full-corpus parity.
-Candidate vs legacy: 41 completed session pairs, 456 aligned UNSAT queries, 20 raw promotions, 1 raw ACCEPT losses, 5 solver/query differences; paired wall 261.209 / 343.111 s.
-Candidate vs retained Definition: 40 completed session pairs, 425 aligned UNSAT queries, 0 raw promotions, 0 raw ACCEPT losses, 0 solver/query differences; paired wall 299.461 / 287.327 s.
+Candidate vs legacy: 80 completed session pairs, 725 aligned UNSAT queries, 27 raw promotions, 1 raw ACCEPT losses, 6 solver/query differences; paired wall 448.947 / 554.389 s.
+Candidate vs retained Definition: 79 completed session pairs, 694 aligned UNSAT queries, 0 raw promotions, 0 raw ACCEPT losses, 0 solver/query differences; paired wall 513.183 / 498.605 s.
 
-Evidence: `files\skolem-cached-corpus-batch-003` and earlier pinned batches.
+Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 <!-- END SKOLEM CANDIDATE CORPUS -->
 
 ## Active / next
 
+- **Nov 15 13:54 PST, smtlib-sample `der`:** probing captured
+  `AUFLIA/20170829-Rodin/smt1038795333874449350.smt2`. On the identical
+  document legacy **ACCEPT**, Definition **PARTIAL 1** (`der`); no new rule
+  instances handled yet. **13:56:** the pending entry is `(exists x. x = s) =
+  true`, while independent `der` handles universal disjunctions. A narrow
+  sorted-model witness proof, explicit interface and dependent modules passed
+  strict F*, and focused native tests passed. **14:11:** paired replay
+  recovered this one `der` instance; three remain pending in five sample
+  proofs. Evidence:
+  `files\sample-identical-replay-02.json`; probe:
+  `/home/nbjorner/z3-independent-sample-der-probe-01`.
+- **Nov 15 13:48 PST, `FStar.Algebra.CommMonoid` q3:** captured Definition
+  document reproduced **2 pending `arith/farkas` entries**, indices **61** and
+  **1108**; identical-document replay was **PARTIAL 50** in legacy, Core and
+  Definition. Capture / three replay arms completed without error; this is one
+  proof, not a whole-cohort improvement. Evidence:
+  `files\farkas-commmonoid-isolation-01.json`. **13:50:** stage probe completed
+  after an initial 60-s build timeout. Both entries have matching literal and
+  coefficient counts and unit coefficients; they pass the 4096 budget and
+  literal preparation, but their
+  weighted sums retain nonzero nonlinear-product terms: the supplied weights
+  do not prove a linear contradiction. **13:53:** an instrumented native
+  replay reproduced the **identical serialized document** and identified both
+  original hints as **`arith bound`**, not `farkas`. The adapter attempts
+  Farkas replay for `bound`; it correctly remains PARTIAL here. The native
+  hints do not supply a replayable linear contradiction for these steps.
+  The current producer's implied-bound path exports weights but does not
+  validate `bound` as a Farkas conflict. **14:23:** an isolated instrumented
+  producer reproduced the identical document and matched both conclusions
+  **and all premises** to LP evidence DAGs. Index **1108** has 12 steps:
+  three `monomial_interval` and two `linear`, plus seven inputs; index **61**
+  has nine steps: two `monomial_interval`, one `monomial_substitute`, one
+  `linear`, plus five inputs. Both complete DAGs pass the producer's internal
+  `proof_expression.check()`; neither uses `integer_tighten`, lattice, or
+  Gomory. The producer has compositional nonlinear evidence, but propagation
+  exports only flattened `bound` weights; the independent checker cannot
+  reconstruct or validate these steps from those weights alone. An internal
+  evidence check is not an independent F* proof. Matching logs:
+  `files\bound-evidence-ids-01.json`; isolated build:
+  `files\bound-evidence-trace-02.json`. Probe output and
+  hashes: `/home/nbjorner/z3-independent-farkas-commmonoid-probe-02`.
+  Probe's raw Core diagnostic has 51 pending; Definition's elaborated
+  diagnostic has 50. Native trace:
+  `files\farkas-native-trace-01.json`; same capture SHA-256
+  `9fe58641c2740779db9edab0521e050a1e1675cb33beb6e14b6a487114d4e8c1`.
+  No checker behavior changed.
+- **Nov 15 13:46 PST, arithmetic investigation:** on 103 identical sample
+  PARTIAL proofs, **36,550 `arith/farkas` entries accepted in both kernels**;
+  Definition still had **3,514 `th-lemma` / 1,866 `rewrite`** pending entries.
+  Corrected fstar-build diagnostics separately reported **13 legacy / 5 Core /
+  8 Definition** pending `arith/farkas` obligations, across producer histories
+  that need not match. These are entry counts, not whole-proof verdicts.
+- **Ongoing:** preserve failing certificates, premises, coefficients and
+  conclusion for `Pulse.Lib.FractionalAnchoredPreorder`, `PulseCore.Preorder-1`,
+  `FStar.Algebra.CommMonoid`, and `FStar.Math.Lib`; compare identical documents.
+  Archived diagnostic summaries alone do not identify the failure stage.
+  The checker bounds input traversal at 4096 and linearization at 256;
+  it also requires supported literal shapes and aligned coefficients. The Z3
+  LP conflict path tries an explicit derivation, then validated Farkas weights,
+  and emits `unsupported` if these cannot be exported or validated. This is
+  a producer coverage boundary, **not evidence of an invalid certificate in
+  any observed case**. Integer cuts and nonlinear theory steps require their
+  own evidence; a single linear combination need not justify them.
+- **Planned:** instrument representative failures, separate producer evidence
+  gaps from checker replay gaps, then add verified targeted support and
+  remeasure fstar-build and smtlib-sample. **Newly handled: 0**; pending
+  counts remain those of the measured cohorts above.
+- **Schedules:** #4 continues every two minutes with arithmetic / `th-lemma` /
+  `rewrite` priority; #3 continues complete SMT-LIB measurements every six
+  hours. Native stages share the serial lock and quiet period.
 - **Completed 20:04 PST:** all-583-instance ledger and old/new per-rule report;
   583 matching input hashes, 25 observed rules, 58/58/8 pending judgments on
   147 matched old/core/definition proofs; zero rejected judgments.
@@ -1552,7 +1645,7 @@ Evidence: `files\skolem-cached-corpus-batch-003` and earlier pinned batches.
 - Actual cached-candidate closure: **185 files**, no legacy
   ValueTheory/UnifiedProof. Strict F* regressions, solver/Python/help smokes,
   57 focused Python tests (eight skips), and whitespace checks passed.
-- Schedule #2 continues every two minutes; native stages run serially.
+- Schedule #4 continues every two minutes; native stages run serially.
   Last migration pause: **19:59:04-19:59:34 PST**.
 
 </details>
@@ -1562,6 +1655,8 @@ Evidence: `files\skolem-cached-corpus-batch-003` and earlier pinned batches.
 
 | File(s), relative to `fstar` | Change |
 | --- | --- |
+| `Z3IndependentExistentialDer.fst`, `.fsti` | Existential witness proof |
+| `Z3SortedProof.fst` | Replay existential DER |
 | `Z3IndependentChecker.fst`, `.fsti` | Cache roots; array candidate |
 | `Z3IndependentCheckerTests.fst` | Guard candidate preservation |
 | `Z3IndependentBooleanContext.fst`, `.fsti` | Cache equivalent checks |
@@ -1579,7 +1674,7 @@ Evidence: `files\skolem-cached-corpus-batch-003` and earlier pinned batches.
 | `tools\test_build_independent_checker.py`, `test_checker_scope.py` | Test extraction guards |
 | `tools\test_independent_boolean_context.ml` | Compare Boolean results |
 | `tools\test_independent_scope_lookup.ml` | Compare scoped variables |
-| `tools\test_independent_cached_replay.ml` | Guard congruence shortcut |
+| `tools\test_independent_cached_replay.ml` | Guard congruence and DER |
 | `tools\test_independent_array_document.ml` | Test array candidate |
 | `tools\test_independent_binder_replay.ml` | Test certificate recovery |
 | `tools\test_independent_skolem_replay.ml` | Compare cached diagnostics |

@@ -21,6 +21,7 @@ module N = Z3BooleanNormalForm
 module E = Z3SortedSkolem
 module SK = Z3SkolemSyntax
 module NR = Z3NnfReplay
+module ED = Z3IndependentExistentialDer
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
 module RL = Z3SortedReal
@@ -2050,12 +2051,13 @@ let unused_elimination (node:U.proof_node) : bool =
 
 (* A premise-free closed der step (q = e, exported as iff(q, e)): the check
    of the quant-intro der entries (Z3NnfReplay.der_step: one eliminated
-   binder of a universal over a disjunction, the binder list kept), read at
-   the scope []. *)
+   binder of a universal over a disjunction, the binder list kept), or an
+   existential equality with a closed witness, read at the scope []. *)
 let der_rewrite (node:U.proof_node) : bool =
   node.kind = U.DestructiveEquality && Nil? node.premises &&
   (match node.conclusion with
-   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.der_step a b
+   | U.Equal a b | U.Observational a b ->
+     D.scoped [] a && D.scoped [] b && (NR.der_step a b || ED.check a b)
    | U.Holds _ -> false)
 
 (* The rules whose checks read the universal and existential laws: a binder
@@ -3144,19 +3146,20 @@ let lemma_unused_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
     T.lemma_equality s bc eq other a b
   | U.Holds _ -> ()
 
-(* An accepted der equation is true in every Sorted model satisfying the
-   universal law: the law at the scope [] and the empty environment. *)
+(* An accepted der equation is true in every Sorted quantifier model. *)
 let lemma_der_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (node:U.proof_node)
-  : Lemma (requires Q.forall_model s bc other /\
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
                     boolean_expression s (proposition node.conclusion) /\ der_rewrite node)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.conclusion with
   | U.Equal a b | U.Observational a b ->
     let rho = T.empty_environment (S.signature s) in
-    NR.lemma_der_at s bc eq other [] rho a b;
-    NR.lemma_same_at s bc eq other [] rho a b;
+    (if NR.der_step a b then (
+      NR.lemma_der_at s bc eq other [] rho a b;
+      NR.lemma_same_at s bc eq other [] rho a b)
+     else ED.lemma_check s bc eq other a b);
     assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
     V.lemma_sort_eq (get_sort b) (get_sort a);
     T.lemma_equality s bc eq other a b

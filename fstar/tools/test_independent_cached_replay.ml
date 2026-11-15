@@ -100,4 +100,34 @@ let () =
   let rejected, _ =
     check (Cached.empty schema assertions) Z.one ill_scoped (Some [premise]) in
   require (Option.is_none rejected) "application shortcut accepted an unscoped term";
+  let sort = A.SortApp (A.IntSymbol, []) in
+  let witness = A.App ({ A.decl_name = "der-witness"; domain = []; range = sort;
+                         interp = None; int_params = [] }, []) in
+  let variable = A.Var (Z.zero, sort) in
+  let exists a b =
+    A.Quantifier (A.Exists_k, [sort], A.bool_sort, R.mk_eq_expr a b) in
+  let der q rhs = { U.kind = U.DestructiveEquality;
+                    conclusion = U.Equal (q, rhs); premises = [] } in
+  List.iter (fun q ->
+    let node = der q R.true_expr in
+    require (SP.der_rewrite node) "closed existential equality was not replayed";
+    require (match SP.check_node_cached schema [] node with
+      | Some (_, pending) -> Z.equal pending Z.zero
+      | None -> false) "closed existential equality remained pending")
+    [exists variable witness; exists witness variable];
+  let valid = der (exists variable witness) R.true_expr in
+  let negatives = [
+    der (exists variable (A.Var (Z.one, sort))) R.true_expr;
+    der (exists variable variable) R.true_expr;
+    der (exists variable R.true_expr) R.true_expr;
+    der (exists variable witness) R.false_expr;
+    der (A.Quantifier (A.Forall_k, [sort], A.bool_sort,
+                        R.mk_eq_expr variable witness)) R.true_expr;
+    der (A.Quantifier (A.Exists_k, [sort; sort], A.bool_sort,
+                        R.mk_eq_expr variable witness)) R.true_expr;
+    { valid with U.kind = U.RewriteRule };
+    { valid with U.premises = [good_fact] };
+  ] in
+  List.iter (fun node ->
+    require (not (SP.der_rewrite node)) "invalid existential DER was accepted") negatives;
   print_endline "locally threaded replay cache tests passed"
