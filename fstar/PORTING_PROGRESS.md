@@ -14,7 +14,7 @@ and sort-indexed values `Z3DatatypeValue.value base sigma s`. The name
 "Definition" identifies additional proof replay, not a different value-domain
 architecture. See [values](Z3DatatypeValue.fst) and [mode contracts](Z3IndependentChecker.fsti).
 
-Updated: **2026-11-15T09:59:52-08:00** (UTC-08:00).
+Updated: **2026-11-15T10:08:55-08:00** (America/Los_Angeles).
 
 **Goal:** beat the legacy `fstar-build` baseline before retiring `Z3ValueTheory.fst`.
 Not established yet. Finite-field work remains paused.
@@ -588,6 +588,143 @@ Single-pair checker timings, not full-corpus speedup or significance claims.
 | `Pulse.Checker.Bind-1`, each legacy/core/definition | 1 | 0 | 0 | 0 | 0 | 582 other sessions; one solver UNKNOWN in each arm |
 | Frozen UInt-3 legacy-origin, each old/core/definition | 77 | 0 | 0 | 0 | 0 | Only completed replay subset; core producer capture TIMEOUT, definition capture unrun |
 
+<!-- BEGIN PERIODIC SMTLIB -->
+### Six-hour SMT-LIB measurements (Definition)
+
+Updated `2026-11-15T10:08:55-08:00`; cycle `periodic-smtlib-20261115T180643Z` **in_progress**; checker `1147416d9a4c`. Schedule **#3**, every six hours.
+Fixed hashed inputs; serial native cases; 10,000-ms queries / 60-s cases / 4,096-MiB / 3,600-s budget per cohort. A 30-s quiet pause precedes each cohort. Finite fields are excluded; QF_BV is excluded from extended as in the workflow.
+
+| Cohort | State | ACCEPT | PARTIAL | Solver UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| smtlib-sample | RUNNING | 21 | 21 | 1 | 1 | 0 | 0 | 0 | 181 |
+| smtlib-extended | QUEUED | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 285 |
+
+NOT_RUN includes cases not yet observed, including any active case; solver UNKNOWN is not checker success. Historical nine-case guards remain separate.
+Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261115T180643Z`. Active case: `smtlib-sample/QF_AUFLIA/swap/swap_t1_pp_nf_ai_00008_001.cvc.smt2`.
+
+<details><summary>Per-logic outcomes and input pins</summary>
+
+| Cohort / logic | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| smtlib-sample / AUFLIA | 13 | 11 | 1 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_AUFLIA | 8 | 10 | 0 | 1 | 0 | 0 | 0 | 6 |
+| smtlib-sample / QF_AX | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_IDL | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_LIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_LRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_UF | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / QF_UFLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-sample / UFLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+
+smtlib-sample: seed `independent-checker-b09a2011`; manifest SHA-256 `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`.
+| smtlib-extended / QF_ABV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_AUFBV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_DT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_NIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_NRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_UFBV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_UFDT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / QF_UFLRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / UF | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / UFDT | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / UFDTLIA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 25 |
+| smtlib-extended / UFLRA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |
+
+smtlib-extended: seed `42`; manifest SHA-256 `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
+
+</details>
+<!-- END PERIODIC SMTLIB -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- BEGIN SMTLIB STATUS -->
 SMT-LIB guard updated: `2026-11-15T09:59:52-08:00`; checker `z3-independent-congruence-entry-01`; evidence: session `files\congruence-entry-validation-01-smtlib`.
 
@@ -611,12 +748,14 @@ These are **local corrected-candidate results**, not the latest Actions results.
 | `qfbv` (dedicated QF_BV set) | 300 | NOT_MEASURED (300) | NOT_MEASURED (300) | NOT_RUN (300) |
 | `qfff` (QF_FF) | 25 | NOT_MEASURED (25) | NOT_MEASURED (25) | NOT_RUN (25); **paused** |
 
-**835 planned cases: 810 non-field + 25 paused finite-field cases.** Only the
-nine-case definition guard above has run for this corrected candidate; it
-observed no SAT, REJECT, crash or error. Its actual execution ended
-`2026-11-15T09:28:37-08:00`, using seed `independent-checker-b09a2011`,
+**835 planned cases: 810 non-field + 25 paused finite-field cases.** This table
+preserves the last completed nine-case guard; the running full sample/extended
+cycle is reported separately above. The guard observed no SAT, REJECT, crash
+or error. Its actual execution ended
+`2026-11-15T09:59:52-08:00`, using seed `independent-checker-b09a2011`,
 10,000-ms queries / 60-s cases / 900-s stage / 4,096-MiB caps.
-The 216 remaining basic cases and all other cohorts are not passes.
+Unobserved cases are not passes; running-cycle observations are not added to
+the overlapping historical guard.
 Adding QF_FF to this inventory does **not** resume finite-field work.
 
 The workflow evaluates `ocaml` and `cherry` extraction **backends**, not our
@@ -912,8 +1051,14 @@ candidate TIMEOUT; **legacy/full-corpus parity is still open**.
   Evidence: `congruence-entry-controls-01.json`,
   `congruence-entry-validation-01.json`.
   Full **smtlib-sample 225 / smtlib-extended 285** measurements requested
-  **Nov 15**; six-hour schedule **#3** active. Initial full runs pending;
-  the nine-case guard is not a full-cohort measurement.
+  **Nov 15**; six-hour schedule **#3** active. Initial serial full-cohort cycle
+  started **10:06:43 PST**, using retained checker `1147416d`; live counts above.
+  The nine-case guard is separate, not a full-cohort measurement.
+  Runner: session `files\run_periodic_smtlib_cohorts.py --checker <retained-checker>`.
+  State: `files\periodic-smtlib-state.json`; shared native and cycle locks prevent
+  overlapping stages/duplicate cycles. Sample manifest `72cba03d`, seed
+  `independent-checker-b09a2011`; extended manifest `6f6ad04d`, seed `42`;
+  **225 / 285** inputs verified. Full hashes and per-logic outcomes are above.
   Migration pauses **09:04:22-09:04:52**, **09:07:50-09:08:20**,
   **09:10:17-09:10:47**, **09:12:32-09:13:02**, **09:14:29-09:14:59**,
   **09:15:39-09:16:09 PST**; native work remains serial.
