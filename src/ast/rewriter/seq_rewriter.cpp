@@ -5177,6 +5177,31 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
             return BR_DONE;
         }
     }
+    if (m_util.is_seq(l)) {
+        for (unsigned side = 0; side < 2; ++side) {
+            expr* word = side ? r : l;
+            expr* slice = side ? l : r;
+            expr* source = nullptr, *offset = nullptr, *length = nullptr, *arg = nullptr;
+            if (!str().is_extract(slice, source, offset, length) ||
+                !str().is_length(length, arg) || arg != word)
+                continue;
+            expr* positive = nullptr, *negative = nullptr;
+            bool suffix = m_autil.is_sub(offset, positive, negative) && negative == length &&
+                str().is_length(positive, arg) && arg == source;
+            if (!suffix && m_autil.is_add(offset, positive, negative)) {
+                auto matches = [&](expr* p, expr* n) {
+                    expr* base = nullptr, *len = nullptr;
+                    return str().is_length(p, base) && base == source &&
+                        m_autil.is_times_minus_one(n, len) && len == length;
+                };
+                suffix = matches(positive, negative) || matches(negative, positive);
+            }
+            if (suffix) {
+                result = str().mk_suffix(word, source);
+                return BR_REWRITE_FULL;
+            }
+        }
+    }
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;

@@ -209,6 +209,37 @@ static void tst_extract_length_products() {
     }
 }
 
+static void tst_length_matched_suffix_equality() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    seq_rewriter rw(m);
+    for (bool is_string : {true, false}) {
+        sort_ref s(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        expr_ref word(m.mk_fresh_const("word", s), m);
+        expr_ref source(m.mk_fresh_const("source", s), m);
+        expr_ref length(su.str.mk_length(word), m);
+        expr_ref source_length(su.str.mk_length(source), m);
+        expr_ref minus_one(a.mk_int(-1), m);
+        expr_ref negative(a.mk_mul(minus_one, length), m);
+        expr_ref_vector offsets(m);
+        offsets.push_back(a.mk_sub(source_length, length));
+        offsets.push_back(a.mk_add(source_length, negative));
+        offsets.push_back(a.mk_add(negative, source_length));
+        expr_ref expected(su.str.mk_suffix(word, source), m);
+        for (expr* offset : offsets) {
+            expr_ref slice(su.str.mk_substr(source, offset, length), m);
+            for (bool swapped : {false, true}) {
+                expr_ref actual(m);
+                ENSURE(rw.mk_eq_core(swapped ? slice.get() : word.get(),
+                                     swapped ? word.get() : slice.get(), actual) == BR_REWRITE_FULL);
+                ENSURE(actual == expected);
+            }
+        }
+    }
+}
+
 static void tst_nested_extract_prefix_of_suffix() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -925,6 +956,7 @@ void tst_seq_rewriter() {
     tst_seq_last_index();
     tst_extract_length_products();
     tst_eq_skolem_arity();
+    tst_length_matched_suffix_equality();
     tst_nested_extract_prefix_of_suffix();
     tst_length_coherence_guards();
     ast_manager m;
