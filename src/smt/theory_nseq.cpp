@@ -531,7 +531,8 @@ namespace smt {
                     index = m_seq.str.mk_index(e1, e2, zero);
                 }
                 bool share = index && ctx.e_internalized(index);
-                if (!share && is_uninterp_const(e1) && is_uninterp_const(e2)) {
+                if (!share && is_uninterp_const(e1) &&
+                    (is_uninterp_const(e2) || m_seq.str.is_string(e2))) {
                     // Replacement axioms already use the first-match Skolems.
                     enode* match = nullptr;
                     for (enode* parent : ctx.get_enode(e1)->get_root()->get_parents()) {
@@ -545,6 +546,15 @@ namespace smt {
                                 break;
                             }
                             match = parent;
+                        }
+                    }
+                    if (match && m_seq.str.is_string(e2)) {
+                        // Keep literal replacement search independent of integer conversion.
+                        for (enode* parent : match->get_root()->get_parents()) {
+                            if (m_seq.str.is_stoi(parent->get_expr())) {
+                                match = nullptr;
+                                break;
+                            }
                         }
                     }
                     share = match != nullptr;

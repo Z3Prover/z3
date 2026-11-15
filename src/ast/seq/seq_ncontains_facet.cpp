@@ -267,16 +267,19 @@ namespace seq {
                 return u.str.is_unit(token) && m.is_value(token);
             });
             if (concrete_needle) {
-                expr_ref literal(u.str.mk_concat(nc.m_needle, nc.m_needle[0]->get_sort()), m);
-                // Reach targets use AST identity. Normalize String units before
-                // symbolic and concrete derivatives can produce different states.
-                th_rewriter rw(m);
-                rw(literal);
-                expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
-                expr_ref needle(u.re.mk_to_re(literal), m);
-                expr_ref tail(u.re.mk_concat(needle, all), m);
-                expr_ref containing(u.re.mk_concat(all, tail), m);
-                expr_ref avoiding(u.re.mk_complement(containing), m);
+                expr_ref avoiding(m);
+                if (n_size > 1 || any_of(nc.m_haystack, [&](expr* token) { return !u.str.is_unit(token); })) {
+                    expr_ref literal(u.str.mk_concat(nc.m_needle, nc.m_needle[0]->get_sort()), m);
+                    // Reach targets use AST identity. Normalize String units before
+                    // symbolic and concrete derivatives can produce different states.
+                    th_rewriter rw(m);
+                    rw(literal);
+                    expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
+                    expr_ref needle(u.re.mk_to_re(literal), m);
+                    expr_ref tail(u.re.mk_concat(needle, all), m);
+                    expr_ref containing(u.re.mk_concat(all, tail), m);
+                    avoiding = u.re.mk_complement(containing);
+                }
                 if (n_size == 1) {
                     // A single element cannot straddle concatenation boundaries.
                     expr* forbidden = to_app(nc.m_needle[0])->get_arg(0);

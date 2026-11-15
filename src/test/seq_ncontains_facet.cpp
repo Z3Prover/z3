@@ -123,7 +123,8 @@ namespace {
     }
 
     static void tst_ncontains_replace_witness_scope() {
-        for (bool fixed_pattern : {false, true}) {
+        for (unsigned mode = 0; mode < 4; ++mode) {
+            bool fixed_pattern = mode % 2 != 0;
             ast_manager m;
             reg_decl_plugins(m);
             scoped_rlimit limit(m.limit(), 5000000);
@@ -144,6 +145,10 @@ namespace {
             params_ref p;
             p.set_sym("string_solver", symbol("nseq"));
             ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            if (mode >= 2) {
+                expr_ref parsed(u.str.mk_stoi(replaced), m);
+                s->assert_expr(a.mk_le(parsed, a.mk_int(0)));
+            }
             s->push();
             s->assert_expr(a.mk_ge(source_length, a.mk_int(4)));
             s->assert_expr(a.mk_gt(pattern_length, a.mk_int(0)));
@@ -656,14 +661,16 @@ namespace {
         ENSURE(nf.is_satisfied() && nf.qhead() == 1 && !ef.is_satisfied());
     }
 
-    static void tst_ncontains_character_projection_scope() {
+    static void tst_ncontains_character_projection_scope(bool surrounded) {
         for (unsigned code : { 97u, 0x1f600u }) {
             fixture fx;
             expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
             expr_ref y(fx.m.mk_fresh_const("y", fx.s), fx.m);
             expr_ref c(fx.m.mk_fresh_const("c", fx.u.mk_char_sort()), fx.m);
             expr_ref unit(fx.u.str.mk_unit(c), fx.m);
-            expr_ref haystack(fx.u.str.mk_concat(x, unit, y), fx.m);
+            expr_ref haystack(unit, fx.m);
+            if (surrounded)
+                haystack = fx.u.str.mk_concat(x, unit, y);
             expr_ref forbidden(fx.u.str.mk_char(code), fx.m);
             expr_ref needle(fx.u.str.mk_unit(forbidden), fx.m);
             auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
@@ -675,7 +682,7 @@ namespace {
             fx.trail.push_scope();
             seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
             ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::satisfied);
-            ENSURE(mf.memberships().size() == 2 && af.assumptions().size() == 1);
+            ENSURE(mf.memberships().size() == (surrounded ? 2u : 0u) && af.assumptions().size() == 1);
             for (auto const& membership : mf.memberships())
                 ENSURE(dm.contains(membership.m_dep, 8));
             expr_ref equal(fx.m.mk_eq(c, forbidden), fx.m);
@@ -718,6 +725,7 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_literal_with_pending_equation_scope();
     tst_ncontains_literal_reach_substitution();
     tst_ncontains_completion_after_literal_lowering_scope();
-    tst_ncontains_character_projection_scope();
+    tst_ncontains_character_projection_scope(false);
+    tst_ncontains_character_projection_scope(true);
     std::cout << "seq_ncontains_facet: all tests passed\n";
 }
