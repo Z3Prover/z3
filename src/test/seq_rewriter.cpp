@@ -469,6 +469,74 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_unit_source_replace() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+    app_ref pattern(m.mk_const("pattern", su.str.mk_string_sort()), m);
+    expr_ref replacement(m.mk_const("replacement", su.str.mk_string_sort()), m);
+    expr_ref empty(su.str.mk_string(""), m);
+    for (unsigned code : {0u, 65u, 0x2ffffu}) {
+        expr_ref source(su.str.mk_string(zstring(1, &code)), m);
+        expr_ref actual(su.str.mk_replace(source, pattern, replacement), m);
+        expr_ref empty_pattern(m.mk_eq(pattern, empty), m);
+        expr_ref match(m.mk_eq(pattern, source), m);
+        expr_ref prepend(su.str.mk_concat(replacement, source), m);
+        expr_ref nonempty(m.mk_ite(match, replacement, source), m);
+        expr_ref expected(m.mk_ite(empty_pattern, prepend, nonempty), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+    }
+    expr_ref unknown(m.mk_const("source", su.str.mk_string_sort()), m);
+    expr_ref longer(su.str.mk_string("ab"), m);
+    for (expr* source : {unknown.get(), longer.get()}) {
+        expr_ref actual(su.str.mk_replace(source, pattern, replacement), m);
+        expr_ref unchanged(actual, m);
+        rw(actual);
+        ENSURE(actual == unchanged);
+    }
+
+    expr_ref source(su.str.mk_string("A"), m);
+    expr_ref literal(su.str.mk_string("B"), m);
+    expr_ref combined(empty, m);
+    for (expr* value : {literal.get(), replacement.get()}) {
+        combined = empty;
+        for (unsigned i = 0; i < 8; ++i) {
+            expr_ref independent(m.mk_fresh_const("pattern", su.str.mk_string_sort()), m);
+            expr_ref term(su.str.mk_replace(source, independent, value), m);
+            combined = su.str.mk_concat(combined, term);
+        }
+        rw(combined);
+        ENSURE(su.str.is_concat(combined));
+        expr_ref again(combined, m);
+        rw(again);
+        ENSURE(again == combined);
+    }
+
+    expr_ref condition(m.mk_const("condition", m.mk_bool_sort()), m);
+    expr_ref a(su.str.mk_string("a"), m);
+    expr_ref b(su.str.mk_string("b"), m);
+    expr_ref c(su.str.mk_string("c"), m);
+    expr_ref d(su.str.mk_string("d"), m);
+    expr_ref left(m.mk_ite(condition, a, b), m);
+    expr_ref right(m.mk_ite(condition, c, d), m);
+    combined = su.str.mk_concat(left, right);
+    expr_ref then_word(su.str.mk_string("ac"), m);
+    expr_ref else_word(su.str.mk_string("bd"), m);
+    expr_ref expected(m.mk_ite(condition, then_word, else_word), m);
+    rw(combined);
+    ENSURE(combined == expected);
+
+    expr_ref other_condition(m.mk_const("other_condition", m.mk_bool_sort()), m);
+    left = m.mk_ite(condition, pattern, replacement);
+    right = m.mk_ite(other_condition, replacement, unknown);
+    combined = su.str.mk_concat(left, right);
+    rw(combined);
+    ENSURE(m.is_ite(combined));
+}
+
 static void tst_seq_replace_round_trip() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -687,6 +755,7 @@ static void tst_empty_language_repetition() {
 }
 
 void tst_seq_rewriter() {
+    tst_unit_source_replace();
     tst_equal_index_searches();
     tst_conditional_regex_membership();
     tst_from_code_star_membership();

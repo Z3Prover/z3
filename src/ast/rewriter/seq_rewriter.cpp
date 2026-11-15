@@ -1006,12 +1006,52 @@ expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     used in the normal form for derivatives in mk_re_derivative.
 */
 br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
+    auto has_explicit_word_case = [&](expr* a) {
+        ptr_buffer<expr> todo;
+        expr_mark visited;
+        todo.push_back(a);
+        while (!todo.empty()) {
+            a = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(a))
+                continue;
+            visited.mark(a, true);
+            if (str().is_string(a) || str().is_empty(a) || str().is_unit(a))
+                return true;
+            if (m().is_ite(a)) {
+                todo.push_back(to_app(a)->get_arg(1));
+                todo.push_back(to_app(a)->get_arg(2));
+            }
+        }
+        return false;
+    };
     expr* c = nullptr, * t = nullptr, * e = nullptr;
     for (unsigned i = 0; i < n; ++i)
         if (m().is_ite(args[i], c, t, e) &&
             lift_ites_filter(f, args[i]) &&
             (get_depth(t) <= 2 || t->get_ref_count() == 1 ||
                 get_depth(e) <= 2 || e->get_ref_count() == 1)) {
+            if (f->get_family_id() == get_fid() && f->get_decl_kind() == OP_SEQ_CONCAT &&
+                has_explicit_word_case(args[i])) {
+                ptr_buffer<expr> todo;
+                todo.append(n, args);
+                expr_mark visited;
+                while (!todo.empty()) {
+                    expr* a = todo.back();
+                    todo.pop_back();
+                    if (visited.is_marked(a))
+                        continue;
+                    visited.mark(a, true);
+                    if (str().is_concat(a)) {
+                        for (expr* arg : *to_app(a))
+                            todo.push_back(arg);
+                    }
+                    else if (m().is_ite(a) && to_app(a)->get_arg(0) != c) {
+                        // Independent choices would expand into a Cartesian product.
+                        return BR_FAILED;
+                    }
+                }
+            }
             ptr_buffer<expr> new_args;
             for (unsigned j = 0; j < n; ++j) new_args.push_back(args[j]);
             new_args[i] = t;
@@ -2173,6 +2213,15 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_empty(a) && str().is_empty(c)) {
         result = a;
         return BR_DONE;
+    }
+
+    if (str().is_string(a, s1) && s1.length() == 1) {
+        expr_ref empty_pattern(str().mk_is_empty(b), m());
+        expr_ref match(m().mk_eq(b, a), m());
+        expr_ref prepend(str().mk_concat(c, a), m());
+        expr_ref nonempty(m().mk_ite(match, c, a), m());
+        result = m().mk_ite(empty_pattern, prepend, nonempty);
+        return BR_REWRITE_FULL;
     }
 
     expr *source = nullptr, *pattern = nullptr, *replacement = nullptr;
