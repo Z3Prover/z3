@@ -4467,6 +4467,13 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
             result = re().mk_empty(args[0]->get_sort());
             return BR_DONE;
         }
+        if (np > 0 && re().is_empty(args[0])) {
+            if (lo2 == 0)
+                result = mk_to_re(str().mk_empty(re().to_seq(args[0]->get_sort())));
+            else
+                result = args[0];
+            return BR_DONE;
+        }
         // (loop a 0 0) = ""
         if (np == 2 && lo2 == 0 && hi2 == 0) {
             result = mk_to_re(str().mk_empty(re().to_seq(args[0]->get_sort())));

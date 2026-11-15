@@ -524,7 +524,29 @@ static void tst_positive_closure_repetition() {
     member(repeated, "", false);
 }
 
+static void tst_empty_language_repetition() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref prefix(su.re.mk_to_re(x), m);
+    expr_ref empty_word(su.str.mk_string(""), m);
+    expr_ref empty_range(su.re.mk_range(empty_word, empty_word), m);
+    for (unsigned lo : {0u, 1u, 2u}) {
+        for (bool bounded : {false, true}) {
+            expr_ref repeated(bounded ? su.re.mk_loop_proper(empty_range, lo, 3) :
+                                        su.re.mk_loop(empty_range, lo), m);
+            expr_ref regex(su.re.mk_concat(prefix, repeated), m);
+            expr_ref member(su.re.mk_in_re(x, regex), m);
+            rw(member);
+            ENSURE(lo == 0 ? m.is_true(member) : m.is_false(member));
+        }
+    }
+}
+
 void tst_seq_rewriter() {
+    tst_empty_language_repetition();
     tst_positive_closure_repetition();
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
