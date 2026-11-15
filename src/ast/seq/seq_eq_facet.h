@@ -46,8 +46,8 @@ namespace seq {
     // `expr_ref_vector`: a sequence of tokens, each either a length-1
     // string constant or an opaque variable/term. Reference-counted
     // (rather than a raw ptr_vector<expr>) since tokens may be
-    // freshly-created variables (e.g. from mk_fresh_var) that nothing
-    // else in the system is holding a reference to.
+    // freshly-created variables that nothing else in the system is
+    // holding a reference to.
 
     // Tokens are obtained directly via `u.str.get_concat_units(e, out)`:
     // constants are exploded into one token per character; any other
@@ -196,9 +196,6 @@ namespace seq {
         bool get_subst(expr* var, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;
         void eliminate(expr* e, expr_ref_vector& out) const;
         void eliminate(expr_ref_vector const& in, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;
-
-        // Allocate a fresh opaque variable token of `s`'s sort.
-        expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;

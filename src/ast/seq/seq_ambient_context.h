@@ -29,6 +29,7 @@ Author:
 #include "params/theory_seq_params.h"
 #include "util/stx_search_tree.h"
 #include "util/obj_hashtable.h"
+#include <initializer_list>
 
 namespace seq {
 
@@ -64,6 +65,8 @@ namespace seq {
         seq_util&    u;
 
         expr_ref_vector m_cond_deps;
+        obj_map<expr, expr*> m_fresh_vars;
+        expr_ref_vector m_fresh_var_refs;
 
         virtual dep_tracker_t mk_leaf_dep(unsigned idx) const = 0;
 
@@ -104,7 +107,7 @@ namespace seq {
         stx::facet_id stoi_id() const { return m_stoi_id; }
         stx::facet_id ho_id() const { return m_ho_id; }
     public:
-        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
+        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m), m_fresh_var_refs(m) {}
         ~ambient_context_i() override = default;
 
         dep_tracker_t add_conditional_dep(expr* e) {
@@ -137,6 +140,21 @@ namespace seq {
         // lives here so every ambient context shares the same token
         // classification.
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
+
+        // Keep keys and opaque witnesses alive across search-tree backtracking.
+        expr* mk_fresh_var(char const* caller, unsigned idx, sort* s, std::initializer_list<expr*> args) {
+            parameter ps[] = { parameter(symbol("seq.fresh")), parameter(symbol(caller)), parameter(idx) };
+            expr_ref key(m.mk_app(u.get_family_id(), _OP_SEQ_SKOLEM, 3, ps,
+                                 static_cast<unsigned>(args.size()), args.begin(), s), m);
+            expr* result = nullptr;
+            if (!m_fresh_vars.find(key, result)) {
+                result = m.mk_fresh_const("t", s);
+                m_fresh_vars.insert(key, result);
+                m_fresh_var_refs.push_back(key);
+                m_fresh_var_refs.push_back(result);
+            }
+            return result;
+        }
 
     public:
         // Return `e`'s token list - see `seq_util::str::get_concat_units`.
@@ -218,6 +236,9 @@ namespace seq {
         node_t& node() const { return m_node; }
 
         bool is_var(expr* e) const { return m_ac.is_var(e); }
+        expr* mk_fresh_var(char const* caller, unsigned idx, sort* s, std::initializer_list<expr*> args) const {
+            return m_ac.mk_fresh_var(caller, idx, s, args);
+        }
         bool lower_bound(expr* e, rational& lo, dep_tracker_t& dep) const { return m_ac.lower_bound(e, lo, dep); }
         bool upper_bound(expr* e, rational& hi, dep_tracker_t& dep) const { return m_ac.upper_bound(e, hi, dep); }
         bool current_value(expr* e, rational& v) const { return m_ac.current_value(e, v); }
