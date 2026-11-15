@@ -189,6 +189,31 @@ namespace {
         ENSURE(!nf.is_satisfied() && af.assumptions().empty());
     }
 
+    static void tst_ncontains_symbolic_needle_nonempty(bool int_sequence) {
+        fixture fx;
+        sort_ref s(int_sequence ? fx.u.str.mk_seq(fx.a.mk_int()) : fx.s, fx.m);
+        expr_ref h(fx.m.mk_fresh_const("haystack", s), fx.m);
+        expr_ref needle(fx.m.mk_fresh_const("needle", s), fx.m);
+        expr_ref length(fx.u.str.mk_length(needle), fx.m);
+        expr_ref empty_length(fx.m.mk_eq(length, fx.a.mk_int(0)), fx.m);
+        auto& sf = fx.root->facet_as<seq::solver_facet>(fx.arith_id);
+        auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+        auto& dm = fx.tree.dep_mgr();
+        nf.add_ncontains(h, needle, dm.mk_leaf(8));
+        seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+        fx.trail.push_scope();
+        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::proceed);
+        fx.trail.push_scope();
+        sf.add_constraint(empty_length, dm.mk_leaf(9));
+        ENSURE(sf.has_conflict());
+        ENSURE(dm.contains(sf.conflict_dep(), 8) && dm.contains(sf.conflict_dep(), 9));
+        fx.trail.pop_scope(1);
+        ENSURE(!sf.has_conflict());
+        fx.trail.pop_scope(1);
+        sf.add_constraint(empty_length);
+        ENSURE(!sf.has_conflict() && fx.solver.get_scope_level() == 0);
+    }
+
     static void tst_ncontains_unit_length_bound() {
         fixture fx;
         auto& sf = fx.root->facet_as<seq::solver_facet>(fx.arith_id);
@@ -530,6 +555,8 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_symbolic_needle_nonempty(false);
+    tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();
     tst_ncontains_symbolic_unit_false_clause();
     tst_ncontains_large_symbolic_units_deferred();

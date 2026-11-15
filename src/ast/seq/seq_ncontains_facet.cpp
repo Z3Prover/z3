@@ -359,6 +359,8 @@ namespace seq {
             expr* n_expr = tokens_to_expr(u, m, nc.m_needle);
             expr_ref len_h(u.str.mk_length(h_expr), m);
             expr_ref len_n(u.str.mk_length(n_expr), m);
+            expr_ref nonempty(a.mk_ge(len_n, a.mk_int(1)), m);
+            changed |= sf.add_constraint(nonempty, nc.m_dep);
             expr_ref gate(m.mk_not(a.mk_le(len_n, len_h)), m); // len(h) < len(n)
 
             if (sf.implies(gate) == l_true) {
