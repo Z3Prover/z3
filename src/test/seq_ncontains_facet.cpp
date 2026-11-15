@@ -122,6 +122,56 @@ namespace {
         }
     }
 
+    static void tst_ncontains_replace_witness_scope() {
+        for (bool fixed_pattern : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            scoped_rlimit limit(m.limit(), 5000000);
+            seq_util u(m);
+            arith_util a(m);
+            expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
+            expr_ref literal(u.str.mk_string("aba"), m);
+            expr_ref pattern(m);
+            if (fixed_pattern)
+                pattern = literal;
+            else
+                pattern = m.mk_const("pattern", source->get_sort());
+            expr_ref empty(u.str.mk_empty(source->get_sort()), m);
+            expr_ref replaced(u.str.mk_replace(source, pattern, empty), m);
+            expr_ref source_length(u.str.mk_length(source), m);
+            expr_ref pattern_length(u.str.mk_length(pattern), m);
+            expr_ref result_length(u.str.mk_length(replaced), m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            s->push();
+            s->assert_expr(a.mk_ge(source_length, a.mk_int(4)));
+            s->assert_expr(a.mk_gt(pattern_length, a.mk_int(0)));
+            s->assert_expr(a.mk_le(result_length, a.mk_int(2)));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->push();
+            expr_ref word(u.str.mk_string("ababa"), m);
+            s->assert_expr(m.mk_eq(source, word));
+            if (!fixed_pattern)
+                s->assert_expr(m.mk_eq(pattern, literal));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->push();
+            expr_ref expected(u.str.mk_string("ba"), m);
+            s->assert_expr(m.mk_not(m.mk_eq(replaced, expected)));
+            ENSURE(s->check_sat(0, nullptr) == l_false);
+            s->pop(1);
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->pop(2);
+            s->push();
+            s->assert_expr(m.mk_eq(source, empty));
+            if (!fixed_pattern)
+                s->assert_expr(m.mk_eq(pattern, empty));
+            s->assert_expr(m.mk_eq(replaced, empty));
+            ENSURE(s->check_sat(0, nullptr) == l_true);
+            s->pop(1);
+        }
+    }
+
     class counted_sub_solver : public seq::sub_solver {
     public:
         using seq::sub_solver::sub_solver;
@@ -648,6 +698,7 @@ namespace {
 void tst_seq_ncontains_facet() {
     tst_ncontains_fixed_length_choices();
     tst_ncontains_unit_tail_preimage_scope();
+    tst_ncontains_replace_witness_scope();
     tst_ncontains_symbolic_needle_nonempty(false);
     tst_ncontains_symbolic_needle_nonempty(true);
     tst_ncontains_symbolic_unit_clauses();

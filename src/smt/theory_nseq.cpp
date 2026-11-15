@@ -531,6 +531,24 @@ namespace smt {
                     index = m_seq.str.mk_index(e1, e2, zero);
                 }
                 bool share = index && ctx.e_internalized(index);
+                if (!share && is_uninterp_const(e1) && is_uninterp_const(e2)) {
+                    // Replacement axioms already use the first-match Skolems.
+                    enode* match = nullptr;
+                    for (enode* parent : ctx.get_enode(e1)->get_root()->get_parents()) {
+                        expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
+                        if (ctx.is_relevant(parent) &&
+                            m_seq.str.is_replace(parent->get_expr(), source, needle, replacement) &&
+                            source == e1 && needle == e2) {
+                            // Keep multiple replacement outputs on the existing search path.
+                            if (match && match != parent) {
+                                match = nullptr;
+                                break;
+                            }
+                            match = parent;
+                        }
+                    }
+                    share = match != nullptr;
+                }
                 if (share) {
                     // Preserve the order of parallel same-needle searches on independent sources.
                     for (enode* parent : ctx.get_enode(e2)->get_root()->get_parents()) {
