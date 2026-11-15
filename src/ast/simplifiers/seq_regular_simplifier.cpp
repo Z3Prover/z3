@@ -786,6 +786,18 @@ class regular_compiler {
         tick();
         if (depth > 256) throw failure::budget;
         if (m.is_true(e) || m.is_false(e)) return e;
+        expr *condition, *yes, *no;
+        if (m.is_ite(e, condition, yes, no)) {
+            expr* guard = translate(condition, false, depth + 1);
+            expr_ref_vector positive(m), negative(m), branches(m);
+            positive.push_back(guard);
+            positive.push_back(translate(yes, false, depth + 1));
+            negative.push_back(neg(guard));
+            negative.push_back(translate(no, false, depth + 1));
+            branches.push_back(boolean(true, positive));
+            branches.push_back(boolean(true, negative));
+            return boolean(false, branches);
+        }
         if (m.is_and(e) || m.is_or(e)) {
             bool conjunction = m.is_and(e);
             expr_ref_vector children(m), rest(m);

@@ -1461,6 +1461,12 @@ static void test_seq_regular() {
     expr* tail_b = contains(tail, "b");
     expr* both_parts = hold(m.mk_and(prefix_a, tail_b));
     cases.push_back(hold(m.mk_not(both_parts)));
+    expr* conditional = hold(m.mk_ite(prefix_a, tail_b, last_empty));
+    cases.push_back(conditional);
+    cases.push_back(hold(m.mk_not(conditional)));
+    expr* first_a = contains(first, "a");
+    expr* fixed_b = eq(fixed, "b");
+    cases.push_back(hold(m.mk_ite(first_a, conditional, fixed_b)));
     cases.push_back(hold(a.mk_lt(len, integer(2))));
     cases.push_back(hold(a.mk_ge(len, integer(3))));
     cases.push_back(contains(constant_prefix, "b"));
@@ -1680,6 +1686,16 @@ static void test_seq_regular() {
         seq_regular_simplifier simp(m, params_ref(), state);
         simp.reduce();
         ENSURE(state[0].fml() == cases.get(0) && state[1].fml() == relational);
+    }
+    {
+        base_dependent_expr_state state(m);
+        expr_ref t(m.mk_const("regular-ite-t", u.str.mk_string_sort()), m);
+        expr_ref relational(m.mk_eq(s, t), m);
+        expr_ref mixed(m.mk_ite(prefix_a, tail_b, relational), m);
+        state.add(dependent_expr(m, mixed, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == mixed);
     }
     {
         base_dependent_expr_state state(m);
