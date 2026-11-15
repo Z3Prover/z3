@@ -1246,6 +1246,9 @@ namespace smt {
                     if (r == l_true)
                         continue;
                     if (r == l_false) {
+                        // Keep the digit solver's propagation order for bounded conversions.
+                        if (conversions && m_lits_qhead < ctx.assigned_literals().size() && !has_short_stoi())
+                            flush_assigned_literals();
                         if (m_lits_qhead == ctx.assigned_literals().size()) {
                             // The flush cursor may have passed this assignment before it became relevant.
                             expr* atom = ctx.bool_var2expr(bv);
