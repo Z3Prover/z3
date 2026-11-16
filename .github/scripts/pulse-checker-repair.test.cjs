@@ -12,6 +12,10 @@ const {
 
 const sha = "a".repeat(40);
 const sourceSha = "b".repeat(40);
+const benchmark = {
+    path: "regressions/example.smt2", input_sha256: "c".repeat(64),
+    rule: "arith/rewrite", before_pending: 3, after_pending: 1,
+};
 function payload(overrides = {}) {
     return JSON.stringify({
         base_sha: sha, source_sha: sourceSha, status: "verified",
@@ -23,6 +27,7 @@ function payload(overrides = {}) {
             exit_code: 0, phase: "final",
         }],
         files: [{ path: "fstar/Z3Repair.fst", content: "module Z3Repair\n" }],
+        benchmark,
         ...overrides,
     });
 }
@@ -296,6 +301,48 @@ test("a verified fix preserves failing baseline and exploratory command evidence
     assert.equal(validatePayload(payload({ commands }), sha).status, "verified");
 });
 
+test("PENDING evidence requires one benchmark and a strict pending-count reduction", () => {
+    for (const change of [
+        { path: "" }, { input_sha256: "not-a-hash" }, { rule: "" },
+        { before_pending: 0 }, { before_pending: Number.MAX_SAFE_INTEGER + 1 },
+        { after_pending: -1 }, { after_pending: 1.5 },
+        { after_pending: benchmark.before_pending }, { after_pending: 4 },
+    ])
+        assert.throws(() => validatePayload(payload({ benchmark: { ...benchmark, ...change } }), sha),
+            /one PENDING benchmark/);
+    for (const invalid of [null, [], [benchmark, benchmark]])
+        assert.throws(() => validatePayload(payload({ benchmark: invalid }), sha), /one PENDING benchmark/);
+    assert.equal(validatePayload(payload(), sha).benchmark.after_pending, 1);
+    assert.equal(validatePayload(payload({ benchmark: { ...benchmark, after_pending: 0 } }), sha)
+        .benchmark.after_pending, 0);
+});
+
+test("regression handoffs reject speculative issues at staging and publication", async t => {
+    for (const change of [
+        { benchmark: undefined }, { status: "incomplete" },
+        { status: "no-fix", files: [], commands: [] },
+    ]) {
+        const { args, issues } = fixture(t);
+        args.payload = payload(change);
+        await assert.rejects(stageBundle(args), /verified improvement to one PENDING benchmark/);
+        await assert.rejects(publishIssue(args), /verified improvement to one PENDING benchmark/);
+        assert.equal(issues.length, 0);
+    }
+});
+
+test("failed build and full-verification diagnostics still publish without a benchmark or patch", async t => {
+    for (const workflow of ["pulse-checker-build.yml", "pulse-checker-full.yml"]) {
+        const { args, run, issues } = fixture(t);
+        run.path = `.github/workflows/${workflow}`;
+        args.payload = payload({ benchmark: undefined, status: "no-fix", files: [], commands: [] });
+        await stageBundle(args);
+        await publishIssue(args);
+        assert.equal(issues.length, 1);
+        assert.ok(issues[0].body.includes("No patch was developed"));
+        assert.ok(!issues[0].body.includes("git apply --check"));
+    }
+});
+
 test("large repair sources cross the artifact boundary with only a compact tool receipt", async t => {
     const { args, summaries, failures, issues } = fixture(t);
     const text = payload({
@@ -398,6 +445,7 @@ test("staging packages sources, reconstructs a patch and records hashes without 
     const manifest = JSON.parse(fs.readFileSync(path.join(args.directory, "manifest.json")));
     assert.equal(manifest.base_sha, sha);
     assert.equal(manifest.reported_source_sha, sourceSha);
+    assert.deepEqual(manifest.benchmark, benchmark);
     assert.equal(manifest.producer_attempt, 2);
     assert.equal(manifest.files[0].added, false);
     assert.match(manifest.files[0].before_sha256, /^[0-9a-f]{64}$/);
@@ -427,13 +475,44 @@ test("publication links the uploaded artifact and original evidence with integra
     const { args, issues } = fixture(t);
     await publishIssue(args);
     assert.equal(issues.length, 1);
-    assert.equal(issues[0].title, "[Pulse checker repair] Run 42 attempt 2");
+    assert.equal(issues[0].title, "[Pulse checker repair] arith/rewrite: 3 -> 1 pending");
     assert.ok(issues[0].body.includes("actions/runs/99/artifacts/77"));
     assert.ok(issues[0].body.includes("actions/runs/42/artifacts/10"));
-    assert.ok(issues[0].body.includes("git apply --check changes.patch"));
+    assert.ok(issues[0].body.includes("git apply --check ../pulse-checker-repair-99/changes.patch"));
+    assert.ok(issues[0].body.includes("gh run download 99 --repo Z3Prover/z3 --name pulse-checker-repair-99-1"));
+    assert.ok(issues[0].body.includes(benchmark.input_sha256));
+    assert.ok(issues[0].body.includes("3 -> 1"));
+    assert.ok(issues[0].body.includes("Fixes #<this issue number>"));
     assert.ok(issues[0].body.includes("Assign this issue to Copilot"));
     assert.ok(issues[0].body.includes("Agent-reported validation"));
     assert.ok(issues[0].body.includes("<!-- pulse-checker-repair:42:2 -->"));
+});
+
+test("open benchmark-rule handoffs suppress later runs but closed handoffs do not", async t => {
+    const { args, run, existing, issues, outputs } = fixture(t);
+    await publishIssue(args);
+    existing.push({ user: { type: "Bot" }, state: "open", body: issues[0].body });
+    run.id = 43;
+    args.context.payload.workflow_run.id = 43;
+    await stageBundle(args);
+    await publishIssue(args);
+    assert.equal(issues.length, 1);
+    assert.equal(fs.existsSync(args.directory), false);
+    assert.ok(!outputs.some(([name]) => name === "artifact-path"));
+    existing[0].state = "closed";
+    await stageBundle(args);
+    await publishIssue(args);
+    assert.equal(issues.length, 2);
+});
+
+test("an incomplete cross-run benchmark search blocks publication", async t => {
+    const { args, issues } = fixture(t);
+    args.github.rest.search.issuesAndPullRequests = async ({ q }) => ({ data: {
+        items: [], incomplete_results: q.includes("pulse-checker-pending:"),
+    } });
+    await assert.rejects(stageBundle(args), /incomplete/);
+    await assert.rejects(publishIssue(args), /incomplete/);
+    assert.equal(issues.length, 0);
 });
 
 test("github-script publication preserves the prototype-backed repository context", async t => {

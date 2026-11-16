@@ -21,6 +21,11 @@ function marker(run) {
     return `<!-- pulse-checker-repair:${run.id}:${run.run_attempt} -->`;
 }
 
+function benchmarkMarker(benchmark) {
+    const rule = crypto.createHash("sha256").update(benchmark.rule).digest("hex");
+    return `<!-- pulse-checker-pending:${benchmark.input_sha256}:${rule} -->`;
+}
+
 async function producer({ github, context }) {
     const event = context.payload.workflow_run;
     const id = positiveInteger(event?.id ?? context.payload.inputs?.run_id);
@@ -65,15 +70,16 @@ async function evidence({ github, context, run }) {
     }));
 }
 
-async function existingIssue({ github, context, run }) {
+async function existingIssue({ github, context, run, benchmark }) {
+    const identity = benchmark ? benchmarkMarker(benchmark) : marker(run);
     const result = await github.rest.search.issuesAndPullRequests({
-        q: `repo:${context.repo.owner}/${context.repo.repo} is:issue "pulse-checker-repair:${run.id}:${run.run_attempt}" in:body`,
+        q: `repo:${context.repo.owner}/${context.repo.repo} is:issue ${benchmark ? "is:open " : ""}"${identity.slice(5, -4)}" in:body`,
         per_page: 100,
     });
     if (result.data.incomplete_results)
         throw new Error("Issue duplicate search was incomplete");
     return result.data.items.find(item => item.user?.type === "Bot" &&
-        item.body?.includes(marker(run)) &&
+        (!benchmark || item.state === "open") && item.body?.includes(identity) &&
         item.body.includes(`<!-- gh-aw-workflow-id: ${WORKFLOW} -->`));
 }
 
@@ -116,6 +122,18 @@ function validatePayload(text, baseSha) {
         throw new Error("Expected the reported checker source SHA or null");
     if (!["verified", "incomplete", "no-fix"].includes(data.status))
         throw new Error("Invalid repair validation status");
+    if (data.benchmark !== undefined) {
+        const benchmark = data.benchmark;
+        if (!benchmark || typeof benchmark.path !== "string" ||
+            !benchmark.path.trim() || benchmark.path.length > 2000 ||
+            !/^[0-9a-f]{64}$/.test(benchmark.input_sha256) ||
+            typeof benchmark.rule !== "string" || !benchmark.rule.trim() ||
+            benchmark.rule.length > 200 ||
+            !Number.isSafeInteger(benchmark.before_pending) || benchmark.before_pending <= 0 ||
+            !Number.isSafeInteger(benchmark.after_pending) || benchmark.after_pending < 0 ||
+            benchmark.after_pending >= benchmark.before_pending)
+            throw new Error("Expected one PENDING benchmark with a verified pending-count reduction");
+    }
     for (const [field, limit] of [
         ["summary", 2000], ["report", 40000], ["validation_log", 512 * 1024],
     ]) {
@@ -146,6 +164,12 @@ function validatePayload(text, baseSha) {
         names.add(file.path.toLowerCase());
     }
     return data;
+}
+
+function requireRegressionImprovement(run, data) {
+    if (run.path.split("@")[0] === REGRESSIONS &&
+        (data.status !== "verified" || !data.benchmark))
+        throw new Error("Regression handoffs require a verified improvement to one PENDING benchmark");
 }
 
 function loadPayload({ output, filename, baseSha }) {
@@ -244,10 +268,15 @@ function filePatch(filename, before, after, added) {
 async function stageBundle({ github, context, core, payload, baseSha, directory }) {
     const data = validatePayload(payload, baseSha);
     const run = await producer({ github, context });
+    requireRegressionImprovement(run, data);
     if (BUILD_REPORTS.has(run.path.split("@")[0]) && run.conclusion === "success")
         throw new Error("Successful builds are analyzed through their regression run; successful full verification needs no repair");
     if (await existingIssue({ github, context, run })) {
         core.info("Skipping an already published producer attempt");
+        return;
+    }
+    if (data.benchmark && await existingIssue({ github, context, benchmark: data.benchmark })) {
+        core.info("Skipping a PENDING benchmark/rule already awaiting integration");
         return;
     }
     const artifacts = await evidence({ github, context, run });
@@ -283,7 +312,7 @@ async function stageBundle({ github, context, core, payload, baseSha, directory 
     const manifest = {
         base_sha: baseSha, reported_source_sha: data.source_sha,
         producer_run: run.id, producer_attempt: run.run_attempt,
-        status: data.status, artifacts, files,
+        status: data.status, benchmark: data.benchmark, artifacts, files,
         commands: data.commands,
         patch_sha256: crypto.createHash("sha256").update(patch).digest("hex"),
     };
@@ -302,8 +331,13 @@ async function publishIssue({
 }) {
     const data = validatePayload(payload, baseSha);
     const run = await producer({ github, context });
+    requireRegressionImprovement(run, data);
     if (await existingIssue({ github, context, run })) {
         core.info("Skipping an already published producer attempt");
+        return;
+    }
+    if (data.benchmark && await existingIssue({ github, context, benchmark: data.benchmark })) {
+        core.info("Skipping a PENDING benchmark/rule already awaiting integration");
         return;
     }
     const id = positiveInteger(artifactId);
@@ -321,6 +355,14 @@ async function publishIssue({
         `**Agent-reported validation:** ${data.status}. Revalidate independently during integration.`,
         `**Patch base:** \`${baseSha}\``,
         `**Reported checker source:** ${data.source_sha ? `\`${data.source_sha}\`` : "unavailable; see report"}`,
+        ...(data.benchmark ? [
+            "", "### Selected PENDING benchmark", "",
+            `**Input:** ${displayText(data.benchmark.path)}`,
+            `**SHA-256:** \`${data.benchmark.input_sha256}\``,
+            `**Rule:** ${displayText(data.benchmark.rule)}`,
+            `**Pending obligations:** ${data.benchmark.before_pending} -> ${data.benchmark.after_pending} (agent-reported, both backends).`,
+            benchmarkMarker(data.benchmark), "",
+        ] : []),
         `[Producer run, attempt ${run.run_attempt}](${run.html_url})`,
         `[Repair sources, portable patch, manifest and validation log](${runUrl}/artifacts/${id})`,
         "Repair artifacts expire after 30 days; download them before expiration.",
@@ -329,10 +371,24 @@ async function publishIssue({
             ["No unexpired report artifacts were available; consult the producer logs."]),
         "", "### Updates and evidence", "", displayText(data.report), "",
         "### Copilot integration instructions", "",
-        "Assign this issue to Copilot when ready. Download the repair artifact and inspect its manifest and sources. " +
-            "For a nonempty patch, check out its recorded base, run `git apply --check changes.patch`, " +
-            "then apply it. Rebase onto current master and review every change before integration.",
-        "Run fresh F*/Pulse verification, native bridge/CLI tests, and the listed benchmark reproducers, " +
+        "Assign this issue to Copilot when ready. Inspect the manifest and sources before applying the patch.",
+        ...(data.files.length ? [
+            "```bash",
+            `gh run download ${context.runId} --repo ${context.repo.owner}/${context.repo.repo} --name ${artifact.name} --dir ../pulse-checker-repair-${context.runId}`,
+            `git fetch origin ${baseSha}`,
+            `git switch -c fix/pulse-checker-${run.id} ${baseSha}`,
+            `git apply --check ../pulse-checker-repair-${context.runId}/changes.patch`,
+            `git apply ../pulse-checker-repair-${context.runId}/changes.patch`,
+            "```",
+        ] : ["No patch was developed; use the investigation and validation log to complete the fix."]),
+        "- [ ] Review the semantic side conditions, patch and manifest hashes; skip patch application for a no-fix report.",
+        "- [ ] Commit the reviewed sources and rebase onto current master.",
+        "- [ ] Run the exact build/replay commands in the report and `manifest.json`; use fresh F*/Pulse caches and both backends.",
+        data.benchmark
+            ? "- [ ] Confirm the input hash, pending-count reduction, and unchanged negative/malformed-proof rejection."
+            : "- [ ] Reproduce the original checker/build failure and confirm the fix with positive and negative controls.",
+        "- [ ] Open a PR referencing this issue with `Fixes #<this issue number>` and attach independent validation.",
+        "", "Run fresh F*/Pulse verification, native bridge/CLI tests, and the listed benchmark reproducers, " +
             "including negative/malformed-proof tests. Preserve soundness and all unresolved obligations. " +
             "Incomplete candidates are not ready-to-merge fixes; complete their missing checks first. " +
             "A no-fix report has no code patch to apply. This workflow did not push a branch or open a PR.",
@@ -345,9 +401,11 @@ async function publishIssue({
         await core.summary.addRaw("## Pulse repair publication\n\nStaged only; no issue created.\n").write();
         return;
     }
-    const { data: issue } = await github.rest.issues.create({
-        ...context.repo, title: `[Pulse checker repair] Run ${run.id} attempt ${run.run_attempt}`, body,
-    });
+    const title = data.benchmark
+        ? `[Pulse checker repair] ${displayText(data.benchmark.rule).replace(/\s+/g, " ").slice(0, 100)}: ` +
+            `${data.benchmark.before_pending} -> ${data.benchmark.after_pending} pending`
+        : `[Pulse checker repair] Run ${run.id} attempt ${run.run_attempt}`;
+    const { data: issue } = await github.rest.issues.create({ ...context.repo, title, body });
     core.setOutput("issue-url", issue.html_url);
     await core.summary.addRaw(`## Pulse repair publication\n\n` +
         `[Integration issue](${issue.html_url}) · ` +

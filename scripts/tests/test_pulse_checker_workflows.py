@@ -190,5 +190,23 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
                 self.assertIn(f"(github.event.workflow_run.path == '.github/workflows/{path}' &&", repair)
             self.assertEqual(repair.count("github.event.workflow_run.conclusion != 'success'"), 2)
 
+    def test_repair_routes_all_jobs_to_named_runner_and_keeps_tools_job_local(self):
+        source = _read("pulse-checker-repair.md")
+        jobs = _jobs(_read("pulse-checker-repair.lock.yml"))
+        for name, job in jobs.items():
+            with self.subTest(job=name):
+                runner = re.search(r"^    runs-on:\n((?: +-[^\n]+\n)+)", job, re.MULTILINE)
+                self.assertIsNotNone(runner)
+                self.assertEqual(re.findall(r"- (\S+)", runner.group(1)),
+                                 ["self-hosted", "linux", "x64", "rise-runner-1"])
+        self.assertIn("OPAMROOT: ${{ runner.temp }}/pulse-repair-tools/opam", source)
+        self.assertIn("opam init --disable-sandboxing --bare --yes --no-setup", source)
+        self.assertNotIn("sudo ", source)
+        self.assertNotIn("/tmp/gh-aw/opam", source)
+        agent_permissions = jobs["agent"].split("    permissions:\n", 1)[1].split("    concurrency:", 1)[0]
+        self.assertEqual(re.findall(r"^      (\S+): write$", agent_permissions, re.MULTILINE),
+                         ["copilot-requests"])
+        self.assertIn("      issues: write\n", jobs["publish_pulse_repair"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -363,6 +363,27 @@ proofs and timeouts still remain explicit coverage outcomes. The sample
 step runs even if the earlier proof-corpus execution fails, provided the
 build and corpus checkout succeeded.
 
+**Pulse checker repair** (`.github/workflows/pulse-checker-repair.md`) consumes
+completed regression reports, including successful coverage runs. It chooses
+one reproducible PENDING rule (`PARTIAL n`) in one benchmark, develops and
+validates a sound improvement on both backends, and opens an artifact-backed
+issue in `z3prover/z3`, not a PR. The issue includes the input hash, pending-count
+reduction, patch-download/apply commands, validation evidence and a Copilot
+integration checklist. Open handoffs for the same input hash and rule suppress
+duplicates across producer runs. Unverified coverage improvements produce an
+analysis report, not a speculative issue. Failed checker builds and full
+verification runs retain their separate defect-investigation handoffs.
+
+All repair jobs, including threat detection and issue publication, require a
+Linux x64 self-hosted runner labelled `rise-runner-1`. Provision Docker access,
+Node.js 22 or newer, `gh`, PowerShell, GCC/G++ 15, CMake, Ninja, GMP development
+files, opam, Python 3 and standard native build tools before enabling it.
+The workflow downloads checksum-pinned F* toolchains and creates its OCaml
+switch under `$RUNNER_TEMP`; it does not install system packages or modify the
+runner's global opam configuration. Keep the workflow and compiled lockfile on
+the default branch for completion triggers; manual dispatch accepts the
+producer `run_id`. Repair bundles expire after 30 days.
+
 For a local Linux build, activate an OCaml 5.3.0 opam switch with
 `ocamlfind` and `zarith`, then run the same harness with `pwsh`,
 `-FstarExe /path/to/fstar.exe`, `-OpamSwitch <switch>`, and `-RunTests`.
