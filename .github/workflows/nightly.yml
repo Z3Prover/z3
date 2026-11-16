@@ -250,20 +250,15 @@ jobs:
   ubuntu-build:
     name: "Ubuntu build"
     runs-on: ubuntu-latest
-    # Keep the native ABI baseline independent of hosted-runner upgrades.
-    container: mcr.microsoft.com/dotnet/sdk:8.0-noble
     timeout-minutes: 90
     steps:
-      - name: Install Ubuntu 24.04 build dependencies
-        run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            g++ cmake ninja-build python3-dev python-is-python3 git unzip
-          ldd --version
-          dotnet --version
-
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.x'
 
       - name: Setup Java
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -655,18 +650,6 @@ jobs:
   # PACKAGE STAGE
   # ============================================================================
 
-  java-package:
-    name: "Package and validate Java nightly artifacts"
-    needs: [ubuntu-build, ubuntu-arm64, windows-build-x64, mac-build-arm64]
-    permissions:
-      contents: read
-    uses: ./.github/workflows/java-package-artifacts.yml
-    with:
-      linux-artifact: UbuntuBuild
-      linux-arm64-artifact: UbuntuArm64
-      windows-artifact: WindowsBuild-x64
-      macos-artifact: MacArm64
-  
   nuget-package-x64:
     name: "NuGet 64 packaging"
     needs: [windows-build-x64, windows-build-arm64, ubuntu-build, ubuntu-arm64, mac-build-x64, mac-build-arm64]
@@ -903,8 +886,7 @@ jobs:
       nuget-package-x64,
       nuget-package-x86,
       validate-macos-headerpad-x64,
-      validate-macos-headerpad-arm64,
-      java-package
+      validate-macos-headerpad-arm64
     ]
     runs-on: ubuntu-latest
     steps:
@@ -975,9 +957,6 @@ jobs:
           # Maven rehearsal ZIPs are CI artifacts, not Nightly attachments.
           find tmp -type f -not -path 'tmp/java-maven-*/*' \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
 
-          # Attach only Java files that passed the shared native validation gate.
-          find tmp/java-release-packages -maxdepth 1 -type f \( -name "*.jar" -o -name "z3-*-java-*.json" -o -name "z3-*-java-SHA256SUMS" \) -print0 >> release_files.txt
-          
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
           declare -A seen_basenames
