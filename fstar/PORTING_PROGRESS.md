@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T00:40:58-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T00:57:41-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -43,26 +43,24 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-15T21:57:17-08:00`; latest case `2026-11-15T21:57:17-08:00`; checker `245dd5c801e3`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T00:57:41-08:00`; latest case `2026-11-16T00:57:41-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 583 / 583 | 543 | 40 | 0 | 0 | 570 / 583 | 0 |
+| 117 / 583 | 116 | 1 | 0 | 466 | 114 / 117 | 0 |
 
-Observed proofs: **10929 ACCEPT / 383 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **462**.
+Observed proofs: **2549 ACCEPT / 64 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **30**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `arith/farkas` | 10 |
-| `arith/lp-monomial-interval` | 5 |
-| `assumed:nlsat` | 436 |
-| `nnf-neg` | 24 |
-| `quant-intro` | 45 |
-| `rewrite` | 14 |
-| `sk` | 20 |
-| `th-lemma` | 1043 |
+| `assumed:nlsat` | 7 |
+| `nnf-neg` | 2 |
+| `quant-intro` | 2 |
+| `rewrite` | 1 |
+| `sk` | 2 |
+| `th-lemma` | 107 |
 
-State: **complete**. Per-case evidence and pins: session `files\current-fstar-pending-01`.
+State: **stage complete**. Per-case evidence and pins: session `files\product-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Burn-down: matched proofs
@@ -166,8 +164,10 @@ Evidence: session `files\generic-array-sample-01.json`,
 - **Arithmetic evidence:** two frozen `arith/bound` examples require
   nonlinear reasoning; they do not establish faulty linear Farkas certificates.
   Current producer code exports flattened bound parameters but attempts
-  structured LP evidence for conflicts. Evidence: session
-  `files\commmonoid-bound-obligations-01.json`.
+  structured LP evidence for conflicts. The previous extended snapshot has
+  59 Farkas PENDING across six cases (57 QF_NIA, 2 QF_NRA); their individual
+  causes are N/M. Evidence: `files\commmonoid-bound-obligations-01.json`,
+  `files\periodic-smtlib-20261116T055834Z`.
 - **Candidate validation:** strict F* kernel and downstream verification,
   focused tests and SMT/Python/help smoke tests passed. Two known finite-field
   tests and one known uncovered-binder fixture were excluded from the checker
