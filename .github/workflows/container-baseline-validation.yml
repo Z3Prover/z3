@@ -1,0 +1,108 @@
+name: PR 11725 container baseline validation
+permissions:
+  contents: read
+jobs:
+  native:
+    name: Ubuntu build
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/dotnet/sdk:8.0-noble
+    timeout-minutes: 90
+    steps:
+    - name: Install Ubuntu 24.04 build dependencies
+      run: "apt-get update\nDEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends\
+        \ \\\n  g++ cmake ninja-build python3-dev python-is-python3 git unzip\nldd\
+        \ --version\ndotnet --version\n"
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: Setup Java
+      uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+      with:
+        distribution: temurin
+        java-version: '17'
+        architecture: x64
+    - name: Build
+      run: python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{
+        env.MINOR }}.${{ env.PATCH }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
+    - name: Clone z3test
+      run: git clone https://github.com/z3prover/z3test z3test
+    - name: Test
+      run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+    - name: Record Java native input
+      run: python scripts/java/workflow_inputs.py record --input-dir dist --out-dir
+        dist --platform linux-x64 --source-commit ${{ github.sha }} --repository ${{
+        github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt
+        }} --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
+    - name: Upload artifact
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: UbuntuBuild
+        path: 'dist/*.zip
+
+          dist/receipt-*.json
+
+          '
+        retention-days: 2
+  compatibility:
+    name: Ubuntu 24.04 CLI, Python and JNI compatibility
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+      with:
+        distribution: temurin
+        java-version: '17'
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: UbuntuBuild
+        path: native-input
+    - name: Run the unmodified distribution on Ubuntu 24.04
+      shell: bash
+      run: 'set -euo pipefail
+
+        unzip native-input/*.zip -d extracted
+
+        native_dir=$(find "$PWD/extracted" -type f -name libz3java.so -printf ''%h\n'')
+
+        api_jar=$(find "$PWD/extracted" -type f -name com.microsoft.z3.jar)
+
+        test -n "$native_dir"
+
+        test -n "$api_jar"
+
+        export LD_LIBRARY_PATH="$native_dir"
+
+        ldd "$native_dir/libz3.so"
+
+        ldd "$native_dir/libz3java.so"
+
+        "$native_dir/z3" --version
+
+        "$native_dir/z3" --help | sed -n ''1,10p''
+
+        printf ''(declare-const x Int)(assert (> x 0))(check-sat)(get-model)\n'' |
+        "$native_dir/z3" -in
+
+        PYTHONPATH="$native_dir/python" python3 -c "import z3; x = z3.Int(''x'');
+        s = z3.Solver(); s.add(x > 0); assert s.check() == z3.sat; print(''Model:'',
+        s.model())"
+
+        mkdir smoke-classes
+
+        javac -cp "$api_jar" -d smoke-classes scripts/java/Smoke.java
+
+        version=$(cut -d. -f1-3 scripts/VERSION.txt | tr -d ''\r\n'')
+
+        java -Djava.library.path="$native_dir" -cp "$api_jar:smoke-classes" Smoke
+        system "$version"
+
+        '
+'on':
+  push:
+    branches:
+    - validation/pr11725-ubuntu24-container
+env:
+  MAJOR: '5'
+  MINOR: '4'
+  PATCH: '2'
