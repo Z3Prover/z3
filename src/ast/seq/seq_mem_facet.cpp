@@ -33,12 +33,14 @@ constraints actually used.
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/seq/seq_ncontains_facet.h"
 #include "ast/rewriter/seq_regex_witness.h"
 #include "ast/for_each_expr.h"
 #include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "util/z3_exception.h"
+#include "util/union_find.h"
 #include <algorithm>
 #include <tuple>
 
@@ -1028,6 +1030,204 @@ namespace seq {
         committed = true;
         m_stats.m_num_splits++;
         return it;
+    }
+
+    // ---- word recognizers and word_template_propagation -----------------------------
+
+    // r denotes the single word w.
+    static bool is_word_regex(seq_util& u, expr* r, zstring& w) {
+        expr* s = nullptr, *r1 = nullptr, *r2 = nullptr;
+        zstring w2;
+        if (u.re.is_to_re(r, s))
+            return u.str.is_string(s, w);
+        if (u.re.is_epsilon(r)) {
+            w = zstring();
+            return true;
+        }
+        if (u.re.is_concat(r, r1, r2) && is_word_regex(u, r1, w) && is_word_regex(u, r2, w2)) {
+            w = w + w2;
+            return true;
+        }
+        return false;
+    }
+
+    // r is body{lo,hi} (hi = UINT_MAX: unbounded): star, plus, opt, loop or eps|body.
+    static bool is_repeat(seq_util& u, expr* r, expr*& body, unsigned& lo, unsigned& hi) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        lo = 0;
+        hi = UINT_MAX;
+        if (u.re.is_star(r, body) || u.re.is_loop(r, body, lo) || u.re.is_loop(r, body, lo, hi))
+            return true;
+        if (u.re.is_plus(r, body)) {
+            lo = 1;
+            return true;
+        }
+        hi = 1;
+        if (u.re.is_opt(r, body))
+            return true;
+        if (u.re.is_union(r, r1, r2) && (u.re.is_epsilon(r1) || u.re.is_epsilon(r2))) {
+            body = u.re.is_epsilon(r1) ? r2 : r1;
+            return true;
+        }
+        return false;
+    }
+
+    bool is_word_power(zstring const& s, zstring& w) {
+        if (s.length() == 0)
+            return true;
+        if (w.length() == 0)
+            w = s;
+        if (s.length() % w.length() != 0)
+            return false;
+        for (unsigned i = 0; i < s.length(); ++i) {
+            if (s[i] != w[i % w.length()])
+                return false;
+        }
+        return true;
+    }
+
+    bool is_in_word_star(seq_util& u, expr* r, zstring& w) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        unsigned lo = 0, hi = 0;
+        zstring s;
+        if (is_word_regex(u, r, s))
+            return is_word_power(s, w);
+        if (is_repeat(u, r, r1, lo, hi))
+            return is_in_word_star(u, r1, w);
+        if (u.re.is_concat(r, r1, r2) || u.re.is_union(r, r1, r2))
+            return is_in_word_star(u, r1, w) && is_in_word_star(u, r2, w);
+        return false;
+    }
+
+    // A piece w^k, lo <= k <= hi (hi = UINT_MAX: unbounded), of a word template.
+    struct word_piece { zstring w; unsigned lo; unsigned hi; };
+
+    // r is a concatenation of words and w*, w+, w?, w{lo,hi} for words w.
+    static bool is_word_template(seq_util& u, expr* r, vector<word_piece>& pieces) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        unsigned lo = 1, hi = 1;
+        zstring w;
+        if (u.re.is_concat(r, r1, r2))
+            return is_word_template(u, r1, pieces) && is_word_template(u, r2, pieces);
+        if (!is_word_regex(u, r, w) && (!is_repeat(u, r, r1, lo, hi) || lo > hi || !is_word_regex(u, r1, w)))
+            return false;
+        if (w.length() > 0)
+            pieces.push_back({ w, lo, hi });
+        return true;
+    }
+
+    // r only constrains the length, e.g. a forwarded bound (allchar){lo,hi}.
+    static bool is_length_only(seq_util& u, expr* r) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        unsigned lo = 0, hi = 0;
+        if (u.re.is_full_char(r) || u.re.is_full_seq(r))
+            return true;
+        if (u.re.is_concat(r, r1, r2))
+            return is_length_only(u, r1) && is_length_only(u, r2);
+        return is_repeat(u, r, r1, lo, hi) && is_length_only(u, r1);
+    }
+
+    stx::simplify_result word_template_propagation::propagate(eq_tree::node& n) {
+        m_stats.m_num_propagate++;
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        auto& ef = ac.eq_facet_ref();
+        auto const& mems = mf.memberships();
+        vector<std::pair<unsigned, vector<word_piece>>> cands;
+        bool_vector is_cand(mems.size(), false);
+        for (unsigned i = 0; i < mems.size(); ++i) {
+            str_mem const& sm = mems[i];
+            vector<word_piece> pieces;
+            if (!sm.active() || !sm.is_plain() || !mf.is_single_var_plain(sm) ||
+                !is_word_template(u, sm.m_view.m_state, pieces) ||
+                all_of(pieces, [](word_piece const& p) { return p.lo == p.hi; }))
+                continue;
+            uint64_t fixed = 0;
+            for (auto const& p : pieces) {
+                fixed += static_cast<uint64_t>(p.lo) * p.w.length();
+            }
+            if (fixed > 1000)
+                continue;
+            cands.push_back({ i, std::move(pieces) });
+            is_cand[i] = true;
+        }
+        if (cands.empty())
+            return stx::simplify_result::noop;
+
+        // Components of the variables (also in power bases) of the active
+        // constraints; those joined with `dirty` keep their memberships.
+        basic_union_find uf;
+        obj_map<expr, unsigned> ids;
+        unsigned const dirty = uf.mk_var();
+        auto unite = [&](expr_ref_vector const& ts, unsigned rep) {
+            for (expr* t : ts) {
+                expr_ref_vector units(m);
+                expr* s = nullptr, *k = nullptr;
+                if (u.str.is_power(t, s, k))
+                    u.str.get_concat_units(s, units);
+                else
+                    units.push_back(t);
+                for (expr* v : units) {
+                    unsigned id;
+                    if (!ac.is_var(v) || u.str.is_string(v))
+                        continue;
+                    if (!ids.find(v, id))
+                        ids.insert(v, id = uf.mk_var());
+                    if (rep == UINT_MAX)
+                        rep = id;
+                    else
+                        uf.merge(rep, id);
+                }
+            }
+            return rep;
+        };
+        for (auto const& eq : ef.equations()) {
+            if (eq.active())
+                unite(eq.m_rhs, unite(eq.m_lhs, UINT_MAX));
+        }
+        // Not-contains is weak on powers with symbolic exponents.
+        for (auto const& nc : ac.ncontains_facet_ref().ncontains()) {
+            if (nc.active())
+                unite(nc.m_needle, unite(nc.m_haystack, dirty));
+        }
+        for (unsigned i = 0; i < mems.size(); ++i) {
+            str_mem const& sm = mems[i];
+            if (sm.active() && !is_cand[i] && !(sm.is_plain() && is_length_only(u, sm.m_view.m_state)))
+                unite(sm.m_str, dirty);
+        }
+
+        bool changed = false;
+        auto& sf = ac.solver_facet_ref();
+        auto& pf = ac.power_facet_ref();
+        for (auto const& [i, pieces] : cands) {
+            str_mem const& sm = mems[i];
+            expr* x = sm.m_str.get(0);
+            unsigned id;
+            if (!sm.active() || (ids.find(x, id) && uf.find(id) == uf.find(dirty)))
+                continue;
+            expr_ref_vector rhs(m);
+            for (auto const& p : pieces) {
+                expr_ref word(u.str.mk_string(p.w), m);
+                for (unsigned j = 0; j < p.lo; ++j) {
+                    u.str.get_concat_units(word, rhs);
+                }
+                if (p.lo == p.hi)
+                    continue;
+                expr_ref pos(a.mk_int(rhs.size()), m);
+                expr_ref k(ac.mk_fresh_var("word-template-n", a.mk_int(), { x, sm.m_view.m_state, pos }), m);
+                expr_ref power(u.str.mk_power(word, k), m);
+                sf.add_constraint(a.mk_ge(k, a.mk_int(0)), sm.m_dep);
+                if (p.hi != UINT_MAX)
+                    sf.add_constraint(a.mk_le(k, a.mk_int(rational(p.hi - p.lo))), sm.m_dep);
+                pf.add_power(power, word, k, sm.m_dep);
+                rhs.push_back(power);
+            }
+            mf.remove(i);
+            ef.add_equation(expr_ref_vector(m, 1, &x), rhs, sm.m_dep);
+            m_stats.m_num_rewrites++;
+            changed = true;
+        }
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
     // ---- mem_char_split -------------------------------------------------------------
