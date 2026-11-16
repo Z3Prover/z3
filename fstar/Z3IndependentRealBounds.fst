@@ -15,6 +15,19 @@ module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
 module NR = Z3NnfReplay
 
+let check_large_equations (a b:expr) : bool =
+  (None? (expression_budget 256 a) || None? (expression_budget 256 b)) &&
+  Some? (expression_budget 4096 a) && Some? (expression_budget 4096 b) &&
+  LIN.real_equation_equivalent a b
+
+let lemma_large_equations (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (reals:RL.carrier base) (a b:expr)
+  : Lemma (requires RL.real_laws s bc model other reals /\ D.scoped [] a /\
+                    D.scoped [] b /\ check_large_equations a b)
+          (ensures T.evaluate s bc model other a == T.evaluate s bc model other b) =
+  LIN.lemma_real_equation_equivalent s bc model other reals [] (T.empty_environment (S.signature s)) a b
+
 let check (equation bounds:expr) : bool =
   match LIN.real_equation equation, bounds with
   | Some (x, y), App f [a; b] ->

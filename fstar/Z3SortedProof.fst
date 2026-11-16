@@ -2024,6 +2024,7 @@ let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
    | U.Equal a b | U.Observational a b ->
      D.scoped [] a && D.scoped [] b &&
      (LIN.real_equivalent a b ||
+      (bounds_equation LA.real_s a && bounds_equation LA.real_s b && RB.check_large_equations a b) ||
       (get_sort a = bool_sort && get_sort b = bool_sort &&
        (bounds_equation LA.real_s a && RB.check a b || bounds_equation LA.real_s b && RB.check b a)))
    | U.Holds _ -> false)
@@ -3148,6 +3149,12 @@ let lemma_real_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
       FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
         #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
         (fun reals -> LIN.lemma_real_equivalent s bc eq other reals [] (T.empty_environment (S.signature s)) a b);
+      V.lemma_sort_eq (get_sort b) (get_sort a);
+      T.lemma_equality s bc eq other a b)
+    else if RB.check_large_equations a b then (
+      FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
+        #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+        (fun reals -> RB.lemma_large_equations s bc eq other reals a b);
       V.lemma_sort_eq (get_sort b) (get_sort a);
       T.lemma_equality s bc eq other a b)
     else (

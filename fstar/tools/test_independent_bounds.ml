@@ -63,4 +63,36 @@ let () =
       (comparison real_sort ">=" T.op_arith_ge r r) in
   require (not (IB.check (R.mk_eq_expr r r) real_bounds)) "Real equation was accepted as Int";
   require (not (RB.check (R.mk_eq_expr i i) int_bounds)) "Int equation was accepted as Real";
+  let unary = { A.decl_name = "opaque"; domain = [real_sort]; range = real_sort;
+                interp = None; int_params = [] } in
+  let rec wrap n e = if n = 0 then e else wrap (n - 1) (A.App (unary, [e])) in
+  let x = wrap 140 (variable real_sort "x") and y = wrap 140 (variable real_sort "y") in
+  let arithmetic name tag a b =
+    A.App ({ A.decl_name = name; domain = [real_sort; real_sort]; range = real_sort;
+             interp = Some tag; int_params = [] }, [a; b]) in
+  let plus = arithmetic "+" T.op_arith_add and times = arithmetic "*" T.op_arith_mul in
+  let num n =
+    A.App ({ A.decl_name = "num"; domain = []; range = real_sort;
+             interp = Some T.op_num_rational; int_params = [Z.of_int n; Z.one] }, []) in
+  let equation = R.mk_eq_expr x y in
+  let normalized = R.mk_eq_expr (plus y (times (num (-1)) x)) (num 0) in
+  let wrong = R.mk_eq_expr (plus y (times (num 1) x)) (num 0) in
+  require (RB.check_large_equations equation normalized) "large valid equation rejected";
+  require (not (RB.check_large_equations equation wrong)) "large invalid equation accepted";
+  require (not (RB.check_large_equations (R.mk_eq_expr r r) (R.mk_eq_expr r r)))
+    "small equation reached large replay";
+  let huge = wrap 2100 r in
+  let huge_equation = R.mk_eq_expr huge huge in
+  require (not (RB.check_large_equations huge_equation huge_equation))
+    "oversized equation reached large replay";
+  let node = { U.kind = U.RewriteRule; conclusion = U.Equal (equation, normalized); premises = [] } in
+  require (SP.real_rewrite schema node) "large equation rewrite not recognized";
+  require (match SP.check_node_cached schema [] node with
+    | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
+    "large equation rewrite remained pending";
+  require (not (SP.real_rewrite schema { node with U.conclusion = U.Equal (equation, wrong) }))
+    "wrong large equation rewrite accepted";
+  let fact = { U.conclusion = U.Holds R.true_expr; hypotheses = [] } in
+  require (not (SP.real_rewrite schema { node with U.premises = [fact] }))
+    "large equation rewrite with premise accepted";
   print_endline "independent bounds rewrite tests passed"
