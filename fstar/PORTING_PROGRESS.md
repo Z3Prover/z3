@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:54:51-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:56:10-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -142,8 +142,9 @@ measured drafts are not retained; the product checkout candidate is retained.
 
 Five alternating pairs gave product-checkout/retained median time ratios
 **1.093** on Math.Exp and **0.999** over five sample proofs. The array draft
-had ratio **1.96** on five sample proofs and is not retained. These are subset
-results, not whole-cohort parity or speedup. Root certification may use an
+had ratio **1.96** on five sample proofs and is not retained. The division
+draft/retained ratio was **1.006** across five pairs on five sample proofs.
+These are subset results, not whole-cohort parity or speedup. Root certification may use an
 augmented proof and does not independently certify every original entry.
 Evidence: session `files\real-product-checkout-fstar-01.json`,
 `files\large-real-fstar-01.json`, `files\large-real-compare-02.json`,
@@ -151,14 +152,15 @@ Evidence: session `files\real-product-checkout-fstar-01.json`,
 `files\real-product-checkout-math-exp-timing-01.json`,
 `files\real-product-checkout-sample-subset-timing-01.json`,
 `files\real-division-sample-01.json`, `files\real-division-fstar-01.json`,
+`files\real-division-sample-subset-timing-01.json`,
 `files\generic-array-sample-subset-timing-01.json`.
 
 ## Active / next
 
 - Complete pinned per-rule collection; unobserved evidence remains N/M.
 - Division draft passed focused tests and strict verification of 116 modules;
-  matched sample and fstar-build verdicts are unchanged; paired timings
-  are in progress.
+  matched sample and fstar-build verdicts are unchanged; Math.Exp comparison
+  and paired timings are in progress.
   Evidence: `files\real-division-downstream-01.json`,
   `files\real-division-candidate-build-01.json`.
 - Burn down `th-lemma`, `rewrite` and arithmetic obligations with matched proofs.
