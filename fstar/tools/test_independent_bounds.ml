@@ -6,6 +6,7 @@ module U = Z3UnifiedProofSyntax
 module SP = Z3SortedProof
 module IB = Z3IndependentIntBounds
 module RB = Z3IndependentRealBounds
+module RDC = Z3IndependentRealDivisionClause
 
 let require value message = if not value then failwith message
 let schema = { S.sorts = []; cases = [] }
@@ -126,4 +127,26 @@ let () =
     "nonstrict bounds implied a product greater than one";
   require (not (check [gt x one; gt y one] (gt (times x y) two)))
     "greater-than-one bounds implied a product greater than two";
+  let divide a b = arithmetic "/" T.op_arith_div a b in
+  let disjunction a b =
+    A.App ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+             interp = Some T.op_or; int_params = [] }, [a; b]) in
+  let guard = R.mk_eq_expr zero y in
+  let body = R.mk_eq_expr x (times y (divide x y)) in
+  let clause = disjunction guard body in
+  require (RDC.check clause && RDC.check (disjunction body guard))
+    "guarded division rejected";
+  List.iter (fun c -> require (not (RDC.check c)) "invalid guarded division accepted")
+    [body;
+     disjunction (R.mk_eq_expr one y) body;
+     disjunction guard (R.mk_eq_expr x (times y (divide z y)));
+     disjunction guard (R.mk_eq_expr x (times y (divide x z)));
+     disjunction guard (R.mk_eq_expr x (times z (divide x y)));
+     disjunction guard (R.mk_eq_expr x (plus y (divide x y)));
+     disjunction guard (R.mk_eq_expr x (times y (arithmetic "/" T.op_arith_mul x y)))];
+  let division_node = { U.kind = U.Unverified "th-lemma"; conclusion = U.Holds clause;
+                        premises = [] } in
+  require (match SP.check_node_cached schema [] division_node with
+    | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
+    "guarded division remained pending";
   print_endline "independent bounds rewrite tests passed"

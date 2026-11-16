@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:56:10-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T03:14:46-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -105,6 +105,9 @@ assumed unchanged.
 | Nov 15 | fstar-build, Math.Exp query 7, combined product draft | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
 | Nov 16 | fstar-build, Math.Exp query 7, checkout candidate | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
 | Nov 16 | fstar-build, CancellableInvariant query 2, division draft | `th-lemma` | 2 | 1 | 1 | 1 |
+| Nov 16 | fstar-build, CancellableInvariant query 2, division checkout | `th-lemma` | 2 | 1 | 1 | 1 |
+| Nov 16 | fstar-build, Math.Exp query 7, division draft | `th-lemma` | 4 | 3 | 1 | 3 |
+| Nov 16 | fstar-build, Math.Exp query 7, division checkout | `th-lemma` | 4 | 3 | 1 | 3 |
 
 Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
 sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
@@ -114,7 +117,8 @@ sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
 `245dd5c801e3` -> `8bf2b8733eb5`; combined product draft
 `245dd5c801e3` -> `2492999310f8`; checkout candidate
 `245dd5c801e3` -> `35ef16e3adce`; division draft
-`35ef16e3adce` -> `96d0c8a1b994`. The fstar-build change promoted two
+`35ef16e3adce` -> `96d0c8a1b994`; division checkout
+`35ef16e3adce` -> `38203471c053`. The fstar-build change promoted two
 PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
 burn-downs. Array root certification can discharge obligations without
 independently certifying each original entry. Evidence: session
@@ -123,9 +127,11 @@ independently certifying each original entry. Evidence: session
 `files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
 `files\real-nonnegative-math-exp-01.json`,
 `files\real-greater-one-math-exp-01.json`, `files\real-product-checkout-math-exp-01.json`,
-`files\real-division-cancellable-01.json`.
-The Math.Exp proof remains PARTIAL with nine other PENDING. The separately
-measured drafts are not retained; the product checkout candidate is retained.
+`files\real-division-cancellable-01.json`, `files\real-division-math-exp-01.json`,
+`files\real-division-checkout-math-exp-01.json`,
+`files\real-division-checkout-cancellable-01.json`.
+The Math.Exp proof remains PARTIAL with eight PENDING after division replay.
+The division checkout is retained; the array draft is not.
 
 ## Latest benchmark outcomes
 
@@ -134,35 +140,45 @@ measured drafts are not retained; the product checkout candidate is retained.
 | fstar-build, retained `b73878ccdb7d` | 147 | 144 | 3 |
 | fstar-build, product checkout `35ef16e3adce` | 147 | 146 | 1 |
 | fstar-build, division draft `96d0c8a1b994` | 147 | 146 | 1 |
+| fstar-build, division checkout `38203471c053` | 147 | 146 | 1 |
 | smtlib-sample, legacy | 11 | 11 | 0 |
 | smtlib-sample, retained `245dd5c801e3` | 11 | 1 | 10 |
 | smtlib-sample, product checkout `35ef16e3adce` | 11 | 1 | 10 |
 | smtlib-sample, division draft `96d0c8a1b994` | 11 | 1 | 10 |
+| smtlib-sample, division checkout `38203471c053` | 11 | 1 | 10 |
 | smtlib-sample, unretained array draft `123dfe2cdd80` | 11 | 5 | 6 |
 
 Five alternating pairs gave product-checkout/retained median time ratios
 **1.093** on Math.Exp and **0.999** over five sample proofs. The array draft
 had ratio **1.96** on five sample proofs and is not retained. The division
-draft/retained ratio was **1.006** across five pairs on five sample proofs.
-These are subset results, not whole-cohort parity or speedup. Root certification may use an
-augmented proof and does not independently certify every original entry.
+draft/retained ratios were **1.006** on five sample proofs and **1.007** on
+Math.Exp. These are subset results, not whole-cohort parity or speedup.
+Root certification may use an augmented proof and does not independently
+certify every original entry.
 Evidence: session `files\real-product-checkout-fstar-01.json`,
 `files\large-real-fstar-01.json`, `files\large-real-compare-02.json`,
 `files\real-product-checkout-sample-01.json`,
 `files\real-product-checkout-math-exp-timing-01.json`,
 `files\real-product-checkout-sample-subset-timing-01.json`,
 `files\real-division-sample-01.json`, `files\real-division-fstar-01.json`,
-`files\real-division-sample-subset-timing-01.json`,
+`files\real-division-checkout-fstar-01.json`,
+`files\real-division-checkout-sample-01.json`,
+`files\real-division-sample-subset-timing-01.json`, `files\real-division-math-exp-timing-01.json`,
 `files\generic-array-sample-subset-timing-01.json`.
 
 ## Active / next
 
 - Complete pinned per-rule collection; unobserved evidence remains N/M.
 - Division draft passed focused tests and strict verification of 116 modules;
-  matched sample and fstar-build verdicts are unchanged; Math.Exp comparison
-  and paired timings are in progress.
+  the checkout build, focused tests and SMT/Python/help smoke checks passed.
+  Matched checkout verdicts are unchanged on 147 fstar and 11 sample proofs;
+  Math.Exp and CancellableInvariant each gain one checked obligation. Seven
+  Windows scope tests were skipped; two finite-field
+  tests and one uncovered-binder fixture were excluded from the native build.
   Evidence: `files\real-division-downstream-01.json`,
-  `files\real-division-candidate-build-01.json`.
+  `files\real-division-candidate-build-01.json`,
+  `files\real-division-checkout-build-01.json`,
+  `files\real-division-checkout-smoke-01.json`.
 - Burn down `th-lemma`, `rewrite` and arithmetic obligations with matched proofs.
   The prior extended snapshot has 59 `arith/farkas` PENDING across six cases.
   One newly frozen proof has five such obligations; three inspected indices
@@ -192,10 +208,11 @@ Evidence: session `files\real-product-checkout-fstar-01.json`,
 | --- | --- |
 | `Z3IndependentRealBounds.fst`, `.fsti` | Verify Real equations |
 | `Z3SortedProof.fst` | Replay large equations |
-| `tools\test_independent_bounds.ml` | Test rewrite and product guards |
+| `tools\test_independent_bounds.ml` | Test arithmetic replay |
 | `Z3IndependentRealNonnegative.fst`, `.fsti` | Prove nonnegative products |
 | `Z3IndependentRealGreaterOne.fst`, `.fsti` | Prove products above one |
-| `tools\checker_modules.json`, `tools\build_ocaml_checker.ps1` | Register product modules |
+| `Z3IndependentRealDivisionClause.fst`, `.fsti` | Replay guarded division |
+| `tools\checker_modules.json`, `tools\build_ocaml_checker.ps1` | Register replay modules |
 | `tools\test_checker_scope.py` | Update module count |
 | `PORTING_INSTANCES.csv` | Full-run instance ledger |
 | `PORTING_PROGRESS.md` | Pending burn-down dashboard |
