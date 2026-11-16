@@ -122,6 +122,7 @@ jobs:
           import json
           import os
           from pathlib import Path
+          import shlex
           import subprocess
           import sys
           import time
@@ -143,7 +144,11 @@ jobs:
                   "Z3IndependentFiniteFieldCompactCertificate",
               )
           ]
-          closure = checker_scope.dependency_closure(checker_scope.dependency_command(fstar, roots))
+          dependencies = subprocess.check_output([
+              *checker_scope.dependency_command(fstar, roots),
+              "--cache_dir", cache, "--already_cached", "Prims,FStar",
+          ], cwd="fstar", text=True)
+          closure = checker_scope.dependency_files(dependencies, Path("fstar"))
           if "Z3ValueTheory.fst" in closure or "Z3UnifiedProof.fst" in closure:
               raise RuntimeError("Independent checker depends on legacy semantics")
           manifest = json.loads(Path("fstar/tools/checker_modules.json").read_text())
@@ -155,12 +160,19 @@ jobs:
               Path(os.environ["REPORT_DIR"]) / "scope-independent.json",
               manifest, "ocaml", False,
               subprocess.check_output([fstar, "--version"], text=True), roots, modules, tests)
-          for module in modules:
-              subprocess.run([
-                  fstar, "--timing", "--message_format", "human", "--warn_error", "@1..999",
-                  "--cache_checked_modules", "--cache_dir", cache, "--include", cache,
-                  "--smt", z3, "--z3version", version, module,
-              ], cwd="fstar", check=True)
+          verify = [
+              fstar, "--timing", "--message_format", "human", "--warn_error", "@1..999",
+              "--cache_checked_modules", "--cache_dir", cache, "--include", cache,
+              "--smt", z3, "--z3version", version,
+          ]
+          # F*'s dependency rules preserve interface boundaries and cold-cache ordering.
+          makefile = Path(os.environ["REPORT_DIR"]) / "verify-independent.mk"
+          targets = " ".join(str(Path(cache) / (module + ".checked")) for module in modules)
+          makefile.write_text(
+              dependencies + "\n.PHONY: verify-independent\nverify-independent: " + targets + "\n"
+              + str(Path(cache) / "%.checked") + ":\n\t" + shlex.join(verify) + ' "$<"\n')
+          subprocess.run(["make", "--no-builtin-rules", "-f", str(makefile), "verify-independent"],
+                         cwd="fstar", check=True)
           subprocess.run([
               sys.executable, "fstar/tools/build_independent_checker.py",
               "--fstar", fstar, "--z3-exe", z3, "--z3-version", version,

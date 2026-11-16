@@ -7,11 +7,13 @@ output; these tests prove selection and wiring, not an end-to-end build.
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 
 import checker_scope
 
@@ -151,6 +153,32 @@ class IndependentWorkflowSelectionTests(unittest.TestCase):
     def test_unregistered_independent_dependencies_are_still_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "Z3IndependentUnregistered.fst"):
             self.select(["Z3IndependentUnregistered.fst"])
+
+    def test_verification_uses_fstars_dependency_rules_without_relaxing_checks(self):
+        selection, modules = self.select()
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-build.yml").read_text()
+        script = workflow.split("roots, modules, tests)\n", 1)[1]
+        script = textwrap.dedent(script.split(
+            '          subprocess.run([\n'
+            '              sys.executable, "fstar/tools/build_independent_checker.py"', 1)[0])
+        runner = mock.Mock()
+        dependencies = "cache/Z3IndependentNative.fst.checked: cache/Z3IndependentModel.fsti.checked\n"
+        with tempfile.TemporaryDirectory() as directory:
+            exec(script, {**selection, "subprocess": runner, "fstar": "fstar",
+                          "cache": "cache", "z3": "z3", "version": "5.4.1",
+                          "Path": Path, "shlex": shlex, "dependencies": dependencies,
+                          "os": mock.Mock(environ={"REPORT_DIR": directory})})
+            makefile = Path(directory) / "verify-independent.mk"
+            runner.run.assert_called_once_with(
+                ["make", "--no-builtin-rules", "-f", str(makefile), "verify-independent"],
+                cwd="fstar", check=True)
+            script = makefile.read_text()
+            self.assertTrue(script.startswith(dependencies))
+            targets = script.split("\nverify-independent: ", 1)[1].splitlines()[0].split()
+            self.assertEqual(targets, [str(Path("cache") / (module + ".checked")) for module in modules])
+            self.assertIn("--warn_error @1..999", script)
+            self.assertIn(' "$<"', script)
+            self.assertNotIn("--expose_interfaces", script)
 
 
 @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "needs a POSIX shell")
