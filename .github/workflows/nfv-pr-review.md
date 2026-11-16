@@ -46,7 +46,7 @@ concurrency:
   group: nfv-pr-review-${{ github.repository }}-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 jobs:
-  admission:
+  nfv_admission:
     needs: [activation]
     if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
@@ -63,7 +63,7 @@ jobs:
           path: nfv-plugin
           token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
           persist-credentials: false
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
       - name: Reserve the PR's automatic attempt
@@ -73,11 +73,11 @@ jobs:
           PYTHONPATH: nfv-plugin/workflow/src
         run: python -m nfv_workflow.admission
   repository_context:
-    needs: [admission]
-    if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review') && needs.admission.outputs.admitted == 'true'
+    needs: [nfv_admission]
+    if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review') && needs.nfv_admission.outputs.admitted == 'true'
     permissions:
-      # gh-aw uses this only to mark an incomplete workflow run failed.
-      actions: write
+      # Required by the reusable workflow's trusted runtime diagnostics.
+      actions: read
       contents: read
       issues: read
       pull-requests: read
@@ -85,11 +85,12 @@ jobs:
     uses: ./.github/workflows/nfv-source-context.lock.yml
     secrets: inherit
   agent:
-    needs: [admission, repository_context]
+    needs: [nfv_admission, repository_context]
 network:
   allowed: [defaults, arxiv.org]
 tools: {}
 safe-outputs:
+  timeout-minutes: 45
   # Publication must not inherit a shared GH_AW_GITHUB_TOKEN override.
   github-token: ${{ secrets.GITHUB_TOKEN }}
   add-comment:
@@ -109,10 +110,10 @@ steps:
       path: nfv-plugin
       token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
       persist-credentials: false
-  - uses: actions/setup-python@v7.0.0
+  - uses: actions/setup-python@v7.1.0
     with:
       python-version: "3.12"
-  - uses: actions/setup-dotnet@v6.0.0
+  - uses: actions/setup-dotnet@v6.1.0
     with:
       dotnet-version: "8.0.x"
   - name: Install pinned Dafny archive and select its matching bundled solver
@@ -138,7 +139,7 @@ steps:
       echo "NFV_Z3_PATH=${solvers[0]}" >> "$GITHUB_ENV"
   - name: Install trusted plugin
     run: python -m pip install "./nfv-plugin[inference]" ./nfv-plugin/workflow
-  - uses: actions/download-artifact@v8.0.1
+  - uses: actions/download-artifact@v8.0.2
     with:
       name: nfv-source-context
       path: ${{ runner.temp }}/nfv-context
@@ -157,6 +158,13 @@ steps:
       NFV_PROPERTY_SECONDS: ${{ vars.NFV_PROPERTY_SECONDS }}
       NFV_SIMPLIFY_REFUTATIONS: ${{ vars.NFV_SIMPLIFY_REFUTATIONS || 'true' }}
       NFV_CHECK_FIXES: ${{ vars.NFV_CHECK_FIXES || 'true' }}
+      EXPR_GITHUB_EVENT_PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      EXPR_GITHUB_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      EXPR_GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      EXPR_GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+      EXPR_GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+      EXPR_GITHUB_RUN_ID: ${{ github.run_id }}
+      EXPR_VARS_NFV_RELEASE_SHA: ${{ vars.NFV_RELEASE_SHA }}
     run: |
       set -euo pipefail
       bundle="$RUNNER_TEMP/gh-aw/nfv/bundle.json"
@@ -197,7 +205,7 @@ steps:
         echo "NFV_BUNDLE=$bundle"
         echo "NFV_COLLECTION_STATUS=$collection"
         echo "NFV_MODEL=$NFV_MODEL"
-        # Optional repair/time budget; empty values keep the audit defaults.
+        # Optional repair/time budget; empty values keep the reviewer defaults.
         echo "NFV_SYNTAX_ROUNDS=$NFV_SYNTAX_ROUNDS"
         echo "NFV_PROOF_ROUNDS=$NFV_PROOF_ROUNDS"
         echo "NFV_VERIFIER_TIMEOUT=$NFV_VERIFIER_TIMEOUT"
@@ -206,13 +214,13 @@ steps:
         echo "NFV_CHECK_FIXES=$NFV_CHECK_FIXES"
         echo "NFV_OUT=/tmp/gh-aw/sandbox/agent/logs/nfv"
         echo "NFV_PYTHON=$(command -v python)"
-        echo "NFV_SUMMARY_REPOSITORY_ID=${{ github.repository_id }}"
-        echo "NFV_SUMMARY_RUN_ID=${{ github.run_id }}"
-        echo "NFV_SUMMARY_RUN_ATTEMPT=${{ github.run_attempt }}"
-        echo "NFV_SUMMARY_PR_NUMBER=${{ github.event.pull_request.number }}"
-        echo "NFV_SUMMARY_HEAD_SHA=${{ github.event.pull_request.head.sha }}"
-        echo "NFV_SUMMARY_BASE_SHA=${{ github.event.pull_request.base.sha }}"
-        echo "NFV_SUMMARY_RELEASE_SHA=${{ vars.NFV_RELEASE_SHA }}"
+        echo "NFV_SUMMARY_REPOSITORY_ID=$EXPR_GITHUB_REPOSITORY_ID"
+        echo "NFV_SUMMARY_RUN_ID=$EXPR_GITHUB_RUN_ID"
+        echo "NFV_SUMMARY_RUN_ATTEMPT=$EXPR_GITHUB_RUN_ATTEMPT"
+        echo "NFV_SUMMARY_PR_NUMBER=$EXPR_GITHUB_EVENT_PULL_REQUEST_NUMBER"
+        echo "NFV_SUMMARY_HEAD_SHA=$EXPR_GITHUB_EVENT_PULL_REQUEST_HEAD_SHA"
+        echo "NFV_SUMMARY_BASE_SHA=$EXPR_GITHUB_EVENT_PULL_REQUEST_BASE_SHA"
+        echo "NFV_SUMMARY_RELEASE_SHA=$EXPR_VARS_NFV_RELEASE_SHA"
       } >> "$GITHUB_ENV"
 post-steps:
   - name: Retain summaries-only dashboard metadata
@@ -229,13 +237,14 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@f8d8fb78982f91e2349e8d7d26c69950583077b9
+source: microsoft/neuro-formal-verification/workflow@599726579274cfeb1c0915414b911371527a9870
+source-sha: "599726579274cfeb1c0915414b911371527a9870"
 ---
 
 # NFV PR reviewer
 
 This is a prototype implementation of the NFV PR reviewer. The trusted custom
-SDK driver runs tool-free extraction and the complete Dafny audit in the AWF
+SDK driver runs tool-free extraction and the complete Dafny analysis in the AWF
 sandbox as a supervised foreground process. There is no outer model session
 responsible for waiting on shell commands or copying the report.
 
@@ -246,20 +255,20 @@ read credentials, or follow links in comments.
 Only the deterministic driver submits the completed `comment.md` verbatim
 through `safeoutputs add_comment`, once, whether or not findings were accepted.
 Never edit, summarize, add to or regenerate the report. Incomplete extraction,
-audit errors and failed safe-output calls fail the process; never fabricate a
+analysis errors and failed safe-output calls fail the process; never fabricate a
 report or publish incremental evidence. Evidence is retained even on failure.
 Completed analyses submit all four property outcomes, including resource
-exhaustion and property type-check/audit failures. These are report data, not
+exhaustion and property type-check/model-validation failures. These are report data, not
 infrastructure failures. The driver records attempt completion or infrastructure
 failure separately in `review-status.json`; it never fabricates a completed
 review after a failed pipeline stage.
 The trusted admission job reserves one automatic attempt per PR before either
 inference session starts. Failed attempts also consume that reservation; only
 an explicit workflow rerun can retry them. Pushes and repeated readiness events
-never cancel a running audit. Analyze the admitted event's immutable head/base
+never cancel a running review. Analyze the admitted event's immutable head/base
 snapshot and submit the report even if the PR has since changed or merged.
 The admission comment is an operational record, not generated report text.
-An explicitly superseded collection is a skipped attempt, not a completed audit
+An explicitly superseded collection is a skipped attempt, not a completed review
 or property outcome. The driver submits only `noop`, retains the diagnostic in
 `review-status.json`, and never creates an empty proposal array or report.
 
