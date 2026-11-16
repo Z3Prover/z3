@@ -172,7 +172,7 @@ try {
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalizeSyntax.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProofSyntax.ml", "Z3CongruenceSyntax.ml", "Z3RelationalRuleSyntax.ml", "Z3ModusPonensSyntax.ml", "Z3UnifiedNode.ml", "Z3DocumentSyntax.ml", "Z3DocumentPreparation.ml", "Z3DocumentReplay.ml", "Z3BinderScopeSyntax.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedIntDivision.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
-    "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3IndependentExistentialDer.ml", "Z3IndependentIntBounds.ml", "Z3IndependentRealBounds.ml", "Z3IndependentRealNonnegative.ml", "Z3IndependentRealGreaterOne.ml", "Z3IndependentRealDivisionClause.ml", "Z3SortedProof.ml",
+    "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3IndependentExistentialDer.ml", "Z3IndependentIntBounds.ml", "Z3IndependentRealBounds.ml", "Z3IndependentRealNonnegative.ml", "Z3IndependentRealGreaterOne.ml", "Z3IndependentRealDivisionClause.ml", "Z3IndependentIntQuotientClause.ml", "Z3SortedProof.ml",
     "Z3FiniteFieldTags.ml", "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }

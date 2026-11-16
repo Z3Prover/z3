@@ -7,6 +7,7 @@ module SP = Z3SortedProof
 module IB = Z3IndependentIntBounds
 module RB = Z3IndependentRealBounds
 module RDC = Z3IndependentRealDivisionClause
+module IQ = Z3IndependentIntQuotientClause
 
 let require value message = if not value then failwith message
 let schema = { S.sorts = []; cases = [] }
@@ -180,3 +181,38 @@ let () =
   require (not (SP.multiple_zero_products
     [x_zero; R.mk_eq_expr open_factor zero; comparison int_sort ">" T.op_arith_gt open_sum zero]))
     "unscoped factor was accepted"
+
+let () =
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let numeral n =
+    A.App ({ A.decl_name = "num"; domain = []; range = int_sort;
+             interp = Some T.op_num_rational; int_params = [Z.of_int n; Z.one] }, []) in
+  let ge x y = comparison int_sort ">=" T.op_arith_ge x y in
+  let quotient_decl =
+    { A.decl_name = "div"; domain = [int_sort; int_sort]; range = int_sort;
+      interp = Some T.op_idiv; int_params = [] } in
+  let quotient decl x d = A.App (decl, [x; d]) in
+  let clause x d low_x result_x result_d zero =
+    let lits = [ge x d; R.mk_not_expr (ge low_x zero);
+                R.mk_eq_expr zero (quotient quotient_decl result_x result_d)] in
+    A.App (R.or_decl lits, lits) in
+  let node conclusion =
+    { U.kind = U.Unverified "th-lemma"; conclusion = U.Holds conclusion; premises = [] } in
+  let x, d, y = variable int_sort "x", variable int_sort "d", variable int_sort "y" in
+  let zero = numeral 0 in
+  let valid = clause x d x x d zero in
+  require (IQ.check valid && SP.division_order (node valid))
+    "guarded zero quotient was not recognized";
+  require (match SP.check_node_cached schema [] (node valid) with
+    | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
+    "guarded zero quotient remained pending";
+  List.iter (fun invalid -> require (not (IQ.check invalid)) "invalid quotient clause accepted")
+    [clause x d y x d zero; clause x d x y d zero;
+     clause x d x x y zero; clause x d x x d (numeral 1)];
+  let fake = { quotient_decl with A.interp = None } in
+  let lits = [ge x d; R.mk_not_expr (ge x zero); R.mk_eq_expr zero (quotient fake x d)] in
+  require (not (IQ.check (A.App (R.or_decl lits, lits)))) "uninterpreted quotient accepted";
+  let open_x = A.Var (Z.zero, int_sort) in
+  require (not (SP.division_order (node (clause open_x d open_x open_x d zero))))
+    "unscoped quotient clause accepted";
+  require (not (SP.division_order (node R.false_expr))) "false formula accepted"

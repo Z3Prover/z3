@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T11:17:24-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T11:46:11-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -73,7 +73,8 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
-| Nov 16 09:52 | Guarded Int quotient draft, fstar-build, UInt128, 1 proof; **not retained** | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
+| Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
+| Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 | Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
 | Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
 | Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
@@ -82,7 +83,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 15 18:27 | Larger Real equations, fstar-build, 147 proofs | `rewrite` +2 / 0 PENDING; 2 proofs promoted | `large-real-compare-02.json` |
 | Nov 15 17:52 | Arithmetic bounds rewrites, sample, 11 proofs | `rewrite` +996 / 43 PENDING; 1 proof promoted | `bounds-sample-01.json` |
 | Nov 15 15:41 | Integer cuts, sample, ring proof | `th-lemma` +15 / 0 PENDING; 28 other obligations remain | `integer-cut-sample-02.json` |
-| Nov 15 14:11 | Existential DER, sample, 1 proof | `der` +1 / 0 PENDING; proof promoted | `existential-der-measure-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -96,13 +96,16 @@ certifying each original entry. Evidence files contain checker and proof pins.
 | fstar-build, CancellableInvariant query 2 | `35ef16e3adce` → `38203471c053` | `th-lemma` | 2 | 1 | 1 |
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `arith/farkas` | 5 | 2 | 3 |
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `th-lemma` | 7 | 2 | 5 |
-| fstar-build, UInt128, 1 proof; draft | `98ecf978a307` → `a0ca7df92173` | `th-lemma` | 199 | 63 | 136 |
+| fstar-build, UInt128, 1 proof | `98ecf978a307` → `a0ca7df92173` | `th-lemma` | 199 | 63 | 136 |
+| smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `th-lemma` | 681 | 681 | 0 |
+| smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `rewrite` | 43 | 7 | 36 |
 
 These are subset results, not full-cohort burn-downs. Evidence: session
 `files\real-product-checkout-math-exp-01.json`,
 `files\real-division-checkout-math-exp-01.json`,
 `files\real-division-checkout-cancellable-01.json`,
-`files\multiple-zero-extended-02.json`, `files\int-quotient-uint128-01.json`.
+`files\multiple-zero-extended-02.json`, `files\int-quotient-uint128-01.json`,
+`files\array-prefilter-weighted-01.json`.
 
 ## Matched acceptance and timing
 
@@ -113,6 +116,7 @@ These are subset results, not full-cohort burn-downs. Evidence: session
 | smtlib-sample | legacy | 11 | 11 | 0 |
 | smtlib-sample | retained `38203471c053` | 11 | 1 | 10 |
 | smtlib-sample | multi-zero `98ecf978a307` | 11 | 1 | 10 |
+| smtlib-sample | array draft `bac3ba06e1c1` | 11 | 5 | 6 |
 
 Five alternating pairs gave multi-zero/retained median time ratios of **1.030**
 on the extended proof and **1.004** over five sample proofs. These subsets do
@@ -121,12 +125,16 @@ not establish whole-cohort parity or speedup. Evidence: session
 `files\multiple-zero-extended-timing-01.json`,
 `files\multiple-zero-sample-timing-01.json`.
 
-The unretained quotient draft preserved verdicts and rule counts on 11 sample
+The quotient replay preserved verdicts and rule counts on 11 sample
 proofs. Five alternating pairs on five of those proofs gave a median per-proof
 candidate/retained time ratio of **1.006**; five paired UInt128 runs gave
 **1.007**. Evidence: `files\int-quotient-sample-01.json`,
 `files\int-quotient-sample-timing-02.json`,
 `files\int-quotient-uint128-timing-01.json`.
+
+The filtered array draft's overall median paired ratio was **1.009** over five
+sample proofs, but two promoted proofs slowed by **1.66x** and **1.94x**.
+It is not retained. Evidence: `files\array-prefilter-sample-timing-01.json`.
 
 ## Current work
 
@@ -146,5 +154,10 @@ Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 
 Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
 Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.
-The quotient draft passed strict downstream verification and native tests;
-matched acceptance and paired timing controls cover only the frozen subsets.
+The quotient replay passed strict downstream verification, checkout native
+controls, SMT/Python/help smoke checks and scope tests (seven Windows skips).
+Evidence: `files\int-quotient-downstream-02.json`,
+`files\int-quotient-checkout-controls-01.json`,
+`files\int-quotient-checkout-smoke-01.json`,
+`files\int-quotient-scope-tests-02.json`. Cohort counts above still use
+`98ecf978a307`; matched acceptance and timings cover only frozen subsets.

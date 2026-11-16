@@ -37,6 +37,7 @@ module RDC = Z3IndependentRealDivisionClause
 module SI = Z3SortedInteger
 module IZ = Z3IndependentIntProductZero
 module DV = Z3SortedIntDivision
+module IQ = Z3IndependentIntQuotientClause
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
 module Reach = Z3RelationalReachability
@@ -2181,7 +2182,7 @@ let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
 let division_order (node:U.proof_node) : bool =
   order_rule node.kind &&
   (match node.conclusion with
-   | U.Holds c -> division_clause c && D.scoped [] c && get_sort c = bool_sort
+   | U.Holds c -> (division_clause c || (c <> R.false_expr && IQ.check c)) && D.scoped [] c && get_sort c = bool_sort
    | U.Equal _ _ | U.Observational _ _ -> false)
 
 (* The node kernels that read the Sorted division laws. *)
@@ -3332,7 +3333,9 @@ let lemma_division_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
                     division_order node)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.conclusion with
-  | U.Holds c -> lemma_division_clause s bc eq other c
+  | U.Holds c ->
+    if division_clause c then lemma_division_clause s bc eq other c
+    else IQ.lemma_check s bc eq other c
   | _ -> ()
 
 (* An accepted ITE rewrite equation is true in every Sorted model: the ITE
@@ -3658,7 +3661,8 @@ let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot b
 
 (* An entry whose formula is a guarded Int div/mod clause (division_order reads
    the division laws for exactly those). *)
-let division_order_entry (e:P.entry) : bool = order_rule e.P.rule && division_clause e.P.formula
+let division_order_entry (e:P.entry) : bool =
+  order_rule e.P.rule && (division_clause e.P.formula || (e.P.formula <> R.false_expr && IQ.check e.P.formula))
 
 let rec needs_division_semantics (entries:list P.entry) : Tot bool (decreases entries) =
   match entries with
