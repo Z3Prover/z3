@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:31:10-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:37:56-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -104,6 +104,7 @@ assumed unchanged.
 | Nov 15 | fstar-build, Math.Exp query 7, product draft | `arith/lp-monomial-interval` | 4 | 2 | 2 | 2 |
 | Nov 15 | fstar-build, Math.Exp query 7, combined product draft | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
 | Nov 16 | fstar-build, Math.Exp query 7, checkout candidate | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
+| Nov 16 | fstar-build, CancellableInvariant query 2, division draft | `th-lemma` | 2 | 1 | 1 | 1 |
 
 Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
 sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
@@ -112,7 +113,8 @@ sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
 `245dd5c801e3` -> `123dfe2cdd80`; product draft
 `245dd5c801e3` -> `8bf2b8733eb5`; combined product draft
 `245dd5c801e3` -> `2492999310f8`; checkout candidate
-`245dd5c801e3` -> `35ef16e3adce`. The fstar-build change promoted two
+`245dd5c801e3` -> `35ef16e3adce`; division draft
+`35ef16e3adce` -> `96d0c8a1b994`. The fstar-build change promoted two
 PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
 burn-downs. Array root certification can discharge obligations without
 independently certifying each original entry. Evidence: session
@@ -120,9 +122,10 @@ independently certifying each original entry. Evidence: session
 `files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
 `files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
 `files\real-nonnegative-math-exp-01.json`,
-`files\real-greater-one-math-exp-01.json`, `files\real-product-checkout-math-exp-01.json`.
+`files\real-greater-one-math-exp-01.json`, `files\real-product-checkout-math-exp-01.json`,
+`files\real-division-cancellable-01.json`.
 The Math.Exp proof remains PARTIAL with nine other PENDING. The separately
-measured drafts are not retained; the checkout candidate is retained.
+measured drafts are not retained; the product checkout candidate is retained.
 
 ## Latest benchmark outcomes
 
