@@ -468,7 +468,86 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_positive_closure_repetition() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+    seq_rewriter smart(m);
+    expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+    expr_ref positive(su.re.mk_plus(ab), m);
+    auto loop = [&](expr* base, unsigned lo, unsigned hi) {
+        expr_ref closure(su.re.mk_plus(base), m);
+        expr_ref result(su.re.mk_loop_proper(closure, lo, hi), m);
+        rw(result);
+        return result;
+    };
+    auto member = [&](expr* regex, char const* text, bool expected) {
+        expr_ref word(su.str.mk_string(text), m);
+        expr_ref result(su.re.mk_in_re(word, regex), m);
+        rw(result);
+        ENSURE(expected ? m.is_true(result) : m.is_false(result));
+    };
+    expr_ref repeated = loop(ab, 2, 3);
+    expr_ref direct = smart.mk_loop(positive, 2, 3);
+    expr_ref unbounded = smart.mk_loop(positive, 2);
+    expr* body = nullptr;
+    unsigned lo = 0;
+    for (expr* result : {repeated.get(), direct.get(), unbounded.get()}) {
+        ENSURE(su.re.is_loop(result, body, lo) && body == ab && lo == 2);
+        member(result, "", false);
+        member(result, "ab", false);
+        member(result, "abab", true);
+        member(result, "ababababab", true);
+        member(result, "ababa", false);
+    }
+    expr_ref optional = loop(ab, 0, 2);
+    member(optional, "", true);
+    member(optional, "ababababab", true);
+    expr_ref zero = loop(ab, 0, 0);
+    member(zero, "", true);
+    member(zero, "ab", false);
+    expr_ref invalid = loop(ab, 3, 2);
+    member(invalid, "", false);
+    member(invalid, "ababab", false);
+    expr_ref epsilon(su.re.mk_epsilon(su.str.mk_string_sort()), m);
+    expr_ref nullable(su.re.mk_union(epsilon, ab), m);
+    repeated = loop(nullable, 2, 3);
+    member(repeated, "", true);
+    member(repeated, "ab", true);
+    member(repeated, "ababababab", true);
+    expr_ref empty(su.re.mk_empty(ab->get_sort()), m);
+    repeated = loop(empty, 0, 2);
+    member(repeated, "", true);
+    member(repeated, "ab", false);
+    repeated = loop(empty, 2, 3);
+    member(repeated, "", false);
+}
+
+static void tst_empty_language_repetition() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref prefix(su.re.mk_to_re(x), m);
+    expr_ref empty_word(su.str.mk_string(""), m);
+    expr_ref empty_range(su.re.mk_range(empty_word, empty_word), m);
+    for (unsigned lo : {0u, 1u, 2u}) {
+        for (bool bounded : {false, true}) {
+            expr_ref repeated(bounded ? su.re.mk_loop_proper(empty_range, lo, 3) :
+                                        su.re.mk_loop(empty_range, lo), m);
+            expr_ref regex(su.re.mk_concat(prefix, repeated), m);
+            expr_ref member(su.re.mk_in_re(x, regex), m);
+            rw(member);
+            ENSURE(lo == 0 ? m.is_true(member) : m.is_false(member));
+        }
+    }
+}
+
 void tst_seq_rewriter() {
+    tst_empty_language_repetition();
+    tst_positive_closure_repetition();
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();

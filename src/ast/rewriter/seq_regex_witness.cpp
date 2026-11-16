@@ -186,6 +186,18 @@ namespace seq {
                 count >= rational(lo) && (!bounded || count <= rational(hi)) &&
                 accepts(base, a, depth + 1, work) == l_true)
                 return l_true;
+            if (bounded && lo == hi && lo > 1) {
+                rational width = length / rational(lo);
+                expr_ref block(m), repeated(m);
+                if (width.is_int() &&
+                    m_rw.slice_ground_seq(word, rational(0), width, block)) {
+                    expr_ref exponent(arith.mk_int(lo), m);
+                    repeated = u().str.mk_power(block, exponent);
+                    if (m_rw.compare_ground_seqs(word, repeated) == l_true &&
+                        accepts(block, a, depth + 1, work) == l_true)
+                        return l_true;
+                }
+            }
         }
         if (re().is_concat(r)) {
             app* cat = to_app(r);
