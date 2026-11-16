@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T00:03:53-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T00:08:20-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -115,6 +115,7 @@ with nine other PENDING; neither product draft is promoted.
 | smtlib-sample, retained Definition `245dd5c801e3` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 | smtlib-sample, unretained array draft `123dfe2cdd80` | 11 proofs | 5 | 6 | 0 | 0 | 0 | 0 |
 | smtlib-sample, unretained product draft `8bf2b8733eb5` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
+| smtlib-sample, combined product draft `2492999310f8` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 
 Full fstar-build proof counts include timed-out session prefixes; its solver
 UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in the live collection above. Legacy parity and
@@ -126,11 +127,11 @@ proof gave a median candidate/retained time ratio of **0.998** (per-proof
 medians 0.96–1.005); this is not a full-cohort measurement. Evidence:
 `files\real-nonnegative-fstar-01.json`, `files\real-nonnegative-sample-01.json`,
 `files\real-nonnegative-sample-subset-timing-01.json`.
-The combined draft also preserved all 147 matched fstar-build verdicts. On
-the separate Math.Exp proof, five alternating pairs gave a median
-candidate/retained time ratio of **1.09**; sample controls remain pending.
+The combined draft preserved all 147 matched fstar-build and 11 sample
+verdicts. On the separate Math.Exp proof, five alternating pairs gave a
+median candidate/retained time ratio of **1.09**; sample timing remains pending.
 Evidence: `files\real-greater-one-fstar-01.json`,
-`files\real-greater-one-math-exp-timing-01.json`.
+`files\real-greater-one-sample-01.json`, `files\real-greater-one-math-exp-timing-01.json`.
 The array draft promoted four matched sample proofs without a verdict
 regression; on 147 matched fstar-build proofs it changed no verdicts.
 On five selected sample proofs, five alternating paired runs per proof gave
