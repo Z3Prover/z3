@@ -124,6 +124,35 @@ class SelectionTests(unittest.TestCase):
         self.assertTrue(set(KERNEL) <= set(entries))
 
 
+class IndependentWorkflowSelectionTests(unittest.TestCase):
+    def select(self, extra=()):
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-build.yml").read_text()
+        script = workflow.split(
+            'manifest = json.loads(Path("fstar/tools/checker_modules.json").read_text())\n', 1)[1]
+        script = textwrap.dedent(script.split("          checker_scope.write_report(", 1)[0])
+        dependencies = ["Z3IndependentModel.fsti", "Z3IndependentModel.fst",
+                        "Z3IndependentNative.fsti", "Z3IndependentNative.fst"]
+        namespace = {
+            "checker_scope": checker_scope,
+            "manifest": {"modules": ["Z3List.fst"], "cherry_modules": [],
+                         "tests": dependencies + ["Z3IndependentTests.fst"]},
+            "closure": {"Z3List.fst", *dependencies, *extra},
+            "roots": ["Z3IndependentNative.fst"],
+        }
+        exec(script, namespace)
+        return namespace, ["Z3List.fst", *dependencies]
+
+    def test_registered_independent_dependencies_are_verified_without_unrelated_tests(self):
+        selection, expected = self.select()
+        self.assertEqual(selection["modules"], expected)
+        self.assertEqual(selection["tests"], [])
+        self.assertEqual(selection["manifest"]["tests"], ["Z3IndependentTests.fst"])
+
+    def test_unregistered_independent_dependencies_are_still_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "Z3IndependentUnregistered.fst"):
+            self.select(["Z3IndependentUnregistered.fst"])
+
+
 @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "needs a POSIX shell")
 class FullWorkflowTests(unittest.TestCase):
     def run_backend(self, backend, fail_command=""):

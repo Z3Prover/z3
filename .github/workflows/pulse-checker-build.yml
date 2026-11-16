@@ -147,6 +147,9 @@ jobs:
           if "Z3ValueTheory.fst" in closure or "Z3UnifiedProof.fst" in closure:
               raise RuntimeError("Independent checker depends on legacy semantics")
           manifest = json.loads(Path("fstar/tools/checker_modules.json").read_text())
+          # The independent prototype modules are currently registered as tests.
+          manifest["modules"] += [module for module in manifest["tests"] if module in closure]
+          manifest["tests"] = [module for module in manifest["tests"] if module not in closure]
           modules, tests = checker_scope.select(manifest, "ocaml", False, closure, roots)
           checker_scope.write_report(
               Path(os.environ["REPORT_DIR"]) / "scope-independent.json",
