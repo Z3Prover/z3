@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T01:30:21-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:31:10-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -43,24 +43,26 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T01:28:50-08:00`; latest case `2026-11-16T01:28:50-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T02:31:10-08:00`; latest case `2026-11-16T02:31:10-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 261 / 583 | 246 | 15 | 0 | 322 | 257 / 261 | 0 |
+| 583 / 583 | 542 | 41 | 0 | 0 | 570 / 583 | 0 |
 
-Observed proofs: **6234 ACCEPT / 190 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **149**.
+Observed proofs: **10898 ACCEPT / 377 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **452**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 77 |
-| `nnf-neg` | 6 |
-| `quant-intro` | 13 |
-| `rewrite` | 2 |
-| `sk` | 6 |
-| `th-lemma` | 294 |
+| `arith/farkas` | 9 |
+| `arith/lp-monomial-interval` | 2 |
+| `assumed:nlsat` | 436 |
+| `nnf-neg` | 24 |
+| `quant-intro` | 42 |
+| `rewrite` | 11 |
+| `sk` | 18 |
+| `th-lemma` | 1079 |
 
-State: **stage complete**. Per-case evidence and pins: session `files\product-fstar-pending-01`.
+State: **complete**. Per-case evidence and pins: session `files\product-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 <!-- BEGIN PREVIOUS FSTAR PENDING -->
