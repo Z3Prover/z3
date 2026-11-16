@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:53:31-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:57:07-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -96,7 +96,7 @@ independently certifying each original entry. Evidence: session
 `files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
 `files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
 `files\real-nonnegative-math-exp-01.json`. The Math.Exp proof remains PARTIAL;
-the product draft awaits paired regression and performance controls.
+the product draft is not yet promoted.
 
 ## Latest benchmark outcomes
 
@@ -117,8 +117,11 @@ UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in th
 whole-corpus performance remain unestablished. Evidence: session
 `files\periodic-smtlib-state.json`, `files\large-real-fstar-01.json`.
 The product draft preserved all verdicts on 147 matched fstar-build and 11
-sample proofs; paired timing remains pending. Evidence:
-`files\real-nonnegative-fstar-01.json`, `files\real-nonnegative-sample-01.json`.
+sample proofs. On five selected sample proofs, five alternating pairs per
+proof gave a median candidate/retained time ratio of **0.998** (per-proof
+medians 0.96–1.005); this is not a full-cohort measurement. Evidence:
+`files\real-nonnegative-fstar-01.json`, `files\real-nonnegative-sample-01.json`,
+`files\real-nonnegative-sample-subset-timing-01.json`.
 The array draft promoted four matched sample proofs without a verdict
 regression; on 147 matched fstar-build proofs it changed no verdicts.
 On five selected sample proofs, five alternating paired runs per proof gave
