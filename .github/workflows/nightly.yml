@@ -249,16 +249,21 @@ jobs:
 
   ubuntu-build:
     name: "Ubuntu build"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    # Keep the native ABI baseline independent of hosted-runner upgrades.
+    container: mcr.microsoft.com/dotnet/sdk:8.0-noble
     timeout-minutes: 90
     steps:
+      - name: Install Ubuntu 24.04 build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            g++ cmake ninja-build python3-dev python-is-python3 git unzip
+          ldd --version
+          dotnet --version
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      
-      - name: Setup Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.x'
 
       - name: Setup Java
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
