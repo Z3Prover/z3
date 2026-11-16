@@ -255,9 +255,11 @@ let () =
     "incorrect dependent NNF substitution changed the verdict";
   let binder = large_binder () in
   let uncovered_binder = { doc with P.entries = [binder; false_entry]; root = Z.one } in
-  require (Checker.check schema uncovered_binder = Root.RootUncovered &&
-           Checker.check_definition schema uncovered_binder = Root.RootUncovered)
-    "definition-free binder changed an uncovered verdict";
+  require (Root.check_root_document_epsilon schema uncovered_binder = Root.RootUncovered)
+    "definition-free binder control was already covered";
+  require (Checker.check schema uncovered_binder = Root.RootCertified &&
+           Checker.check_definition schema uncovered_binder = Root.RootCertified)
+    "definition route lost recovery of an unused out-of-budget certificate";
   let free_binder = { doc with P.entries = [large; binder; false_entry]; root = Z.of_int 2 } in
   require (DependentReplay.may_change schema free_binder)
     "definition-free binder control did not need the larger dependent context";
