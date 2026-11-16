@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:37:56-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:46:24-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -136,6 +136,7 @@ measured drafts are not retained; the product checkout candidate is retained.
 | smtlib-sample, legacy | 11 | 11 | 0 |
 | smtlib-sample, retained `245dd5c801e3` | 11 | 1 | 10 |
 | smtlib-sample, product checkout `35ef16e3adce` | 11 | 1 | 10 |
+| smtlib-sample, division draft `96d0c8a1b994` | 11 | 1 | 10 |
 | smtlib-sample, unretained array draft `123dfe2cdd80` | 11 | 5 | 6 |
 
 Five alternating pairs gave product-checkout/retained median time ratios
@@ -148,11 +149,17 @@ Evidence: session `files\real-product-checkout-fstar-01.json`,
 `files\real-product-checkout-sample-01.json`,
 `files\real-product-checkout-math-exp-timing-01.json`,
 `files\real-product-checkout-sample-subset-timing-01.json`,
+`files\real-division-sample-01.json`,
 `files\generic-array-sample-subset-timing-01.json`.
 
 ## Active / next
 
 - Complete pinned per-rule collection; unobserved evidence remains N/M.
+- Division draft passed focused tests and strict verification of 116 modules;
+  matched sample verdicts are unchanged; fstar-build controls and paired
+  timings are in progress.
+  Evidence: `files\real-division-downstream-01.json`,
+  `files\real-division-candidate-build-01.json`.
 - Burn down `th-lemma`, `rewrite` and arithmetic obligations with matched proofs.
   The prior extended snapshot has 59 `arith/farkas` PENDING across six cases.
   One newly frozen proof has five such obligations; three inspected indices
