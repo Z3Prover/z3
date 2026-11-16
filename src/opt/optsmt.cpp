@@ -1039,6 +1039,15 @@ namespace opt {
         else if (lo.is_finite()) {
             // Only assert bounds for bounded objectives
             m_s->assert_expr(m_s->mk_ge(i, lo));
+            if (arith.is_int_real(m_objs.get(i)) && lo.get_infinitesimal().is_zero()) {
+                // Some arithmetic theories represent mk_ge as an opaque Boolean
+                // atom. Independent unboundedness proofs need the arithmetic
+                // meaning of committed bounds as well.
+                bool is_int = arith.is_int(m_objs.get(i));
+                rational value = is_int ? ceil(lo.get_rational()) : lo.get_rational();
+                expr_ref bound(arith.mk_ge(m_objs.get(i), arith.mk_numeral(value, is_int)), m);
+                m_s->assert_expr(bound);
+            }
         }
     }
 

@@ -1948,6 +1948,56 @@ static void tst_lex_after_unbounded() {
         ensure_value(f, Z3_ast_vector_get(f.ctx, v, 0), f.num(1));
         Z3_ast_vector_dec_ref(f.ctx, v);
     }
+    for (bool minimize_first : {false, true})
+    for (bool minimize_last : {false, true})
+    for (bool enabled : {false, true})
+    for (unsigned arith_solver : {2u, 6u}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_lex_after_unbounded"), enabled);
+        Z3_params_set_bool(f.ctx, p, f.symbol("smt.auto_config"), false);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast m = Z3_mk_const(f.ctx, f.symbol("m"), ints);
+        Z3_ast r = Z3_mk_const(f.ctx, f.symbol("r"), ints);
+        Z3_ast zero = Z3_mk_int(f.ctx, 0, ints);
+        f.add(Z3_mk_lt(f.ctx, m, zero));
+        unsigned first = f.objective(minimize_first ? f.sub(m, r) : f.sub(r, m), !minimize_first);
+        unsigned middle = f.objective(m);
+        unsigned last = f.objective(minimize_last ? r : Z3_mk_unary_minus(f.ctx, r), !minimize_last);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, first, minimize_first ? -1 : 1, 0, 0);
+        if (enabled)
+            ensure_finite_bounds(f, middle, Z3_mk_int(f.ctx, -1, ints), Z3_INT_SORT);
+        else {
+            ensure_vector(f, middle, true, -1, f.num(0), 0, Z3_INT_SORT);
+            ensure_vector(f, middle, false, 1, f.num(0), 0, Z3_INT_SORT);
+        }
+        ensure_vector(f, last, !minimize_last, minimize_last ? 1 : -1, f.num(0), 0, Z3_INT_SORT);
+    }
+    for (unsigned arith_solver : {2u, 6u}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("smt.auto_config"), false);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast m = Z3_mk_const(f.ctx, f.symbol("m"), ints);
+        Z3_ast r = Z3_mk_const(f.ctx, f.symbol("r"), ints);
+        f.add(Z3_mk_lt(f.ctx, m, Z3_mk_int(f.ctx, 0, ints)));
+        unsigned first = f.objective(m);
+        unsigned middle = f.objective(f.sub(m, r), false);
+        unsigned last = f.objective(r, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, first, Z3_mk_int(f.ctx, -1, ints), Z3_INT_SORT);
+        ensure_symbolic_bounds(f, middle, -1, 0, 0);
+        ensure_vector(f, last, false, 1, f.num(0), 0, Z3_INT_SORT);
+    }
 }
 
 static void set_unbounded_curve(opt_fixture& f, bool enabled) {
