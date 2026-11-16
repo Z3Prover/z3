@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T00:57:41-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T01:12:57-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -43,25 +43,45 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T00:57:41-08:00`; latest case `2026-11-16T00:57:41-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T01:12:57-08:00`; latest case `2026-11-16T01:12:57-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 117 / 583 | 116 | 1 | 0 | 466 | 114 / 117 | 0 |
+| 170 / 583 | 162 | 8 | 0 | 413 | 166 / 170 | 0 |
 
-Observed proofs: **2549 ACCEPT / 64 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **30**.
+Observed proofs: **4441 ACCEPT / 136 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **97**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 7 |
+| `assumed:nlsat` | 71 |
 | `nnf-neg` | 2 |
-| `quant-intro` | 2 |
-| `rewrite` | 1 |
+| `quant-intro` | 3 |
+| `rewrite` | 2 |
 | `sk` | 2 |
-| `th-lemma` | 107 |
+| `th-lemma` | 197 |
 
 State: **stage complete**. Per-case evidence and pins: session `files\product-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
+
+<!-- BEGIN PREVIOUS FSTAR PENDING -->
+## Previous complete fstar-build diagnostics
+
+Collected `2026-11-15T21:57:17-08:00`; checker `245dd5c801e3`. All 583 inputs observed: 543 completed, 40 timed out; 570 sessions had proof diagnostics.
+Observed proofs: **10,929 ACCEPT / 383 PARTIAL**; 462 solver UNKNOWN queries. Timeout tails and undiagnosed evidence are N/M.
+
+| Rule | Observed PENDING |
+| --- | ---: |
+| `arith/farkas` | 10 |
+| `arith/lp-monomial-interval` | 5 |
+| `assumed:nlsat` | 436 |
+| `nnf-neg` | 24 |
+| `quant-intro` | 45 |
+| `rewrite` | 14 |
+| `sk` | 20 |
+| `th-lemma` | 1,043 |
+
+This is a prior checker snapshot, not an identical-proof burn-down against the live run. Evidence: session `files\current-fstar-pending-01\state.json`.
+<!-- END PREVIOUS FSTAR PENDING -->
 
 ## Burn-down: matched proofs
 
