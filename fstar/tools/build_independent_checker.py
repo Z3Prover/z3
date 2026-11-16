@@ -492,7 +492,8 @@ def build(args):
         "--z3version", args.z3_version, "--codegen", "OCaml", "--custard_split",
         "--odir", str(certificate_extract), "--custard_entry_module",
         "Z3IndependentFiniteFieldCompactCertificate", "--custard_entry_module",
-        "Z3IndependentFiniteFieldWitness", "Z3IndependentFiniteFieldCompactCertificate.fst",
+        "Z3IndependentFiniteFieldWitness", "--custard_entry_module",
+        "Z3OperatorTags", "Z3IndependentFiniteFieldCompactCertificate.fst",
     ], cwd=ROOT, timeout=args.timeout)
     for path in certificate_extract.glob("*.ml"):
         source = path.read_text(encoding="utf-8").splitlines()
