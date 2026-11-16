@@ -283,10 +283,15 @@ excluded. Deployment runs on Linux; local Windows rehearsals check the plugin's
 native ZIP separator variants against the exact inventory but cannot upload.
 Native code is never rebuilt by these steps.
 
-Release Build has a `maven_publish` input:
+Release Build and Nightly do not invoke Java/Maven packaging or Maven Central
+deployment. Dedicated Java packaging and Full Flow CI still prepare and test
+unpublished artifacts. The reusable `java-maven-central.yml` publisher remains
+available for future explicitly authorized integration, but has no caller in
+the release workflows and cannot be enabled by adding credentials or variables.
 
-- `configured` (default): use `JAVA_MAVEN_CENTRAL_MODE`, falling back to `disabled`.
-- `disabled`: always skip deployment, even when credentials exist.
+The retained publisher supports these `mode` values:
+
+- `disabled`: skip deployment.
 - `validate`: sign and upload for Central validation, leaving public release to
   the maintainer through the Portal.
 - `publish`: sign, upload, and wait for validated artifacts to be published.
@@ -302,8 +307,6 @@ maintainer configures repository variables:
   three-platform consumer tests and final bundle all use it before publishing.
 - `JAVA_MAVEN_ARTIFACT_ID`: the artifactId already used by the source-built and
   tested family (currently `z3`). This is an approval check, not a rename step.
-- `JAVA_MAVEN_CENTRAL_MODE`: initially `disabled`; use `validate` for the first
-  controlled deployment and `publish` only after reviewing it.
 
 Configure a `maven-central` GitHub environment with release-tag restrictions and
 the required approvals, then add `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`,
@@ -322,10 +325,9 @@ plugin. Existing stable coordinates and errors checking remote state fail
 instead of silently overwriting or skipping publication. This workflow is not
 called by PR, fast packaging or Nightly runs; fork deployment is rejected.
 
-After the first controlled deployment, setting the repository mode to `publish`
-allows later tagged Release Build runs to publish without per-version source
-edits. The explicit `disabled` input remains available for rehearsals. Upload,
-validation and published states are distinct in the publication receipt. A
+Any future integration must explicitly select the publication mode; there is
+currently no `maven_publish` input on Release Build. Upload, validation and
+published states are distinct in the publication receipt. A
 failed/partial Portal deployment needs inspection before retrying; Central
 release versions must not be overwritten.
 

@@ -18,12 +18,6 @@ on:
         required: false
         type: boolean
         default: false
-      maven_publish:
-        description: 'Maven Central: configured uses JAVA_MAVEN_CENTRAL_MODE (default disabled)'
-        required: false
-        type: choice
-        options: [configured, disabled, validate, publish]
-        default: configured
 
 permissions:
   contents: write
@@ -265,12 +259,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      
+
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
-      
+
       - name: Setup Java
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -658,35 +652,6 @@ jobs:
   # PACKAGE STAGE
   # ============================================================================
 
-  java-package:
-    name: "Package and validate Java release artifacts"
-    needs: [ubuntu-build, ubuntu-arm64, windows-build-x64, mac-build-arm64]
-    permissions:
-      contents: read
-    uses: ./.github/workflows/java-package-artifacts.yml
-    with:
-      linux-artifact: UbuntuBuild
-      linux-arm64-artifact: UbuntuArm64
-      windows-artifact: WindowsBuild-x64
-      macos-artifact: MacArm64
-      maven-group-id: ${{ vars.JAVA_MAVEN_GROUP_ID || 'invalid.z3.prototype' }}
-
-  maven-central:
-    name: "Optional Maven Central deployment"
-    needs: java-package
-    permissions:
-      contents: read
-    uses: ./.github/workflows/java-maven-central.yml
-    with:
-      mode: ${{ inputs.maven_publish == 'configured' && (vars.JAVA_MAVEN_CENTRAL_MODE || 'disabled') || inputs.maven_publish }}
-      group-id: ${{ vars.JAVA_MAVEN_GROUP_ID }}
-      artifact-id: ${{ vars.JAVA_MAVEN_ARTIFACT_ID }}
-    secrets:
-      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-      MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
-      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-  
   nuget-package-x64:
     name: "NuGet 64 packaging"
     needs: [windows-build-x64, windows-build-arm64, ubuntu-build, ubuntu-arm64, mac-build-x64, mac-build-arm64]
@@ -921,8 +886,7 @@ jobs:
       nuget-package-x64,
       nuget-package-x86,
       validate-macos-headerpad-x64,
-      validate-macos-headerpad-arm64,
-      java-package
+      validate-macos-headerpad-arm64
     ]
     runs-on: ubuntu-latest
     steps:
@@ -953,10 +917,6 @@ jobs:
           # Maven rehearsal ZIPs are test artifacts, never release attachments.
           find tmp -type f -not -path 'tmp/java-maven-*/*' \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
 
-          # Only the final Java artifact has passed every native smoke job.
-          # Do not publish the intermediate java-assembled-packages artifact.
-          find tmp/java-release-packages -maxdepth 1 -type f \( -name "*.jar" -o -name "z3-*-java-*.json" -o -name "z3-*-java-SHA256SUMS" \) -print0 >> release_files.txt
-          
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
           declare -A seen_basenames

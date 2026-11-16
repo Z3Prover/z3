@@ -166,13 +166,19 @@ class JavaReleaseTests(unittest.TestCase):
 
 
 class JavaReleaseWorkflowTests(unittest.TestCase):
-    def test_publisher_selects_only_verified_java_attachments(self):
+    def test_release_publisher_does_not_require_java_packages(self):
+        self.check_publisher_outputs('release.yml', 'publish-github')
+
+    def test_nightly_publisher_does_not_require_java_packages(self):
+        self.check_publisher_outputs('nightly.yml', 'deploy-nightly')
+
+    def check_publisher_outputs(self, workflow_name, publisher_name):
         root = Path(__file__).resolve().parents[2]
-        workflow = (root / '.github/workflows/release.yml').read_text(encoding='utf-8')
-        publisher = workflow.split('  publish-github:\n', 1)[1].split('  publish-nuget:\n', 1)[0]
-        self.assertIn('      java-package\n', publisher.split('    runs-on:', 1)[0])
-        script = publisher.split('          find tmp -type f ', 1)[1].split('          # Create release', 1)[0]
+        workflow = (root / '.github/workflows' / workflow_name).read_text(encoding='utf-8')
+        publisher = workflow.split(f'  {publisher_name}:\n', 1)[1]
+        script = publisher.split('          find tmp -type f ', 1)[1].split('          done < release_files.txt', 1)[0]
         script = 'find tmp -type f ' + textwrap.dedent(script)
+        script += 'done < release_files.txt\n'
         script += '\nprintf "%s\\0" "${unique_files[@]}" > selected.bin\n'
         if os.name == 'nt':
             git = shutil.which('git')
@@ -185,12 +191,10 @@ class JavaReleaseWorkflowTests(unittest.TestCase):
             self.skipTest('Bash is required to exercise the release collector')
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            selected = ['java-release-packages/z3-5.3.2.jar',
-                        'java-release-packages/z3-5.3.2-all.jar',
-                        'java-release-packages/z3-5.3.2-java-provenance.json',
-                        'java-release-packages/z3-5.3.2-java-validation.json',
-                        'java-release-packages/z3-5.3.2-java-SHA256SUMS',
-                        'UbuntuBuild/native distribution.zip']
+            selected = ['UbuntuBuild/native distribution.zip',
+                        'PythonPackages/z3_solver.whl',
+                        'NugetPackages/Microsoft.Z3.nupkg',
+                        'z3-5.3.2-source.tar.gz']
             rejected = ['java-assembled-packages/unverified.jar',
                         'java-assembled-packages/z3-5.3.2-java-provenance.json',
                         'java-maven-test-repository/invalid/z3/prototype/z3/5.3.2/z3-5.3.2.jar',
@@ -202,7 +206,7 @@ class JavaReleaseWorkflowTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'collector fixture')
             path = directory / 'collect.sh'
-            path.write_text('#!/usr/bin/env bash\nset -euo pipefail\n' + script, encoding='utf-8', newline='\n')
+            path.write_text('#!/usr/bin/env bash\nset -eo pipefail\n' + script, encoding='utf-8', newline='\n')
             result = subprocess.run([bash, path.name], cwd=directory, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             actual = (directory / 'selected.bin').read_bytes().decode().rstrip('\0').split('\0')
