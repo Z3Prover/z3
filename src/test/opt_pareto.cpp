@@ -769,7 +769,6 @@ static void tst_cancelled_lp_maximization() {
 
 static void tst_interrupted_integer_cone() {
     char const* input = R"(
-(set-option :opt.priority pareto)
 (declare-const i Int)
 (declare-const y Int)
 (declare-const l Int)
@@ -797,11 +796,17 @@ static void tst_interrupted_integer_cone() {
     // moving non-basic columns to their bounds. Enumeration must still resume.
     for (unsigned budget : {500, 1000}) {
         cmd_context cmd(false);
+        // SMT-LIB set-option would leak the small budget into later tests.
+        auto* ctx = alloc(opt::context, cmd.m());
+        cmd.set_opt(ctx);
+        params_ref p;
+        p.set_sym("priority", symbol("pareto"));
+        p.set_uint("pareto_cone_rlimit", budget);
+        ctx->updt_params(p);
         install_opt_cmds(cmd);
         std::ostringstream output;
         cmd.set_regular_stream(output);
-        std::istringstream is(
-            "(set-option :opt.pareto_cone_rlimit " + std::to_string(budget) + ")\n" + input);
+        std::istringstream is(input);
         ENSURE(parse_smt2_commands(cmd, is));
         ENSURE(output.str() == "sat\nsat\nsat\nsat\nsat\nsat\nsat\nsat\n");
     }
