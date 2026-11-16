@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:36:11-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:37:42-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -115,10 +115,11 @@ regression; on 147 matched fstar-build proofs it changed no verdicts.
 On five selected sample proofs, five alternating paired runs per proof gave
 a median candidate/retained time ratio of **1.96** (per-proof medians
 0.996–2.04); this is not a full-cohort measurement. The draft is not promoted.
-The fstar-build weighted comparison is pending.
+On those 147 fstar-build proofs, weighted PENDING was unchanged at 6:
+`nnf-neg` 1, `quant-intro` 4 and `sk` 1; no verdicts were unobserved.
 Root certification need not independently certify each original proof entry.
 Evidence: session `files\generic-array-sample-01.json`,
-`files\generic-array-fstar-01.json`,
+`files\generic-array-fstar-01.json`, `files\generic-array-fstar-pending-01.json`,
 `files\generic-array-sample-subset-timing-01.json`.
 
 ## Active / next
