@@ -148,7 +148,8 @@ _NESTED_STEP_DEPTH = 32
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
 # lemma) exhausted its heartbeats. The rest of the conjunction is let-bound
 # once every _AND_ELIM_STRIDE operands (_tail_lets) and a projection starts
-# from the nearest such tail.
+# from the nearest such tail. (A conjunction above _CHUNKED_OPERANDS has
+# theorems for its tails, and nothing is bound: _and_elim.)
 _AND_ELIM_STRIDE = 32
 # A conjunction of more operands than this (an and, the pairs of a distinct)
 # is defined in chunks of _AND_ELIM_STRIDE operands, each chunk a definition
@@ -161,7 +162,8 @@ _AND_ELIM_STRIDE = 32
 # time k * n (13 s for the last of 4,000 pairs), and each of the 71 lemmas
 # refuting the 21,736 pairs of a distinct over 209 constants from one pair
 # (QF_UF sokoban) ran out of heartbeats. Through the chunks' theorems a
-# projection passes at most a chunk, whose type is a chunk long.
+# projection passes at most a chunk, whose type is a chunk long: the cnf
+# and theory lemmas' prover and and-elim both start from them.
 _CHUNKED_OPERANDS = 256
 _NORMALIZED_REWRITE_ATOMS = 16
 # Condition leaves (Boolean variables and linear atoms) an ite term of a
@@ -3284,6 +3286,15 @@ def _and_elim(graph, terms, node, shared):
 
     With shared, the premise is a plain proof whose tails the caller binds
     (_tail_lets); a premise taking hypotheses is projected from its start.
+
+    A conjunction defined in chunks (_CHUNKED_OPERANDS) has its tails as
+    theorems (_chunk_tail): the projection starts from the theorem of the
+    operand's chunk applied to the premise, with or without hypotheses, and
+    nothing is bound. Bound by lets, the tails up to the operand were
+    restated in every proof that projected one: the 36 and-elims out of the
+    115,040-operand assertion of QF_IDL parity 10.700 put 3,339 lets into
+    the main theorem, which ran out of heartbeats at operand 52,832, and the
+    253 outlined lemmas of parity 13.400 held 25,553.
     """
     premise, conclusion = graph.arguments(node)
     conjunction = graph.conclusion(premise)
@@ -3292,6 +3303,10 @@ def _and_elim(graph, terms, node, shared):
     arguments = graph.arguments(conjunction)
     for position, argument in enumerate(arguments):
         if terms[argument] == terms[conclusion]:
+            if conjunction in graph.wide_conjunctions and position >= _AND_ELIM_STRIDE:
+                base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
+                tail = _chunk_tail(graph, conjunction) % (base // _AND_ELIM_STRIDE, "_step_%d" % premise)
+                return _select(position - base, len(arguments) - base, tail), None
             base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE if shared else 0
             if not base:
                 return _select(position, len(arguments), "_step_%d" % premise), None
@@ -10684,8 +10699,9 @@ def _direct_hypotheses(graph, terms):
     by every lemma using it. In the QF_IDL DTP_k2_n35 refutation this was
     3.3 MB of 36.9 MB of Lean. Only the premise of a `lemma` keeps its step:
     the lemma discharges the hypotheses its premise depends on, so the
-    binder is not in scope there. (No conjunction tails start from a
-    hypothesis: _and_elim projects a premise under hypotheses from its start.)
+    binder is not in scope there. (No conjunction tails are bound from a
+    hypothesis: _and_elim projects a premise under hypotheses from its
+    start, or from a tail theorem of its conjunction applied to it.)
     """
     kept = {graph.arguments(node)[0] for node in terms if graph.kind(node) == z3.Z3_OP_PR_LEMMA}
     return {node for node in terms if graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS and node not in kept}

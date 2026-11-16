@@ -803,7 +803,13 @@ type longer than a chunk. Lean's time for a projection out of a conjunction
 written out grows with what is left of the conjunction: z3test's QF_UF
 sokoban.3.prop1_ab_br_max, whose 71 lemmas each refute a distinct over 209
 constants (21,736 pairs) from one pair, went from 40.1 MB of Lean that ran out
-of heartbeats to 8.5 MB that verifies.
+of heartbeats to 8.5 MB that verifies. An and-elim step past the first 32
+operands of such a conjunction starts from the chunk's theorem as well and
+binds nothing (the tails of a conjunction of at most 256 operands are bound by
+a let every 32 operands, in each proof that projects from them): z3test's
+QF_IDL parity/10.700.graph, 36 and-elims out of an assertion of 115,040
+operands, held 3,339 such lets in its theorem and ran out of heartbeats, and
+verifies without them.
 
 Arithmetic in Lean
 ------------------

@@ -1747,6 +1747,114 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### and-elim out of a chunked conjunction starts from its tail theorems (2026-11-16)
+
+Scale, not breadth: QF_IDL `parity/10.700.graph` of z3test's
+`smtlib-sample` is one assertion of 115,040 operands. Since the leaf cores
+(next section) it exports, to 45.73 MB of Lean, and 43 of its 44 modules
+check; the last one, the main theorem, ran out of the default 200,000
+heartbeats at `whnf`. The theorem was 386 kB, of which 370 kB were 3,339
+lets: an and-elim step projects its operand from a tail of the conjunction,
+and the tails were bound by a let every 32 operands
+(`let _tail_P_K := _tail_P_(K-32).2...2`, see "and-elim from shared
+conjunction tails" below) up to the last operand eliminated, in every proof
+that eliminates one. The refutation has 36 and-elims; the lets reached
+operand 106,848 and Lean gave up at operand 52,832. `parity/13.400.graph`
+(36,440 operands) verified, but its 253 outlined proof-step lemmas each
+bound the tails up to their operands again: 25,553 lets, 2.8 of the 17.2
+MB, and four modules that took 34 to 65 s each of a chain of 264 s.
+
+A conjunction of more than 256 operands is defined in chunks, with a
+theorem per chunk that proves the chunk from the conjunction
+(`formula_N_tk`, "Wide conjunctions are defined in chunks" below); the
+prover of the cnf lemmas projects from those. and-elim did not ("the tails
+it binds every 32 operands are the chunks"): each let was cheap, but their
+number is the operand's position, per proof, and Lean's time for them grew
+faster than their number. Now `_and_elim` starts the projection of operand
+i of a chunked conjunction, i >= 32, from the theorem of chunk i / 32
+applied to the premise:
+
+    let _step_315283 : (formula_123334 _atoms _vars) :=
+      (formula_315163_t1212 _atoms _vars _step_315170).2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1
+
+Nothing is bound, a premise under hypotheses is projected the same way, and
+an outlined lemma imported once is applied in place there
+(`_merge_single_imports` kept a let for a lemma whose tails were bound). A
+conjunction of at most 256 operands keeps its lets. No limit, heartbeat
+budget, or axiom changes; the tail theorems are 32 projections each of the
+one before and the kernel checks them like everything else. A projection
+from the theorem of another chunk, or of another operand, is a type error
+(a test mutates a text both ways).
+
+Measured on 2026-11-16, before (the exporter of fork master `c805a240c`)
+and after, through `proof_to_lean.write_modules` and
+`scripts/check_lean.sh` (`--memory=8192`; wall time, largest resident size
+of one `lean` process; texts above 8 MB as chains of 1 MB modules). All 152
+sample files that export were exported again, counting the and-elims that
+start from a tail theorem (past operand 31 of a chunked conjunction), the
+one place where the text can differ. Six files have any; their texts were
+written by both exporters and checked. The other 146 have none, so their
+texts cannot differ and were not compared:
+
+| file | and-elims (from a tail theorem) | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `parity/10.700.graph` (115,040 operands) | 36 (34) | 45.73 MB, 3,339 lets; FAILS as 44 modules after 189.6 s at 1.58 GB (`whnf` out of heartbeats in the main theorem) | 45.36 MB; **verifies** as 43 modules in 162.7 s at 1.16 GB |
+| QF_IDL `parity/13.400.graph` (36,440) | 160 (155) | 17.23 MB, 25,553 lets; verifies as 17 modules in 264.2 s at 1.39 GB | 14.42 MB; verifies as 14 modules in 49.9 s at 1.13 GB |
+| QF_IDL `parity/24.100.graph` (2,942) | 32 (31) | 1.243 MB, 75 lets; verifies, 4.0 s, 0.99 GB | 1.236 MB; verifies, 3.8 s, 0.97 GB |
+| QF_LIA `bofill-scheduling/SMT_real_LIA/ex2360_2400_100` (1,537) | 304 (282) | 1.77 MB, 3,140 lets; verifies, 15.4 s, 3.17 GB | 1.45 MB; verifies, 14.8 s, 2.97 GB |
+| QF_LIA `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` (2,009) | 202 (187) | 1.51 MB, 1,621 lets; verifies, 10.9 s, 2.63 GB | 1.34 MB; verifies, 10.2 s, 2.48 GB |
+| QF_UF `NEQ/NEQ004_size4` (338) | 162 (150) | 10.14 MB, 867 lets; verifies as 11 modules, 40.0 s, 1.02 GB | 10.05 MB; verifies as 10 modules, 38.6 s, 1.02 GB |
+
+The exports are otherwise unchanged (10.700: solve 7.5 s, trim 0.9 s,
+replay 45.3 s, Lean text 29.2 s, 2.07 GB of Python; 13.400: 1.3, 0.2, 14.4,
+9.3 s, 0.81 GB). So 142 of the 175 sample files verify (141 before).
+
+Generated family: `(and b1 ... bn)` refuted by a clause over its last two
+operands (`last_operands_conjunction` of `test_proof_to_lean_wide.py`, two
+and-elims), Lean's time for the whole file:
+
+| n | 8,000 | 16,000 | 32,000 | 64,000 | 128,000 |
+| --- | --- | --- | --- | --- | --- |
+| lets in the theorem before | 249 | 499 | 999 | 1,999 | 3,999 |
+| theorem text before / after | 26.8 / 0.8 kB | 54.5 / 0.8 kB | 109 / 0.8 kB | 218 / 0.8 kB | 446 / 0.9 kB |
+| Lean before | 3.3 s, 0.90 GB | 7.6 s, 1.42 GB | 23.7 s, 2.49 GB | 68.5 s, 1.27 GB (7 modules) | FAILS after 78.7 s at 1.70 GB (`whnf` out of heartbeats in the theorem; 14 modules) |
+| Lean after | 2.7 s, 0.83 GB | 5.2 s, 1.28 GB | 13.4 s, 2.18 GB | 23.0 s, 1.14 GB | verifies, 46.6 s, 1.15 GB |
+
+Each and-elim names the theorem's application, about 40 characters more
+than a let's name, so a proof with many and-elims per chunk repeats it
+where it shared one let. With every operand eliminated (the implication
+chain of `test_proof_to_lean_wide.py`, legacy core) the text grows by 0.7%
+at 600 operands (1,139,147 to 1,147,361 bytes), 0.6% at 1,200, and 0.2% at
+2,400, and Lean's time does not (2.7 s and 5.2 s before and after, 27.7 s
+before and 26.1 s after). No sample text grows.
+
+Tests: `examples/python/test_proof_to_lean_wide.py`:
+`test_and_elim_out_of_a_chunked_conjunction_starts_from_its_tail_theorems`
+(checked by Lean; 257 operands: the last operand alone in the last chunk,
+the one before it the last of its chunk; 288: both in a full last chunk),
+`test_and_elim_from_another_chunk_or_of_another_operand_is_rejected` (the
+257-operand text with the theorem of the chunk before, or one projection
+fewer: Lean reports a type mismatch),
+`test_and_elim_far_into_a_conjunction_binds_nothing` (the theorem's text
+at 1,000 to 4,000 operands),
+`test_outlined_conjunction_with_every_operand_eliminated_is_checked` (600
+operands through the legacy core, every chunk's theorem used, no let),
+`test_outlined_lemmas_bind_the_tails_of_a_conjunction_that_is_not_chunked`
+(256 operands, the lets as before),
+`test_and_elim_under_a_hypothesis_starts_from_the_tail_theorems` (steps
+written by hand, since no proof of Z3's in the tests has such a step: the
+conjunction a hypothesis, a step that follows from one, or such a step
+eliminated twice, which each and-elim applies to the hypothesis inside the
+theorem's application, inline and as an outlined lemma),
+`test_a_conjunction_above_the_limit_is_defined_in_chunks_that_unfold_to_it`
+(the and-elim is the one line that differs from the conjunction written
+out); slow: `test_last_operands_of_a_conjunction_of_128000_are_eliminated`.
+
+What is left of Lean's time on the two parity files is their definitions:
+2.2 to 5.8 s for each of the 42 and 13 modules of formula and term
+definitions; the last module, with the proof steps and the theorem, takes
+4.4 and 2.7 s.
+
 ### Deeply nested conjunctions: linear replay tables, clauses tied by leaf cores (2026-11-16)
 
 Scale, not breadth: QF_IDL `mathsat/post_office/PO4-10-PO4` of z3test's
@@ -1832,7 +1940,8 @@ instead of tracking the whole assertion. So five more sample files export
 (152 of 175) and two more verify (PO4-10-PO4, parity 13.400); the three
 others fail in Lean on costs this change does not touch (an arithmetic
 lemma of the qlock files, and-elim far into a conjunction of 115,040
-operands). Of the 147 sample files that
+operands: closed the same day, see the section above). Of the 147 sample
+files that
 exported before, 146 give the same certificate byte for byte (plan-21 is
 the one that differs); their replays take 345.7 s in all against 345.3 s.
 
@@ -1906,7 +2015,10 @@ lemmas reaches an operand through them (`_structure_names`,
 `_PropositionalProver._tails` and the refutation of a conjunction from one
 conjunct): at most 31 projections from a chunk whose type is 32 operands
 and a name. and-elim needs no change: the tails it binds every 32 operands
-are the chunks. No trust setting, limit, or axiom changes: the chunks are
+are the chunks (it starts from the chunks' theorems too since later that
+day, see "and-elim out of a chunked conjunction starts from its tail
+theorems": the lets were restated in every proof up to the operand
+eliminated). No trust setting, limit, or axiom changes: the chunks are
 definitions, the theorems are proved by projections, and Lean's kernel
 checks all of it as before.
 
@@ -4117,7 +4229,11 @@ conjunction once every 32 operands (`let _tail_P_K := ...`, each tail
 projected from the one before with an inferred type) in every lemma and
 theorem that eliminates from it, and each and-elim projects at most 32
 levels from the nearest tail. Premises that take hypotheses still project
-from the start. The 600-operand implication chain checks in 6 s and
+from the start. (Both hold up to 256 operands only since 2026-11-16: out
+of a conjunction defined in chunks an and-elim binds no tail and starts
+from the chunk's theorem, under hypotheses too; see "and-elim out of a
+chunked conjunction starts from its tail theorems".) The 600-operand
+implication chain checks in 6 s and
 `mixed1200` in 28 s. Tests: `test_proof_to_lean_wide.py`, outlined (600
 operands), inline (150), and outlined with the conjunction's proof local to
 the eliminating lemma (80).
