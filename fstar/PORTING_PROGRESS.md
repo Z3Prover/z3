@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T05:09:14-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T05:10:54-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,12 +16,12 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-16T05:09:14-08:00`; latest case `2026-11-16T05:09:14-08:00`; checker `38203471c053`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-16T05:10:54-08:00`; latest case `2026-11-16T05:10:54-08:00`; checker `38203471c053`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | smtlib-sample | `2026-11-16T04:39:13-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-16T05:09:14-08:00` | 214 / 285 | 143 / 214 | 0 | 35 | 108 | 64 | 7 | 0 | 0 | 0 | 71 |
+| smtlib-extended | `2026-11-16T05:10:54-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
@@ -32,12 +32,12 @@ Updated `2026-11-16T05:09:14-08:00`; latest case `2026-11-16T05:09:14-08:00`; ch
 | `assumed:nlsat` | 0 | 149 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 66 |
-| `quant-intro` | 42 | 47 |
-| `rewrite` | 140 | 24676 |
-| `th-lemma` | 3499 | 6219 |
+| `intro-def` | 272 | 136 |
+| `quant-intro` | 42 | 83 |
+| `rewrite` | 140 | 24678 |
+| `th-lemma` | 3499 | 6259 |
 
-State: **smtlib-extended running; other cohort may be unobserved**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T115711Z`.
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T115711Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
