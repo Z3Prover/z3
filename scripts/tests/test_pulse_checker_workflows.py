@@ -136,7 +136,11 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
                     for path in ("fstar/**", f".github/workflows/{name}", _INSTALL):
                         self.assertIn(f"- '{path}'", paths)
                 self.assertIn(_NIGHTLY_GUARD, job)
-                self.assertIn("ref: ${{ github.event.workflow_run.head_sha || "
+                source_ref = (
+                    "(github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch') && "
+                    "'feat/fstar-independent-proof-checker'"
+                    if name == "pulse-checker-build.yml" else "github.event.workflow_run.head_sha")
+                self.assertIn(f"ref: ${{{{ {source_ref} || "
                               "github.event.pull_request.head.sha || github.sha }}", job)
                 self.assertIn("persist-credentials: false", job)
                 self.assertNotIn("permissions:", job)
