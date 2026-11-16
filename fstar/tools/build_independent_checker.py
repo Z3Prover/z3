@@ -173,6 +173,14 @@ def build(args):
         cwd=output, timeout=args.timeout)
     run([str(output / "test_independent_integer_cut")], cwd=output,
         timeout=args.timeout, env=env)
+    test = "test_independent_bounds.ml"
+    shutil.copyfile(ROOT / "tools" / test, output / test)
+    run(["ocamlfind", "ocamlopt", "-warn-error", "+a", "-package", "zarith,unix",
+         "-linkpkg", "-I", str(include), "-ccopt", f"-L{args.install_dir / 'lib'}",
+         "z3ml.cmxa", *objects, test, "-o", "test_independent_bounds"],
+        cwd=output, timeout=args.timeout)
+    run([str(output / "test_independent_bounds")], cwd=output,
+        timeout=args.timeout, env=env)
     test = "test_independent_binder_replay.ml"
     shutil.copyfile(ROOT / "tools" / test, output / test)
     run(["ocamlfind", "ocamlopt", "-warn-error", "+a", "-package", "zarith,unix",

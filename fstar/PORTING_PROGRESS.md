@@ -14,10 +14,123 @@ and sort-indexed values `Z3DatatypeValue.value base sigma s`. The name
 "Definition" identifies additional proof replay, not a different value-domain
 architecture. See [values](Z3DatatypeValue.fst) and [mode contracts](Z3IndependentChecker.fsti).
 
-Updated: **2026-11-15T15:55:37-08:00** (America/Los_Angeles).
+Updated: **2026-11-15T17:53:04-08:00** (America/Los_Angeles).
 
 **Goal:** beat the legacy `fstar-build` baseline before retiring `Z3ValueTheory.fst`.
 Not established yet. Finite-field work remains paused.
+
+**Nov 15 17:05 PST, completed Definition cohorts:** sample 84 ACCEPT / 102
+PARTIAL / 20 solver UNKNOWN / 19 TIMEOUT; extended 74 / 135 / 69 / 7.
+Both ran every selected case, with no REJECT, crash, error, SAT or NOT_RUN.
+Against the prior Definition cycle, all 510 input hashes and runtime archive
+pins match: one sample case moved PARTIAL to ACCEPT; all other outcomes,
+including all 285 extended outcomes, were unchanged. On the separately
+captured proof for that case, `der` improved from 0 accepted / 1 pending to
+1 / 0. Source runs can produce different proofs; this is not a legacy parity
+or performance claim. Cycle evidence: `files\periodic-smtlib-20261115T235759Z`
+and `files\existential-der-measure-01.json`.
+
+**Nov 15 17:10 PST, rewrite drafts:** isolated Real and Int kernels passed
+strict F* verification and focused extracted positive/negative tests. On
+pinned PARTIAL proofs, their checked predicates match 13 of 20 pending ring
+`rewrite` entries and 256 of 256 pending Real `rewrite` entries, respectively.
+These are predicate matches, not integrated proof acceptances; other rules still
+block both proofs. The initial screening preflight failed before acquiring the
+native slot; the corrected run passed. Producer tracing was requeued in a fresh
+directory after a stale launcher held the lock. Evidence:
+`files\bounds-draft-probe-01.json` and
+`files\bounds-draft-probe-preflight-failure-01.json`.
+
+**Nov 15 17:14 PST, arithmetic evidence:** an instrumented ring producer
+reproduced the exact fresh native trace capture. Each of its 15 pending
+`th-lemma` nodes uniquely matches both a coefficient-linearization failure and
+a proof-construction failure by its complete premise multiset (normalizing
+negative numeral syntax). Across the whole solving run there were 19 and 48
+such events, respectively. All 15 matched evidence DAGs contain an
+`integer_lattice` step; coefficient flattening deliberately accepts only
+`input` and `linear` steps. These nodes have `arith unsupported`, not a
+replayable Farkas certificate. The exact proof-construction failure inside
+`mk_evidence_proof` is clarified below. Bounds rewrite integration is under strict
+verification; no additional accepted instances are claimed yet. Evidence:
+`files\ring-producer-trace-02.json`, `files\ring-producer-correlation-01.json`.
+
+**Nov 15 17:16 PST, rewrite integration:** Int and Real bounds modules and
+`Z3SortedProof` passed strict F* verification. Dependent verification,
+then failed in an existing distinctness fixture because opaque bounds
+predicates did not reduce. An explicit numeric-equality guard was added and
+strict verification requeued. Extraction, node tests and matched-proof
+measurements remain pending. Evidence: `files\bounds-integration-verification-01.json`,
+`files\bounds-candidate-build-01.json`.
+
+**Nov 15 17:22 PST, export trace:** isolated compilation succeeded but the
+first detailed tracing launcher failed before capture due to a script variable
+collision. The launcher was corrected and requeued in a fresh directory;
+`files\ring-export-detail-01.json` preserves the failure.
+Existing-build Windows SMT, Python and help smoke checks passed
+(`files\bounds-basic-validation-01.json`).
+
+**Nov 15 17:25 PST, rewrite integration:** guarded Int/Real kernels and
+`Z3SortedProof` passed strict F* verification again. Dependent verification
+and focused tests are queued; no proof-acceptance delta is claimed yet.
+Evidence: `files\bounds-integration-verification-02.json`.
+
+**Nov 15 17:27 PST, toolchain:** the detailed trace compiled but its link
+launcher lacked the OCaml switch; it was requeued with `fstar53`. The active
+dependent verifier has the same environment issue and will need the switch
+before extraction. Failure: `files\ring-export-detail-02.json`.
+
+**Nov 15 17:33 PST, dependent verification:** the guarded distinctness
+fixture and downstream modules passed, but strict extraction rejected a stale
+`Z3LpIntegerCutSyntax.fst.checked` digest before OCaml linking. The prerequisite
+cache and its dependents must be refreshed before the candidate can be tested.
+Evidence: `files\bounds-candidate-build-02.json`.
+
+**Nov 15 17:34 PST, lattice export:** same-capture instrumentation matched all
+15 pending conflicts to `mk_evidence_proof` failures with 2–6 unbound input
+assumptions per DAG. Evidence validation and binding checks reached proof
+construction, but the result was not closed; flat Farkas export also rejected
+the lattice step. Why the inputs remained unbound needs further investigation.
+Evidence: `files\ring-export-detail-03.json`,
+`files\ring-producer-correlation-02.json`.
+
+**Nov 15 17:42 PST, unbound facts:** on matched ring node 270, the two
+unbound inputs are the integer-tightened forms of its negative premises:
+`not (>= t 0)` versus `t <= -1`, and `not (>= u 16)` versus `u <= 15`
+(with reordered sums). The current binder does not match these expressions;
+an earlier bridge caused timeouts and remains reverted. Evidence:
+`files\ring-export-detail-04.json`.
+
+**Nov 15 17:38 PST, validation:** refreshing the cut cache and all dependent
+modules and extraction succeeded, as did focused bounds tests. The full build
+stopped at the known unrelated finite-field `F.all_used` compile failure;
+non-field validation and paired frozen measurements are queued. No candidate
+benchmark result is available yet.
+
+**Nov 15 17:43 PST, validation:** refreshed strict dependent checks, extracted
+candidate, focused bounds and cut tests, array/ground tests, and 20 non-field
+CLI tests passed; the ValueTheory-free closure has 196 files. Two field tests
+and the known failing uncovered-binder definition fixture were excluded.
+Evidence: `files\bounds-candidate-validation-01.json`.
+
+**Nov 15 17:48 PST, fstar-build guard:** 10 pinned streams / 147 identical
+proofs: retained and candidate both **144 ACCEPT / 3 PARTIAL**, with identical
+diagnostics. Single-run wall sums were 142.658 / 146.665 s; these do not
+establish a performance change. Evidence: `files\bounds-fstar-01.json`.
+
+**Nov 15 17:53 PST, sample rewrite:** 11 pinned proofs, legacy **11 ACCEPT**;
+retained **11 PARTIAL**; candidate **1 ACCEPT / 10 PARTIAL**. `rewrite`:
+**+996 checked, 43 pending** (legacy 0 pending); all other rule totals
+unchanged. Largest deltas: QF_IDL +187 / 7 pending; QF_LIA +20 / 0 and
+ring +13 / 7; QF_LRA +256 / 0 and +520 / 20. Single-run wall sums were
+109.882 / 107.445 s, not a performance conclusion. Evidence:
+`files\bounds-sample-01.json`.
+
+**Nov 15 17:06 PST, arithmetic evidence:** on one fresh ring proof, all 15
+pending `th-lemma` indices in the older independent checker map to native
+false-conclusion nodes tagged `arith unsupported`. Its serialized capture
+differs from the earlier frozen proof, so these are not yet identified as the
+same nodes. The tag does not distinguish producer fallback causes; isolated
+producer tracing is queued. Evidence: `files\ring-pending-hints-01.json`.
 
 **Latest cut candidate, 15:47:** six matched sample proofs: legacy 6 ACCEPT;
 retained and candidate 1 ACCEPT / 5 PARTIAL each. The candidate checks all
@@ -32,6 +145,9 @@ established.
 | Sample, 6 proofs | Retained / candidate | 1 | 5 | 0 | 0 | 0 | 0 | 0 |
 | Sample, 10 other proofs | Legacy | 10 | 0 | 0 | 0 | 0 | 0 | 0 |
 | Sample, 10 other proofs | Retained / candidate | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
+| Bounds sample, 11 proofs | Legacy | 11 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Bounds sample, 11 proofs | Retained | 0 | 11 | 0 | 0 | 0 | 0 | 0 |
+| Bounds sample, 11 proofs | Candidate | 1 | 10 | 0 | 0 | 0 | 0 | 0 |
 | fstar-build, 147 proofs | Retained / candidate | 144 | 3 | 0 | 0 | 0 | 0 | 0 |
 
 **Toolchain correction, Nov 15 00:45 PST:** the independent checker's native
@@ -848,22 +964,22 @@ PARTIAL Definition proofs; no Definition recovery promotion is counted.
 <!-- BEGIN PERIODIC SMTLIB -->
 ### Six-hour SMT-LIB measurements (Definition)
 
-Updated `2026-11-15T11:13:21-08:00`; cycle `periodic-smtlib-20261115T180643Z` **completed**; checker `1147416d9a4c`. Schedule **#3**, every six hours.
+Updated `2026-11-15T17:05:02-08:00`; cycle `periodic-smtlib-20261115T235759Z` **completed**; checker `9c022c1f9f84`. Schedule **#3**, every six hours.
 Fixed hashed inputs; serial native cases; 10,000-ms queries / 60-s cases / 4,096-MiB / 3,600-s budget per cohort. A 30-s quiet pause precedes each cohort. Finite fields are excluded; QF_BV is excluded from extended as in the workflow.
 
 | Cohort | State | ACCEPT | PARTIAL | Solver UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | COMPLETED | 83 | 103 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-sample | COMPLETED | 84 | 102 | 20 | 19 | 0 | 0 | 0 | 0 |
 | smtlib-extended | COMPLETED | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 NOT_RUN includes cases not yet observed, including any active case; solver UNKNOWN is not checker success. Historical nine-case guards remain separate.
-Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261115T180643Z`. Active case: `none`.
+Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261115T235759Z`. Active case: `none`.
 
 <details><summary>Per-logic outcomes and input pins</summary>
 
 | Cohort / logic | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample / AUFLIA | 13 | 11 | 1 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / AUFLIA | 14 | 10 | 1 | 0 | 0 | 0 | 0 | 0 |
 | smtlib-sample / QF_AUFLIA | 8 | 14 | 0 | 3 | 0 | 0 | 0 | 0 |
 | smtlib-sample / QF_AX | 1 | 22 | 0 | 2 | 0 | 0 | 0 | 0 |
 | smtlib-sample / QF_IDL | 11 | 5 | 2 | 7 | 0 | 0 | 0 | 0 |
@@ -1881,6 +1997,17 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 
 | File(s), relative to `fstar` | Change |
 | --- | --- |
+| `Z3IndependentIntBounds.fst`, `.fsti` | Verify Int bounds |
+| `Z3IndependentRealBounds.fst`, `.fsti` | Verify Real bounds |
+| `tools\test_independent_bounds.ml` | Guard bounds rewrites |
+| `tools\build_ocaml_checker.ps1` | Wire bounds extraction |
+| Session `InspectBoundsDraft.ml`, `measure_bounds_drafts.py` | Screen frozen rewrites |
+| Session `RingNativeTrace.ml`, `trace_ring_pending_hints.py` | Correlate proof hints |
+| Session `trace_ring_producer.py`, `correlate_ring_producer.py` | Trace producer fallback |
+| Session `trace_ring_export_detail.py` | Diagnose export failures |
+| Session `verify_bounds_integration.py`, `resume_bounds_candidate.py` | Verify integrated candidate |
+| Session `measure_bounds_sample.py`, `measure_bounds_fstar.py` | Compare frozen proofs |
+| Session `verify_int_bounds_draft.py`, `verify_real_bounds_draft.py` | Queue strict verification |
 | `..\src\ast\proofs\lp_proof.cpp` | Experimental bridge removed |
 | `..\src\test\lp_evidence.cpp` | Experimental tests removed |
 | `tools\test_native_bridge.ml` | Test F* bound replay |
@@ -1888,7 +2015,7 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 | `Z3LpIntegerCutSyntax.fst`, `.fsti` | Share cut synthesis |
 | `Z3LpIntegerCut.fst` | Separate legacy replay |
 | `Z3IndependentExistentialDer.fst`, `.fsti` | Existential witness proof |
-| `Z3SortedProof.fst` | DER; candidate cut replay |
+| `Z3SortedProof.fst` | DER, cuts, bounds |
 | `Z3IndependentChecker.fst`, `.fsti` | Cache roots; array candidate |
 | `Z3IndependentCheckerTests.fst` | Guard candidate preservation |
 | `Z3IndependentBooleanContext.fst`, `.fsti` | Cache equivalent checks |
@@ -1901,7 +2028,7 @@ Evidence: `files\skolem-cached-corpus-batch-007` and earlier pinned batches.
 | `Z3IndependentNative.fst` | Extract verified adapters |
 | `ocaml_runtime\Z3IndependentMain.ml` | Reuse Definition diagnostics |
 | `ocaml_runtime\fStar_String.ml` | Document name counting |
-| `tools\build_independent_checker.py` | Wire realizations; cut test |
+| `tools\build_independent_checker.py` | Wire focused tests |
 | `tools\checker_modules.json` | Register verified helper |
 | `tools\test_build_independent_checker.py`, `test_checker_scope.py` | Test extraction guards |
 | `tools\test_independent_boolean_context.ml` | Compare Boolean results |

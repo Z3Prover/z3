@@ -22,6 +22,8 @@ module E = Z3SortedSkolem
 module SK = Z3SkolemSyntax
 module NR = Z3NnfReplay
 module ED = Z3IndependentExistentialDer
+module IB = Z3IndependentIntBounds
+module RB = Z3IndependentRealBounds
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
 module IC = Z3LpIntegerCutSyntax
@@ -2007,6 +2009,11 @@ let real_farkas (s:S.checked_schema) (node:U.proof_node) : bool =
   | U.ArithmeticFarkas cs -> LIN.check_numeric_contradiction s (arithmetic_assumptions node) cs
   | _ -> false
 
+let bounds_equation (sort:sort) (e:expr) : bool =
+  match e with
+  | App f [_; _] -> f = R.eq_decl sort
+  | _ -> false
+
 (* A premise-free rewrite step whose closed equation the Real normal forms
    (Z3SortedRealLinear.real_equivalent: Real and Int-with-to_real linear
    renormalization, comparison orientation and strictness, binary Real
@@ -2014,7 +2021,19 @@ let real_farkas (s:S.checked_schema) (node:U.proof_node) : bool =
 let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
   RL.real_primitive s && node.kind = U.RewriteRule && Nil? node.premises &&
   (match node.conclusion with
-   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && LIN.real_equivalent a b
+   | U.Equal a b | U.Observational a b ->
+     D.scoped [] a && D.scoped [] b &&
+     (LIN.real_equivalent a b ||
+      (get_sort a = bool_sort && get_sort b = bool_sort &&
+       (bounds_equation LA.real_s a && RB.check a b || bounds_equation LA.real_s b && RB.check b a)))
+   | U.Holds _ -> false)
+
+let int_bounds_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b ->
+     (bounds_equation LA.int_s a && IB.check a b || bounds_equation LA.int_s b && IB.check b a) &&
+     D.scoped [] a && D.scoped [] b && get_sort a = bool_sort && get_sort b = bool_sort
    | U.Holds _ -> false)
 
 (* A premise-free rewrite step whose closed equation is one of the ITE laws
@@ -3044,7 +3063,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
       arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
-      lemma_step node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
+      lemma_step node || int_bounds_rewrite node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
       integer_product node || division_order node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
@@ -3125,11 +3144,30 @@ let lemma_real_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.conclusion with
   | U.Equal a b | U.Observational a b ->
-    FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
-      #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
-      (fun reals -> LIN.lemma_real_equivalent s bc eq other reals [] (T.empty_environment (S.signature s)) a b);
-    V.lemma_sort_eq (get_sort b) (get_sort a);
-    T.lemma_equality s bc eq other a b
+    if LIN.real_equivalent a b then (
+      FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
+        #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+        (fun reals -> LIN.lemma_real_equivalent s bc eq other reals [] (T.empty_environment (S.signature s)) a b);
+      V.lemma_sort_eq (get_sort b) (get_sort a);
+      T.lemma_equality s bc eq other a b)
+    else (
+      FStar.Classical.exists_elim (T.truth s bc eq other a == T.truth s bc eq other b)
+        #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+        (fun reals -> if RB.check a b then RB.lemma_check s bc eq other reals a b
+                      else RB.lemma_check s bc eq other reals b a);
+      T.lemma_boolean_equality s bc eq other a b)
+  | U.Holds _ -> ()
+
+let lemma_int_bounds_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ int_bounds_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    if IB.check a b then IB.lemma_check s bc eq other a b
+    else IB.lemma_check s bc eq other b a;
+    T.lemma_boolean_equality s bc eq other a b
   | U.Holds _ -> ()
 
 (* An accepted Real equality/order clause is true in every Sorted model
@@ -3268,6 +3306,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         match node.kind with
         | U.ArithmeticFarkas cs -> lemma_real_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
+    else if int_bounds_rewrite node then lemma_int_bounds_rewrite s bc eq other node
     else if real_rewrite s node then lemma_real_rewrite s bc eq other node
     else if real_order s node then lemma_real_order s bc eq other node
     else if real_equality s node then (
