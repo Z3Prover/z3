@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:22:46-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:29:12-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -76,13 +76,19 @@ assumed unchanged.
 | Nov 15 | smtlib-sample, 11 proofs | `rewrite` | 1,039 | 43 | 996 | 43 |
 | Nov 15 | smtlib-sample, 11 proofs | all pending | 1,923 | 927 | 996 | 927 |
 | Nov 15 | smtlib-sample, 11 proofs | all pending | 927 | 927 | 0 | 927 |
+| Nov 15 | smtlib-sample, 11 proofs, array draft | `th-lemma` | 681 | 0 | 681 | 0 |
+| Nov 15 | smtlib-sample, 11 proofs, array draft | `rewrite` | 43 | 36 | 7 | 36 |
+| Nov 15 | smtlib-sample, 11 proofs, array draft | all pending | 927 | 239 | 688 | 239 |
 
 Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
 sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
-`9c022c1f9f84` -> `b73878ccdb7d`; final sample row
-`b73878ccdb7d` -> `245dd5c801e3`. The fstar-build change promoted two
+`9c022c1f9f84` -> `b73878ccdb7d`; pre-array sample row
+`b73878ccdb7d` -> `245dd5c801e3`; array draft
+`245dd5c801e3` -> `123dfe2cdd80`. The fstar-build change promoted two
 PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
-burn-downs. Evidence: session `files\large-real-compare-02.json`,
+burn-downs. Array root certification can discharge obligations without
+independently certifying each original entry. Evidence: session
+`files\generic-array-sample-weighted-01.json`, `files\large-real-compare-02.json`,
 `files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
 `files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`.
 
@@ -93,6 +99,7 @@ burn-downs. Evidence: session `files\large-real-compare-02.json`,
 | fstar-build, previous full-run Definition `d87b731ba6aa` | 583 inputs | 10,774 proofs | 382 proofs | 443 | 45 sessions | 0 | 0 inputs |
 | fstar-build, frozen retained | 147 proofs | 144 | 3 | 0 | 0 | 0 | 0 |
 | fstar-build, frozen candidate | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
+| fstar-build, unretained array draft `123dfe2cdd80` | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
 | smtlib-sample, frozen legacy | 11 proofs | 11 | 0 | 0 | 0 | 0 | 0 |
 | smtlib-sample, retained Definition `245dd5c801e3` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 | smtlib-sample, unretained array draft `123dfe2cdd80` | 11 proofs | 5 | 6 | 0 | 0 | 0 | 0 |
@@ -102,9 +109,11 @@ UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in th
 whole-corpus performance remain unestablished. Evidence: session
 `files\periodic-smtlib-state.json`, `files\large-real-fstar-01.json`.
 The array draft promoted four matched sample proofs without a verdict
-regression; repeated timing and weighted pending comparisons are pending.
+regression; on 147 matched fstar-build proofs it changed no verdicts.
+Repeated timing and fstar-build weighted comparisons are pending.
 Root certification need not independently certify each original proof entry.
-Evidence: session `files\generic-array-sample-01.json`.
+Evidence: session `files\generic-array-sample-01.json`,
+`files\generic-array-fstar-01.json`.
 
 ## Active / next
 
