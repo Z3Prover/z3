@@ -191,7 +191,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if ((k == OP_AND || k == OP_OR) && m_seq_rw.u().has_re()) {
+            if ((k == OP_AND || k == OP_OR || k == OP_NOT) && m_seq_rw.u().has_re()) {
                 st = m_seq_rw.mk_bool_app(f, num, args, result);
                 if (st != BR_FAILED)
                     return st;

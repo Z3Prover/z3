@@ -47,6 +47,15 @@ void seq_rewriter::get_param_descrs(param_descrs & r) {
 
 br_status seq_rewriter::mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
     switch (f->get_decl_kind()) {
+    case OP_NOT: {
+        SASSERT(n == 1);
+        expr *subject = nullptr, *regex = nullptr, *body = nullptr;
+        if (str().is_in_re(args[0], subject, regex) && re().is_complement(regex, body)) {
+            result = re().mk_in_re(subject, body);
+            return BR_REWRITE1;
+        }
+        return BR_FAILED;
+    }
     case OP_AND:
         return mk_bool_app_helper(true, n, args, result);
     case OP_OR:
