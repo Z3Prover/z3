@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T13:02:44-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T13:03:15-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -158,5 +158,5 @@ controls, SMT/Python/help smoke checks and scope tests (seven Windows skips).
 Evidence: `files\int-quotient-downstream-02.json`,
 `files\int-quotient-checkout-controls-01.json`,
 `files\int-quotient-checkout-smoke-01.json`,
-`files\int-quotient-scope-tests-02.json`. SMT-LIB counts above still use
-`98ecf978a307`; matched acceptance and timings cover only frozen subsets.
+`files\int-quotient-scope-tests-02.json`. The diagnostic tables specify their
+checker pins; matched acceptance and timings cover only frozen subsets.
