@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T03:14:46-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T05:09:14-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,40 +16,58 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-15T23:11:35-08:00`; latest case `2026-11-15T23:11:34-08:00`; checker `245dd5c801e3`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-16T05:09:14-08:00`; latest case `2026-11-16T05:09:14-08:00`; checker `38203471c053`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-15T22:37:19-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-15T23:11:34-08:00` | 285 / 285 | 210 / 285 | 0 | 74 | 136 | 68 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-16T04:39:13-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-16T05:09:14-08:00` | 214 / 285 | 143 / 214 | 0 | 35 | 108 | 64 | 7 | 0 | 0 | 0 | 71 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
 | `apply-def` | 203 | 0 |
-| `arith/farkas` | 0 | 59 |
-| `arith/lp-monomial-interval` | 0 | 46 |
+| `arith/farkas` | 0 | 21 |
+| `arith/lp-monomial-interval` | 0 | 40 |
 | `arith/lp-monomial-substitute` | 0 | 1 |
-| `assumed:nlsat` | 0 | 152 |
+| `assumed:nlsat` | 0 | 149 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 164 |
-| `quant-intro` | 42 | 83 |
-| `rewrite` | 140 | 24789 |
-| `th-lemma` | 3499 | 6407 |
+| `intro-def` | 272 | 66 |
+| `quant-intro` | 42 | 47 |
+| `rewrite` | 140 | 24676 |
+| `th-lemma` | 3499 | 6219 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T055834Z`.
+State: **smtlib-extended running; other cohort may be unobserved**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T115711Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T02:31:10-08:00`; latest case `2026-11-16T02:31:10-08:00`; checker `35ef16e3adce`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T04:03:03-08:00`; latest case `2026-11-16T04:03:03-08:00`; checker `38203471c053`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 583 / 583 | 542 | 41 | 0 | 0 | 570 / 583 | 0 |
+| 261 / 583 | 246 | 15 | 0 | 322 | 257 / 261 | 0 |
 
-Observed proofs: **10898 ACCEPT / 377 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **452**.
+Observed proofs: **6266 ACCEPT / 164 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **149**.
+
+| Rule | Observed PENDING |
+| --- | ---: |
+| `assumed:nlsat` | 80 |
+| `nnf-neg` | 6 |
+| `quant-intro` | 13 |
+| `rewrite` | 2 |
+| `sk` | 6 |
+| `th-lemma` | 189 |
+
+State: **stage complete**. Per-case evidence and pins: session `files\division-fstar-pending-01`.
+<!-- END CURRENT FSTAR PENDING -->
+
+<!-- BEGIN PREVIOUS FSTAR PENDING -->
+## Previous complete fstar-build diagnostics
+
+Collected `2026-11-16T02:31:10-08:00`; checker `35ef16e3adce`. All 583 inputs observed: 542 completed, 41 timed out; 570 sessions had proof diagnostics.
+Observed proofs: **10,898 ACCEPT / 377 PARTIAL**; 452 solver UNKNOWN queries. Timeout tails and undiagnosed evidence are N/M.
 
 | Rule | Observed PENDING |
 | --- | ---: |
@@ -60,29 +78,9 @@ Observed proofs: **10898 ACCEPT / 377 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver U
 | `quant-intro` | 42 |
 | `rewrite` | 11 |
 | `sk` | 18 |
-| `th-lemma` | 1079 |
+| `th-lemma` | 1,079 |
 
-State: **complete**. Per-case evidence and pins: session `files\product-fstar-pending-01`.
-<!-- END CURRENT FSTAR PENDING -->
-
-<!-- BEGIN PREVIOUS FSTAR PENDING -->
-## Previous complete fstar-build diagnostics
-
-Collected `2026-11-15T21:57:17-08:00`; checker `245dd5c801e3`. All 583 inputs observed: 543 completed, 40 timed out; 570 sessions had proof diagnostics.
-Observed proofs: **10,929 ACCEPT / 383 PARTIAL**; 462 solver UNKNOWN queries. Timeout tails and undiagnosed evidence are N/M.
-
-| Rule | Observed PENDING |
-| --- | ---: |
-| `arith/farkas` | 10 |
-| `arith/lp-monomial-interval` | 5 |
-| `assumed:nlsat` | 436 |
-| `nnf-neg` | 24 |
-| `quant-intro` | 45 |
-| `rewrite` | 14 |
-| `sk` | 20 |
-| `th-lemma` | 1,043 |
-
-This is a prior checker snapshot, not an identical-proof burn-down against the live run. Evidence: session `files\current-fstar-pending-01\state.json`.
+This is a prior checker snapshot, not an identical-proof burn-down against the live run. Evidence: session `files\product-fstar-pending-01\state.json`.
 <!-- END PREVIOUS FSTAR PENDING -->
 
 ## Burn-down: matched proofs
