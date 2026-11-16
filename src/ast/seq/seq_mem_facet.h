@@ -377,14 +377,16 @@ namespace seq {
             eq_tree::node&       m_n;
             unsigned             m_idx;
             expr_ref             m_ch;
+            expr_ref             m_target;
             expr_ref_vector      m_rest;
             expr_ref_pair_vector m_cofactors;
             eq_tree::dep_tracker m_dep;
             unsigned             m_next = 0;
         public:
             iterator(eq_tree::node& n, unsigned idx, expr_ref const& ch, expr_ref_vector const& rest,
-                     expr_ref_pair_vector const& cofactors, eq_tree::dep_tracker dep) :
-                m_n(n), m_idx(idx), m_ch(ch), m_rest(rest), m_cofactors(cofactors), m_dep(dep) {}
+                     expr_ref_pair_vector const& cofactors, expr* target, eq_tree::dep_tracker dep) :
+                m_n(n), m_idx(idx), m_ch(ch), m_target(target, ch.get_manager()),
+                m_rest(rest), m_cofactors(cofactors), m_dep(dep) {}
             bool next(eq_tree::edge& out) override;
         };
 
