@@ -35,6 +35,7 @@ module RPN = Z3IndependentRealNonnegative
 module RPG = Z3IndependentRealGreaterOne
 module RDC = Z3IndependentRealDivisionClause
 module SI = Z3SortedInteger
+module IZ = Z3IndependentIntProductZero
 module DV = Z3SortedIntDivision
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
@@ -2563,11 +2564,81 @@ let constant_int_product_witness (facts:list expr) : option (int_constant_witnes
   let values = L.fold_left (fun ns e -> integer_product_constants 16 e ns) [-1; 0; 1] facts in
   constant_int_product_candidate facts values 32 (L.concatMap (integer_products 16) facts)
 
+let rec nary_integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) =
+  if fuel = 0 then []
+  else match e with
+  | App f args ->
+    (if SI.classify f = SI.Calculate LA.Mul && L.length args >= 2 &&
+        L.length args <= 8 then [e] else []) @
+    L.concatMap (nary_integer_products (fuel - 1)) args
+  | _ -> []
+
+let zero_factor (facts:list expr) (factor:expr) : bool =
+  D.scoped [] factor && get_sort factor = LA.int_s &&
+  refutes facts (int_bound true factor) && refutes facts (int_bound false factor)
+
+let rec find_zero_factor (facts:list expr) (args:list expr) : Tot (option expr) (decreases args) =
+  match args with
+  | [] -> None
+  | x :: rest -> if zero_factor facts x then Some x else find_zero_factor facts rest
+
+let zero_product_pair (facts:list expr) (pair:expr & expr) : bool =
+  let p, factor = pair in
+  match p with
+  | App f args ->
+    D.scoped [] p && SI.classify f = SI.Calculate LA.Mul &&
+    L.mem factor args && zero_factor facts factor
+  | _ -> false
+
+let rec zero_product_pairs (facts:list expr) (fuel:nat) (products:list expr)
+  : Tot (list (expr & expr)) (decreases fuel) =
+  if fuel = 0 then []
+  else match products with
+  | [] -> []
+  | p :: rest ->
+    let tail = zero_product_pairs facts (fuel - 1) rest in
+    match p with
+    | App f args ->
+      if not (D.scoped [] p && SI.classify f = SI.Calculate LA.Mul) then tail
+      else (match find_zero_factor facts args with
+            | Some factor -> (p, factor) :: tail
+            | None -> tail)
+    | _ -> tail
+
+let rec zero_product_bounds (pairs:list (expr & expr)) : Tot (list expr) (decreases pairs) =
+  match pairs with
+  | [] -> []
+  | (p, _) :: rest -> int_ge p int_zero :: int_le p int_zero :: zero_product_bounds rest
+
+let rec valid_zero_product_pairs (facts:list expr) (pairs:list (expr & expr))
+  : Tot bool (decreases pairs) =
+  match pairs with
+  | [] -> true
+  | pair :: rest -> zero_product_pair facts pair && valid_zero_product_pairs facts rest
+
+let rec distinct_products (fuel:nat) (products:list expr) : Tot (list expr) (decreases fuel) =
+  if fuel = 0 then []
+  else match products with
+  | [] -> []
+  | p :: rest ->
+    let tail = distinct_products (fuel - 1) rest in
+    if L.mem p tail then tail else p :: tail
+
+let zero_products_witness (facts:list expr) : list (expr & expr) =
+  let products = distinct_products 32 (L.concatMap (nary_integer_products 16) facts) in
+  if L.length products < 2 then [] else zero_product_pairs facts 8 products
+
+let multiple_zero_products (facts:list expr) : bool =
+  let pairs = zero_products_witness facts in
+  L.length pairs >= 2 && valid_zero_product_pairs facts pairs &&
+  refutes (zero_product_bounds pairs @ facts) R.false_expr
+
 let integer_product_check (facts:list expr) : bool =
   if L.length facts > 30 then false
   else if None? (arguments_budget 4096 facts) then false
   else integer_literals (L.map LA.positive_literal facts) &&
-    (Some? (integer_product_witness facts) || Some? (constant_int_product_witness facts))
+    (Some? (integer_product_witness facts) || Some? (constant_int_product_witness facts) ||
+     multiple_zero_products facts)
 
 let integer_product (node:U.proof_node) : bool =
   node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
@@ -2815,6 +2886,50 @@ let lemma_constant_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
     lemma_refutes s bc eq other (equation :: facts) R.false_expr
   | _ -> ()
 
+let lemma_zero_product_pair (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                            (facts:list expr) (pair:expr & expr)
+  : Lemma (requires T.truths s bc eq other facts /\ zero_product_pair facts pair)
+          (ensures T.truth s bc eq other (int_ge (fst pair) int_zero) /\
+                   T.truth s bc eq other (int_le (fst pair) int_zero)) =
+  let p, factor = pair in
+  match p with
+  | App f args ->
+    let rho = T.empty_environment (S.signature s) in
+    lemma_int_bound s bc eq other facts true factor;
+    lemma_int_bound s bc eq other facts false factor;
+    IZ.lemma_product_zero s bc eq other [] rho f args factor;
+    lemma_int_bound_shape true p;
+    lemma_int_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_zero) LA.Ge p int_zero;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_zero) LA.Le p int_zero;
+    AR.lemma_int_numeral s bc eq other [] rho 0 int_zero
+  | _ -> ()
+
+let rec lemma_zero_product_bounds (#base:sort -> Type0) (s:S.checked_schema)
+                                  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                  (other:V.interpretation base (S.signature s))
+                                  (facts:list expr) (pairs:list (expr & expr))
+  : Lemma (requires T.truths s bc eq other facts /\ valid_zero_product_pairs facts pairs)
+          (ensures T.truths s bc eq other (zero_product_bounds pairs))
+          (decreases pairs) =
+  match pairs with
+  | [] -> ()
+  | pair :: rest ->
+    lemma_zero_product_pair s bc eq other facts pair;
+    lemma_zero_product_bounds s bc eq other facts rest
+
+let lemma_multiple_zero_products (#base:sort -> Type0) (s:S.checked_schema)
+                                 (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                 (other:V.interpretation base (S.signature s)) (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ multiple_zero_products facts)
+          (ensures False) =
+  let pairs = zero_products_witness facts in
+  lemma_zero_product_bounds s bc eq other facts pairs;
+  DT.lemma_truths_append s bc eq other (zero_product_bounds pairs) facts;
+  assert_norm (R.formula_clause R.false_expr == []);
+  lemma_refutes s bc eq other (zero_product_bounds pairs @ facts) R.false_expr
+
 let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                 (facts:list expr)
@@ -2827,9 +2942,10 @@ let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S
     else if nonpositive_int_product facts p then lemma_nonpositive_int_product s bc eq other facts p
     else if negative_int_product facts p then lemma_negative_int_product s bc eq other facts p
     else lemma_zero_int_product s bc eq other facts p)
-  else
+  else if Some? (constant_int_product_witness facts) then (
     let p, n, left = Some?.v (constant_int_product_witness facts) in
-    lemma_constant_int_product s bc eq other facts p n left
+    lemma_constant_int_product s bc eq other facts p n left)
+  else lemma_multiple_zero_products s bc eq other facts
 
 let integer_product_equality (facts:list expr) (conclusion:expr) : bool =
   if L.length facts > 29 then false

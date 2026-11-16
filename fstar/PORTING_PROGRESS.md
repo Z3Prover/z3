@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T05:10:54-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T06:27:16-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -43,24 +43,26 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T04:03:03-08:00`; latest case `2026-11-16T04:03:03-08:00`; checker `38203471c053`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T06:27:16-08:00`; latest case `2026-11-16T06:27:16-08:00`; checker `38203471c053`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 261 / 583 | 246 | 15 | 0 | 322 | 257 / 261 | 0 |
+| 583 / 583 | 543 | 40 | 0 | 0 | 570 / 583 | 0 |
 
-Observed proofs: **6266 ACCEPT / 164 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **149**.
+Observed proofs: **10925 ACCEPT / 349 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **446**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 80 |
-| `nnf-neg` | 6 |
-| `quant-intro` | 13 |
-| `rewrite` | 2 |
-| `sk` | 6 |
-| `th-lemma` | 189 |
+| `arith/farkas` | 8 |
+| `arith/lp-monomial-interval` | 2 |
+| `assumed:nlsat` | 437 |
+| `nnf-neg` | 24 |
+| `quant-intro` | 43 |
+| `rewrite` | 9 |
+| `sk` | 18 |
+| `th-lemma` | 966 |
 
-State: **stage complete**. Per-case evidence and pins: session `files\division-fstar-pending-01`.
+State: **complete**. Per-case evidence and pins: session `files\division-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 <!-- BEGIN PREVIOUS FSTAR PENDING -->
@@ -83,134 +85,54 @@ Observed proofs: **10,898 ACCEPT / 377 PARTIAL**; 452 solver UNKNOWN queries. Ti
 This is a prior checker snapshot, not an identical-proof burn-down against the live run. Evidence: session `files\product-fstar-pending-01\state.json`.
 <!-- END PREVIOUS FSTAR PENDING -->
 
-## Burn-down: matched proofs
+## Burn-down: identical frozen proofs
 
-Compare only identical frozen proofs and checker versions within each row.
-Positive gains mean fewer pending obligations; unmeasured cohorts are not
-assumed unchanged.
+| Dataset | Checker SHA-256 prefixes | Rule | Before | Newly checked | Remaining |
+| --- | --- | --- | ---: | ---: | ---: |
+| fstar-build, Math.Exp query 7 | `245dd5c801e3` → `35ef16e3adce` | `arith/lp-monomial-interval` | 4 | 4 | 0 |
+| fstar-build, Math.Exp query 7 | `35ef16e3adce` → `38203471c053` | `th-lemma` | 4 | 1 | 3 |
+| fstar-build, CancellableInvariant query 2 | `35ef16e3adce` → `38203471c053` | `th-lemma` | 2 | 1 | 1 |
+| smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `arith/farkas` | 5 | 2 | 3 |
+| smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `th-lemma` | 7 | 2 | 5 |
 
-| Date | Cohort | Rule | Before | After | Newly checked | Remaining |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| Nov 15 | fstar-build, 147 proofs | `rewrite` | 2 | 0 | 2 | 0 |
-| Nov 15 | smtlib-sample, 1 ring proof | `th-lemma` | 15 | 0 | 15 | 0 |
-| Nov 15 | smtlib-sample, 11 proofs | `rewrite` | 1,039 | 43 | 996 | 43 |
-| Nov 15 | smtlib-sample, 11 proofs | all pending | 1,923 | 927 | 996 | 927 |
-| Nov 15 | smtlib-sample, 11 proofs | all pending | 927 | 927 | 0 | 927 |
-| Nov 15 | smtlib-sample, 11 proofs, array draft | `th-lemma` | 681 | 0 | 681 | 0 |
-| Nov 15 | smtlib-sample, 11 proofs, array draft | `rewrite` | 43 | 36 | 7 | 36 |
-| Nov 15 | smtlib-sample, 11 proofs, array draft | all pending | 927 | 239 | 688 | 239 |
-| Nov 15 | fstar-build, Math.Exp query 7, product draft | `arith/lp-monomial-interval` | 4 | 2 | 2 | 2 |
-| Nov 15 | fstar-build, Math.Exp query 7, combined product draft | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
-| Nov 16 | fstar-build, Math.Exp query 7, checkout candidate | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
-| Nov 16 | fstar-build, CancellableInvariant query 2, division draft | `th-lemma` | 2 | 1 | 1 | 1 |
-| Nov 16 | fstar-build, CancellableInvariant query 2, division checkout | `th-lemma` | 2 | 1 | 1 | 1 |
-| Nov 16 | fstar-build, Math.Exp query 7, division draft | `th-lemma` | 4 | 3 | 1 | 3 |
-| Nov 16 | fstar-build, Math.Exp query 7, division checkout | `th-lemma` | 4 | 3 | 1 | 3 |
-
-Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
-sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
-`9c022c1f9f84` -> `b73878ccdb7d`; pre-array sample row
-`b73878ccdb7d` -> `245dd5c801e3`; array draft
-`245dd5c801e3` -> `123dfe2cdd80`; product draft
-`245dd5c801e3` -> `8bf2b8733eb5`; combined product draft
-`245dd5c801e3` -> `2492999310f8`; checkout candidate
-`245dd5c801e3` -> `35ef16e3adce`; division draft
-`35ef16e3adce` -> `96d0c8a1b994`; division checkout
-`35ef16e3adce` -> `38203471c053`. The fstar-build change promoted two
-PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
-burn-downs. Array root certification can discharge obligations without
-independently certifying each original entry. Evidence: session
-`files\generic-array-sample-weighted-01.json`, `files\large-real-compare-02.json`,
-`files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
-`files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
-`files\real-nonnegative-math-exp-01.json`,
-`files\real-greater-one-math-exp-01.json`, `files\real-product-checkout-math-exp-01.json`,
-`files\real-division-cancellable-01.json`, `files\real-division-math-exp-01.json`,
+These are subset results, not full-cohort burn-downs. Evidence: session
+`files\real-product-checkout-math-exp-01.json`,
 `files\real-division-checkout-math-exp-01.json`,
-`files\real-division-checkout-cancellable-01.json`.
-The Math.Exp proof remains PARTIAL with eight PENDING after division replay.
-The division checkout is retained; the array draft is not.
+`files\real-division-checkout-cancellable-01.json`,
+`files\multiple-zero-extended-02.json`.
 
-## Latest benchmark outcomes
+## Matched acceptance and timing
 
-| Dataset / checker | Identical proofs | ACCEPT | PARTIAL |
-| --- | ---: | ---: | ---: |
-| fstar-build, retained `b73878ccdb7d` | 147 | 144 | 3 |
-| fstar-build, product checkout `35ef16e3adce` | 147 | 146 | 1 |
-| fstar-build, division draft `96d0c8a1b994` | 147 | 146 | 1 |
-| fstar-build, division checkout `38203471c053` | 147 | 146 | 1 |
-| smtlib-sample, legacy | 11 | 11 | 0 |
-| smtlib-sample, retained `245dd5c801e3` | 11 | 1 | 10 |
-| smtlib-sample, product checkout `35ef16e3adce` | 11 | 1 | 10 |
-| smtlib-sample, division draft `96d0c8a1b994` | 11 | 1 | 10 |
-| smtlib-sample, division checkout `38203471c053` | 11 | 1 | 10 |
-| smtlib-sample, unretained array draft `123dfe2cdd80` | 11 | 5 | 6 |
+| Dataset | Checker | Proofs | ACCEPT | PARTIAL |
+| --- | --- | ---: | ---: | ---: |
+| fstar-build | retained `38203471c053` | 147 | 146 | 1 |
+| fstar-build | multi-zero `98ecf978a307` | 147 | 146 | 1 |
+| smtlib-sample | legacy | 11 | 11 | 0 |
+| smtlib-sample | retained `38203471c053` | 11 | 1 | 10 |
+| smtlib-sample | multi-zero `98ecf978a307` | 11 | 1 | 10 |
 
-Five alternating pairs gave product-checkout/retained median time ratios
-**1.093** on Math.Exp and **0.999** over five sample proofs. The array draft
-had ratio **1.96** on five sample proofs and is not retained. The division
-draft/retained ratios were **1.006** on five sample proofs and **1.007** on
-Math.Exp. These are subset results, not whole-cohort parity or speedup.
-Root certification may use an augmented proof and does not independently
-certify every original entry.
-Evidence: session `files\real-product-checkout-fstar-01.json`,
-`files\large-real-fstar-01.json`, `files\large-real-compare-02.json`,
-`files\real-product-checkout-sample-01.json`,
-`files\real-product-checkout-math-exp-timing-01.json`,
-`files\real-product-checkout-sample-subset-timing-01.json`,
-`files\real-division-sample-01.json`, `files\real-division-fstar-01.json`,
-`files\real-division-checkout-fstar-01.json`,
-`files\real-division-checkout-sample-01.json`,
-`files\real-division-sample-subset-timing-01.json`, `files\real-division-math-exp-timing-01.json`,
-`files\generic-array-sample-subset-timing-01.json`.
+Five alternating pairs gave multi-zero/retained median time ratios of **1.030**
+on the extended proof and **1.004** over five sample proofs. These subsets do
+not establish whole-cohort parity or speedup. Evidence: session
+`files\multiple-zero-fstar-02.json`, `files\multiple-zero-sample-02.json`,
+`files\multiple-zero-extended-timing-01.json`,
+`files\multiple-zero-sample-timing-01.json`.
 
-## Active / next
+## Current work
 
-- Complete pinned per-rule collection; unobserved evidence remains N/M.
-- Division draft passed focused tests and strict verification of 116 modules;
-  the checkout build, focused tests and SMT/Python/help smoke checks passed.
-  Matched checkout verdicts are unchanged on 147 fstar and 11 sample proofs;
-  Math.Exp and CancellableInvariant each gain one checked obligation. Seven
-  Windows scope tests were skipped; two finite-field
-  tests and one uncovered-binder fixture were excluded from the native build.
-  Evidence: `files\real-division-downstream-01.json`,
-  `files\real-division-candidate-build-01.json`,
-  `files\real-division-checkout-build-01.json`,
-  `files\real-division-checkout-smoke-01.json`.
-- Burn down `th-lemma`, `rewrite` and arithmetic obligations with matched proofs.
-  The prior extended snapshot has 59 `arith/farkas` PENDING across six cases.
-  One newly frozen proof has five such obligations; three inspected indices
-  have unit-coefficient native `arith bound` hints, and two require reasoning
-  about multiple zero products. Other causes remain N/M. This is not evidence
-  of a faulty linear certificate. A separate capture timed out without a proof.
-  Current producer source exports coefficients for bound propagation but
-  attempts structured LP proof export for conflicts; its relationship to the
-  captured binary is unverified.
-  Evidence: session `files\extended-farkas-capture-02.json`,
-  `files\extended-farkas-capture-01.json`.
-- Product checkout passed strict downstream F* verification for 118 modules,
-  focused tests, SMT/Python/help smoke checks, and 11 build-scope tests.
-  Two POSIX wiring tests were skipped; two finite-field tests and one
-  uncovered-binder fixture were excluded. Native shell and test-z3 build and
-  `/a` tests passed for the preceding large-Real candidate. Evidence:
-  `files\real-greater-one-downstream-01.json`,
-  `files\real-product-checkout-build-01.json`,
-  `files\real-product-checkout-smoke-01.json`,
-  `files\large-real-native-check-01.json`.
-- Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
-  Native stages use the shared lock and a 30-second quiet pause.
+The multi-zero replay proves zero factors and resulting product bounds before
+checking a linear contradiction; strict downstream F* verification, checkout
+native tests and SMT/Python/help smoke checks passed. Scope tests passed with
+seven Windows skips. Evidence: session `files\multiple-zero-downstream-01.json`,
+`files\multiple-zero-checkout-build-01.json`, `files\multiple-zero-checkout-smoke-01.json`.
 
-## Touched files
+The reader combines native `arith bound` and `arith farkas` hints under
+`arith/farkas`. Inspected pending cases include nonlinear bound propagation;
+they do not demonstrate faulty linear Farkas certificates. Current source
+exports propagation coefficients but attempts structured LP proof export for
+conflicts; the captured binary's exact source provenance is unverified.
+Evidence: session `files\farkas-bound-producer-analysis-01.json`,
+`files\extended-farkas-capture-02.json`.
 
-| File | Change |
-| --- | --- |
-| `Z3IndependentRealBounds.fst`, `.fsti` | Verify Real equations |
-| `Z3SortedProof.fst` | Replay large equations |
-| `tools\test_independent_bounds.ml` | Test arithmetic replay |
-| `Z3IndependentRealNonnegative.fst`, `.fsti` | Prove nonnegative products |
-| `Z3IndependentRealGreaterOne.fst`, `.fsti` | Prove products above one |
-| `Z3IndependentRealDivisionClause.fst`, `.fsti` | Replay guarded division |
-| `tools\checker_modules.json`, `tools\build_ocaml_checker.ps1` | Register replay modules |
-| `tools\test_checker_scope.py` | Update module count |
-| `PORTING_INSTANCES.csv` | Full-run instance ledger |
-| `PORTING_PROGRESS.md` | Pending burn-down dashboard |
+Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
+Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.

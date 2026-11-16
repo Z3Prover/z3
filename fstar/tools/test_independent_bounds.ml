@@ -150,3 +150,33 @@ let () =
     | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
     "guarded division remained pending";
   print_endline "independent bounds rewrite tests passed"
+
+let () =
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let numeral n =
+    A.App ({ A.decl_name = "num"; domain = []; range = int_sort;
+             interp = Some T.op_num_rational; int_params = [Z.of_int n; Z.one] }, []) in
+  let operation name tag args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> int_sort) args;
+             range = int_sort; interp = Some tag; int_params = [] }, args) in
+  let x, y = variable int_sort "x", variable int_sort "y" in
+  let z, w = variable int_sort "z", variable int_sort "w" in
+  let zero = numeral 0 in
+  let p = operation "*" T.op_arith_mul [x; z; w] in
+  let q = operation "*" T.op_arith_mul [y; z; w] in
+  let sum = operation "+" T.op_arith_add [p; q] in
+  let x_zero, y_zero = R.mk_eq_expr x zero, R.mk_eq_expr y zero in
+  let positive = comparison int_sort ">" T.op_arith_gt sum zero in
+  require (SP.multiple_zero_products [x_zero; y_zero; positive])
+    "two n-ary zero products were not refuted";
+  require (not (SP.multiple_zero_products [x_zero; positive]))
+    "missing zero factor was accepted";
+  let nonnegative = comparison int_sort ">=" T.op_arith_ge sum zero in
+  require (not (SP.multiple_zero_products [x_zero; y_zero; nonnegative]))
+    "consistent zero products were refuted";
+  let open_factor = A.Var (Z.zero, int_sort) in
+  let open_product = operation "*" T.op_arith_mul [open_factor; z; w] in
+  let open_sum = operation "+" T.op_arith_add [p; open_product] in
+  require (not (SP.multiple_zero_products
+    [x_zero; R.mk_eq_expr open_factor zero; comparison int_sort ">" T.op_arith_gt open_sum zero]))
+    "unscoped factor was accepted"
