@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T11:14:21-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T11:17:24-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -123,8 +123,10 @@ not establish whole-cohort parity or speedup. Evidence: session
 
 The unretained quotient draft preserved verdicts and rule counts on 11 sample
 proofs. Five alternating pairs on five of those proofs gave a median per-proof
-candidate/retained time ratio of **1.006**; UInt128 timing is pending. Evidence:
-`files\int-quotient-sample-01.json`, `files\int-quotient-sample-timing-02.json`.
+candidate/retained time ratio of **1.006**; five paired UInt128 runs gave
+**1.007**. Evidence: `files\int-quotient-sample-01.json`,
+`files\int-quotient-sample-timing-02.json`,
+`files\int-quotient-uint128-timing-01.json`.
 
 ## Current work
 
@@ -145,4 +147,4 @@ Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
 Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.
 The quotient draft passed strict downstream verification and native tests;
-matched acceptance and paired timing controls are in progress.
+matched acceptance and paired timing controls cover only the frozen subsets.
