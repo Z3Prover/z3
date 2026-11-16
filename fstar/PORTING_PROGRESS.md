@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:29:12-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:32:25-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -9,7 +9,9 @@ both use a value family indexed by sort, not `Z3ValueTheory.fst`.
 **Legacy** uses `Z3ValueTheory.fst`. Counts are for Definition unless stated.
 
 PENDING counts are weighted unresolved proof-rule obligations, not PARTIAL
-proofs. Current observed counts appear below; missing evidence is not zero.
+proofs. Current observed counts appear below; **N/M** means not measured.
+Per-rule counts for undiagnosed cases and unobserved timeout tails are N/M,
+not zero.
 
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
