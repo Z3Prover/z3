@@ -3821,6 +3821,7 @@ let sorted_int_division_clauses () =
     "the numeral divisor clause d = 3 was not checked by division_order alone";
   let instance_decomposition = match find_literal (function
       | A.App (_, [_; A.App (eq3, [_; A.App (plus_decl, [A.App (times_decl, [_; A.App (div_decl, [_; _])]); _])])])
+      | A.App (_, [_; A.App (eq3, [A.App (plus_decl, [A.App (times_decl, [_; A.App (div_decl, [_; _])]); _]); _])])
         -> Some (eq3, plus_decl, times_decl, div_decl)
       | _ -> None) decomposition with
     | eq3, plus_decl, times_decl, div_decl ->
