@@ -1301,15 +1301,18 @@ class TestIntegerValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "true-axiom must conclude true"):
             proof_to_lean.reconstruct(source, tampered)
         # The unit true matches false literals only: resolving it against a
-        # clause without one (a triangle-eq axiom) is rejected.
-        resolution = next(index for index, raw in enumerate(nodes)
-                          if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_UNIT_RESOLUTION
-                          and true_axiom in raw["arguments"])
-        triangle = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"])
+        # clause without one (a triangle-eq axiom) is rejected. The axiom
+        # must precede the resolution it is put into (since Z3's rewriter
+        # leaves equalities unnormalized, upstream #11698, the first
+        # triangle-eq follows the first such resolution).
+        resolutions = [index for index, raw in enumerate(nodes)
+                       if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_UNIT_RESOLUTION
+                       and true_axiom in raw["arguments"]]
+        triangles = [n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"]]
+        resolution, triangle = next((r, t) for r in resolutions for t in triangles if t < r)
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][resolution]["arguments"][0] = triangle
-        expected_error = "unit-resolution" if triangle < resolution else "earlier node index"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, expected_error):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unit-resolution"):
             proof_to_lean.reconstruct(source, tampered)
         # Z3's rewriter cancels the common factor of (div (* 2 x3) (- 2))
         # through an ite whose dead branch is (div (* 2 x3) 0): such a term
@@ -2867,9 +2870,17 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                     # linear combination of the rounded bounds.
                     self.assertIn(["arith"], parameters)
                     self.assertTrue(any(p[0] == "farkas" and len(p) > 1 for p in parameters), parameters)
+                    # A cut: a bare arith step deriving its bound from the premises it lists.
+                    self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
                 if name == "lia_equality_elimination":
-                    # The parity conflict may use a bare arithmetic cut or a Farkas lemma.
-                    self.assertTrue(any(p in (["arith"], ["farkas"]) for p in parameters), parameters)
+                    # Since Z3's rewriter leaves an equality between sums as
+                    # written (upstream #11698) the two equalities reach
+                    # theory_lra as their four triangle-eq bounds, and the
+                    # parity conflict is one coefficient-free farkas over
+                    # them (before: a cut, as in lia_gomory above).
+                    self.assertTrue(any(p == ["farkas"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
                 if name in ("lia_div", "lia_mod_sum", "lia_div_sum"):
                     # The div and mod axioms, stated (or false l) and resolved with the unit true.
                     self.assertIn("arith", _hints(certificate))

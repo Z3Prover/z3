@@ -1696,7 +1696,7 @@ none touching the trust boundary: (1) `_PropositionalProver` emits a tactic
 script (`have` lines, `refine` over `Or.elim`/`Iff.intro` with one hole per
 case and a bullet each, `exact`; `equivalence`, `implication` and
 `refutation` return lines), (2) the cnf lemmas and the propositional rewrites
-name the gates by the nodes' own definitions (`names=_structure_names`), so
+name the gates by the nodes' own definitions (the `names` of `_structure_names`), so
 the proof binds no `let` and the lemma unfolds nothing before the attempt
 (Lean unfolds a definition when a step unifies with it, one level per step),
 and the steps through conjunctions and disjunctions leave their operands to
@@ -1746,6 +1746,108 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### Wide conjunctions are defined in chunks (2026-11-16)
+
+Scale, not breadth: QF_UF `2018-Goel-hwbench/QF_UF_sokoban.3.prop1_ab_br_max`
+of z3test's `smtlib-sample` exported to 40.1 MB of Lean and did not verify:
+71 of its 1,422 theory lemmas were 430 to 480 kB each, and the first ran out
+of 1,000,000 heartbeats at `whnf`. Each is the clause `(or (not (distinct c1
+... c209)) (not (= ci cj)))` that Z3 logs for a distinct too wide to expand,
+and its proof refuted the distinct, a right-nested conjunction of 21,736
+pairs written out in its definition, from one pair by up to 21,735 steps of
+`mt (@And.right _ _)`.
+
+What dominates (measured first, on hand-written conjunctions of pairs,
+`Not (elems i = elems (i + 1))`): the time Lean takes for such a chain grows
+with the product of the operand reached and the operands of the
+conjunction, 1.2, 3.3, and 13.0 s for the last of 1,000, 2,000, and 4,000
+pairs. Spelling the steps as projections (`_h.2.2...` in one term, or bound
+every 64 steps in the term or in tactic lines) does not help: 5.0 to 7.7 s
+at 4,000 pairs. `And.right` takes the two sides as implicit arguments
+however it is written, and each step is given what is left of the
+conjunction as one of them; which part of the elaborator walks it was not
+profiled. What helps is a type that is not written out: with the
+conjunction defined in chunks, the same projection takes 1.3 s at 4,000
+pairs and 5.1 s at 22,000.
+
+So a conjunction of more than 256 operands (`_CHUNKED_OPERANDS`: an `and`,
+or the pairs of a `distinct` over terms or over Booleans, that is 24
+arguments or more) is defined in chunks of 32 operands
+(`_formula_definitions`): `formula_N_ck` holds operands 32k to 32k + 31 and
+then the next chunk by its name, the first chunk being `formula_N` itself.
+Unfolded, the chunks are the conjunction as it was written before, so every
+statement about it holds as before, and wherever a tactic unfolds
+`formula_N` it unfolds the chunks after it (`_formula_names`). One theorem
+per chunk, `formula_N_tk : formula_N -> formula_N_ck`, is 32 projections of
+the theorem before it, and the propositional prover of the cnf and theory
+lemmas reaches an operand through them (`_structure_names`,
+`_PropositionalProver._tails` and the refutation of a conjunction from one
+conjunct): at most 31 projections from a chunk whose type is 32 operands
+and a name. and-elim needs no change: the tails it binds every 32 operands
+are the chunks. No trust setting, limit, or axiom changes: the chunks are
+definitions, the theorems are proved by projections, and Lean's kernel
+checks all of it as before.
+
+Measured on 2026-11-16, before (the exporter of fork master `9d3e01240`)
+and after, both through `proof_to_lean.write_modules` and
+`scripts/check_lean.sh` (wall time, largest resident size of one `lean`
+process). The benchmark files are those of z3test's `smtlib-sample` whose
+Lean text defines a conjunction above the limit (a scan of the 129 texts
+of at most 30 MB, and sokoban):
+
+| input | before | after |
+| --- | --- | --- |
+| QF_UF `sokoban.3.prop1_ab_br_max` (a distinct over 209 constants, 21,736 pairs) | 40.11 MB in 44 modules, FAILS in its sixth module (`whnf` out of heartbeats), 81.2 s, 1.57 GB; Lean text written in 10.9 s | 8.52 MB in 9 modules, verifies, 213.0 s, 5.11 GB; Lean text written in 5.5 s |
+| QF_IDL `parity/24.100.graph` (an `and` of 2,942 operands) | 1.21 MB, verifies, 9.1 s, 1.21 GB | 1.24 MB, verifies, 3.9 s, 0.99 GB |
+| QF_LIA `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` (2,009 operands) | 1.49 MB, verifies, 32.5 s, 3.20 GB | 1.51 MB, verifies, 10.6 s, 2.61 GB |
+| QF_LIA `bofill-scheduling/SMT_real_LIA/ex2360_2400_100` (1,537 operands) | 1.75 MB, verifies, 40.9 s, 3.79 GB | 1.77 MB, verifies, 14.9 s, 3.18 GB |
+| QF_UF `NEQ/NEQ004_size4` (338 operands) | 10.13 MB in 11 modules, verifies, 46.6 s, 1.03 GB | 10.14 MB in 11 modules, verifies, 38.6 s, 1.01 GB |
+| distinct over 209 constants refuted from single pairs (the reduced sokoban, `distinct_through_ites`) | 1.76 MB, FAILS (`whnf` out of heartbeats), 37.5 s, 1.68 GB | 1.53 MB, verifies, 4.0 s, 0.98 GB |
+| the same over 100 constants | 13.6 s, 0.84 GB | 1.3 s, 0.54 GB |
+| `(or p (and b1 ... bn))` refuted from its last operand (`guarded_conjunction`), n = 2,000, 4,000, 8,000, 16,000 | 1.9, 5.1, 17.6 s (1.23 GB), FAILS (`whnf` out of heartbeats, 33.5 s) | 1.0, 1.6, 3.2, 7.5 s (1.28 GB) |
+| and-elim of the last operands of `(and b1 ... bn)` (`last_operands_conjunction`), n = 2,000, 4,000, 8,000 | 1.6, 5.6 s, FAILS (`isDefEq` out of heartbeats, 7.4 s) | 1.0, 1.7, 3.2 s (0.90 GB) |
+| a true distinct over 50, 100, 150 constants in one cnf lemma (`distinct_with_equalities`) | 1.0, 8.2, 49.8 s (2.77 GB) | 0.7, 1.3, 2.3 s (0.70 GB) |
+| the same over 190 constants (17,955 pairs) | FAILS (`grind` over the unfolded pairs), 50.6 s, 2.84 GB | FAILS the same way, 74.6 s, 5.10 GB |
+
+Sokoban's export is otherwise unchanged (solve 0.7 s, trim 1.2 s, replay
+33.2 s). The texts of the four files that verified before grow by 0.04 to
+2.7% (the chunk names and theorems); Lean takes 17 to 67% less time on them.
+
+Tests: `examples/python/test_proof_to_lean_wide.py`
+(`TestChunkedConjunctionDefinitions`, `TestChunkedConjunctionsClauseLog`;
+the 16,000-operand conjunction and the 8,000-operand and-elim are slow
+tests). They include the chunks of a term and of a Boolean distinct
+unfolding to its pairs in order, and a distinct and the conjunction of its
+pairs written out meeting as one structure in one lemma, which must take
+the tail theorems of the definition that names it.
+
+Still open:
+
+- Sokoban's remaining time is one module of nine, 177.6 of the 213 s: eight
+  outlined proof-step lemmas of about 345 steps and 43 kB each (a profile
+  of the module on 2026-11-15: elaboration 9.6 to 14.4 s, type checking
+  1.3 to 1.5 s, and pre-definitions 1.6 to 2.2 s apiece). They do not
+  mention the distinct; each takes about 75 projections out of `Inputs`,
+  the balanced conjunction of the file's 7,643 assertions. Not traced
+  further. Its replay is 33 of the 42 s of its export.
+- A true conjunction of 17,955 operands in a cnf lemma (the last row
+  above): the prover states every operand before it prunes the ones it did
+  not use, 1.44 million characters against its budget of 1 million
+  (`_STRUCTURAL_REWRITE_CHARS`; 17,965 of 20,000 steps), and gives up; the
+  lemma then rests on `grind` over the unfolded pairs, which fails as it
+  did before. The failure now takes 24 s and 2.3 GB more: `unfold` takes
+  the 561 chunk names one at a time, a pass over the goal each. Measured
+  on hand-written conjunctions of 2,000, 4,000, and 8,000 atoms, a file
+  that only unfolds one takes 0.6, 0.8, 1.2 s written out and 0.8, 1.6,
+  5.5 s in chunks; with one `delta` over the chunk names instead, 1.0 s at
+  8,000 and 1.7 s at 16,000 (not adopted here: every `unfold` the exporter
+  writes would have to be split). A lemma that verifies only by its
+  unfolded fallback pays this, under a second below about 4,000 operands;
+  the four files above that verified before all take less time.
+- `_negated_distinct_rewrite`, `_distinct_gate_contradiction`, and
+  `_boolean_distinct_facts` still step through the conjunction written
+  out; no input at this width was measured for them.
 
 ### Certificates above 8 MB of Lean are checked as a chain of modules (2026-11-14)
 
@@ -1900,6 +2002,8 @@ Still open:
   through one term of 21,735 nested `mt (@And.right _ _)`, and the first of
   them runs out of 1,000,000 heartbeats at `whnf`. As a chain that is
   reported after 85 s; the size of the text was never the obstacle.
+  (2026-11-16: verifies, 8.5 MB in 9 modules, see "Wide conjunctions are
+  defined in chunks".)
 - Not measured as chains: QF_UF `gensys_icl565`, `icl551`, `brn805`,
   `brn420`, `icl766` (125 to 177 MB; at the 3.8 s per MB of the six
   measured `gensys_*` files, 8 to 11 minutes each) and QF_AUFLIA

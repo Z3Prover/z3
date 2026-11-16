@@ -785,6 +785,18 @@ or a solver call. The case count is exponential in a rewrite's atom count;
 large rewrites can exceed Lean's normal resource limits and fail without
 publishing a proof.
 
+A conjunction of more than 256 operands (an and, or the pairs of a distinct:
+24 arguments or more) is defined in chunks (since 2026-11-16): formula_N holds
+its first 32 operands and then formula_N_c1, which holds the next 32 and then
+formula_N_c2, and so on, and theorem formula_N_tk proves chunk k from
+formula_N. Unfolded, the chunks are the conjunction written out; the proofs
+reach an operand through the chunk's theorem, so that no step works over a
+type longer than a chunk. Lean's time for a projection out of a conjunction
+written out grows with what is left of the conjunction: z3test's QF_UF
+sokoban.3.prop1_ab_br_max, whose 71 lemmas each refute a distinct over 209
+constants (21,736 pairs) from one pair, went from 40.1 MB of Lean that ran out
+of heartbeats to 8.5 MB that verifies.
+
 Arithmetic in Lean
 ------------------
 

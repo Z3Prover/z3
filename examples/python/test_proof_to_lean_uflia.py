@@ -1367,12 +1367,21 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertIn(" / ", text)
                     self.assertIn(" % ", text)
                 if name == "uflia_root_ite_gates":
-                    # Theory lemmas may be premise-free or restate a held bound
-                    # in their own normal form.
+                    # The first live (_ th-lemma smt) steps: theory_lra
+                    # restates a held bound in its own normal form
+                    # ((>= (+ (* -1 (cnt 1)) (* 1 (cnt 0))) -1) from the
+                    # premise (>= (+ (cnt 0) (* -1 (cnt 1))) -1)), one
+                    # premise each, which grind proves as the implication.
+                    # Since upstream #11698 (the rewriter leaves an equality
+                    # between sums as written) it also restates a bound of
+                    # the numeral 1, (<= (* 1 1) 1), from no premise: a
+                    # closed fact that Lean proves like the others. Every
+                    # premise is an arithmetic atom (upstream #11731).
                     graph = proof_to_lean._validate_graph(source, certificate)
                     smt = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("smt",)]
-                    self.assertTrue(smt)
+                    self.assertTrue(any(len(graph.arguments(node)) == 2 for node in smt))
                     for node in smt:
+                        self.assertIn(len(graph.arguments(node)), (1, 2))
                         for premise in graph.arguments(node)[:-1]:
                             proof_to_lean._atom_constraint(graph, graph.conclusion(premise))
                         self.assertTrue(graph.is_arith(graph.arguments(graph.conclusion(node))[0]))

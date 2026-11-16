@@ -150,6 +150,19 @@ _NESTED_STEP_DEPTH = 32
 # once every _AND_ELIM_STRIDE operands (_tail_lets) and a projection starts
 # from the nearest such tail.
 _AND_ELIM_STRIDE = 32
+# A conjunction of more operands than this (an and, the pairs of a distinct)
+# is defined in chunks of _AND_ELIM_STRIDE operands, each chunk a definition
+# ending in the next one's name, with a theorem per chunk that projects it
+# from the conjunction (_formula_definitions). Unfolded, the chunks are the
+# same right-nested conjunction. As measured, a projection out of a
+# conjunction written out costs Lean's elaborator the size of what is left
+# of the conjunction, however the projection is spelled (And.right takes the
+# two sides as implicit arguments): reaching operand k of n by k steps took
+# time k * n (13 s for the last of 4,000 pairs), and each of the 71 lemmas
+# refuting the 21,736 pairs of a distinct over 209 constants from one pair
+# (QF_UF sokoban) ran out of heartbeats. Through the chunks' theorems a
+# projection passes at most a chunk, whose type is a chunk long.
+_CHUNKED_OPERANDS = 256
 _NORMALIZED_REWRITE_ATOMS = 16
 # Condition leaves (Boolean variables and linear atoms) an ite term of a
 # normalized rewrite may have to be keyed by its value table, which has one
@@ -1563,6 +1576,20 @@ class _Graph:
                        and self.is_term(self.arguments(node)[0]))
 
     @functools.cached_property
+    def wide_conjunctions(self):
+        """The number of operands of every conjunction defined in chunks (_CHUNKED_OPERANDS), by node."""
+        wide = {}
+        for node in range(len(self.nodes)):
+            count = len(self.arguments(node))
+            if self.kind(node) == z3.Z3_OP_DISTINCT:
+                count = count * (count - 1) // 2  # its pairs, as _conjuncts renders them
+            elif self.kind(node) != z3.Z3_OP_AND:
+                continue
+            if count > _CHUNKED_OPERANDS:
+                wide[node] = count
+        return wide
+
+    @functools.cached_property
     def integer_products(self):
         """Whether some Int node is a product of two or more nonconstant factors (_is_product)."""
         return any(self.decl(node).range == "Int" and _is_product(self, node) for node in range(len(self.nodes)))
@@ -2706,6 +2733,8 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
     arguments = graph.arguments(node)
+    if kind in (z3.Z3_OP_AND, z3.Z3_OP_DISTINCT):
+        return _fold("And", _conjuncts(graph, node, term, formula), "True")
     if kind == z3.Z3_OP_DT_IS:
         # SMT-LIB's recognizer of a nullary constructor c: (= t c).
         return "(%s = _m.ctors %d)" % (term(arguments[0]),
@@ -2730,10 +2759,6 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         if kind == z3.Z3_OP_SET_SUBSET:
             # Every member of the first set is one of the second (_SUBSET_DEFINITION).
             return "(_subset %s %s)" % tuple(args)
-        if kind == z3.Z3_OP_DISTINCT:
-            pairs = ["(Not (%s = %s))" % (left, right)
-                     for index, left in enumerate(args) for right in args[index + 1:]]
-            return _fold("And", pairs, "True")
         raise ReconstructionError("unsupported arithmetic atom")
     if kind in _PSEUDO_BOOLEAN:
         return _pseudo_boolean_body(graph, node, formula)
@@ -2746,8 +2771,6 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         return "False"
     if kind == z3.Z3_OP_NOT:
         return "(Not %s)" % args[0]
-    if kind == z3.Z3_OP_AND:
-        return _fold("And", args, "True")
     if kind == z3.Z3_OP_OR:
         return _fold("Or", args, "False")
     if kind == z3.Z3_OP_IMPLIES:
@@ -2765,11 +2788,66 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         return "(Or (And %s (Not %s)) (And (Not %s) %s))" % (args[0], args[1], args[0], args[1])
     if kind == z3.Z3_OP_ITE:
         return "(Or (And %s %s) (And (Not %s) %s))" % (args[0], args[1], args[0], args[2])
-    if kind == z3.Z3_OP_DISTINCT:
-        pairs = ["(Not (Iff %s %s))" % (left, right)
-                 for index, left in enumerate(args) for right in args[index + 1:]]
-        return _fold("And", pairs, "True")
     raise ReconstructionError("unsupported Boolean expression")
+
+
+def _conjuncts(graph, node, term, formula):
+    """The rendered operands of the conjunction an and or a distinct node is: the arguments, or the pairs.
+
+    The pairs of a distinct are in the order of the first argument, then
+    the second: over terms the negated equalities, over Booleans the
+    negated equivalences.
+    """
+    arguments = graph.arguments(node)
+    if graph.kind(node) == z3.Z3_OP_AND:
+        return [formula(arg) for arg in arguments]
+    if arguments and graph.is_term(arguments[0]):
+        args, pair = [term(arg) for arg in arguments], "(Not (%s = %s))"
+    else:
+        args, pair = [formula(arg) for arg in arguments], "(Not (Iff %s %s))"
+    return [pair % (left, right) for index, left in enumerate(args) for right in args[index + 1:]]
+
+
+def _formula_names(graph, node):
+    """The definitions a Bool node unfolds through: its own, then the chunks of a wide conjunction."""
+    count = graph.wide_conjunctions.get(node, 0)
+    return ["formula_%d" % node] + ["formula_%d_c%d" % (node, chunk)
+                                    for chunk in range(1, (count + _AND_ELIM_STRIDE - 1) // _AND_ELIM_STRIDE)]
+
+
+def _chunk_tail(graph, node):
+    """The format of a wide conjunction's tail from operand chunk * _AND_ELIM_STRIDE on: (chunk, the proof)."""
+    return "(formula_%d_t%%d _atoms%s %%s)" % (node, graph.valuation)
+
+
+def _formula_definitions(graph, node, signature, atom_indices):
+    """The definition of a Bool node; a wide conjunction (graph.wide_conjunctions) is defined in chunks.
+
+    Chunk k is formula_N_ck: _AND_ELIM_STRIDE operands and then the next
+    chunk by its name, the first chunk being formula_N itself, so the
+    definitions unfold (_formula_names) to the conjunction written out and
+    whatever is stated of that still holds. Theorem formula_N_tk proves
+    chunk k from formula_N by _AND_ELIM_STRIDE projections of chunk k - 1,
+    so all of them are linear in the conjunction, and a proof reaches
+    operand i in less than a chunk's projections from formula_N_t(i //
+    _AND_ELIM_STRIDE) (_chunk_tail), over types a chunk long: see
+    _CHUNKED_OPERANDS.
+    """
+    if node not in graph.wide_conjunctions:
+        return ["def formula_%d %s : Prop := %s" % (node, signature, _formula_body(graph, node, atom_indices))]
+    operands = _conjuncts(graph, node, lambda child: _term(graph, child), lambda child: _formula(graph, child))
+    names = _formula_names(graph, node)
+    applied = ["(%s _atoms%s)" % (name, graph.valuation) for name in names]
+    lines = []
+    for chunk in reversed(range(len(names))):  # a chunk's definition names the next one
+        parts = operands[chunk * _AND_ELIM_STRIDE:(chunk + 1) * _AND_ELIM_STRIDE] + applied[chunk + 1:chunk + 2]
+        lines.append("def %s %s : Prop := %s" % (names[chunk], signature, _fold("And", parts, "True")))
+    tail = _chunk_tail(graph, node)
+    for chunk in range(1, len(names)):
+        lines.append("theorem formula_%d_t%d %s (_h : %s) : %s := %s%s" % (
+            node, chunk, signature, applied[0], applied[chunk],
+            "_h" if chunk == 1 else tail % (chunk - 1, "_h"), ".2" * _AND_ELIM_STRIDE))
+    return lines
 
 
 def _pseudo_boolean_literal(graph, node):
@@ -4288,8 +4366,8 @@ def _definition_names(graph, nodes, roots=None):
                 visible.add(node)
                 pending.extend(graph.arguments(node))
         nodes = visible
-    return ["%s_%d" % ("term" if graph.is_term(formula) else "formula", formula)
-            for formula in sorted(nodes, reverse=True)]
+    return [name for formula in sorted(nodes, reverse=True)
+            for name in (["term_%d" % formula] if graph.is_term(formula) else _formula_names(graph, formula))]
 
 
 def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments=False, array_facts=()):
@@ -7364,7 +7442,9 @@ class _PropositionalProver:
     case and a bullet each, `exact`; see _prove) and every and, or, implies
     and iff structure has a name: the caller's (`names`, the definitions of
     the nodes the structures were read from, see _structure_names) or,
-    without, a tactic `let` (`_bindings`, children first). Propositions are
+    without, a tactic `let` (`_bindings`, children first). With the names
+    come `tails`: the theorems that project the operands of the named
+    conjunctions defined in chunks (_formula_definitions). Propositions are
     stated over the names, so a step costs a few names however deep or wide
     the gates are; with the propositions written out at every step, a chain
     through a nested gate was quadratic in the gate, and the 74-way
@@ -7404,10 +7484,12 @@ class _PropositionalProver:
     clause as a whole (sweep): classical mode, over the caller's names.
     """
 
-    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None, budget=1, joined=None,
-                 scope=None):
+    def __init__(self, *roots, classical=False, names=None, tails=None, links=False, relevant=None, budget=1,
+                 joined=None, scope=None):
         if (relevant is not None or joined is not None) and not classical:
             raise ValueError("a relevant set splits gates by Classical.em, so it needs classical mode")
+        if tails and names is None:
+            raise ValueError("the tail theorems are those of the caller's names")
         self.relevant = relevant
         self.inputs = (None, None)  # a relevant set and the operands of its gates (_frontier)
         self.budget = budget
@@ -7416,6 +7498,8 @@ class _PropositionalProver:
         self.parents = {}
         self.order = []  # every structure, children before parents
         self.named = {}  # the and, or, implies and iff structures by their names
+        # The conjunctions defined in chunks, with their tail theorems (_structure_names).
+        self.tails = tails or {}
         self.bound = []  # the named structures bound by a tactic `let`, in order
         self.needed = set()
         self.names = set()
@@ -8356,7 +8440,7 @@ class _PropositionalProver:
                     return conflict
         return None
 
-    def _tails(self, lines, proof, last):
+    def _tails(self, lines, structure, proof, last):
         """Bind the rest of a true conjunction from every _AND_ELIM_STRIDE-th operand on, up to operand last.
 
         As _tail_lets does for and-elim: each tail projects from the one
@@ -8365,8 +8449,14 @@ class _PropositionalProver:
         proof itself, the conjuncts of a 400-operand assertion (a cnf lemma
         of QF_UF NEQ004) took 80,000 projections, longer in Lean than grind
         over the whole unfolded assertion. Returns the tail names by base.
+        The tails of a conjunction defined in chunks are its tail theorems
+        applied to the proof, with nothing to bind.
         """
         tails = {0: proof}
+        if structure in self.tails:
+            for base in range(_AND_ELIM_STRIDE, last + 1, _AND_ELIM_STRIDE):
+                tails[base] = self.tails[structure] % (base // _AND_ELIM_STRIDE, proof)
+            return tails
         for base in range(_AND_ELIM_STRIDE, last + 1, _AND_ELIM_STRIDE):
             tails[base] = self.name()
             line = "have %s := %s%s" % (tails[base], tails[base - _AND_ELIM_STRIDE], ".2" * _AND_ELIM_STRIDE)
@@ -8432,7 +8522,7 @@ class _PropositionalProver:
                 # here keeps a conjunction of n operands from building its n
                 # projections each time one of them is assigned (cubic in n).
                 positions = [i for i in range(count) if truths[i] is not True]
-                tails = self._tails(lines, value[1], positions[-1]) if positions else {}
+                tails = self._tails(lines, structure, value[1], positions[-1]) if positions else {}
                 for i in positions:
                     base = i // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
                     add(children[i], True, _select(i - base, count - base, tails[base]), typed=False)
@@ -8444,7 +8534,14 @@ class _PropositionalProver:
                                                   _fold("And.intro", parts, "True.intro")), typed=False)
             if False in truths:
                 position = truths.index(False)
-                add(structure, False, _reject_conjunct(position, count, proofs[position]))
+                if structure in self.tails:
+                    # Defined in chunks: the conjunct projected from the chunk's tail theorem.
+                    base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
+                    tail = self.tails[structure] % (base // _AND_ELIM_STRIDE, "_conj") if base else "_conj"
+                    add(structure, False, "(fun (_conj : %s) => %s %s)" % (
+                        self._render(structure), proofs[position], _select(position - base, count - base, tail)))
+                else:
+                    add(structure, False, _reject_conjunct(position, count, proofs[position]))
             elif None not in truths:
                 add(structure, True, _fold("And.intro", proofs, "True.intro"), typed=False)
         elif kind == "or":
@@ -8542,17 +8639,26 @@ def _structure_names(graph, memo):
     and no `unfold` expands them in the goal: a cnf lemma over a 13,000-node
     assertion (QF_IDL BubbleSort) spent its heartbeats unfolding the 13,000
     definitions one at a time. Two nodes reading alike share a structure;
-    either definition names it.
+    either definition names it. Returned as the prover's keyword arguments:
+    `names`, and `tails`, the conjunctions among them that are defined in
+    chunks, with the format of their tail theorems (_chunk_tail), from
+    which the prover projects their operands.
     """
-    return {structure: _formula(graph, node) for node, structure in memo.items()
-            if structure[0] in ("and", "or", "implies", "iff")}
+    names, tails = {}, {}
+    for node, structure in memo.items():
+        if structure[0] in ("and", "or", "implies", "iff"):
+            names[structure] = _formula(graph, node)
+            tails.pop(structure, None)  # of the node that names it, not of another reading alike
+            if structure[0] == "and" and graph.wide_conjunctions.get(node) == len(structure) - 1:
+                tails[structure] = _chunk_tail(graph, node)
+    return {"names": names, "tails": tails}
 
 
 def _structural_equivalence(graph, left, right, atom_indices):
     """Tactic lines proving the Boolean equivalence of two formulas, with the atoms it needs decidable."""
     memo = {}
     left, right = (_boolean_structure(graph, side, atom_indices, memo) for side in (left, right))
-    prover = _PropositionalProver(left, right, names=_structure_names(graph, memo))
+    prover = _PropositionalProver(left, right, **_structure_names(graph, memo))
     return prover.equivalence(left, right), sorted(prover.needed)
 
 
@@ -8692,7 +8798,7 @@ def _cnf_refutation(graph, memo, structure, bridges, budget=1, sweep=None):
     facts = [("not", structure)] + [bridge for bridge, _ in bridges]
     relevant, order = None, None
     while True:
-        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant,
+        prover = _PropositionalProver(*facts, classical=True, **_structure_names(graph, memo), relevant=relevant,
                                       budget=budget)
         order = order or prover.order
         names = [prover.name() for _ in bridges]
@@ -8718,7 +8824,7 @@ def _cnf_refutation(graph, memo, structure, bridges, budget=1, sweep=None):
     allowed = _SWEEP_CHARS - sum(chars for node, chars in graph.swept.items() if node != sweep)
     scope = ("th_lemma_%d" % sweep, " _atoms" + graph.valuation)
     binder = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
-    prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), budget=budget,
+    prover = _PropositionalProver(*facts, classical=True, **_structure_names(graph, memo), budget=budget,
                                   joined=[bridge for bridge, _ in bridges], scope=scope)
     stated = ["(%s_b%d%s)" % (scope[0], position, scope[1]) for position in range(len(bridges))]
     found = prover.sweep(("not", structure), [(bridge, name) for (bridge, _), name in zip(bridges, stated)],
@@ -9106,7 +9212,8 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
         lines.extend("  " + line for line in proof)
         term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
         return lines, atoms, term
-    lines.append("  unfold " + " ".join("formula_%d" % formula for formula in sorted(reachable, reverse=True)))
+    lines.append("  unfold " + " ".join(name for formula in sorted(reachable, reverse=True)
+                                        for name in _formula_names(graph, formula)))
     for atom in atoms:
         lines.extend([
             "  all_goals",
@@ -9150,7 +9257,7 @@ def _leaf_equivalence(graph, left, right, atom_indices):
         return None
     if len(leaves) <= _NORMALIZED_REWRITE_ATOMS:
         return None
-    prover = _PropositionalProver(*sides, classical=True, names=_structure_names(graph, memo), links=True)
+    prover = _PropositionalProver(*sides, classical=True, **_structure_names(graph, memo), links=True)
     return prover.equivalence(*sides)
 
 
@@ -9191,7 +9298,8 @@ def _negated_distinct_rewrite(graph, node, left, right):
     conclusion = graph.conclusion(node)
     lines = ["", "private theorem rewrite_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
              "    : %s := by" % _formula(graph, conclusion),
-             "  unfold %s" % " ".join("formula_%d" % formula for formula in (conclusion, left, distinct, right))]
+             "  unfold %s" % " ".join(name for formula in (conclusion, left, distinct, right)
+                                      for name in _formula_names(graph, formula))]
     lines.extend("  refine Iff.trans Classical.not_and_iff_not_or_not (or_congr %s ?_)" % congruence
                  for congruence in congruences[:-1])
     lines.append("  exact %s" % congruences[-1])
@@ -9607,8 +9715,9 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
         ] + tactic)
         lines.append("  have %s : %s <-> %s := normalized_atom_%d_%d _atoms%s" % (
             rewrite, _formula(graph, atom), target, node, atom, graph.valuation))
-    definitions = ["formula_%d" % formula for formula in sorted(reachable, reverse=True)
-                   if not graph.is_arith(formula) and formula not in atoms]
+    definitions = [name for formula in sorted(reachable, reverse=True)
+                   if not graph.is_arith(formula) and formula not in atoms
+                   for name in _formula_names(graph, formula)]
     names = list(canonical.values())
     structures = {}
 
@@ -11084,8 +11193,7 @@ def reconstruct(source, certificate):
             if node in quotients:
                 definitions.append(_quotient_theorem(graph, node, signature))
         elif graph.decl(node).range == "Bool":
-            definitions.append("def formula_%d %s : Prop := %s" % (
-                node, signature, _formula_body(graph, node, atom_indices)))
+            definitions.extend(_formula_definitions(graph, node, signature, atom_indices))
     if graph.generic:
         lines.extend(_generic_index_definitions(graph, signature) + late)
     rewrites, def_axioms, th_lemmas, decidable_atoms, decidable_formulas = {}, {}, {}, set(), set()
