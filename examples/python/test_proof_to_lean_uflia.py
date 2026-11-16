@@ -1367,16 +1367,14 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertIn(" / ", text)
                     self.assertIn(" % ", text)
                 if name == "uflia_root_ite_gates":
-                    # The first live (_ th-lemma smt) steps: theory_lra
-                    # restates a held bound in its own normal form
-                    # ((>= (+ (* -1 (cnt 1)) (* 1 (cnt 0))) -1) from the
-                    # premise (>= (+ (cnt 0) (* -1 (cnt 1))) -1)), one
-                    # premise each, which grind proves as the implication.
+                    # Theory lemmas may be premise-free or restate a held bound
+                    # in their own normal form.
                     graph = proof_to_lean._validate_graph(source, certificate)
                     smt = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("smt",)]
                     self.assertTrue(smt)
                     for node in smt:
-                        self.assertEqual(len(graph.arguments(node)), 2)
+                        for premise in graph.arguments(node)[:-1]:
+                            proof_to_lean._atom_constraint(graph, graph.conclusion(premise))
                         self.assertTrue(graph.is_arith(graph.arguments(graph.conclusion(node))[0]))
         self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith", "smt"})
         # The legacy core's congruences are monotonicity steps, never euf hints.

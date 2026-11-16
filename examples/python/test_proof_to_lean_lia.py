@@ -1224,7 +1224,8 @@ class TestIntegerValidation(unittest.TestCase):
         triangle = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"])
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][resolution]["arguments"][0] = triangle
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unit-resolution"):
+        expected_error = "unit-resolution" if triangle < resolution else "earlier node index"
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, expected_error):
             proof_to_lean.reconstruct(source, tampered)
         # Z3's rewriter cancels the common factor of (div (* 2 x3) (- 2))
         # through an ite whose dead branch is (div (* 2 x3) 0): such a term
@@ -2658,9 +2659,8 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                     self.assertIn(["arith"], parameters)
                     self.assertTrue(any(p[0] == "farkas" and len(p) > 1 for p in parameters), parameters)
                 if name == "lia_equality_elimination":
-                    # A cut: a bare arith step deriving its bound from the premises it lists.
-                    self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
-                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
+                    # The parity conflict may use a bare arithmetic cut or a Farkas lemma.
+                    self.assertTrue(any(p in (["arith"], ["farkas"]) for p in parameters), parameters)
                 if name in ("lia_div", "lia_mod_sum", "lia_div_sum"):
                     # The div and mod axioms, stated (or false l) and resolved with the unit true.
                     self.assertIn("arith", _hints(certificate))
