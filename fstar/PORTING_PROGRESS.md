@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T09:21:47-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T09:35:36-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -63,6 +63,29 @@ Observed proofs: **10906 ACCEPT / 348 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver U
 
 State: **complete**. Per-case evidence and pins: session `files\multiple-zero-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
+
+## Last 10 incremental improvements
+
+Refresh this rolling timeline on every dashboard update; retain existing rows
+when no new improvement has been measured. Times are evidence-file completion
+or last-modified times in PST. Counts are for the specified frozen proofs, not
+whole cohorts; overlapping candidate gains must not be added.
+
+| Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
+| --- | --- | --- | --- |
+| Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
+| Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
+| Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
+| Nov 15 23:39 | Nonnegative product draft, same Math.Exp proof; superseded by combined product replay | `arith/lp-monomial-interval` +2 / 2 PENDING | `real-nonnegative-math-exp-01.json` |
+| Nov 15 23:29 | Generic-array draft, sample, 11 proofs; **not retained** | Root PENDING: `th-lemma` +681 / 0; `rewrite` +7 / 36; 4 proofs promoted. Paired median time ratio 1.96 | `generic-array-sample-weighted-01.json`, `generic-array-sample-subset-timing-01.json` |
+| Nov 15 18:27 | Larger Real equations, fstar-build, 147 proofs | `rewrite` +2 / 0 PENDING; 2 proofs promoted | `large-real-compare-02.json` |
+| Nov 15 17:52 | Arithmetic bounds rewrites, sample, 11 proofs | `rewrite` +996 / 43 PENDING; 1 proof promoted | `bounds-sample-01.json` |
+| Nov 15 15:41 | Integer cuts, sample, ring proof | `th-lemma` +15 / 0 PENDING; 28 other obligations remain | `integer-cut-sample-02.json` |
+| Nov 15 14:11 | Existential DER, sample, 1 proof | `der` +1 / 0 PENDING; proof promoted | `existential-der-measure-01.json` |
+| Nov 15 12:58 | Cached Skolem replay, fstar-build, 147 proofs | Verdicts unchanged; single replay 129.081 → 120.373 s, not paired timing | `skolem-cached-frozen-01.json` |
+
+Array root certification may discharge obligations without independently
+certifying each original entry. Evidence files contain checker and proof pins.
 
 ## Burn-down: identical frozen proofs
 
