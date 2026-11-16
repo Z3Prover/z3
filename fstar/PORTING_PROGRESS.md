@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T15:07:09-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T15:53:00-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -73,6 +73,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
 | Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
@@ -82,7 +83,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 15 23:39 | Nonnegative product draft, same Math.Exp proof; superseded by combined product replay | `arith/lp-monomial-interval` +2 / 2 PENDING | `real-nonnegative-math-exp-01.json` |
 | Nov 15 23:29 | Generic-array draft, sample, 11 proofs; **not retained** | Root PENDING: `th-lemma` +681 / 0; `rewrite` +7 / 36; 4 proofs promoted. Paired median time ratio 1.96 | `generic-array-sample-weighted-01.json`, `generic-array-sample-subset-timing-01.json` |
 | Nov 15 18:27 | Larger Real equations, fstar-build, 147 proofs | `rewrite` +2 / 0 PENDING; 2 proofs promoted | `large-real-compare-02.json` |
-| Nov 15 17:52 | Arithmetic bounds rewrites, sample, 11 proofs | `rewrite` +996 / 43 PENDING; 1 proof promoted | `bounds-sample-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -98,6 +98,7 @@ certifying each original entry. Evidence files contain checker and proof pins.
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `th-lemma` | 7 | 2 | 5 |
 | fstar-build, UInt128, 1 proof | `98ecf978a307` → `a0ca7df92173` | `th-lemma` | 199 | 63 | 136 |
 | smtlib-sample, 11 proofs | `a0ca7df92173` → `79de3a41dcdb` | `apply-def` | 80 | 80 | 0 |
+| smtlib-sample, 11 proofs | `79de3a41dcdb` → `2671dc150931` | `rewrite` | 43 | 7 | 36 |
 | smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `th-lemma` | 681 | 681 | 0 |
 | smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `rewrite` | 43 | 7 | 36 |
 
@@ -106,7 +107,8 @@ These are subset results, not full-cohort burn-downs. Evidence: session
 `files\real-division-checkout-math-exp-01.json`,
 `files\real-division-checkout-cancellable-01.json`,
 `files\multiple-zero-extended-02.json`, `files\int-quotient-uint128-01.json`,
-`files\array-prefilter-weighted-01.json`, `files\conditional-weighted-01.json`.
+`files\array-prefilter-weighted-01.json`, `files\conditional-weighted-01.json`,
+`files\ite-add-weighted-02.json`.
 
 ## Matched acceptance and timing
 
@@ -118,6 +120,7 @@ These are subset results, not full-cohort burn-downs. Evidence: session
 | smtlib-sample | retained `38203471c053` | 11 | 1 | 10 |
 | smtlib-sample | multi-zero `98ecf978a307` | 11 | 1 | 10 |
 | smtlib-sample | array draft `bac3ba06e1c1` | 11 | 5 | 6 |
+| smtlib-sample | ITE/add `2671dc150931` | 11 | 1 | 10 |
 
 Five alternating pairs gave multi-zero/retained median time ratios of **1.030**
 on the extended proof and **1.004** over five sample proofs. These subsets do
@@ -142,6 +145,13 @@ eliminated their 80 weighted `apply-def` obligations. Five alternating pairs
 on seven frozen sample proofs gave a median per-proof candidate/retained time
 ratio of **1.014**; this does not establish cohort performance. Evidence:
 `files\conditional-weighted-01.json`, `files\conditional-sample-timing-01.json`.
+
+Int ITE/add factoring eliminated seven weighted `rewrite` obligations on the
+frozen QF_LIA ring proof, which remains PARTIAL with four `intro-def`
+obligations. Five alternating pairs on seven frozen sample proofs gave a
+median candidate/retained time ratio of **0.982** (ring **0.951**). Evidence:
+`files\ite-add-sample-02.json`, `files\ite-add-weighted-02.json`,
+`files\ite-add-sample-timing-02.json`.
 
 ## Current work
 

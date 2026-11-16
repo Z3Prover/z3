@@ -9,6 +9,7 @@ module RB = Z3IndependentRealBounds
 module RDC = Z3IndependentRealDivisionClause
 module IQ = Z3IndependentIntQuotientClause
 module CD = Z3IndependentConditionalDefinition
+module IA = Z3IndependentIteAdd
 
 let require value message = if not value then failwith message
 let schema = { S.sorts = []; cases = [] }
@@ -21,6 +22,36 @@ let comparison sort name tag a b =
 let conjunction a b =
   A.App ({ A.decl_name = "and"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
            interp = Some T.op_and; int_params = [] }, [a; b])
+
+let test_ite_add () =
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let c = variable A.bool_sort "c" and d = variable A.bool_sort "d" in
+  let x = variable int_sort "x" and y = variable int_sort "y" in
+  let k = variable int_sort "k" and other = variable int_sort "other" in
+  let ite c x y =
+    A.App ({ A.decl_name = "if"; domain = [A.bool_sort; int_sort; int_sort];
+             range = int_sort; interp = Some T.op_ite; int_params = [] }, [c; x; y]) in
+  let plus x y =
+    A.App ({ A.decl_name = "+"; domain = [int_sort; int_sort]; range = int_sort;
+             interp = Some T.op_arith_add; int_params = [] }, [x; y]) in
+  let num n =
+    A.App ({ A.decl_name = "num"; domain = []; range = int_sort;
+             interp = Some T.op_num_rational; int_params = [Z.of_int n; Z.one] }, []) in
+  let lhs = ite c (ite d (plus x k) (plus y k)) k in
+  let rhs = plus (ite c (ite d x y) (num 0)) k in
+  require (IA.check lhs rhs) "valid ITE factoring was rejected";
+  let node = { U.kind = U.RewriteRule; conclusion = U.Equal (plus lhs other, plus rhs other);
+               premises = [] } in
+  require (match SP.check_node_cached schema [] node with
+    | Some (_, pending) -> Z.equal pending Z.zero
+    | None -> false) "nested ITE factoring remained pending";
+  List.iter (fun candidate ->
+    require (not (IA.check lhs candidate)) "invalid ITE factoring was accepted")
+    [plus (ite d (ite d x y) (num 0)) k;
+     plus (ite c (ite c x y) (num 0)) k;
+     plus (ite c (ite d y x) (num 0)) k;
+     plus (ite c (ite d x y) (num 1)) k;
+     plus (ite c (ite d x y) (num 0)) other]
 
 let test_conditional_definition () =
   let int_sort = A.SortApp (A.IntSymbol, []) in
@@ -97,6 +128,7 @@ let test sort check recognizes =
      node (R.mk_eq_expr (A.Var (Z.zero, sort)) y) bounds]
 
 let () =
+  test_ite_add ();
   test_conditional_definition ();
   let int_sort = A.SortApp (A.IntSymbol, []) and real_sort = A.SortApp (A.RealSymbol, []) in
   test int_sort IB.check SP.int_bounds_rewrite;

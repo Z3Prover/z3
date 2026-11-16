@@ -39,6 +39,7 @@ module IZ = Z3IndependentIntProductZero
 module DV = Z3SortedIntDivision
 module IQ = Z3IndependentIntQuotientClause
 module CD = Z3IndependentConditionalDefinition
+module IA = Z3IndependentIteAdd
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
 module Reach = Z3RelationalReachability
@@ -291,10 +292,15 @@ and lemma_shape_member_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> To
     then lemma_shape_equal_by_geval rho same (fuel - 1) x y
     else lemma_shape_member_by_geval rho same fuel x rest
 
+let ite_add_shape (e:expr) : bool =
+  match e with
+  | App _ [_; App _ [_; App _ [_; _]; App _ [_; _]]; _] -> true
+  | _ -> false
+
 let rec congruent (arithmetic:bool) (search_atoms:bool) (scope:list sort) (fuel:nat) (a b:expr)
   : Tot bool (decreases %[fuel; 0]) =
   get_sort a = get_sort b &&
-  (a = b || (arithmetic && AR.equivalent a b) ||
+  (a = b || (arithmetic && AR.equivalent a b) || (arithmetic && ite_add_shape a && IA.check a b) ||
    (get_sort a = bool_sort && propositional arithmetic false a b) ||
    (fuel > 0 &&
     ((match a, b with
@@ -380,6 +386,7 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
           (decreases %[fuel; 0]) =
   if a = b then ()
   else if arithmetic && AR.equivalent a b then AR.lemma_equivalent s bc eq other scope rho a b
+  else if arithmetic && ite_add_shape a && IA.check a b then IA.lemma_check s bc eq other scope rho a b
   else if get_sort a = bool_sort && propositional arithmetic false a b then (
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 a;
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 b;
