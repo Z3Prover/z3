@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:51:13-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:54:51-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -167,6 +167,9 @@ Evidence: session `files\real-product-checkout-fstar-01.json`,
   have unit-coefficient native `arith bound` hints, and two require reasoning
   about multiple zero products. Other causes remain N/M. This is not evidence
   of a faulty linear certificate. A separate capture timed out without a proof.
+  Current producer source exports coefficients for bound propagation but
+  attempts structured LP proof export for conflicts; its relationship to the
+  captured binary is unverified.
   Evidence: session `files\extended-farkas-capture-02.json`,
   `files\extended-farkas-capture-01.json`.
 - Product checkout passed strict downstream F* verification for 118 modules,
