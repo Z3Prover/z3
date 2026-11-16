@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T09:54:19-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T11:14:21-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,27 +16,27 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-16T08:08:20-08:00`; latest case `2026-11-16T08:08:19-08:00`; checker `98ecf978a307`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-16T11:14:21-08:00`; latest case `2026-11-16T11:14:21-08:00`; checker `98ecf978a307`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-16T07:37:29-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-16T08:08:19-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-16T10:37:24-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-16T11:14:21-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
 | `apply-def` | 203 | 0 |
-| `arith/farkas` | 0 | 20 |
+| `arith/farkas` | 0 | 16 |
 | `arith/lp-monomial-interval` | 0 | 40 |
-| `assumed:nlsat` | 0 | 146 |
+| `assumed:nlsat` | 0 | 145 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 139 |
+| `intro-def` | 272 | 145 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 140 | 24692 |
-| `th-lemma` | 3499 | 6238 |
+| `rewrite` | 140 | 24701 |
+| `th-lemma` | 3499 | 6246 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T150132Z`.
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T175730Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
@@ -120,6 +120,11 @@ not establish whole-cohort parity or speedup. Evidence: session
 `files\multiple-zero-fstar-02.json`, `files\multiple-zero-sample-02.json`,
 `files\multiple-zero-extended-timing-01.json`,
 `files\multiple-zero-sample-timing-01.json`.
+
+The unretained quotient draft preserved verdicts and rule counts on 11 sample
+proofs. Five alternating pairs on five of those proofs gave a median per-proof
+candidate/retained time ratio of **1.006**; UInt128 timing is pending. Evidence:
+`files\int-quotient-sample-01.json`, `files\int-quotient-sample-timing-02.json`.
 
 ## Current work
 
