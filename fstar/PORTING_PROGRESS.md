@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T00:08:20-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T00:40:58-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -83,6 +83,7 @@ assumed unchanged.
 | Nov 15 | smtlib-sample, 11 proofs, array draft | all pending | 927 | 239 | 688 | 239 |
 | Nov 15 | fstar-build, Math.Exp query 7, product draft | `arith/lp-monomial-interval` | 4 | 2 | 2 | 2 |
 | Nov 15 | fstar-build, Math.Exp query 7, combined product draft | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
+| Nov 16 | fstar-build, Math.Exp query 7, checkout candidate | `arith/lp-monomial-interval` | 4 | 0 | 4 | 0 |
 
 Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
 sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
@@ -90,7 +91,8 @@ sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
 `b73878ccdb7d` -> `245dd5c801e3`; array draft
 `245dd5c801e3` -> `123dfe2cdd80`; product draft
 `245dd5c801e3` -> `8bf2b8733eb5`; combined product draft
-`245dd5c801e3` -> `2492999310f8`. The fstar-build change promoted two
+`245dd5c801e3` -> `2492999310f8`; checkout candidate
+`245dd5c801e3` -> `35ef16e3adce`. The fstar-build change promoted two
 PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
 burn-downs. Array root certification can discharge obligations without
 independently certifying each original entry. Evidence: session
@@ -98,8 +100,9 @@ independently certifying each original entry. Evidence: session
 `files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
 `files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
 `files\real-nonnegative-math-exp-01.json`,
-`files\real-greater-one-math-exp-01.json`. The Math.Exp proof remains PARTIAL
-with nine other PENDING; neither product draft is promoted.
+`files\real-greater-one-math-exp-01.json`, `files\real-product-checkout-math-exp-01.json`.
+The Math.Exp proof remains PARTIAL with nine other PENDING. The separately
+measured drafts are not retained; the checkout candidate is retained.
 
 ## Latest benchmark outcomes
 
@@ -111,11 +114,13 @@ with nine other PENDING; neither product draft is promoted.
 | fstar-build, unretained array draft `123dfe2cdd80` | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
 | fstar-build, unretained product draft `8bf2b8733eb5` | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
 | fstar-build, combined product draft `2492999310f8` | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
+| fstar-build, retained product checkout `35ef16e3adce` | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
 | smtlib-sample, frozen legacy | 11 proofs | 11 | 0 | 0 | 0 | 0 | 0 |
 | smtlib-sample, retained Definition `245dd5c801e3` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 | smtlib-sample, unretained array draft `123dfe2cdd80` | 11 proofs | 5 | 6 | 0 | 0 | 0 | 0 |
 | smtlib-sample, unretained product draft `8bf2b8733eb5` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 | smtlib-sample, combined product draft `2492999310f8` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
+| smtlib-sample, retained product checkout `35ef16e3adce` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 
 Full fstar-build proof counts include timed-out session prefixes; its solver
 UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in the live collection above. Legacy parity and
@@ -128,10 +133,16 @@ medians 0.96–1.005); this is not a full-cohort measurement. Evidence:
 `files\real-nonnegative-fstar-01.json`, `files\real-nonnegative-sample-01.json`,
 `files\real-nonnegative-sample-subset-timing-01.json`.
 The combined draft preserved all 147 matched fstar-build and 11 sample
-verdicts. On the separate Math.Exp proof, five alternating pairs gave a
-median candidate/retained time ratio of **1.09**; sample timing remains pending.
+verdicts. Five alternating pairs gave median candidate/retained time ratios
+of **1.09** on the separate Math.Exp proof and **1.022** across five selected
+sample proofs (per-proof medians 1.004–1.046). Neither is a full-cohort measurement.
+The checkout candidate's median ratios were **1.093** on Math.Exp and
+**0.999** over five selected sample proofs (per-proof medians 0.991–1.094).
 Evidence: `files\real-greater-one-fstar-01.json`,
-`files\real-greater-one-sample-01.json`, `files\real-greater-one-math-exp-timing-01.json`.
+`files\real-greater-one-sample-01.json`, `files\real-greater-one-math-exp-timing-01.json`,
+`files\real-greater-one-sample-subset-timing-01.json`,
+`files\real-product-checkout-math-exp-timing-01.json`,
+`files\real-product-checkout-sample-subset-timing-01.json`.
 The array draft promoted four matched sample proofs without a verdict
 regression; on 147 matched fstar-build proofs it changed no verdicts.
 On five selected sample proofs, five alternating paired runs per proof gave
@@ -163,6 +174,14 @@ Evidence: session `files\generic-array-sample-01.json`,
   build. Native `shell` / `test-z3` build and `/a` unit tests passed.
   Evidence: session `files\large-real-build-02.json`,
   `files\large-real-native-check-01.json`.
+- **Product checkout:** strict downstream verification passed for 118
+  modules; checkout build and focused tests passed with the exclusions above.
+  The checkout candidate preserved all 147 matched fstar-build and 11 sample
+  verdicts; SMT, Python and help smoke checks passed. Eleven build-scope tests
+  passed; two POSIX PowerShell wiring tests were skipped. Evidence:
+  `files\real-greater-one-downstream-01.json`, `files\real-product-checkout-build-01.json`,
+  `files\real-product-checkout-fstar-01.json`, `files\real-product-checkout-sample-01.json`,
+  `files\real-product-checkout-smoke-01.json`.
 - **Six-hour SMT-LIB measurement** remains scheduled; finite-field work is
   paused. All native work uses the shared lock and a 30-second quiet pause.
 
@@ -172,6 +191,10 @@ Evidence: session `files\generic-array-sample-01.json`,
 | --- | --- |
 | `Z3IndependentRealBounds.fst`, `.fsti` | Verify Real equations |
 | `Z3SortedProof.fst` | Replay large equations |
-| `tools\test_independent_bounds.ml` | Test rewrite guards |
+| `tools\test_independent_bounds.ml` | Test rewrite and product guards |
+| `Z3IndependentRealNonnegative.fst`, `.fsti` | Prove nonnegative products |
+| `Z3IndependentRealGreaterOne.fst`, `.fsti` | Prove products above one |
+| `tools\checker_modules.json`, `tools\build_ocaml_checker.ps1` | Register product modules |
+| `tools\test_checker_scope.py` | Update module count |
 | `PORTING_INSTANCES.csv` | Full-run instance ledger |
 | `PORTING_PROGRESS.md` | Pending burn-down dashboard |

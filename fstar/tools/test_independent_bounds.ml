@@ -95,4 +95,35 @@ let () =
   let fact = { U.conclusion = U.Holds R.true_expr; hypotheses = [] } in
   require (not (SP.real_rewrite schema { node with U.premises = [fact] }))
     "large equation rewrite with premise accepted";
+  let x, y, z = variable real_sort "x", variable real_sort "y", variable real_sort "z" in
+  let zero, one, two = num 0, num 1, num 2 in
+  let ge a b = comparison real_sort ">=" T.op_arith_ge a b in
+  let le a b = comparison real_sort "<=" T.op_arith_le a b in
+  let gt a b = comparison real_sort ">" T.op_arith_gt a b in
+  let check facts goal =
+    let premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [] }) facts in
+    let node = { U.kind = U.Unverified "arith/lp-monomial-interval";
+                 conclusion = U.Holds goal; premises } in
+    match SP.check_node_cached schema [] node with
+    | Some (_, pending) -> Z.equal pending Z.zero
+    | None -> false in
+  let xy = times one (times x y) in
+  require (check [gt (times one x) zero; ge (times one y) zero] (ge xy zero))
+    "positive times nonnegative was not checked";
+  require (check [le x zero; le y zero] (ge xy zero))
+    "two nonpositive factors were not checked";
+  require (not (check [ge x zero] (ge xy zero))) "missing factor bound was accepted";
+  require (not (check [ge x zero; ge y zero] (ge (times one (times x z)) zero)))
+    "wrong factor was accepted";
+  require (not (check [ge x zero; ge y zero] (gt xy zero)))
+    "nonstrict bounds implied a strict product";
+  require (check [gt x one; gt y one] (gt (times x y) one))
+    "factors greater than one were not checked";
+  require (not (check [gt x one] (gt (times x y) one))) "missing strict bound was accepted";
+  require (not (check [gt x one; gt y one] (gt (times x z) one)))
+    "wrong strict factor was accepted";
+  require (not (check [ge x one; ge y one] (gt (times x y) one)))
+    "nonstrict bounds implied a product greater than one";
+  require (not (check [gt x one; gt y one] (gt (times x y) two)))
+    "greater-than-one bounds implied a product greater than two";
   print_endline "independent bounds rewrite tests passed"

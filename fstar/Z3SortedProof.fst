@@ -31,6 +31,8 @@ module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
 module RP = Z3SortedRealProduct
+module RPN = Z3IndependentRealNonnegative
+module RPG = Z3IndependentRealGreaterOne
 module SI = Z3SortedInteger
 module DV = Z3SortedIntDivision
 module RX = Z3SortedRealExtension
@@ -2158,7 +2160,9 @@ let real_product_clause (s:S.checked_schema) (node:U.proof_node) : bool =
        let complements = L.map R.mk_not_expr (DT.literals c) in
        D.scoped_args [] complements &&
        (RP.check s (propositions node.premises @ complements) ||
-        real_product_clause_equality s (propositions node.premises) c)
+        real_product_clause_equality s (propositions node.premises) c ||
+        RPN.check s (propositions node.premises @ complements) ||
+         RPG.check s (propositions node.premises @ complements))
    | _ -> false)
 
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
@@ -3012,14 +3016,19 @@ let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
   | U.Holds c ->
     let facts = propositions node.premises in
     let complements = L.map R.mk_not_expr (DT.literals c) in
-    if RP.check s (facts @ complements) then (
+    if RP.check s (facts @ complements) || not (real_product_clause_equality s facts c) then (
       if not (T.truth s bc eq other c) then (
         DT.lemma_literals s bc eq other c;
         lemma_clause_complements s bc eq other (DT.literals c);
         DT.lemma_truths_append s bc eq other facts complements;
         FStar.Classical.exists_elim False
           #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
-          (fun reals -> RP.lemma_check s bc eq other reals (facts @ complements))))
+          (fun reals ->
+            if RP.check s (facts @ complements) then
+              RP.lemma_check s bc eq other reals (facts @ complements)
+            else if RPN.check s (facts @ complements) then
+               RPN.lemma_check s bc eq other reals (facts @ complements)
+             else RPG.lemma_check s bc eq other reals (facts @ complements))))
     else
       FStar.Classical.exists_elim (T.truth s bc eq other c)
         #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
