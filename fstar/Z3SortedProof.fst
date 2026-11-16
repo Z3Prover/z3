@@ -38,6 +38,7 @@ module SI = Z3SortedInteger
 module IZ = Z3IndependentIntProductZero
 module DV = Z3SortedIntDivision
 module IQ = Z3IndependentIntQuotientClause
+module CD = Z3IndependentConditionalDefinition
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
 module Reach = Z3RelationalReachability
@@ -1995,6 +1996,16 @@ let quantifier_flattening (node:U.proof_node) : bool =
   node.kind = U.PullQuantifier && node.premises = [] &&
   Q.check_flatten (proposition node.conclusion)
 
+let conditional_premise (p:U.checked_fact) : expr =
+  proposition p.conclusion
+
+let conditional_definition (node:U.proof_node) : bool =
+  node.kind = U.ApplyDefinition &&
+  (match node.premises, node.conclusion with
+   | [p], U.Equal a b | [p], U.Observational a b ->
+     CD.check (conditional_premise p) a b
+   | _, _ -> false)
+
 let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
   L.map Z3LinearArithmeticAst.positive_literal (propositions node.premises) @
   L.map Z3LinearArithmeticAst.negative_literal (DT.literals (proposition node.conclusion))
@@ -3198,7 +3209,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
       integer_product node || division_order node ||
-      nnf = NR.Replayed ||
+      nnf = NR.Replayed || conditional_definition node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
@@ -3491,6 +3502,13 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       | _ -> ())
     else if nnf_verdict s assertions node = NR.Replayed then
       lemma_nnf_node s bc eq other assertions node
+    else if conditional_definition node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        match node.premises, node.conclusion with
+        | [p], U.Equal a b | [p], U.Observational a b ->
+          CD.lemma_check s bc eq other (conditional_premise p) a b
+        | _, _ -> ()))
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;

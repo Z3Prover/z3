@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T13:03:15-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T15:07:09-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,51 +16,52 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-16T11:14:21-08:00`; latest case `2026-11-16T11:14:21-08:00`; checker `98ecf978a307`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-16T14:54:25-08:00`; latest case `2026-11-16T14:54:25-08:00`; checker `a0ca7df92173`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-16T10:37:24-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-16T11:14:21-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-16T14:06:35-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-16T14:54:25-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
 | `apply-def` | 203 | 0 |
-| `arith/farkas` | 0 | 16 |
+| `arith/farkas` | 0 | 27 |
 | `arith/lp-monomial-interval` | 0 | 40 |
-| `assumed:nlsat` | 0 | 145 |
+| `assumed:nlsat` | 0 | 146 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 145 |
+| `intro-def` | 272 | 147 |
 | `quant-intro` | 42 | 83 |
 | `rewrite` | 140 | 24701 |
-| `th-lemma` | 3499 | 6246 |
+| `th-lemma` | 3499 | 6244 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T175730Z`.
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T210335Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T13:02:44-08:00`; latest case `2026-11-16T13:02:44-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T15:05:01-08:00`; latest case `2026-11-16T15:05:01-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 374 / 583 | 352 | 22 | 0 | 209 | 367 / 374 | 0 |
+| 583 / 583 | 546 | 37 | 0 | 0 | 570 / 583 | 0 |
 
-Observed proofs: **7869 ACCEPT / 183 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **254**.
+Observed proofs: **10960 ACCEPT / 348 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **463**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `arith/farkas` | 3 |
-| `assumed:nlsat` | 131 |
-| `nnf-neg` | 8 |
-| `quant-intro` | 26 |
-| `rewrite` | 10 |
-| `sk` | 8 |
-| `th-lemma` | 238 |
+| `arith/farkas` | 4 |
+| `arith/lp-monomial-interval` | 2 |
+| `assumed:nlsat` | 358 |
+| `nnf-neg` | 23 |
+| `quant-intro` | 41 |
+| `rewrite` | 11 |
+| `sk` | 18 |
+| `th-lemma` | 823 |
 
-State: **stage complete**. Per-case evidence and pins: session `files\int-quotient-fstar-pending-01`.
+State: **complete**. Per-case evidence and pins: session `files\int-quotient-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Last 10 incremental improvements
@@ -72,6 +73,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
 | Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 | Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
@@ -81,7 +83,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 15 23:29 | Generic-array draft, sample, 11 proofs; **not retained** | Root PENDING: `th-lemma` +681 / 0; `rewrite` +7 / 36; 4 proofs promoted. Paired median time ratio 1.96 | `generic-array-sample-weighted-01.json`, `generic-array-sample-subset-timing-01.json` |
 | Nov 15 18:27 | Larger Real equations, fstar-build, 147 proofs | `rewrite` +2 / 0 PENDING; 2 proofs promoted | `large-real-compare-02.json` |
 | Nov 15 17:52 | Arithmetic bounds rewrites, sample, 11 proofs | `rewrite` +996 / 43 PENDING; 1 proof promoted | `bounds-sample-01.json` |
-| Nov 15 15:41 | Integer cuts, sample, ring proof | `th-lemma` +15 / 0 PENDING; 28 other obligations remain | `integer-cut-sample-02.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -96,6 +97,7 @@ certifying each original entry. Evidence files contain checker and proof pins.
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `arith/farkas` | 5 | 2 | 3 |
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `th-lemma` | 7 | 2 | 5 |
 | fstar-build, UInt128, 1 proof | `98ecf978a307` → `a0ca7df92173` | `th-lemma` | 199 | 63 | 136 |
+| smtlib-sample, 11 proofs | `a0ca7df92173` → `79de3a41dcdb` | `apply-def` | 80 | 80 | 0 |
 | smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `th-lemma` | 681 | 681 | 0 |
 | smtlib-sample, 11 proofs; array draft | `98ecf978a307` → `bac3ba06e1c1` | `rewrite` | 43 | 7 | 36 |
 
@@ -104,7 +106,7 @@ These are subset results, not full-cohort burn-downs. Evidence: session
 `files\real-division-checkout-math-exp-01.json`,
 `files\real-division-checkout-cancellable-01.json`,
 `files\multiple-zero-extended-02.json`, `files\int-quotient-uint128-01.json`,
-`files\array-prefilter-weighted-01.json`.
+`files\array-prefilter-weighted-01.json`, `files\conditional-weighted-01.json`.
 
 ## Matched acceptance and timing
 
@@ -135,6 +137,12 @@ The filtered array draft's overall median paired ratio was **1.009** over five
 sample proofs, but two promoted proofs slowed by **1.66x** and **1.94x**.
 It is not retained. Evidence: `files\array-prefilter-sample-timing-01.json`.
 
+Conditional definition replay preserved verdicts on 11 sample proofs and
+eliminated their 80 weighted `apply-def` obligations. Five alternating pairs
+on seven frozen sample proofs gave a median per-proof candidate/retained time
+ratio of **1.014**; this does not establish cohort performance. Evidence:
+`files\conditional-weighted-01.json`, `files\conditional-sample-timing-01.json`.
+
 ## Current work
 
 The multi-zero replay proves zero factors and resulting product bounds before
@@ -151,6 +159,12 @@ conflicts; the captured binary's exact source provenance is unverified.
 Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 `files\extended-farkas-capture-02.json`.
 
+An experimental integer-input binding bridge passed LP unit tests, but on the
+same QF_LIA ring input it changed the generated proof and increased root
+PENDING from 15 to 33, adding 18 `arith/lp-integer-lattice` obligations.
+It is not retained. The candidate's shorter run time is not a comparable
+coverage improvement. Evidence: `files\lp-binding-ring-compare-01.json`.
+
 Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
 Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.
 The quotient replay passed strict downstream verification, checkout native
@@ -160,3 +174,9 @@ Evidence: `files\int-quotient-downstream-02.json`,
 `files\int-quotient-checkout-smoke-01.json`,
 `files\int-quotient-scope-tests-02.json`. The diagnostic tables specify their
 checker pins; matched acceptance and timings cover only frozen subsets.
+Conditional replay also passed strict downstream verification, checkout native
+controls, SMT/Python/help smoke checks and scope tests (seven skipped).
+Evidence: `files\conditional-downstream-02.json`,
+`files\conditional-checkout-controls-01.json`,
+`files\conditional-checkout-smoke-01.json`,
+`files\conditional-scope-tests-01.json`.

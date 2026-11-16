@@ -8,6 +8,7 @@ module IB = Z3IndependentIntBounds
 module RB = Z3IndependentRealBounds
 module RDC = Z3IndependentRealDivisionClause
 module IQ = Z3IndependentIntQuotientClause
+module CD = Z3IndependentConditionalDefinition
 
 let require value message = if not value then failwith message
 let schema = { S.sorts = []; cases = [] }
@@ -20,6 +21,47 @@ let comparison sort name tag a b =
 let conjunction a b =
   A.App ({ A.decl_name = "and"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
            interp = Some T.op_and; int_params = [] }, [a; b])
+
+let test_conditional_definition () =
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let c = variable A.bool_sort "c" and h = variable A.bool_sort "h" in
+  let t = variable int_sort "t" and u = variable int_sort "u" in
+  let name = variable int_sort "fresh" and other = variable int_sort "other" in
+  let ite =
+    A.App ({ A.decl_name = "if"; domain = [A.bool_sort; int_sort; int_sort];
+             range = int_sort; interp = Some T.op_ite; int_params = [] }, [c; t; u]) in
+  let definition =
+    CD.conjunction
+      (CD.disjunction (R.mk_not_expr c) (R.mk_eq_expr name t))
+      (CD.disjunction c (R.mk_eq_expr name u)) in
+  let premise = { U.conclusion = U.Holds definition; hypotheses = [h] } in
+  let node conclusion premises =
+    { U.kind = U.ApplyDefinition; conclusion; premises } in
+  List.iter (fun conclusion ->
+    let n = node conclusion [premise] in
+    require (SP.conditional_definition n) "valid conditional definition was not recognized";
+    require (match SP.check_node_cached schema [] n with
+      | Some (fact, pending) ->
+        Z.equal pending Z.zero && fact.U.hypotheses = [h]
+      | None -> false) "conditional definition lost its hypothesis or remained pending")
+    [U.Equal (ite, name); U.Equal (name, ite);
+     U.Observational (ite, name); U.Observational (name, ite)];
+  let wrong_definition =
+    CD.conjunction
+      (CD.disjunction (R.mk_not_expr c) (R.mk_eq_expr name t))
+      (CD.disjunction c (R.mk_eq_expr other u)) in
+  require (not (CD.check wrong_definition ite name)) "wrong fresh symbol was accepted";
+  require (not (CD.check definition ite other)) "wrong conclusion was accepted";
+  require (not (CD.check definition t name)) "non-conditional conclusion was accepted";
+  let good = node (U.Equal (ite, name)) [premise] in
+  let wrong_premise = { premise with U.conclusion = U.Holds wrong_definition } in
+  List.iter (fun n ->
+    require (not (SP.conditional_definition n)) "invalid definition node was recognized")
+    [{ good with U.premises = [] };
+     { good with U.premises = [premise; premise] };
+     { good with U.premises = [wrong_premise] };
+     { good with U.kind = U.DefinitionIntroduction };
+     node (U.Equal (ite, other)) [premise]]
 
 let test sort check recognizes =
   let x, y, z = variable sort "x", variable sort "y", variable sort "z" in
@@ -55,6 +97,7 @@ let test sort check recognizes =
      node (R.mk_eq_expr (A.Var (Z.zero, sort)) y) bounds]
 
 let () =
+  test_conditional_definition ();
   let int_sort = A.SortApp (A.IntSymbol, []) and real_sort = A.SortApp (A.RealSymbol, []) in
   test int_sort IB.check SP.int_bounds_rewrite;
   test real_sort RB.check (SP.real_rewrite schema);

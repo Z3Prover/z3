@@ -276,7 +276,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    closed Real order clauses (SP.real_order) read only the entry formula (any
    rule but the leaves and the lemma rule), whose terms are covered below. The read
    view KEEPS the Farkas coefficients, the RewriteRule, ElimUnused and DestructiveEquality labels,
-   the th-lemma label used by the Real and Int product kernels,
+   the ApplyDefinition and th-lemma labels used by replay kernels,
    the binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -297,7 +297,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
 let rule_shape (r:U.rule) : U.rule =
   if r = U.Unverified "th-lemma" then r else match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ApplyDefinition | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> r
   | _ -> U.Unverified "payload-erased"
 
@@ -314,7 +314,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   if node.U.kind = U.Unverified "th-lemma" then () else match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ApplyDefinition | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in
