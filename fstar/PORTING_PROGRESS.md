@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T09:35:36-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T09:54:19-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -73,6 +73,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 16 09:52 | Guarded Int quotient draft, fstar-build, UInt128, 1 proof; **not retained** | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 | Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
 | Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
 | Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
@@ -82,9 +83,8 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 15 17:52 | Arithmetic bounds rewrites, sample, 11 proofs | `rewrite` +996 / 43 PENDING; 1 proof promoted | `bounds-sample-01.json` |
 | Nov 15 15:41 | Integer cuts, sample, ring proof | `th-lemma` +15 / 0 PENDING; 28 other obligations remain | `integer-cut-sample-02.json` |
 | Nov 15 14:11 | Existential DER, sample, 1 proof | `der` +1 / 0 PENDING; proof promoted | `existential-der-measure-01.json` |
-| Nov 15 12:58 | Cached Skolem replay, fstar-build, 147 proofs | Verdicts unchanged; single replay 129.081 → 120.373 s, not paired timing | `skolem-cached-frozen-01.json` |
 
-Array root certification may discharge obligations without independently
+Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
 
 ## Burn-down: identical frozen proofs
@@ -96,12 +96,13 @@ certifying each original entry. Evidence files contain checker and proof pins.
 | fstar-build, CancellableInvariant query 2 | `35ef16e3adce` → `38203471c053` | `th-lemma` | 2 | 1 | 1 |
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `arith/farkas` | 5 | 2 | 3 |
 | smtlib-extended, 1 proof | `38203471c053` → `98ecf978a307` | `th-lemma` | 7 | 2 | 5 |
+| fstar-build, UInt128, 1 proof; draft | `98ecf978a307` → `a0ca7df92173` | `th-lemma` | 199 | 63 | 136 |
 
 These are subset results, not full-cohort burn-downs. Evidence: session
 `files\real-product-checkout-math-exp-01.json`,
 `files\real-division-checkout-math-exp-01.json`,
 `files\real-division-checkout-cancellable-01.json`,
-`files\multiple-zero-extended-02.json`.
+`files\multiple-zero-extended-02.json`, `files\int-quotient-uint128-01.json`.
 
 ## Matched acceptance and timing
 
@@ -138,3 +139,5 @@ Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 
 Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
 Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.
+The quotient draft passed strict downstream verification and native tests;
+matched acceptance and paired timing controls are in progress.
