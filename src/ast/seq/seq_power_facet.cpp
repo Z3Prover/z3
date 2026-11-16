@@ -730,28 +730,6 @@ namespace seq {
 
     // -- power_var_decompose --
 
-    expr* power_var_decompose::get_or_create_n_var(expr* var) {
-        expr* v = nullptr;
-        if (m_n_cache.find(var, v))
-            return v;
-        v = m.mk_fresh_const("gp-n", a.mk_int());
-        m_n_cache.insert(var, v);
-        m_pin.push_back(var);
-        m_pin.push_back(v);
-        return v;
-    }
-
-    expr* power_var_decompose::get_or_create_m_var(expr* var) {
-        expr* v = nullptr;
-        if (m_m_cache.find(var, v))
-            return v;
-        v = m.mk_fresh_const("gp-m", a.mk_int());
-        m_m_cache.insert(var, v);
-        m_pin.push_back(var);
-        m_pin.push_back(v);
-        return v;
-    }
-
     // Locate a variable-vs-power decomposition trigger. Skip powers whose
     // exponent is already a numeral.
     static bool find_var_decompose_trigger(power_facet const& f, eq_facet const& ef, arith_util& a, seq_util& u,
@@ -819,7 +797,7 @@ namespace seq {
             if (is_power_token(f, tok, tok_pidx)) {
                 str_power const& q = f.powers()[tok_pidx];
                 inner_exp = q.m_n.get();
-                fresh_inner_m = m_owner->get_or_create_m_var(m_var.get());
+                fresh_inner_m = ac.mk_fresh_var("power-var-decompose-m", a.mk_int(), { m_var.get() });
                 suffix_tok = expr_ref(u.str.mk_power(q.m_s.get(), fresh_inner_m), m);
             }
             else
@@ -853,7 +831,8 @@ namespace seq {
             m_extend_done = true;
             // Final non-progress branch: `v` extends past the whole power.
             sort* s = m_var.get()->get_sort();
-            expr* vp = m.mk_fresh_const("t", s);
+            expr* vp = ac.mk_fresh_var(m_fwd ? "power-var-decompose-forward-tail" : "power-var-decompose-backward-tail",
+                                       s, { m_var.get(), m_pow_e.get() });
             expr_ref_vector repl(m);
             if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }
             else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
@@ -891,10 +870,10 @@ namespace seq {
             base_toks = std::move(rev);
         }
 
-        expr* fresh_m = get_or_create_n_var(var);
+        expr* fresh_m = ac.mk_fresh_var("power-var-decompose-n", a.mk_int(), { var });
         has_more = true;
 
-        iterator* it = alloc(iterator, n, var, p.m_e.get(), base_toks, fresh_m, fwd, dep, m, u, a, this);
+        iterator* it = alloc(iterator, n, var, p.m_e.get(), base_toks, fresh_m, fwd, dep, m, u, a);
         // The iterator offers the first branch itself; every decomposition
         // position has the same shape.
         eq_tree::edge first;
@@ -909,28 +888,6 @@ namespace seq {
     }
 
     // -- power_gpower_intro --
-
-    expr* power_gpower_intro::get_or_create_n_var(expr* var) {
-        expr* v = nullptr;
-        if (m_n_cache.find(var, v))
-            return v;
-        v = m.mk_fresh_const("gp-n", a.mk_int());
-        m_n_cache.insert(var, v);
-        m_pin.push_back(var);
-        m_pin.push_back(v);
-        return v;
-    }
-
-    expr* power_gpower_intro::get_or_create_m_var(expr* var) {
-        expr* v = nullptr;
-        if (m_m_cache.find(var, v))
-            return v;
-        v = m.mk_fresh_const("gp-m", a.mk_int());
-        m_m_cache.insert(var, v);
-        m_pin.push_back(var);
-        m_pin.push_back(v);
-        return v;
-    }
 
     // Is `e` a substitutable variable token (neither a unit nor a power)?
     static bool is_gpower_var(seq_util& u, expr* e) {
@@ -1023,7 +980,7 @@ namespace seq {
             if (is_power_token(f, tok, tok_pidx)) {
                 str_power const& q = f.powers()[tok_pidx];
                 inner_exp = q.m_n.get();
-                fresh_inner_m = m_owner->get_or_create_m_var(m_var.get());
+                fresh_inner_m = ac.mk_fresh_var("power-gpower-intro-m", a.mk_int(), { m_var.get() });
                 suffix_tok = expr_ref(u.str.mk_power(q.m_s.get(), fresh_inner_m), m);
             }
             else
@@ -1113,14 +1070,14 @@ namespace seq {
         for (unsigned j = 1; j < natural.size(); ++j)
             base_str = expr_ref(u.str.mk_concat(base_str.get(), natural[j].get()), m);
 
-        expr* fresh_n = get_or_create_n_var(var);
+        expr* fresh_n = ac.mk_fresh_var("power-gpower-intro-n", a.mk_int(), { var });
         expr_ref power_expr(u.str.mk_power(base_str.get(), fresh_n), m);
 
         // Register the fresh power obligation shared by every branch.
         f.add_power(power_expr.get(), base_str.get(), fresh_n, dep);
         has_more = true;
 
-        iterator* it = alloc(iterator, n, var, power_expr.get(), compressed, fresh_n, fwd, dep, m, u, a, this);
+        iterator* it = alloc(iterator, n, var, power_expr.get(), compressed, fresh_n, fwd, dep, m, u, a);
         eq_tree::edge first;
         if (!it->next(first)) {
             dealloc(it);

@@ -1036,7 +1036,7 @@ namespace seq {
         ac.add_assumption(sub(guard, m_ch), m_dep);
         auto& mf = ac.mem_facet_ref();
         mf.remove(m_idx);
-        mf.add(str_mem(m, m_rest, view::membership(target, m), m_dep));
+        mf.add(str_mem(m, m_rest, view(target, m_target, m), m_dep));
         out = eq_tree::edge("mem-char", m_dep, true, 0);
         return true;
     }
@@ -1047,7 +1047,7 @@ namespace seq {
         auto& mf = get_ambient(n).mem_facet_ref();
         for (unsigned idx = 0; idx < mf.memberships().size(); ++idx) {
             str_mem const& sm = mf.memberships()[idx];
-            if (!sm.active() || !sm.is_plain())
+            if (!sm.active())
                 continue;
             expr* ch = nullptr;
             unsigned k = 0;
@@ -1065,7 +1065,7 @@ namespace seq {
             }
             expr_ref_vector rest(m);
             rest.append(sm.m_str.size() - k - 1, sm.m_str.data() + k + 1);
-            scoped_ptr<iterator> it(alloc(iterator, n, idx, expr_ref(ch, m), rest, cofactors, sm.m_dep));
+            scoped_ptr<iterator> it(alloc(iterator, n, idx, expr_ref(ch, m), rest, cofactors, sm.m_view.m_target, sm.m_dep));
             VERIFY(it->next(out));
             committed = true;
             m_stats.m_num_splits++;

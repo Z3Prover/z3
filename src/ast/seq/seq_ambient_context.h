@@ -148,7 +148,7 @@ namespace seq {
                                  static_cast<unsigned>(args.size()), args.begin(), s), m);
             expr* result = nullptr;
             if (!m_fresh_vars.find(key, result)) {
-                result = m.mk_fresh_const("t", s);
+                result = m.mk_fresh_const(caller, s);
                 m_fresh_vars.insert(key, result);
                 m_fresh_var_refs.push_back(key);
                 m_fresh_var_refs.push_back(result);

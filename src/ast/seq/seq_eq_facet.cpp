@@ -1165,13 +1165,15 @@ namespace seq {
         sort* seq_sort = m_lhs[0]->get_sort();
         sort* char_sort = nullptr;
         VERIFY(u.is_seq(seq_sort, char_sort));
-        expr* w = m.mk_fresh_const("diseq.w", seq_sort);
-        expr* a_ch = m.mk_fresh_const("diseq.a", char_sort);
-        expr* b_ch = m.mk_fresh_const("diseq.b", char_sort);
-        expr* a_unit = u.str.mk_unit(a_ch);
-        expr* b_unit = u.str.mk_unit(b_ch);
-        expr* up = m.mk_fresh_const("diseq.u'", seq_sort);
-        expr* vp = m.mk_fresh_const("diseq.v'", seq_sort);
+        expr_ref lhs(u.str.mk_concat(m_lhs, seq_sort), m);
+        expr_ref rhs(u.str.mk_concat(m_rhs, seq_sort), m);
+        expr* w = ac.mk_fresh_var("diseq.w", seq_sort, { lhs, rhs });
+        expr* a_ch = ac.mk_fresh_var("diseq.a", char_sort, { lhs, rhs });
+        expr* b_ch = ac.mk_fresh_var("diseq.b", char_sort, { lhs, rhs });
+        expr_ref a_unit(u.str.mk_unit(a_ch), m);
+        expr_ref b_unit(u.str.mk_unit(b_ch), m);
+        expr* up = ac.mk_fresh_var("diseq.u'", seq_sort, { lhs, rhs });
+        expr* vp = ac.mk_fresh_var("diseq.v'", seq_sort, { lhs, rhs });
 
         expr_ref_vector u_rhs(m); u_rhs.push_back(w); u_rhs.push_back(a_unit); u_rhs.push_back(up);
         expr_ref_vector v_rhs(m); v_rhs.push_back(w); v_rhs.push_back(b_unit); v_rhs.push_back(vp);
@@ -1362,7 +1364,7 @@ namespace seq {
             auto& mf = ac.mem_facet_ref();
             // Keep delayed conversion coherence on its original schedule.
             if (!ac.eq_facet_ref().is_satisfied() || !ac.ncontains_facet_ref().is_satisfied() ||
-                !mf.is_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
+                !mf.is_structurally_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
                 return nullptr;
             unsigned num_deqs = 0;
             for (auto const& dq : ac.deq_facet_ref().disequations()) {

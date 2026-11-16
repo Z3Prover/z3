@@ -51,6 +51,7 @@ namespace {
         expr* one = ac.mk_fresh_var("test-left", s, { x });
         expr* pair = ac.mk_fresh_var("test-left", s, { x, y });
         ENSURE(is_uninterp_const(one) && one->get_sort() == s);
+        ENSURE(to_app(one)->get_decl()->get_name().str().starts_with("test-left"));
         ENSURE(one == ac.mk_fresh_var("test-left", s, { x }));
         ENSURE(pair == ac.mk_fresh_var("test-left", s, { x, y }));
         ENSURE(one != pair);
@@ -1600,7 +1601,7 @@ namespace {
             (assert (= (str.indexof s "aa" 0) 1))
             (assert (= (str.len s) 5))
             (assert (str.contains (str.substr s 3 2) "aa"))
-        )", true, "v");
+        )", true, "v", 2000000);
         check_nseq_candidate_model(R"(
             (declare-const s String)
             (assert (str.contains s "aa"))
@@ -1735,6 +1736,8 @@ namespace {
         params_ref p;
         p.set_sym("string_solver", symbol("nseq"));
         p.set_uint("max_conflicts", 0);
+        // Exercise the conversion axioms rather than regular-language preprocessing.
+        p.set_bool("seq.regular", false);
         for (unsigned j = 0; j < arguments.size(); ++j) {
             expr_ref conversion(u.str.mk_stoi(arguments.get(j)), m);
             expr_ref upper(a.mk_int(upper_bounds[j]), m);
