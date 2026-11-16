@@ -198,6 +198,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
         // Forward proven bounds before membership search can refute a guessed length.
         m_tree.add_propagation_plugin(alloc(seq::mem_var_bounds_propagation, m, m_seq, m_autil, *m_ambient));
+        m_tree.add_propagation_plugin(alloc(seq::word_template_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, false));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::replace_all_propagation, m, m_seq));

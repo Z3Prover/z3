@@ -159,6 +159,45 @@ namespace seq {
         return false;
     }
 
+    // Every token of ts denotes a word in w*: constant runs, powers with a base
+    // in w*, variables with a plain membership in a subset of w*. An empty w is
+    // fixed by the first nonempty word seen.
+    static bool tokens_in_word_star(seq_util& u, mem_facet const& mf, eq_tree::dep_manager_t& dm,
+                                    expr_ref_vector const& ts, zstring& w, eq_tree::dep_tracker& dep) {
+        zstring run, base;
+        for (expr* t : ts) {
+            expr* ch = nullptr, *b = nullptr, *k = nullptr;
+            unsigned c = 0;
+            if (u.str.is_unit(t, ch) && u.is_const_char(ch, c)) {
+                run += zstring(c);
+                continue;
+            }
+            if (u.str.is_power(t, b, k)) {
+                if (!u.str.is_string(b, base) || !is_word_power(base, w))
+                    return false;
+            }
+            else {
+                bool found = false;
+                for (str_mem const& sm : mf.memberships()) {
+                    zstring w1 = w;
+                    if (sm.active() && sm.is_plain() && sm.m_str.size() == 1 && sm.m_str.get(0) == t &&
+                        is_in_word_star(u, sm.m_view.m_state, w1)) {
+                        w = w1;
+                        dep = dm.mk_join(dep, sm.m_dep);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    return false;
+            }
+            if (!is_word_power(run, w))
+                return false;
+            run = zstring();
+        }
+        return is_word_power(run, w);
+    }
+
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.ncontains_facet_ref();
@@ -360,6 +399,18 @@ namespace seq {
             expr_ref len_h(u.str.mk_length(h_expr), m);
             expr_ref len_n(u.str.mk_length(n_expr), m);
             expr_ref gate(m.mk_not(a.mk_le(len_n, len_h)), m); // len(h) < len(n)
+
+            // In w*, w^i contains w^j iff j <= i, i.e. iff len(n) <= len(h).
+            zstring w;
+            eq_tree::dep_tracker wdep = nc.m_dep;
+            if (tokens_in_word_star(u, ac.mem_facet_ref(), f.dm(), nc.m_needle, w, wdep) &&
+                tokens_in_word_star(u, ac.mem_facet_ref(), f.dm(), nc.m_haystack, w, wdep)) {
+                ac.add_assumption(gate, wdep);
+                f.remove(head);
+                changed = true;
+                ++head;
+                continue;
+            }
 
             if (sf.implies(gate) == l_true) {
                 // len(h) < len(n): n cannot possibly occur in h - the

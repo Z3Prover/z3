@@ -246,6 +246,36 @@ namespace seq {
             eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // s is in w*; an empty w is set to s.
+    bool is_word_power(zstring const& s, zstring& w);
+
+    // L(r) is a subset of w*; an empty w is set to the first nonempty word in r.
+    bool is_in_word_star(seq_util& u, expr* r, zstring& w);
+
+    // `x in u0 w1^{l1,h1} u1 ...` becomes `x = u0 w1^l1 w1^k1 u1 ...` with
+    // 0 <= ki <= hi - li, unless another regex membership or a not-contains is
+    // connected to x through equations (both handle powers poorly).
+    class word_template_propagation : public eq_tree::propagation_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            unsigned m_num_rewrites = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+    public:
+        word_template_propagation(ast_manager& m, seq_util& u, arith_util& a) : m(m), u(u), a(a) {}
+        char const* name() const override { return "word-template"; }
+        stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override {
+            st.update("seq-word-template num calls", m_stats.m_num_propagate);
+            st.update("seq-word-template num rewrites", m_stats.m_num_rewrites);
+        }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
     // Forwards arithmetic bounds on `str.len(x)` as membership constraints
     // `x in (allchar){lo,hi}` (or one-sided variants), so regex-side rules
     // (view_witness, seq::monadic) see the current length bounds directly
