@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T12:36:27-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T13:02:44-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -42,22 +42,23 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T12:36:27-08:00`; latest case `2026-11-16T12:36:27-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T13:02:44-08:00`; latest case `2026-11-16T13:02:44-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 264 / 583 | 248 | 16 | 0 | 319 | 260 / 264 | 0 |
+| 374 / 583 | 352 | 22 | 0 | 209 | 367 / 374 | 0 |
 
-Observed proofs: **6388 ACCEPT / 162 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **154**.
+Observed proofs: **7869 ACCEPT / 183 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **254**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 73 |
-| `nnf-neg` | 7 |
-| `quant-intro` | 17 |
-| `rewrite` | 4 |
-| `sk` | 7 |
-| `th-lemma` | 187 |
+| `arith/farkas` | 3 |
+| `assumed:nlsat` | 131 |
+| `nnf-neg` | 8 |
+| `quant-intro` | 26 |
+| `rewrite` | 10 |
+| `sk` | 8 |
+| `th-lemma` | 238 |
 
 State: **stage complete**. Per-case evidence and pins: session `files\int-quotient-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
