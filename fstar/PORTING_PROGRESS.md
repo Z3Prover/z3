@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T11:46:11-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T12:04:55-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -42,26 +42,24 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T09:21:47-08:00`; latest case `2026-11-16T09:21:47-08:00`; checker `98ecf978a307`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-16T12:04:44-08:00`; latest case `2026-11-16T12:04:44-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 583 / 583 | 543 | 40 | 0 | 0 | 570 / 583 | 0 |
+| 117 / 583 | 116 | 1 | 0 | 466 | 114 / 117 | 0 |
 
-Observed proofs: **10906 ACCEPT / 348 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **472**.
+Observed proofs: **2564 ACCEPT / 52 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **30**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `arith/farkas` | 6 |
-| `arith/lp-monomial-interval` | 2 |
-| `assumed:nlsat` | 376 |
-| `nnf-neg` | 24 |
-| `quant-intro` | 43 |
-| `rewrite` | 8 |
-| `sk` | 18 |
-| `th-lemma` | 977 |
+| `assumed:nlsat` | 8 |
+| `nnf-neg` | 2 |
+| `quant-intro` | 2 |
+| `rewrite` | 1 |
+| `sk` | 2 |
+| `th-lemma` | 56 |
 
-State: **complete**. Per-case evidence and pins: session `files\multiple-zero-fstar-pending-01`.
+State: **stage complete**. Per-case evidence and pins: session `files\int-quotient-fstar-pending-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Last 10 incremental improvements
@@ -159,5 +157,5 @@ controls, SMT/Python/help smoke checks and scope tests (seven Windows skips).
 Evidence: `files\int-quotient-downstream-02.json`,
 `files\int-quotient-checkout-controls-01.json`,
 `files\int-quotient-checkout-smoke-01.json`,
-`files\int-quotient-scope-tests-02.json`. Cohort counts above still use
+`files\int-quotient-scope-tests-02.json`. SMT-LIB counts above still use
 `98ecf978a307`; matched acceptance and timings cover only frozen subsets.
