@@ -468,7 +468,40 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_negated_complement_membership() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    for (bool generic : {false, true}) {
+        sort_ref sequence(generic ? su.str.mk_seq(a.mk_int()) : su.str.mk_string_sort(), m);
+        sort_ref regex_sort(su.re.mk_re(sequence), m);
+        app_ref x(m.mk_fresh_const("x", sequence), m);
+        app_ref r(m.mk_fresh_const("R", regex_sort), m);
+        expr_ref membership(su.re.mk_in_re(x, r), m);
+        expr_ref complement(su.re.mk_complement(r), m);
+        expr_ref complemented_membership(su.re.mk_in_re(x, complement), m);
+        expr_ref input(m.mk_not(complemented_membership), m);
+        rw(input);
+        ENSURE(input == membership);
+
+        app_ref guard(m.mk_fresh_const("guard", m.mk_bool_sort()), m);
+        expr_ref negated(m.mk_not(complemented_membership), m);
+        expr_ref guarded(m.mk_or(guard, negated), m);
+        expr_ref expected(m.mk_or(guard, membership), m);
+        rw(guarded);
+        rw(expected);
+        ENSURE(guarded == expected);
+
+        expr_ref positive(complemented_membership, m);
+        rw(positive);
+        ENSURE(positive == complemented_membership);
+    }
+}
+
 void tst_seq_rewriter() {
+    tst_negated_complement_membership();
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();
