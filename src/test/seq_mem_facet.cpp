@@ -336,6 +336,21 @@ namespace {
         return f.tree.solve();
     }
 
+    static void tst_symbolic_unit_reach(bool accepting) {
+        fixture f;
+        expr_ref ch(f.m.mk_fresh_const("ch", f.u.mk_char_sort()), f.m);
+        expr_ref word(f.u.str.mk_unit(ch), f.m);
+        expr_ref letter(f.u.str.mk_string("a"), f.m);
+        expr_ref state(f.u.re.mk_to_re(letter), f.m);
+        expr_ref empty(f.u.str.mk_string(""), f.m);
+        expr_ref target(accepting ? f.u.re.mk_to_re(empty) : state.get(), f.m);
+        f.tree.add_split_plugin(alloc(seq::mem_char_split, f.m, f.u, f.rw));
+        auto result = solve_mem(f, [&](seq::eq_tree::node* root) {
+            f.ac.mem_facet(*root).add(seq::str_mem(f.m, word, seq::view::reach(state, target, f.m), nullptr));
+        });
+        ENSURE(result == (accepting ? stx::search_result::sat : stx::search_result::unsat));
+    }
+
     // mem_facet updates append new entries and deactivate old ones, so
     // tests must look for the single active membership.
     static seq::str_mem const& only_active_membership(seq::mem_facet const& mf) {
@@ -1509,6 +1524,8 @@ void tst_seq_mem_facet() {
     tst_dead_unsat();
     tst_single_var_sat();
     tst_two_var_monadic_sat();
+    tst_symbolic_unit_reach(false);
+    tst_symbolic_unit_reach(true);
     tst_root_refute_before_equation_substitution();
     tst_large_length_witness_fallback(false);
     tst_large_length_witness_fallback(true);

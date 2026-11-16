@@ -405,15 +405,6 @@ namespace seq {
         seq_util&     u;
         arith_util&   a;
 
-        // Per-target-variable caches for the fresh exponent skolems used by
-        // this rule. Not trailed: stale entries are harmless dead skolems.
-        obj_map<expr, expr*> m_n_cache;
-        obj_map<expr, expr*> m_m_cache;
-        expr_ref_vector      m_pin; // keeps cache keys and skolems alive
-
-        expr* get_or_create_n_var(expr* var);
-        expr* get_or_create_m_var(expr* var);
-
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
             expr_ref       m_var;
@@ -427,19 +418,18 @@ namespace seq {
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
-            power_var_decompose* m_owner;
         public:
             iterator(eq_tree::node& n,
                       expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_m, bool fwd,
-                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_var_decompose* owner) :
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
                 m_n(n), m_var(var, m), m_pow_e(pow_e, m),
-                m_base_toks(base_toks), m_fresh_m(fresh_m, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
+                m_base_toks(base_toks), m_fresh_m(fresh_m, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
         power_var_decompose(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a), m_pin(m) {}
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-decompose"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-power-var-decompose num splits", m_stats.m_num_splits); }
@@ -466,14 +456,6 @@ namespace seq {
         seq_util&     u;
         arith_util&   a;
 
-        // Same caching idiom as `power_var_decompose`, but kept separate.
-        obj_map<expr, expr*> m_n_cache;
-        obj_map<expr, expr*> m_m_cache;
-        expr_ref_vector      m_pin; // keeps cache keys and skolems alive
-
-        expr* get_or_create_n_var(expr* var);
-        expr* get_or_create_m_var(expr* var);
-
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
             expr_ref       m_var;
@@ -486,19 +468,18 @@ namespace seq {
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
-            power_gpower_intro* m_owner;
         public:
             iterator(eq_tree::node& n,
                       expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_n, bool fwd,
-                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_gpower_intro* owner) :
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
                 m_n(n), m_var(var, m), m_pow_e(pow_e, m),
-                m_base_toks(base_toks), m_fresh_n(fresh_n, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
+                m_base_toks(base_toks), m_fresh_n(fresh_n, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
         power_gpower_intro(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a), m_pin(m) {}
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-power-gpower-intro num splits", m_stats.m_num_splits); }

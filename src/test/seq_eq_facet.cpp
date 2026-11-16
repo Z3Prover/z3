@@ -38,6 +38,44 @@ Author:
 #include <sstream>
 
 namespace {
+    static void tst_ambient_fresh_vars() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack trail;
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, trail);
+        sort* s = u.str.mk_string_sort();
+        expr_ref x(m.mk_fresh_const("x", s), m);
+        expr_ref y(m.mk_fresh_const("y", s), m);
+        expr* one = ac.mk_fresh_var("test-left", s, { x });
+        expr* pair = ac.mk_fresh_var("test-left", s, { x, y });
+        ENSURE(is_uninterp_const(one) && one->get_sort() == s);
+        ENSURE(to_app(one)->get_decl()->get_name().str().starts_with("test-left"));
+        ENSURE(one == ac.mk_fresh_var("test-left", s, { x }));
+        ENSURE(pair == ac.mk_fresh_var("test-left", s, { x, y }));
+        ENSURE(one != pair);
+        ENSURE(pair != ac.mk_fresh_var("test-right", s, { x, y }));
+        ENSURE(pair != ac.mk_fresh_var("test-left", s, { y, x }));
+        ENSURE(pair != ac.mk_fresh_var("test-left", s, { x, x }));
+        expr* integer = ac.mk_fresh_var("test-left", a.mk_int(), { x, y });
+        ENSURE(pair != integer && integer->get_sort() == a.mk_int());
+
+        trail.push_scope();
+        expr* scoped = ac.mk_fresh_var("test-scoped", s, { x, y });
+        trail.pop_scope(1);
+        expr* x_ptr = x.get(), *y_ptr = y.get();
+        x.reset();
+        y.reset();
+        ENSURE(scoped == ac.mk_fresh_var("test-scoped", s, { x_ptr, y_ptr }));
+        ENSURE(pair == ac.mk_fresh_var("test-left", s, { x_ptr, y_ptr }));
+
+        seq::eq_tree tree(trail, m.limit());
+        auto* root = tree.mk_root();
+        seq::ambient_ref<seq::eq_tree::node, seq::eq_tree::dep_tracker> ref(*root, ac);
+        ENSURE(pair == ref.mk_fresh_var("test-left", s, { x_ptr, y_ptr }));
+    }
+
     struct eq_approx_fixture {
         struct context : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
             theory_seq_params params;
@@ -1563,7 +1601,7 @@ namespace {
             (assert (= (str.indexof s "aa" 0) 1))
             (assert (= (str.len s) 5))
             (assert (str.contains (str.substr s 3 2) "aa"))
-        )", true, "v");
+        )", true, "v", 2000000);
         check_nseq_candidate_model(R"(
             (declare-const s String)
             (assert (str.contains s "aa"))
@@ -1698,6 +1736,8 @@ namespace {
         params_ref p;
         p.set_sym("string_solver", symbol("nseq"));
         p.set_uint("max_conflicts", 0);
+        // Exercise the conversion axioms rather than regular-language preprocessing.
+        p.set_bool("seq.regular", false);
         for (unsigned j = 0; j < arguments.size(); ++j) {
             expr_ref conversion(u.str.mk_stoi(arguments.get(j)), m);
             expr_ref upper(a.mk_int(upper_bounds[j]), m);
@@ -1931,6 +1971,7 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_ambient_fresh_vars();
     tst_element_equality_substitution();
     tst_word_eq_finite_priority();
     tst_word_eq_finite_priority(true);

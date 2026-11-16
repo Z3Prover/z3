@@ -89,8 +89,8 @@ namespace seq {
         // the upper bound `len(s)=k && stoi(s)>=0 => stoi(s)<=10^k-1`,
         // which positional unfolding alone does not provide for symbolic
         // digits. Returns true if no new axioms were added.
-        // Early checks cover fixed values of arguments with at most two characters;
-        // other conversions wait for word refutation or a provisional SAT leaf.
+        // Early checks cover arguments with at most one character and fixed values
+        // with at most two; other conversions wait for word refutation or a provisional SAT leaf.
         template <typename dep_tracker_t>
         bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac, bool early_only = false) {
             if (m_terms.empty())
@@ -103,7 +103,7 @@ namespace seq {
                 expr* s = nullptr;
                 VERIFY(u.str.is_stoi(stoi_e, s));
                 unsigned bound = u.str.max_length(s);
-                if (early_only) {
+                if (early_only && bound > 1) {
                     rational lo, hi;
                     dep_tracker_t dep = nullptr;
                     if (bound > 2 || !ac.lower_bound(stoi_e, lo, dep) ||

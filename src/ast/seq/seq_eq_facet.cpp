@@ -548,8 +548,8 @@ namespace seq {
                     expr* v1 = lh;
                     expr* v2 = rh;
                     sort* s = v1->get_sort();
-                    expr* v1p = f.mk_fresh_var(s);
-                    expr* v2p = f.mk_fresh_var(s);
+                    expr* v1p = ac.mk_fresh_var(fwd ? "word-eq-forward-lhs" : "word-eq-backward-lhs", s, { v1, v2 });
+                    expr* v2p = ac.mk_fresh_var(fwd ? "word-eq-forward-rhs" : "word-eq-backward-rhs", s, { v1, v2 });
 
                     // The equal/extension branches require the eliminated
                     // variable to be non-empty.
@@ -692,7 +692,9 @@ namespace seq {
                     if (fwd && tail) repl.push_back(tail);
                     return repl;
                 };
-                expr* var2 = f.mk_fresh_var(var->get_sort());
+                expr_ref block_expr(u.str.mk_concat(block, var->get_sort()), m);
+                expr* var2 = ac.mk_fresh_var(fwd ? "word-eq-block-forward" : "word-eq-block-backward",
+                                           var->get_sort(), { var, block_expr });
                 expr* next_tok = var_side.size() > 1 ? (fwd ? var_side[1] : var_side[var_side.size() - 2]) : nullptr;
 
                 iterator* it = alloc(iterator, n, m, u);
@@ -877,7 +879,13 @@ namespace seq {
             rhs_prefix.append(split_rhs, eq.m_rhs.data());
             rhs_suffix.append(eq.m_rhs.size() - split_rhs, eq.m_rhs.data() + split_rhs);
 
-            expr* pad = padding != 0 ? f.mk_fresh_var(eq.m_lhs[0]->get_sort()) : nullptr;
+            expr* pad = nullptr;
+            if (padding != 0) {
+                sort* s = eq.m_lhs[0]->get_sort();
+                expr_ref lhs(u.str.mk_concat(eq.m_lhs, s), m);
+                expr_ref rhs(u.str.mk_concat(eq.m_rhs, s), m);
+                pad = ac.mk_fresh_var("eq-split", s, { lhs, rhs });
+            }
             expr_ref_vector eq1_lhs(m), eq1_rhs(m), eq2_lhs(m), eq2_rhs(m);
             eq1_lhs.append(lhs_prefix);
             eq1_rhs.append(rhs_prefix);
@@ -1157,13 +1165,15 @@ namespace seq {
         sort* seq_sort = m_lhs[0]->get_sort();
         sort* char_sort = nullptr;
         VERIFY(u.is_seq(seq_sort, char_sort));
-        expr* w = m.mk_fresh_const("diseq.w", seq_sort);
-        expr* a_ch = m.mk_fresh_const("diseq.a", char_sort);
-        expr* b_ch = m.mk_fresh_const("diseq.b", char_sort);
-        expr* a_unit = u.str.mk_unit(a_ch);
-        expr* b_unit = u.str.mk_unit(b_ch);
-        expr* up = m.mk_fresh_const("diseq.u'", seq_sort);
-        expr* vp = m.mk_fresh_const("diseq.v'", seq_sort);
+        expr_ref lhs(u.str.mk_concat(m_lhs, seq_sort), m);
+        expr_ref rhs(u.str.mk_concat(m_rhs, seq_sort), m);
+        expr* w = ac.mk_fresh_var("diseq.w", seq_sort, { lhs, rhs });
+        expr* a_ch = ac.mk_fresh_var("diseq.a", char_sort, { lhs, rhs });
+        expr* b_ch = ac.mk_fresh_var("diseq.b", char_sort, { lhs, rhs });
+        expr_ref a_unit(u.str.mk_unit(a_ch), m);
+        expr_ref b_unit(u.str.mk_unit(b_ch), m);
+        expr* up = ac.mk_fresh_var("diseq.u'", seq_sort, { lhs, rhs });
+        expr* vp = ac.mk_fresh_var("diseq.v'", seq_sort, { lhs, rhs });
 
         expr_ref_vector u_rhs(m); u_rhs.push_back(w); u_rhs.push_back(a_unit); u_rhs.push_back(up);
         expr_ref_vector v_rhs(m); v_rhs.push_back(w); v_rhs.push_back(b_unit); v_rhs.push_back(vp);
@@ -1354,7 +1364,7 @@ namespace seq {
             auto& mf = ac.mem_facet_ref();
             // Keep delayed conversion coherence on its original schedule.
             if (!ac.eq_facet_ref().is_satisfied() || !ac.ncontains_facet_ref().is_satisfied() ||
-                !mf.is_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
+                !mf.is_structurally_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
                 return nullptr;
             unsigned num_deqs = 0;
             for (auto const& dq : ac.deq_facet_ref().disequations()) {

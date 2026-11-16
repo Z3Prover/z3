@@ -93,12 +93,15 @@ namespace seq {
         ast_manager& m = out.get_manager();
         seq_util& u = ac.eq_facet_ref().get_seq_util();
         auto& sf = ac.solver_facet_ref();
-        expr_ref r(m.mk_fresh_const("ra", pattern->get_sort()), m);
         expr_ref_vector result(m), input(m);
-        result.push_back(r);
         input.append(n, ts);
+        sort* s = pattern->get_sort();
+        expr_ref input_expr(u.str.mk_concat(input, s), m);
+        expr_ref repl_expr(u.str.mk_concat(repl, s), m);
+        expr_ref r(ac.mk_fresh_var("replace-all-result", s, { input_expr, pattern, repl_expr }), m);
+        result.push_back(r);
         ac.replace_all_facet_ref().add(result, input, pattern, repl, dep);
-        expr_ref rel = replace_all_length_relation(u, sf.get_arith_util(), r, u.str.mk_concat(input, r->get_sort()), pattern, repl);
+        expr_ref rel = replace_all_length_relation(u, sf.get_arith_util(), r, input_expr, pattern, repl);
         if (rel)
             sf.add_constraint(rel, dep);
         out.push_back(r);
@@ -235,10 +238,12 @@ namespace seq {
             out = eq_tree::edge("replace-all end", dep, true, 0);
             return true;
         }
+        expr_ref input_expr(u.str.mk_concat(input, srt), m);
+        expr_ref prefix(u.str.mk_concat(in_rhs, srt), m);
         if (match)
             out_rhs.append(repl);
         else {
-            expr_ref y(m.mk_fresh_const("ra", srt), m);
+            expr_ref y(ac.mk_fresh_var("replace-all-copy-char", srt, { input_expr, pattern, prefix }), m);
             auto& sf = ac.solver_facet_ref();
             sf.add_constraint(expr_ref(m.mk_eq(u.str.mk_length(y), sf.get_arith_util().mk_int(1)), m), dep);
             sort* re_sort = u.re.mk_re(srt);
@@ -251,7 +256,8 @@ namespace seq {
             out_rhs.push_back(in_rhs.get(0));
             rest_in.append(in_rhs.size() - 1, in_rhs.data() + 1);
         }
-        expr_ref rest(m.mk_fresh_const("ra", srt), m);
+        expr_ref rest(ac.mk_fresh_var(match ? "replace-all-match-tail" : "replace-all-copy-tail",
+                                     srt, { input_expr, pattern, prefix }), m);
         in_rhs.push_back(rest);
         rest_in.push_back(rest);
         ef.add_equation(input, in_rhs, dep);

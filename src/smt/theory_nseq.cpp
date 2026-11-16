@@ -430,7 +430,7 @@ namespace smt {
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
+                expr* f = m_ambient->mk_fresh_var("prefix", e2->get_sort(), { e });
                 expr_ref_vector lhs = tokenize(dep, e2);
                 expr_ref_vector rhs = tokenize(dep, e1);
                 rhs.push_back(f); // fresh existential
@@ -452,7 +452,7 @@ namespace smt {
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
+                expr* f = m_ambient->mk_fresh_var("suffix", e2->get_sort(), { e });
                 expr_ref_vector lhs = tokenize(dep, e2);
                 expr_ref_vector rhs(m);
                 rhs.push_back(f); // fresh existential
@@ -497,8 +497,8 @@ namespace smt {
                     y = m_sk.mk_indexof_right(e1, e2);
                 }
                 else {
-                    x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
-                    y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                    x = m_ambient->mk_fresh_var("contains-left", e1->get_sort(), { e });
+                    y = m_ambient->mk_fresh_var("contains-right", e1->get_sort(), { e });
                 }
                 expr_ref_vector lhs = tokenize(dep, e1);
                 expr_ref_vector rhs(m);
