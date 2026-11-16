@@ -1,50 +1,67 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15 19:00 PST**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:11:35-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
-**Definition** is the independent sort-indexed checker with definition,
-NNF and Skolem replay; **Core** is the same checker without those extensions.
-**Legacy** uses `Z3ValueTheory.fst`. Counts below are for Definition unless
-stated otherwise.
-
-## Latest per-rule PENDING
+**Definition** is the independent checker with definition, NNF and Skolem
+replay. **Core** is the same sort-indexed checker without those extensions;
+both use a value family indexed by sort, not `Z3ValueTheory.fst`.
+**Legacy** uses `Z3ValueTheory.fst`. Counts are for Definition unless stated.
 
 PENDING counts are weighted unresolved proof-rule obligations, not PARTIAL
-proofs. Columns have different scopes and checker versions; do **not** add or
-directly compare them. `N/M` means not measured, not zero.
+proofs. Current observed counts appear below; missing evidence is not zero.
 
-| Rule | fstar-build: 583 inputs, full-run checker | sample: 103 PARTIAL inputs, older checker | sample: 11 frozen proofs, candidate | extended: full cohort |
-| --- | ---: | ---: | ---: | ---: |
-| `apply-def` | 0 | 203 | 80 | N/M |
-| `arith/farkas` | 8 | 0 | 0 | N/M |
-| `arith/lp-monomial-interval` | 5 | 0 | 0 | N/M |
-| `assumed:nlsat` | 437 | 0 | 0 | N/M |
-| `def-axiom` | 0 | 3 | 1 | N/M |
-| `der` | 0 | 7 | 0 | N/M |
-| `intro-def` | 0 | 272 | 113 | N/M |
-| `nnf-neg` | 19 | 0 | 0 | N/M |
-| `quant-intro` | 39 | 42 | 9 | N/M |
-| `rewrite` | 14 | 1,866 | 43 | N/M |
-| `sk` | 14 | 0 | 0 | N/M |
-| `th-lemma` | 1,073 | 3,514 | 681 | N/M |
-| **Total attributed** | **1,609** | **5,907** | **927** | **N/M** |
+<!-- BEGIN CURRENT PENDING -->
+## Current SMT-LIB diagnostic collection
 
-- **fstar-build:** last ABI-corrected full run, 08:57 PST, checker
-  `d87b731ba6aa`; all 583 ledger entries and diagnostic logs matched. Counts
-  include emitted prefixes from 45 timed-out sessions; remaining work in
-  their unobserved tails is unknown. This is an older checker, not the current
-  candidate. [Instance ledger](PORTING_INSTANCES.csv); evidence:
-  session `files\fstar-pending-ledger-01.json`.
-- **smtlib-sample:** current candidate, 11 identical frozen proofs, not all
-  225 inputs. Its full-cohort per-rule totals have not been collected.
-  The separate 103-input column is a source diagnostic rerun at 11:40 PST
-  for the PARTIAL inputs from an earlier cycle, using checker `1147416d9a4c`;
-  it is not directly comparable to the later full cycle or 11 frozen proofs.
-  Evidence: session `files\large-real-sample-01.json`,
-  `files\sample-partial-controls-01\results.jsonl`.
-- **smtlib-extended:** the latest 285-input cycle recorded outcomes but did
-  not collect per-rule diagnostics. Rule counts remain unmeasured.
+Updated `2026-11-15T23:11:35-08:00`; latest case `2026-11-15T23:11:34-08:00`; checker `245dd5c801e3`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+
+| Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| smtlib-sample | `2026-11-15T22:37:19-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-15T23:11:34-08:00` | 285 / 285 | 210 / 285 | 0 | 74 | 136 | 68 | 7 | 0 | 0 | 0 | 0 |
+
+| Rule | Sample observed PENDING | Extended observed PENDING |
+| --- | ---: | ---: |
+| `apply-def` | 203 | 0 |
+| `arith/farkas` | 0 | 59 |
+| `arith/lp-monomial-interval` | 0 | 46 |
+| `arith/lp-monomial-substitute` | 0 | 1 |
+| `assumed:nlsat` | 0 | 152 |
+| `def-axiom` | 3 | 89 |
+| `der` | 6 | 0 |
+| `intro-def` | 272 | 164 |
+| `quant-intro` | 42 | 83 |
+| `rewrite` | 140 | 24789 |
+| `th-lemma` | 3499 | 6407 |
+
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T055834Z`.
+<!-- END CURRENT PENDING -->
+
+<!-- BEGIN CURRENT FSTAR PENDING -->
+## Current fstar-build diagnostic collection
+
+Updated `2026-11-15T21:57:17-08:00`; latest case `2026-11-15T21:57:17-08:00`; checker `245dd5c801e3`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+
+| Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 583 / 583 | 543 | 40 | 0 | 0 | 570 / 583 | 0 |
+
+Observed proofs: **10929 ACCEPT / 383 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **462**.
+
+| Rule | Observed PENDING |
+| --- | ---: |
+| `arith/farkas` | 10 |
+| `arith/lp-monomial-interval` | 5 |
+| `assumed:nlsat` | 436 |
+| `nnf-neg` | 24 |
+| `quant-intro` | 45 |
+| `rewrite` | 14 |
+| `sk` | 20 |
+| `th-lemma` | 1043 |
+
+State: **complete**. Per-case evidence and pins: session `files\current-fstar-pending-01`.
+<!-- END CURRENT FSTAR PENDING -->
 
 ## Burn-down: matched proofs
 
@@ -60,30 +77,27 @@ assumed unchanged.
 | Nov 15 | smtlib-sample, 11 proofs | all pending | 1,923 | 927 | 996 | 927 |
 | Nov 15 | smtlib-sample, 11 proofs | all pending | 927 | 927 | 0 | 927 |
 
-The fstar-build row compares the retained bounds checker with the large Real
-equation candidate; two PARTIAL proofs became ACCEPT. The sample `rewrite`
-row compares the preceding integer-cut checker with the bounds checker; the
-later large-equation candidate left the sample's rule counts unchanged.
-The ring `th-lemma` row compares the retained checker with integer-cut replay.
-These are subset results, not full-cohort burn-downs. Evidence: session
-`files\large-real-compare-02.json`, `files\bounds-sample-01.json`,
-`files\large-real-sample-01.json`, `files\integer-cut-sample-03.json`.
+Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
+sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
+`9c022c1f9f84` -> `b73878ccdb7d`; final sample row
+`b73878ccdb7d` -> `245dd5c801e3`. The fstar-build change promoted two
+PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
+burn-downs. Evidence: session `files\large-real-compare-02.json`,
+`files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
+`files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`.
 
 ## Latest benchmark outcomes
 
 | Dataset / checker | Coverage | ACCEPT | PARTIAL | Solver UNKNOWN | TIMEOUT | REJECT / crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| fstar-build, full-run Definition | 583 inputs | 10,774 proofs | 382 proofs | 443 | 45 sessions | 0 | 0 inputs |
+| fstar-build, previous full-run Definition `d87b731ba6aa` | 583 inputs | 10,774 proofs | 382 proofs | 443 | 45 sessions | 0 | 0 inputs |
 | fstar-build, frozen retained | 147 proofs | 144 | 3 | 0 | 0 | 0 | 0 |
 | fstar-build, frozen candidate | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
-| smtlib-sample, full-run Definition | 225 inputs | 84 | 102 | 20 | 19 | 0 | 0 |
-| smtlib-extended, full-run Definition | 285 inputs | 74 | 135 | 69 | 7 | 0 | 0 |
 | smtlib-sample, frozen legacy | 11 proofs | 11 | 0 | 0 | 0 | 0 | 0 |
 | smtlib-sample, frozen candidate | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
 
 Full fstar-build proof counts include timed-out session prefixes; its solver
-UNKNOWN count is query-level. Full SMT-LIB runs finished Nov 15 at 17:05 PST
-with checker `9c022c1f9f84`, before the current candidate. Legacy parity and
+UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in the live collection above. Legacy parity and
 whole-corpus performance remain unestablished. Evidence: session
 `files\periodic-smtlib-state.json`, `files\large-real-fstar-01.json`.
 
