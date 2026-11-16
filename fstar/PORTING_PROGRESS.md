@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:37:42-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:39:48-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -81,18 +81,22 @@ assumed unchanged.
 | Nov 15 | smtlib-sample, 11 proofs, array draft | `th-lemma` | 681 | 0 | 681 | 0 |
 | Nov 15 | smtlib-sample, 11 proofs, array draft | `rewrite` | 43 | 36 | 7 | 36 |
 | Nov 15 | smtlib-sample, 11 proofs, array draft | all pending | 927 | 239 | 688 | 239 |
+| Nov 15 | fstar-build, Math.Exp query 7, product draft | `arith/lp-monomial-interval` | 4 | 2 | 2 | 2 |
 
 Checker SHA-256 prefixes: fstar-build `b73878ccdb7d` -> `245dd5c801e3`;
 sample ring `702a6993aaac` -> `9c022c1f9f84`; sample rewrite
 `9c022c1f9f84` -> `b73878ccdb7d`; pre-array sample row
 `b73878ccdb7d` -> `245dd5c801e3`; array draft
-`245dd5c801e3` -> `123dfe2cdd80`. The fstar-build change promoted two
+`245dd5c801e3` -> `123dfe2cdd80`; product draft
+`245dd5c801e3` -> `8bf2b8733eb5`. The fstar-build change promoted two
 PARTIAL proofs to ACCEPT. These are subset results, not full-cohort
 burn-downs. Array root certification can discharge obligations without
 independently certifying each original entry. Evidence: session
 `files\generic-array-sample-weighted-01.json`, `files\large-real-compare-02.json`,
 `files\bounds-sample-01.json`, `files\large-real-sample-01.json`,
-`files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`.
+`files\integer-cut-sample-02.json`, `files\existential-der-measure-01.json`,
+`files\real-nonnegative-math-exp-01.json`. The Math.Exp proof remains PARTIAL;
+the product draft awaits paired regression and performance controls.
 
 ## Latest benchmark outcomes
 
