@@ -65,7 +65,11 @@ concurrency:
 
 jobs:
   checker-build:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # Independent nightly/manual builds are evaluated by Z3Prover/bench.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       contains(fromJSON('["push", "pull_request"]'), github.event.workflow_run.event))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
