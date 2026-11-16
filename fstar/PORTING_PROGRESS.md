@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:11:35-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:22:46-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -94,12 +94,17 @@ burn-downs. Evidence: session `files\large-real-compare-02.json`,
 | fstar-build, frozen retained | 147 proofs | 144 | 3 | 0 | 0 | 0 | 0 |
 | fstar-build, frozen candidate | 147 proofs | 146 | 1 | 0 | 0 | 0 | 0 |
 | smtlib-sample, frozen legacy | 11 proofs | 11 | 0 | 0 | 0 | 0 | 0 |
-| smtlib-sample, frozen candidate | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
+| smtlib-sample, retained Definition `245dd5c801e3` | 11 proofs | 1 | 10 | 0 | 0 | 0 | 0 |
+| smtlib-sample, unretained array draft `123dfe2cdd80` | 11 proofs | 5 | 6 | 0 | 0 | 0 | 0 |
 
 Full fstar-build proof counts include timed-out session prefixes; its solver
 UNKNOWN count is query-level. Current SMT-LIB outcomes and checker pin are in the live collection above. Legacy parity and
 whole-corpus performance remain unestablished. Evidence: session
 `files\periodic-smtlib-state.json`, `files\large-real-fstar-01.json`.
+The array draft promoted four matched sample proofs without a verdict
+regression; repeated timing and weighted pending comparisons are pending.
+Root certification need not independently certify each original proof entry.
+Evidence: session `files\generic-array-sample-01.json`.
 
 ## Active / next
 
