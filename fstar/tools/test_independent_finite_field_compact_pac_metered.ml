@@ -111,12 +111,14 @@ let check_metered_bool name expected run =
       failwith (name ^ ": result or exact fuel")
 
 let check_finality r root support =
+  let all_support_used =
+    List.for_all (fun k -> Z.geq k Z.zero && I.index_get r.P.used k = Some true) support in
   check_metered_bool "unit root" (R.unit_root r.P.core root)
     (fun fuel -> M.unit_root_metered fuel r.P.core root);
-  check_metered_bool "all support used" (F.all_used r.P.used support)
+  check_metered_bool "all support used" all_support_used
     (fun fuel -> M.all_used_metered fuel r.P.used support);
   check_metered_bool "combined finality"
-    (R.unit_root r.P.core root && F.all_used r.P.used support)
+    (R.unit_root r.P.core root && all_support_used)
     (fun fuel -> M.finalize_metered fuel r root support)
 
 let () =
