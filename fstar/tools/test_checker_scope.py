@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 import checker_scope
@@ -121,6 +122,68 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
         self.assertEqual(len(entries), 90)
         self.assertTrue(set(KERNEL) <= set(entries))
+
+
+@unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "needs a POSIX shell")
+class FullWorkflowTests(unittest.TestCase):
+    def run_backend(self, backend, fail_command=""):
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-full.yml").read_text()
+        step = workflow.split(
+            "      - name: Build Z3, verify every registered module and test,", 1)[1]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1]
+                                 .split("\n      - name:", 1)[0])
+        stubs = """
+opam() { :; }
+record() {
+  printf '%s\\n' "$*" >> "$COMMAND_LOG"
+  [[ "$1" != "$FAIL_COMMAND" ]] || return 7
+}
+pwsh() { record pwsh "$@"; }
+cmake() { record "cmake:$1" "$@"; }
+python3() { record python3 "$@"; }
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "commands"
+            environment = dict(
+                os.environ, RUNNER_TEMP=directory, REPORT_DIR=directory,
+                CHECKER_BACKEND=backend, OPAM_SWITCH="test",
+                FSTAR_VERSION="stable", CHERRY_FSTAR_VERSION="cherry",
+                COMMAND_LOG=str(log), FAIL_COMMAND=fail_command)
+            result = subprocess.run(
+                ["bash", "-c", stubs + script], env=environment,
+                capture_output=True, text=True, timeout=30)
+            metadata = json.loads((Path(directory) / "build.json").read_text())
+            return result, log.read_text().splitlines(), metadata
+
+    def test_each_backend_runs_its_complete_suite_and_records_its_toolchain(self):
+        for backend in ("ocaml", "cherry"):
+            with self.subTest(backend=backend):
+                result, commands, metadata = self.run_backend(backend)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((metadata["mode"], metadata["backend"], metadata["exit_code"]),
+                                 ("full", backend, 0))
+                if backend == "ocaml":
+                    self.assertEqual(len(commands), 1)
+                    self.assertIn("-RunTests", commands[0])
+                    self.assertNotIn("-BuildCherry", commands[0])
+                    self.assertEqual(metadata["fstar_version"], "stable")
+                else:
+                    self.assertEqual([line.split()[0] for line in commands],
+                                     ["cmake:-S", "cmake:--build", "cmake:--install", "python3"])
+                    self.assertIn("--run-tests", commands[-1])
+                    self.assertIn("scope-cherry.json", commands[-1])
+                    self.assertEqual(metadata["fstar_version"], "cherry")
+
+    def test_failures_are_reported_and_do_not_run_later_build_stages(self):
+        for backend, failure in (
+                ("ocaml", "pwsh"), ("cherry", "python3"),
+                ("cherry", "cmake:-S"), ("cherry", "cmake:--build"),
+                ("cherry", "cmake:--install")):
+            with self.subTest(backend=backend, failure=failure):
+                result, commands, metadata = self.run_backend(backend, failure)
+                self.assertEqual(result.returncode, 7)
+                self.assertEqual(metadata["exit_code"], 7)
+                self.assertEqual(commands[-1].split()[0], failure)
 
 
 @unittest.skipUnless(os.name == "posix" and PWSH and shutil.which("git"),

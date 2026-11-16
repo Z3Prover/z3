@@ -42,7 +42,8 @@ def _env_pins(job):
 
 
 def _build_command(job):
-    return job.split("pwsh -NoProfile -File fstar/tools/build_ocaml_checker.ps1", 1)[1].split("2>&1", 1)[0]
+    return job.split("pwsh -NoProfile -File fstar/tools/build_ocaml_checker.ps1", 1)[1].split(
+        "2>&1", 1)[0].split("\n            else", 1)[0]
 
 
 class TestPulseCheckerWorkflows(unittest.TestCase):
@@ -54,22 +55,43 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
         self.assertTrue(self.build.startswith("name: Build Pulse native checkers\n"))
         self.assertTrue(self.full.startswith("name: Verify all Pulse checker files\n"))
         self.assertEqual(list(_jobs(self.build)), ["build", "publish-nightly"])
-        self.assertEqual(list(_jobs(self.full)), ["verify"])
-        self.assertNotIn("needs:", self.full)
+        self.assertEqual(list(_jobs(self.full)), ["backend", "verify"])
+        self.assertNotIn("needs:", _jobs(self.full)["backend"])
         self.assertNotIn("needs:", _jobs(self.build)["build"])
         self.assertNotIn("pulse-checker-full", self.build)
         self.assertNotEqual(_top(self.build, "concurrency"), _top(self.full, "concurrency"))
 
     def test_checker_only_build_verifies_without_tests_and_full_runs_every_test(self):
         checker = _build_command(_jobs(self.build)["build"])
-        full = _build_command(_jobs(self.full)["verify"])
+        backend = _jobs(self.full)["backend"]
+        full = _build_command(backend)
         self.assertNotIn("-RunTests", checker)
         self.assertIn("-BuildCherry", checker)
-        self.assertIn("-RunTests -BuildCherry", full)
+        self.assertIn("-RunTests", full)
+        self.assertNotIn("-BuildCherry", full)
+        self.assertIn('if [[ "$CHECKER_BACKEND" == ocaml ]]; then', backend)
+        self.assertIn("python3 fstar/tools/build_cherry_checker.py", backend)
+        self.assertIn('--report "$REPORT_DIR/scope-cherry.json" --run-tests', backend)
         for command in (checker, full):
             self.assertIn('-ReportDir "$REPORT_DIR"', command)
         self.assertIn('"mode":"checker"', _jobs(self.build)["build"])
-        self.assertIn('"mode":"full"', _jobs(self.full)["verify"])
+        self.assertIn('"mode":"full"', backend)
+
+    def test_full_backends_run_in_parallel_and_aggregate_without_hiding_failures(self):
+        backend, verify = (_jobs(self.full)[name] for name in ("backend", "verify"))
+        self.assertIn("fail-fast: false", backend)
+        self.assertIn("backend: [ocaml, cherry]", backend)
+        self.assertIn("CHECKER_BACKEND: ${{ matrix.backend }}", backend)
+        self.assertIn("    timeout-minutes: 180", backend)
+        self.assertIn("        timeout-minutes: 120", backend)
+        self.assertIn("needs: backend", verify)
+        self.assertIn("if: ${{ always() && needs.backend.result != 'skipped' }}", verify)
+        self.assertIn("BACKEND_RESULT: ${{ needs.backend.result }}", verify)
+        self.assertIn('run: test "$BACKEND_RESULT" = success', verify)
+        for name in ("Collect Cherry report", "Upload combined verification report",
+                     "Require both backends to pass"):
+            step = verify.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
+            self.assertIn("if: always()", step)
 
     def test_only_the_checker_build_packages_uploads_and_publishes_binaries(self):
         build = _jobs(self.build)["build"]
@@ -78,10 +100,15 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
             self.assertIn(f"name: pulse-checker-{backend}-linux-x86_64", build)
         self.assertIn("name: pulse-checker-build-report", build)
         verify = _jobs(self.full)["verify"]
-        self.assertNotIn("package_checker.py", verify)
+        self.assertNotIn("package_checker.py", self.full)
         self.assertEqual(re.findall(r"^          name: (.+)$", verify, re.MULTILINE),
-                         ["pulse-checker-full-report"])
-        upload = verify.split("name: pulse-checker-full-report", 1)[0].rsplit("- name:", 1)[1]
+                         ["pulse-checker-full-report-ocaml", "pulse-checker-full-report-cherry",
+                          "pulse-checker-full-report"])
+        backend = _jobs(self.full)["backend"]
+        self.assertIn("name: pulse-checker-full-report-${{ matrix.backend }}", backend)
+        for name in ("ocaml", "cherry"):
+            self.assertIn(f"path: ${{{{ runner.temp }}}}/pulse-checker-full-report/{name}", verify)
+        upload = verify.split("      - name: Upload combined verification report\n", 1)[1]
         self.assertIn("if: always()", upload)
         self.assertNotIn("contents: write", self.full)
         self.assertNotIn("publish", self.full)
@@ -96,7 +123,7 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
         self.assertEqual(self.build.count("contents: write"), 1)
 
     def test_shared_triggers_guards_pins_and_read_only_checkouts(self):
-        build, verify = _jobs(self.build)["build"], _jobs(self.full)["verify"]
+        build, verify = _jobs(self.build)["build"], _jobs(self.full)["backend"]
         for workflow, name, job in ((self.build, "pulse-checker-build.yml", build),
                                     (self.full, "pulse-checker-full.yml", verify)):
             with self.subTest(workflow=name):
