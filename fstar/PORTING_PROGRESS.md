@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-15T23:51:22-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-15T23:53:31-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -139,6 +139,11 @@ Evidence: session `files\generic-array-sample-01.json`,
 - **Burn down `th-lemma` and `rewrite`**, alternating fstar-build and sample;
   investigate unsupported Farkas, integer-cut and interval evidence at its
   producer before changing replay.
+- **Arithmetic evidence:** two frozen `arith/bound` examples require
+  nonlinear reasoning; they do not establish faulty linear Farkas certificates.
+  Current producer code exports flattened bound parameters but attempts
+  structured LP evidence for conflicts. Evidence: session
+  `files\commmonoid-bound-obligations-01.json`.
 - **Candidate validation:** strict F* kernel and downstream verification,
   focused tests and SMT/Python/help smoke tests passed. Two known finite-field
   tests and one known uncovered-binder fixture were excluded from the checker
