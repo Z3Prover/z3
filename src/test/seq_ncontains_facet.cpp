@@ -226,7 +226,8 @@ namespace {
 
     static void tst_ncontains_reverse_stoi_alphabet_scope() {
         for (unsigned first : {0u, 2u}) {
-            for (unsigned count : {1u, 4u, 5u}) {
+            for (unsigned count : {1u, 4u, 5u, 7u, 8u, 9u}) {
+                bool extended = count > 5;
                 ast_manager m;
                 reg_decl_plugins(m);
                 scoped_rlimit limit(m.limit(), 5000000);
@@ -235,11 +236,22 @@ namespace {
                 th_rewriter rw(m);
                 expr_ref source(m.mk_const("source", u.str.mk_string_sort()), m);
                 expr_ref length(u.str.mk_length(source), m);
-                expr_ref bound(a.mk_int(5), m);
+                expr_ref bound(a.mk_int(extended ? 9 : 5), m);
                 params_ref p;
                 p.set_sym("string_solver", symbol("nseq"));
                 ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+                auto check = [&](lbool expected, char const* phase) {
+                    lbool actual = s->check_sat(0, nullptr);
+                    if (actual != expected)
+                        std::cerr << "reverse-stoi alphabet " << first << " count " << count << " "
+                                  << phase << ": " << actual << " " << s->reason_unknown() << std::endl;
+                    ENSURE(actual == expected);
+                };
                 s->assert_expr(a.mk_le(length, bound));
+                if (extended) {
+                    expr_ref prefix(u.str.mk_string(first == 0 ? "01010101" : "23232323"), m);
+                    s->assert_expr(u.str.mk_prefix(prefix, source));
+                }
                 for (unsigned i = 1; i <= count; ++i) {
                     expr_ref offset(a.mk_int(i), m);
                     expr_ref index(a.mk_sub(length, offset), m);
@@ -254,32 +266,34 @@ namespace {
                 expr_ref range(u.re.mk_range(lo, hi), m);
                 expr_ref digits(u.re.mk_plus(range), m);
                 expr_ref member(u.re.mk_in_re(source, digits), m);
-                expr_ref word(u.str.mk_string(first == 0 ? "01010" : "23232"), m);
-                expr_ref wrong(u.str.mk_string(first == 0 ? "01011" : "23233"), m);
+                expr_ref word(u.str.mk_string(first == 0 ?
+                    (extended ? "010101010" : "01010") : (extended ? "232323232" : "23232")), m);
+                expr_ref wrong(u.str.mk_string(first == 0 ?
+                    (extended ? "010101011" : "01011") : (extended ? "232323233" : "23233")), m);
                 expr_ref empty(u.str.mk_empty(source->get_sort()), m);
                 s->push();
                 s->assert_expr(member);
-                ENSURE(s->check_sat(0, nullptr) == l_true);
+                check(l_true, "symbolic root");
                 s->push();
                 s->assert_expr(m.mk_eq(source, word));
-                ENSURE(s->check_sat(0, nullptr) == l_true);
+                check(l_true, "correct word");
                 s->pop(1);
                 s->push();
                 s->assert_expr(m.mk_eq(source, wrong));
-                ENSURE(s->check_sat(0, nullptr) == l_false);
+                check(l_false, "wrong word");
                 s->pop(1);
                 s->push();
                 s->assert_expr(m.mk_eq(source, empty));
-                ENSURE(s->check_sat(0, nullptr) == l_false);
+                check(l_false, "empty word");
                 s->pop(2);
                 s->push();
                 s->assert_expr(m.mk_not(member));
                 s->assert_expr(m.mk_eq(source, word));
-                ENSURE(s->check_sat(0, nullptr) == l_false);
+                check(l_false, "negative membership");
                 s->pop(1);
                 s->assert_expr(member);
                 s->assert_expr(m.mk_eq(source, word));
-                ENSURE(s->check_sat(0, nullptr) == l_true);
+                check(l_true, "restored membership");
             }
         }
     }

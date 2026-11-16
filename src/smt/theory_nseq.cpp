@@ -1678,12 +1678,14 @@ namespace smt {
 
     bool theory_nseq::branch_stoi_digit(bool stalled) {
         bool early = !stalled && m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64;
+        bool wide = false;
         auto const& terms = m_ambient->stoi_facet(*m_root).terms();
         if (early) {
             unsigned digits = 0;
             for (auto const& term : terms)
-                if (m_seq.str.max_length(to_app(term.first)->get_arg(0)) == 1 && ++digits > 4)
+                if (m_seq.str.max_length(to_app(term.first)->get_arg(0)) == 1 && ++digits > 8)
                     return false;
+            wide = digits > 4;
         }
         for (auto const& term : terms) {
             expr* e = term.first;
@@ -1697,6 +1699,17 @@ namespace smt {
                 if (!m_seq.str.is_at(arg, source, index) || !is_uninterp_const(source) ||
                     !m_autil.is_add(index))
                     continue;
+                if (wide) {
+                    unsigned source_digits = 0;
+                    for (auto const& other : terms) {
+                        expr* other_source = nullptr, *other_index = nullptr;
+                        if (m_seq.str.is_at(to_app(other.first)->get_arg(0), other_source, other_index) &&
+                            other_source == source)
+                            ++source_digits;
+                    }
+                    if (source_digits < 4)
+                        continue;
+                }
                 bool narrow = false;
                 for (auto const& member : m_ambient->mem_facet(*m_root).memberships()) {
                     if (!member.active() || !member.is_plain() || member.m_str.size() != 1 ||
