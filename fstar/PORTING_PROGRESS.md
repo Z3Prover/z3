@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T02:46:24-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T02:51:13-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -133,6 +133,7 @@ measured drafts are not retained; the product checkout candidate is retained.
 | --- | ---: | ---: | ---: |
 | fstar-build, retained `b73878ccdb7d` | 147 | 144 | 3 |
 | fstar-build, product checkout `35ef16e3adce` | 147 | 146 | 1 |
+| fstar-build, division draft `96d0c8a1b994` | 147 | 146 | 1 |
 | smtlib-sample, legacy | 11 | 11 | 0 |
 | smtlib-sample, retained `245dd5c801e3` | 11 | 1 | 10 |
 | smtlib-sample, product checkout `35ef16e3adce` | 11 | 1 | 10 |
@@ -149,15 +150,15 @@ Evidence: session `files\real-product-checkout-fstar-01.json`,
 `files\real-product-checkout-sample-01.json`,
 `files\real-product-checkout-math-exp-timing-01.json`,
 `files\real-product-checkout-sample-subset-timing-01.json`,
-`files\real-division-sample-01.json`,
+`files\real-division-sample-01.json`, `files\real-division-fstar-01.json`,
 `files\generic-array-sample-subset-timing-01.json`.
 
 ## Active / next
 
 - Complete pinned per-rule collection; unobserved evidence remains N/M.
 - Division draft passed focused tests and strict verification of 116 modules;
-  matched sample verdicts are unchanged; fstar-build controls and paired
-  timings are in progress.
+  matched sample and fstar-build verdicts are unchanged; paired timings
+  are in progress.
   Evidence: `files\real-division-downstream-01.json`,
   `files\real-division-candidate-build-01.json`.
 - Burn down `th-lemma`, `rewrite` and arithmetic obligations with matched proofs.
