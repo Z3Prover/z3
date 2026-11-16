@@ -358,7 +358,15 @@ step:
     single assertion implies the clause (Z3 found a contradiction while
     asserting, or simplified an ite inside one assertion under a unit
     asserted by another, which shows in alldiff clauses), the cnf lemma is
-    over an unsat core of the assertions. Clauses with true, not
+    over an unsat core of the assertions. A conjunction of more than 8,192
+    formulas (itself, its conjuncts, and those of the ands nested in it,
+    the nested ands counted too: 4,097 leaf conjuncts when the ands are
+    binary) is never given to a solver
+    whole, and once a conjunction is not decided the clause is tied to an
+    unsat core of leaf conjuncts instead, each and-eliminated from its
+    assertion (the assertions themselves when the core is more than a
+    quarter of them); the replay's tables are linear in the nesting depth
+    (QF_IDL PO4-10-PO4 nests 41,822 binary ands). Clauses with true, not
     false, or complementary literals are def-axiom nodes. Nothing else is
     accepted as an assumption. In Lean a cnf lemma is first proved by gate
     propagation over the Boolean structure of the clause with the theory

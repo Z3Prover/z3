@@ -17,6 +17,7 @@ import sys
 import tempfile
 import traceback
 import unittest
+from unittest.mock import patch
 
 import z3
 
@@ -54,6 +55,27 @@ def deep_bounds_conjunction(depth):
     source = "(set-logic QF_LRA)\n(declare-const x Real)\n(declare-const y Real)\n"
     source += "".join("(declare-const x%d Real)\n" % index for index in range(depth))
     operands = ["(< x%d 5.0)" % index for index in range(depth)] + ["(< x y)", "(< y x)"]
+    return source + "(assert %s)\n(check-sat)\n" % _nested_and(operands)
+
+
+def guarded_chain(count):
+    """A chain b0 => b1 => ... of count guarded links in one nested conjunction, QF_IDL PO4-10-PO4 reduced.
+
+    Link i is (not wi) and, after it, (or wi (not bi) bi+1). Z3 drops the
+    false guard when it reads the link and logs (or (not bi) bi+1) as
+    assumed, a clause that is no conjunct and that the link implies only
+    together with the unit (not wi), with which the clause shares no
+    symbol (PO4-10-PO4: (not AT4_PO4_WAIT) and a disjunction of 40 atoms).
+    b0 and (not bcount) follow from the last four conjuncts by a case
+    split, so the refutation resolves through every link.
+    """
+    source = "(set-logic QF_UF)\n(declare-const c Bool)\n(declare-const d Bool)\n"
+    source += "".join("(declare-const w%d Bool)\n" % index for index in range(count))
+    source += "".join("(declare-const b%d Bool)\n" % index for index in range(count + 1))
+    operands = []
+    for index in range(count):
+        operands += ["(not w%d)" % index, "(or w%d (not b%d) b%d)" % (index, index, index + 1)]
+    operands += ["(or b0 c)", "(or b0 (not c))", "(or (not b%d) d)" % count, "(or (not b%d) (not d))" % count]
     return source + "(assert %s)\n(check-sat)\n" % _nested_and(operands)
 
 
@@ -102,10 +124,10 @@ class TestDeepFormulaWalks(unittest.TestCase):
         p, q, r = z3.Bools("p q r")
         inner = z3.And(q, r)
         outer = z3.And(p, inner)
-        listed = [(conjunct.sexpr(), [step.sexpr() for step in path])
-                  for conjunct, path in proof_clause_log._conjuncts(outer)]
-        self.assertEqual(listed, [(outer.sexpr(), []), ("p", ["p"]), (inner.sexpr(), [inner.sexpr()]),
-                                  ("q", [inner.sexpr(), "q"]), ("r", [inner.sexpr(), "r"])])
+        # Each with the position of the and it is an operand of: the
+        # and-elim path of a conjunct is the chain of its parents.
+        listed = [(conjunct.sexpr(), parent) for conjunct, parent in proof_clause_log._conjuncts(outer)]
+        self.assertEqual(listed, [(outer.sexpr(), None), ("p", 0), (inner.sexpr(), 0), ("q", 2), ("r", 2)])
         deep = z3.BoolVal(True)
         for index in range(DEPTH):
             deep = z3.And(z3.Bool("p%d" % index), deep)
@@ -117,8 +139,9 @@ class TestDeepFormulaWalks(unittest.TestCase):
         deep = z3.BoolVal(True)
         for atom in atoms:
             deep = z3.And(atom, deep)
-        self.assertEqual(normalizer.forms[normalizer.key(deep)],
-                         ("and", tuple(sorted(normalizer.key(atom) for atom in atoms))))
+        tag, operands = normalizer.forms[normalizer.key(deep)]
+        self.assertEqual((tag, normalizer.sets.keys(operands)),
+                         ("and", sorted(normalizer.key(atom) for atom in atoms)))
         # The subformulas are keyed before their parent, but an error is
         # raised only when the parent's form asks for the subformula: a
         # conjunction stops at a false conjunct.
@@ -202,6 +225,54 @@ class TestDeepClauseLog(_LeanChecked):
         # through the levels above them.
         certificate = self.check(deep_bounds_conjunction(DEPTH), "qf_lra")
         self.assertEqual(certificate["rule_counts"]["and-elim"], DEPTH + 2)
+
+    def test_conjunction_above_the_solver_limit_is_checked(self):
+        # QF_IDL PO4-10-PO4 (one assertion of 41,822 nested binary ands)
+        # reduced, with the limit above which an and is not handed to a
+        # solver (_CHECKED_CONJUNCTS) lowered below the 407 sources of the
+        # input: every link's clause is tied by an unsat core over the
+        # leaf conjuncts, the link and its guard, each and-eliminated once.
+        # The lemma is over those two leaves; without the limit it is over
+        # the first and that implies the clause, the conjunction of
+        # everything from the guard on, and the certificate is more than
+        # four times the text.
+        count = 100
+        source = guarded_chain(count)
+        whole = proof_certificate.export_clause_log_certificate(source)
+        with patch.object(proof_clause_log, "_CHECKED_CONJUNCTS", 64):
+            certificate = self.check(source, "propositional")
+        counts = certificate["rule_counts"]
+        self.assertEqual((counts["th-lemma"], counts["asserted"]), (count, 1))
+        self.assertEqual(counts["and-elim"], 4 * count + 6)  # every conjunct but the assertion, once
+        self.assertEqual((whole["rule_counts"]["th-lemma"], whole["rule_counts"]["and-elim"]), (count, 2 * count + 6))
+        self.assertLess(2 * len(proof_to_lean.reconstruct(source, certificate)),
+                        len(proof_to_lean.reconstruct(source, whole)))
+
+    def test_clause_needing_every_conjunct_keeps_the_assertion_as_its_source(self):
+        # Z3 refutes the chain of implications while reading it and logs
+        # the empty clause as assumed, which follows from all conjuncts
+        # only. Above the limit the unsat core over the leaves is all of
+        # them, and the lemma is over the assertion as before, not over
+        # 1,102 leaves: the certificate is the one exported under the limit
+        # (at 8,000 levels, above the limit as it is: 2.6 MB of Lean either
+        # way, where a lemma over the leaves wrote 6.2 MB).
+        source = deep_implication_chain(DEPTH)
+        whole = proof_certificate.export_clause_log_certificate(source)
+        with patch.object(proof_clause_log, "_CHECKED_CONJUNCTS", 64):
+            limited = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(limited, whole)
+        self.assertEqual((whole["rule_counts"]["th-lemma"], whole["rule_counts"].get("and-elim", 0)), (1, 0))
+
+    @lean_test_support.slow("a conjunction nested 20,003 levels deep with 5,000 clauses tied by leaf cores, "
+                            "50 s of export and 15 MB of Lean")
+    def test_conjunction_of_20000_levels_is_checked(self):
+        # The size of QF_IDL PO4-10-PO4's nesting halved, above the limit
+        # as it is: before, the replay of 2,500 links did not end in 300 s
+        # and that of PO4-10-PO4 passed 17 GB without reading the log.
+        count = 5000
+        certificate = self.check(guarded_chain(count), "propositional")
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], count)
+        self.assertEqual(certificate["rule_counts"]["and-elim"], 4 * count + 6)
 
     def test_deep_enumeration_store_chain_is_reconstructed(self):
         # The cases of a read of an array of an enumeration are built along

@@ -1747,6 +1747,127 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Deeply nested conjunctions: linear replay tables, clauses tied by leaf cores (2026-11-16)
+
+Scale, not breadth: QF_IDL `mathsat/post_office/PO4-10-PO4` of z3test's
+`smtlib-sample` is one assertion of 41,822 nested binary ands over 41,823
+leaf conjuncts (a CVC Lite translation). Z3 answers it in 0.5 s and the
+clause log is trimmed in 0.4 s, but the Python replay grew past 17 GB
+without reading the first line of the log (3.4 GB after 6 s, inside
+`_Replay.__init__`, when the measurement of this change stopped it). Four
+costs were quadratic in the nesting depth, measured one after the other:
+
+- **And-elim paths.** `_conjuncts` gave every conjunct the tuple of its
+  and-elim steps: 1.75e9 steps for PO4 (about 14 GB). A source now holds
+  its position; `source_parents` gives the and above it, and
+  `_derive_assumption` walks up to the nearest source an earlier clause
+  reached and makes each and-elim step once (`and_elim_nodes`). The nodes
+  and their order are those of walking each path from the assertion.
+- **Canonical keys.** The form of an and (or an or) held the keys of its
+  flattened operands as a sorted tuple, so the and at level k repeated the
+  operands of all levels below it (8.7e8 keys for PO4, about 7 GB). The
+  operands are now a set named by one integer (`_KeySets`): a search tree
+  over the keys whose
+  shape the keys alone determine (each key's priority is a fixed
+  permutation of it), with interned nodes, so equal sets built in any order
+  are one node and a set that extends another shares all but a path of it.
+  Two formulas still get one key exactly when their flattened operand sets
+  are equal; nothing about the matching is approximate.
+- **The search index.** `sources_by_symbol` listed every and under each of
+  its symbols, and a symbol set was kept per and while the index was built
+  (with the two tables above fixed PO4's replay still peaked at 3.7 GB, and
+  at 0.5 GB without these). The index lists leaf conjuncts only; an and
+  shares a symbol with a clause exactly when a leaf below it does, so the
+  ands are
+  found from the leaves by `source_parents`. The hash of an and's symbol
+  set (`symbol_signatures`, for the equivalence candidates) is a sum over
+  its symbols, updated while the symbol sets of its conjuncts are merged
+  small into large.
+- **Solver checks of the whole and.** One implication check from PO4's
+  assertion took 24 s and 10 GB inside `Z3_solver_assert`, whatever the
+  resource limit of the check (presumably the rewriter flattening the
+  nested ands a level at a time; the cause inside Z3 was not traced; the
+  next two checks, of the ands one and two levels down, took 23 s each). An
+  and with more than `_CHECKED_CONJUNCTS` =
+  8192 sources at and below it is never handed to a solver, in an
+  equivalence check, an implication check, or as a tracked assertion of the
+  unsat-core fallback; of such ands only the assertion is listed as a
+  candidate.
+
+With the ands undecided the implication pass used to walk on, one solver
+call per and and per leaf below (QF_IDL qlock-4-10-8: 7,751 undecided
+checks in 116 s when profiled on 2026-11-13; its replay took 137.2 s
+today). Now the first and that is not decided, because it is above the
+limit or because its check is cut off, sends the clause to
+`_implying_leaves`: an unsat core of the negated clause with the leaf
+conjuncts that share a symbol with it, or, when those do not imply it, with
+all leaf conjuncts (one solver for the replay; a clause Z3 simplified under
+a unit conjunct shares no symbol with that unit, as PO4's `(not
+AT4_PO4_WAIT)` and a disjunction of 40 atoms). The core is checked again on
+its own while that shrinks it. The clause is then derived by a cnf lemma
+over the core's leaves, each and-eliminated from its assertion, or over
+the assertions themselves when the core is more than a quarter of their
+sources (the empty clause of a chain of implications needs every conjunct,
+and keeps the lemma over the assertion it had). When no core is found the
+search goes on as before, and the last resort (`_implying_assertions`)
+uses the leaves too when an assertion is above the limit. Nothing is
+trusted: Z3's core only chooses the sources of the lemma, and Lean proves
+the lemma from them or the certificate fails.
+
+Measured 2026-11-16 (exports with 300 s per stage, `lean` under `--memory=8192`
+as chains of 1 MB modules; before is the exporter of fork master 7abc8fabe):
+
+| file (QF_IDL) | before | after |
+| --- | --- | --- |
+| PO4-10-PO4 | no export: replay above 17 GB (2026-11-13), 3.4 GB after 6 s | replay 15.7 s at 0.70 GB, 24.36 MB of Lean, verifies as 25 modules in 88.3 s at 0.95 GB |
+| qlock-4-10-8 | replay 137.2 s, 78,004 nodes | replay 16.9 s, 78,160 nodes, 45.96 MB of Lean; Lean FAILS as 47 modules after 67.9 s at 1.13 GB, on `th_lemma_9887`, an arithmetic lemma (`first | omega | grind`) out of heartbeats at `isDefEq`: the Lean side of this file was open before (iter-119, iter-120) |
+| qlock-4-10-9 | not measured (above 120 s on 2026-11-13) | replay 23.1 s, 93.77 MB of Lean; Lean FAILS as 95 modules after 71.1 s at 1.06 GB, a lemma of the same kind in the seventh module |
+| parity 13.400.graph | no export: resource limit while tying an assumed clause | replay 14.3 s at 0.81 GB, 17.23 MB of Lean, verifies as 17 modules in 267.3 s at 1.39 GB |
+| parity 10.700.graph | no export: the same | replay 46.0 s at 2.08 GB, 45.73 MB of Lean; Lean FAILS as 44 modules after 193.1 s at 1.58 GB: the main theorem (386 kB, under the default 200,000 heartbeats) times out at `whnf` where it binds the tail of the assertion at operand 52,832 of 115,040 |
+| planning/plan-21 | 20.37 MB, 297 and-elim steps, verifies in 88.8 s (2026-11-14) | some clauses tied by leaf cores (300 and-elim steps): 20.28 MB, verifies as 21 modules in 89.4 s at 0.95 GB |
+
+The two parity files are one flat and of 36,440 and 115,040 conjuncts:
+above the limit, so the last resort ties their clauses by leaf cores
+instead of tracking the whole assertion. So five more sample files export
+(152 of 175) and two more verify (PO4-10-PO4, parity 13.400); the three
+others fail in Lean on costs this change does not touch (an arithmetic
+lemma of the qlock files, and-elim far into a conjunction of 115,040
+operands). Of the 147 sample files that
+exported before, 146 give the same certificate byte for byte (plan-21 is
+the one that differs); their replays take 345.7 s in all against 345.3 s.
+
+Generated families (`test_proof_to_lean_deep.py`), export time and the
+resident size of the exporter:
+
+| input | before | after |
+| --- | --- | --- |
+| `deep_implication_chain`, 2,000 / 4,000 / 8,000 levels | 2.1 / 4.9 / 12.2 s; 261 / 795 / 2,818 MB | 1.9 / 3.9 / 7.9 s; 112 / 190 / 371 MB, the same certificates |
+| the same, 16,000 / 32,000 levels | stopped at 6 GB after 17.7 s / not run | 15.5 / 32.6 s; 617 / 1,073 MB |
+| `guarded_chain`, 2,500 / 5,000 links (10,007 / 20,007 sources) | stopped at 300 s and 1,279 MB / not run | 14.3 / 47.8 s; 200 / 338 MB; 7.25 / 14.57 MB of Lean |
+
+Limits. Below `_CHECKED_CONJUNCTS` nothing changes while every check is
+decided, and that is not always the cheap side: `guarded_chain` at 500 and
+1,000 links (2,007 and 4,007 sources) ties every clause to the first and
+that implies it, 30.7 and 122.2 MB of Lean after 11 and 79 s of export, with
+either exporter, and at 2,000 links (8,007 sources) neither exports in 300 s;
+above the limit the lemmas are over two leaves each and 2,500 links write
+7.25 MB in 14 s. Preferring leaf cores to and sources below the limit too
+(or lowering the limit) would change certificates that verify today, and
+was not done.
+A clause that needs the core over all leaves costs one check of a solver
+holding every leaf, so `guarded_chain`, where every clause does, still
+grows faster than linearly (14 s at 2,500 links, 48 s at 5,000).
+
+Tests: `test_proof_certificate.py` (`test_key_sets_name_equal_sets_alike`,
+`test_assumption_sources_of_a_deep_conjunction_are_linear`,
+`test_and_above_the_solver_limit_is_tied_through_its_leaves`, and the cut-off
+cases of `test_implication_search_skips_conjuncts_a_model_refutes`),
+`test_proof_to_lean_deep.py` (`test_conjunction_above_the_solver_limit_is_checked`,
+the reduced PO4 checked by Lean with the limit lowered;
+`test_clause_needing_every_conjunct_keeps_the_assertion_as_its_source`; slow:
+`test_conjunction_of_20000_levels_is_checked`, 5,000 links above the limit as
+it is, 102 s).
+
 ### Wide conjunctions are defined in chunks (2026-11-16)
 
 Scale, not breadth: QF_UF `2018-Goel-hwbench/QF_UF_sokoban.3.prop1_ab_br_max`
