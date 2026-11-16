@@ -21,6 +21,7 @@ class seq_regular_simplifier : public dependent_expr_simplifier {
     bool m_enabled = true;
     unsigned m_max_steps = 100000;
     unsigned m_steps = 0, m_preimages = 0, m_rewritten = 0, m_stoi_rewritten = 0;
+    unsigned m_finite_rewritten = 0;
     unsigned m_unsupported = 0, m_budget = 0, m_skipped = 0;
     unsigned m_arith_refuted = 0;
     stopwatch m_watch;

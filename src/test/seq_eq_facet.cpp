@@ -21,6 +21,7 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
@@ -38,6 +39,65 @@ Author:
 #include <sstream>
 
 namespace {
+    static void tst_stoi_reentrant_axioms() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack trail;
+        struct ambient : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+            expr_ref_vector axioms;
+            ambient(ast_manager& m, seq_util& u, trail_stack& trail) :
+                null_ambient_context(m, u, trail), axioms(m) {}
+            void add_axiom(expr_ref_vector const& clause) override {
+                ENSURE(clause.size() == 3);
+                axioms.push_back(mk_or(clause));
+            }
+        } ac(m, u, trail);
+        seq::stoi_facet facet(trail, m, u, a);
+        expr_ref s(m.mk_const("reentrant-s", u.str.mk_string_sort()), m);
+        expr_ref t(m.mk_const("reentrant-t", u.str.mk_string_sort()), m);
+        expr_ref i(m.mk_const("reentrant-i", a.mk_int()), m);
+        expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+        expr_ref at(u.str.mk_at(s, i), m);
+        expr_ref part(u.str.mk_substr(t, zero, one), m);
+        expr_ref x(u.str.mk_stoi(at), m), y(u.str.mk_stoi(part), m);
+        trail.push_scope();
+        facet.add_term(x);
+        facet.add_term(y);
+        expr_ref_vector registered(m);
+        unsigned positional = 0;
+        facet.set_instantiate([&](expr*, unsigned depth) {
+            ENSURE(depth == 1);
+            if (++positional != 1)
+                return;
+            for (unsigned j = 0; j < 64; ++j) {
+                expr_ref fresh(m.mk_fresh_const("registered", u.str.mk_string_sort()), m);
+                registered.push_back(u.str.mk_stoi(fresh));
+                facet.add_term(registered.back());
+            }
+        });
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        ENSURE(ac.axioms.size() == 2 && positional == 2);
+        ENSURE(facet.terms().size() == 66);
+        ENSURE(facet.terms()[0].first == x && facet.terms()[0].second == 1);
+        ENSURE(facet.terms()[1].first == y && facet.terms()[1].second == 1);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ENSURE(ac.axioms.size() == 2);
+        {
+            trail_stack copy_trail;
+            scoped_ptr<stx::facet_i> copy(facet.clone(copy_trail));
+            auto& cloned = static_cast<seq::stoi_facet&>(*copy);
+            ENSURE(cloned.check_stoi_coherence(ac, true));
+            ENSURE(ac.axioms.size() == 2);
+        }
+        trail.pop_scope(1);
+        ac.axioms.reset();
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ENSURE(ac.axioms.empty());
+        ENSURE(facet.terms().empty());
+    }
+
     static void tst_ambient_fresh_vars() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1971,6 +2031,7 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_stoi_reentrant_axioms();
     tst_ambient_fresh_vars();
     tst_element_equality_substitution();
     tst_word_eq_finite_priority();

@@ -816,7 +816,9 @@ namespace seq {
                         rational k;
                         if (sf.value(length, k) && k > rational(256)) {
                             f.prefer_short_witness(true);
-                            return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+                            // Commit the phase change so the earlier length-bounding
+                            // split is revisited instead of rolling back this request.
+                            return stx::simplify_result::proceed;
                         }
                     }
                 }

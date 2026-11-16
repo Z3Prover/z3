@@ -99,7 +99,8 @@ namespace seq {
             bool progress = false;
 
             for (unsigned idx = 0; idx < m_terms.size(); ++idx) {
-                auto const& [stoi_e, prev_k] = m_terms[idx];
+                // Axiom callbacks may register more terms and reallocate m_terms.
+                auto const [stoi_e, prev_k] = m_terms[idx];
                 expr* s = nullptr;
                 VERIFY(u.str.is_stoi(stoi_e, s));
                 unsigned bound = u.str.max_length(s);

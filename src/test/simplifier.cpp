@@ -1386,6 +1386,195 @@ static void test_seq_decimal_comparisons() {
     }
 }
 
+static void test_seq_bounded_conversions() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref s(m.mk_const("bounded-s", u.str.mk_string_sort()), m);
+    expr_ref i(m.mk_const("bounded-i", a.mk_int()), m);
+    expr_ref n(m.mk_const("bounded-n", a.mk_int()), m);
+    expr_ref c(m.mk_const("bounded-c", m.mk_bool_sort()), m);
+    expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m), minus_one(a.mk_int(-1), m);
+    expr_ref at(u.str.mk_at(s, i), m);
+    expr_ref x(u.str.mk_stoi(at), m);
+    expr_ref relation(m.mk_eq(x, n), m);
+    expr_ref lo(u.str.mk_string(zstring("0")), m), hi(u.str.mk_string(zstring("1")), m);
+    expr_ref digit(u.re.mk_range(lo, hi), m);
+    expr_ref binary(u.re.mk_plus(digit), m);
+    expr_ref membership(u.re.mk_in_re(s, binary), m);
+    expr_ref_vector cases(m), pin(m);
+    auto hold = [&](expr* e) { pin.push_back(e); return e; };
+    auto add = [&](expr* e) { cases.push_back(m.mk_and(relation, e)); };
+    add(m.mk_true());
+    add(membership);
+    add(hold(m.mk_not(membership)));
+    add(hold(m.mk_or(c, membership)));
+    expr_ref literal(u.str.mk_string(zstring("27")), m);
+    expr_ref exact(u.re.mk_to_re(literal), m);
+    add(hold(u.re.mk_in_re(s, exact)));
+    expr_ref repeated(u.re.mk_star(digit), m);
+    add(hold(u.re.mk_in_re(s, repeated)));
+    expr_ref excluded(u.re.mk_complement(binary), m);
+    add(hold(u.re.mk_in_re(s, excluded)));
+    expr_ref wide_hi(u.str.mk_string(zstring("9")), m);
+    expr_ref decimal_digit(u.re.mk_range(lo, wide_hi), m);
+    expr_ref decimal(u.re.mk_plus(decimal_digit), m);
+    expr_ref intersection(u.re.mk_inter(decimal, binary), m);
+    add(hold(u.re.mk_in_re(s, intersection)));
+    expr_ref branch(a.mk_uminus(x), m);
+    expr_ref signed_value(m.mk_ite(c, branch, x), m);
+    expr_ref positive(a.mk_gt(signed_value, zero), m);
+    expr_ref valid(m.mk_not(m.mk_eq(x, minus_one)), m);
+    add(positive);
+    expr_ref checked(m.mk_and(positive, valid), m);
+    add(checked);
+    expr_ref len(u.str.mk_length(s), m);
+    expr_ref order(a.mk_lt(len, n), m);
+    expr_ref minimum(m.mk_ite(order, len, n), m);
+    expr_ref maximum(m.mk_ite(order, n, len), m);
+    for (expr* term : {minimum.get(), maximum.get()}) {
+        add(hold(a.mk_ge(term, one)));
+        add(hold(a.mk_le(term, one)));
+    }
+    expr_ref part(u.str.mk_substr(s, i, one), m);
+    expr_ref converted(u.str.mk_stoi(part), m);
+    cases.push_back(m.mk_eq(converted, n));
+    vector<zstring> words;
+    for (char const* text : {"", "0", "1", "2", "5", "7", "9", "x", "-", "-1", "10", "27", "009"})
+        words.push_back(zstring(text));
+    words.push_back(zstring(0x0661u));
+    words.push_back(zstring(0x1f600u));
+    for (expr* formula : cases) {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, formula, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != formula);
+        expr_ref rewritten(state[0].fml(), m);
+        ptr_vector<expr> todo;
+        obj_hashtable<expr> seen;
+        todo.push_back(rewritten);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (seen.contains(e)) continue;
+            seen.insert(e);
+            ENSURE(!u.str.is_stoi(e));
+            if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);
+        }
+        for (auto const& word : words) {
+            for (int offset : {-1, 0, 1, 3}) {
+                for (int value = -2; value <= 10; ++value) {
+                    for (bool choice : {false, true}) {
+                        expr_ref text(u.str.mk_string(word), m);
+                        expr_ref position(a.mk_int(offset), m), number(a.mk_int(value), m);
+                        expr_safe_replace sub(m);
+                        sub.insert(s, text);
+                        sub.insert(i, position);
+                        sub.insert(n, number);
+                        sub.insert(c, choice ? m.mk_true() : m.mk_false());
+                        expr_ref original(m), result(m);
+                        sub(formula, original);
+                        sub(rewritten, result);
+                        rw(original);
+                        rw(result);
+                        ENSURE(m.is_true(original) || m.is_false(original));
+                        ENSURE(original == result);
+                    }
+                }
+            }
+        }
+    }
+    {
+        expr_ref t(m.mk_const("bounded-t", u.str.mk_string_sort()), m);
+        expr_ref minus(u.str.mk_string(zstring("-")), m);
+        expr_ref_vector inputs(m), outputs(m);
+        inputs.push_back(relation);
+        for (expr* source : {s.get(), t.get()}) {
+            expr* length = hold(u.str.mk_length(source));
+            expr* tail_length = hold(a.mk_sub(length, one));
+            expr* tail = hold(u.str.mk_substr(source, one, tail_length));
+            expr* tail_value = hold(u.str.mk_stoi(tail));
+            expr* unsigned_value = hold(u.str.mk_stoi(source));
+            expr* prefix = hold(u.str.mk_prefix(minus, source));
+            expr* negative = hold(a.mk_uminus(tail_value));
+            expr* signed_value = hold(m.mk_ite(prefix, negative, unsigned_value));
+            inputs.push_back(a.mk_gt(signed_value, zero));
+            expr* tail_invalid = hold(m.mk_eq(minus_one, tail_value));
+            expr* tail_valid = hold(m.mk_ite(tail_invalid, m.mk_false(), m.mk_true()));
+            expr* long_enough = hold(a.mk_gt(length, one));
+            expr* negative_valid = hold(m.mk_and(tail_valid, long_enough));
+            expr* unsigned_invalid = hold(m.mk_eq(minus_one, unsigned_value));
+            expr* unsigned_valid = hold(m.mk_ite(unsigned_invalid, m.mk_false(), m.mk_true()));
+            inputs.push_back(m.mk_ite(prefix, negative_valid, unsigned_valid));
+        }
+        base_dependent_expr_state state(m);
+        for (expr* input : inputs) state.add(dependent_expr(m, input, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        for (unsigned j = 0; j < state.qtail(); ++j) outputs.push_back(state[j].fml());
+        expr_ref original(mk_and(inputs), m), rewritten(mk_and(outputs), m);
+        for (auto const& left : words) {
+            for (auto const& right : words) {
+                expr_ref l(u.str.mk_string(left), m), r(u.str.mk_string(right), m);
+                expr_ref nine(a.mk_int(9), m);
+                expr_safe_replace sub(m);
+                sub.insert(s, l);
+                sub.insert(t, r);
+                sub.insert(i, zero);
+                sub.insert(n, nine);
+                expr_ref before(m), after(m);
+                sub(original, before);
+                sub(rewritten, after);
+                rw(before);
+                rw(after);
+                ENSURE(m.is_true(before) || m.is_false(before));
+                ENSURE(before == after);
+            }
+        }
+    }
+    {
+        expr_ref domain_label(m.mk_const("bounded-domain", m.mk_bool_sort()), m);
+        expr_ref value_label(m.mk_const("bounded-value", m.mk_bool_sort()), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, membership, nullptr, m.mk_leaf(domain_label)));
+        state.add(dependent_expr(m, relation, nullptr, m.mk_leaf(value_label)));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ptr_vector<expr> premises;
+        m.linearize(state[1].dep(), premises);
+        ENSURE(premises.contains(domain_label) && premises.contains(value_label));
+    }
+    {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, relation, nullptr, nullptr));
+        params_ref p;
+        p.set_uint("seq_regular.max_steps", 1);
+        seq_regular_simplifier simp(m, p, state);
+        simp.reduce();
+        ENSURE(state[0].fml() == relation);
+    }
+    {
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        simplifier_factory factory = [](ast_manager& m, params_ref const& p, dependent_expr_state& state) {
+            return alloc(seq_regular_simplifier, m, p, state);
+        };
+        solver_ref solver(mk_simplifier_solver(mk_smt_solver(m, p, symbol()), &factory));
+        expr_ref two(a.mk_int(2), m);
+        expr_ref value(m.mk_eq(x, two), m);
+        solver->assert_expr(value);
+        ENSURE(solver->check_sat() == l_true);
+        solver->push();
+        solver->assert_expr(membership);
+        ENSURE(solver->check_sat() == l_false);
+        solver->pop(1);
+        ENSURE(solver->check_sat() == l_true);
+    }
+}
+
 static void test_seq_regular() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1804,6 +1993,7 @@ static void test_seq_regular() {
 void tst_simplifier() {
 
     test_seq_decimal_comparisons();
+    test_seq_bounded_conversions();
     test_seq_regular();
     test_use_aware_replace_contains();
     test_bit2int_proofs();

@@ -303,7 +303,7 @@ namespace {
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
-        fixture() :
+        fixture(bool extract_witness = true) :
             u((init_plugins(m), m)), a(m), rw(m),
             ac(m, u, trail),
             tree(trail, m.limit()),
@@ -322,7 +322,7 @@ namespace {
             ac.set_assumption_id(assumption_id);
             tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
-            tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw));
+            tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw, extract_witness));
             tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
             tree.add_split_plugin(alloc(seq::mem_monadic_split, m, u, rw, ac));
             tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
@@ -707,6 +707,42 @@ namespace {
         f.trail.pop_scope(1);
         ENSURE(!mf.short_witness_pending() && !mf.model_witness_fallback());
         ENSURE(!mf.witness_extracted() && mf.memberships().empty() && af.assumptions().empty());
+    }
+
+    static void tst_completion_short_length_progress() {
+        fixture f(false);
+        scoped_rlimit limit(f.m.limit(), 1000000);
+        f.ac.params.m_seq_monadic_leaf = true;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref language(f.u.re.mk_to_re(a), f.m);
+        language = f.u.re.mk_star(language);
+        expr_ref length(f.u.str.mk_length(x), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        f.tree.add_split_plugin(alloc(seq::mem_leaf_split, f.m, f.u, f.rw, f.ac));
+        f.tree.add_completion_plugin(alloc(seq::mem_witness_split, f.m, f.u, f.rw));
+        for (unsigned required : {257u, 300u}) {
+            f.trail.push_scope();
+            // Reach views bypass the monadic leaf's ordinary witness branch.
+            mf.add(seq::str_mem(f.m, x, seq::view::reach(language, language, f.m)));
+            sf.add_constraint(f.m.mk_eq(length, f.a.mk_int(required)));
+            ENSURE(f.tree.solve() == stx::search_result::sat);
+            auto* snapshot = f.tree.sat_snapshot();
+            ENSURE(snapshot);
+            auto& witnesses = snapshot->facet_as<seq::mem_facet>(f.mem_id);
+            expr_ref word(f.m);
+            ENSURE(witnesses.get_witness(x, word));
+            th_rewriter normalize(f.m);
+            normalize(word);
+            zstring str;
+            ENSURE(f.u.str.is_string(word, str));
+            ENSURE(str == zstring(std::string(required, 'a').c_str()));
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+            ENSURE(!mf.short_witness_pending() && !mf.model_witness_fallback());
+            ENSURE(!mf.witness_extracted() && mf.memberships().empty() && !sf.has_conflict());
+        }
     }
 
     static void tst_root_witness_retention(bool disequation) {
@@ -1529,6 +1565,7 @@ void tst_seq_mem_facet() {
     tst_root_refute_before_equation_substitution();
     tst_large_length_witness_fallback(false);
     tst_large_length_witness_fallback(true);
+    tst_completion_short_length_progress();
     tst_root_witness_retention(false);
     tst_root_witness_retention(true);
     tst_leaf_ground_prefix_cache(false);
