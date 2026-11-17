@@ -9,6 +9,7 @@
 # literals); every operand count Z3 solves must be certified, not only the
 # small ones.
 ############################################
+from collections import Counter
 from pathlib import Path
 import re
 import sys
@@ -68,6 +69,28 @@ def wide_disjunction(width):
     source = "".join("(declare-const p%d Bool)\n" % index for index in range(width))
     source += "(assert (or %s))\n" % " ".join("p%d" % index for index in range(width))
     source += "".join("(assert (not p%d))\n" % index for index in range(width))
+    return source + "(check-sat)\n"
+
+
+def shared_units_among_assertions(unused, links=150, uses=6):
+    """A chain of clauses whose every unit is used by the next `uses` of them, among `unused` other assertions.
+
+    The shape of the QF_IDL benchmark 20210312-Bouvier/vlsat3_c27 in z3test's
+    smtlib-sample, reduced: its refutation uses 579 of 15,332 assertions, and
+    its outlined lemmas name one another 316,556 times. Here p0 to p(uses-1)
+    are asserted, each clause derives the next unit from the `uses` before
+    it, and the last unit is refuted; a unit used more than once is a lemma
+    of its own, named by every lemma that uses it. The other assertions,
+    fresh atoms, stand before and after the chain.
+    """
+    source = "".join("(declare-const p%d Bool)\n" % index for index in range(links + uses))
+    source += "".join("(declare-const q%d Bool)\n" % index for index in range(unused))
+    source += "".join("(assert q%d)\n" % index for index in range(unused // 2))
+    source += "".join("(assert p%d)\n" % index for index in range(uses))
+    source += "".join("(assert (or %s p%d))\n" % (
+        " ".join("(not p%d)" % (index + offset) for offset in range(uses)), index + uses) for index in range(links))
+    source += "(assert (not p%d))\n" % (links + uses - 1)
+    source += "".join("(assert q%d)\n" % index for index in range(unused // 2, unused))
     return source + "(check-sat)\n"
 
 
@@ -224,20 +247,107 @@ class TestWidePropositionalLegacyCore(_WideLeanIntegration):
 
     def test_outlined_wide_disjunction_projects_each_assertion_at_logarithmic_depth(self):
         # Outlined, every proof step receives the assertions as one
-        # conjunction, Inputs, and projects assertion k by field notation.
+        # hypothesis, Inputs, and projects assertion k by field notation.
         # Right-nested, the last of the 601 assertions sat under 600
         # projections and elaborating the chain exhausted maxHeartbeats (as
         # it did for z3test's QF_LIA BART-PT-002/RF-00.smt2, 1,211
-        # assertions); balanced, no assertion is more than ten deep.
+        # assertions); balanced, no assertion is more than ten deep: five
+        # to its chunk of 32 assertions among the 19, five inside it.
         source = wide_disjunction(OUTLINED_WIDTH)
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0):
             certificate, axioms = self.check(source, "legacy", "propositional", OUTLINED_WIDTH)
             text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(axioms, set())
-        self.assertIn("private def Inputs", text)
-        paths = re.findall(r"_inputs((?:\.[12])+)", text)
+        self.assertIn("private structure Inputs", text)
+        size = proof_to_lean._INPUT_CHUNK
+        full, rest = divmod(OUTLINED_WIDTH + 1, size)  # 18 chunks of 32 and one of 25
+        self.assertTrue(full and rest)
+        chunks = re.findall(r"^private def Inputs_c\d+ .* : Prop := (.*)$", text, re.M)
+        self.assertEqual([chunk.count("formula_") for chunk in chunks], [size] * full + [rest])
+        field = re.search(r"^private structure Inputs .* : Prop where\n  all : (.*)$", text, re.M).group(1)
+        self.assertEqual(re.findall(r"\w+_c?\d+", field), ["Inputs_c%d" % index for index in range(full + 1)])
+        paths = re.findall(r"_inputs\.all((?:\.[12])+)", text)
+        self.assertEqual(len(paths), text.count("_inputs."))
         self.assertEqual(len(set(paths)), OUTLINED_WIDTH + 1)
         self.assertEqual(max(path.count(".") for path in paths), OUTLINED_WIDTH.bit_length())
+
+    def check_shared_units(self, unused, heartbeats):
+        """Check the refutation among `unused` assertions with each outlined lemma under `heartbeats`."""
+        source = shared_units_among_assertions(unused)
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(len(certificate["assertions"]), unused + 157)
+        text = proof_to_lean.reconstruct(source, certificate)
+        proof_to_lean.modules(text, 0, proof_to_lean._MODULE_SIZE)
+        lemmas = re.findall(r"^private theorem proof_step_\d+ .*?(?=^\S)", text, flags=re.M | re.S)
+        named = [len(re.findall(r"\bproof_step_\d+ _inputs\b", lemma)) for lemma in lemmas]
+        # Every unit derived is a lemma that takes the assertions, names
+        # the six before it, and projects its clause out of the assertions.
+        self.assertEqual(len(lemmas), 154)
+        self.assertEqual(Counter(named).most_common(1), [(6, 148)])
+        self.assertEqual(sum(named), 893)
+        self.assertTrue(all("    (_inputs : Inputs _atoms)\n" in lemma for lemma in lemmas))
+        self.assertEqual(text.count("_inputs.all."), 157)
+        self.assertEqual(text.count("_inputs."), 157)
+        self.assertEqual(len(re.findall(r"^private def Inputs_c\d+ ", text, re.M)),
+                         -(-(unused + 157) // proof_to_lean._INPUT_CHUNK))
+        marker = "\nprivate theorem proof_step_"
+        limited = text.replace(marker, "\nset_option maxHeartbeats %d in" % heartbeats + marker)
+        self.assertEqual(limited.count("\nset_option maxHeartbeats %d in\n" % heartbeats), len(lemmas))
+        _, report = lean_test_support.check(self, source, text=limited)
+        self.assertIn(".unsat' does not depend on any axioms", report)
+
+    def test_lemmas_naming_one_another_do_not_pay_for_the_assertions(self):
+        # Inputs was a definition of the whole conjunction of the assertions,
+        # and at every `proof_step_N _inputs` Lean's elaborator unfolded it
+        # twice, copying the conjunction: QF_IDL vlsat3_c27 (z3test's
+        # smtlib-sample; 15,332 assertions, 316,556 such references) took 26
+        # s of Lean for each MB of its 128 MB of lemmas and had no verdict
+        # after 40 minutes; with Inputs a structure it verifies in 517 s.
+        # Here, among 4,157 assertions: as a definition, more than 100 of the
+        # 154 lemmas needed more than 240,000 heartbeats each (maxHeartbeats
+        # counts thousands), and some more than 320,000. Now every lemma is
+        # within 100,000. Lean's default limit, 200,000 thousand, is far above
+        # either: what the limit below pins is that a reference to a lemma
+        # no longer costs the assertions.
+        self.check_shared_units(4000, 160)
+
+    @lean_test_support.slow("19 s of Lean: 16,157 assertions, most of it the theorem's own binders")
+    def test_lemmas_among_sixteen_thousand_assertions_stay_within_their_heartbeats(self):
+        # Every lemma within 200,000 heartbeats; as a definition more than
+        # 100 of them needed over 800,000 each, four times those of 4,157
+        # assertions.
+        self.check_shared_units(16000, 400)
+
+    def test_projection_of_another_assertion_is_rejected(self):
+        # What a projection out of Inputs proves is checked by Lean: through
+        # another chunk, or to its chunk's other half, a step proves another
+        # assertion than its type says; and so does the theorem's own proof
+        # of Inputs with two hypotheses exchanged. Each is a type mismatch,
+        # and the text they are made from is accepted: a text Lean rejected
+        # for another reason would not show it.
+        source = wide_disjunction(70)
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0):
+            text = proof_to_lean.reconstruct(source, proof_certificate.export_certificate(source))
+        _, accepted = lean_test_support.check(self, source, text=text)
+        self.assertIn(".unsat' does not depend on any axioms", accepted)
+        self.assertEqual(len(re.findall(r"^private def Inputs_c\d+ ", text, re.M)), 3)
+        (use,) = re.findall(r"\n +_inputs\.all\.1\.2\.1\.1\.1\.1\.1\n", text)
+        term = text[text.index("(Inputs.mk "):]
+        self.assertIn("(And.intro _h0 _h1)", term)
+        mutants = {"another chunk": text.replace(use, use.replace(".all.1.2.", ".all.1.1.")),
+                   "another assertion of the chunk": text.replace(use, use.replace(".1\n", ".2\n")),
+                   "hypotheses exchanged": text.replace("(And.intro _h0 _h1)", "(And.intro _h1 _h0)")}
+        for name, mutant in mutants.items():
+            with self.subTest(mutant=name), tempfile.TemporaryDirectory() as directory:
+                self.assertNotEqual(mutant, text)
+                output = Path(directory) / "mutant.lean"
+                output.write_text(mutant)
+                result = lean_test_support.run_check_lean(output)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                self.assertTrue(all("mismatch" in line for line in errors), report)
 
     def check_every_operand_eliminated(self, width, outlined):
         source = implication_chain_conjunction(width)
@@ -245,7 +355,7 @@ class TestWidePropositionalLegacyCore(_WideLeanIntegration):
         self.assertEqual(certificate["rule_counts"]["and-elim"], width)
         self.assertEqual(axioms, set())
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertEqual("private def Inputs" in text, outlined)
+        self.assertEqual("private structure Inputs" in text, outlined)
         # No projection starts more than a stride of operands before its own:
         # a tail is a stride past the one before, and an operand at most a
         # stride minus one past its tail. The tails of a conjunction defined
@@ -295,7 +405,7 @@ class TestWidePropositionalLegacyCore(_WideLeanIntegration):
             text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(certificate["rule_counts"]["and-elim"], 1)
         self.assertEqual(axioms, set())
-        self.assertIn("private def Inputs", text)
+        self.assertIn("private structure Inputs", text)
         tail = re.search(r"\n  let _tail_(\d+)_32 := _step_\1(?:\.2){32}\n", text)
         self.assertIsNotNone(tail)
         premise = tail.group(1)
@@ -350,7 +460,7 @@ class TestWidePropositionalLegacyCore(_WideLeanIntegration):
                                  0 if outlined else proof_to_lean._OUTLINE_PROOF_STEPS):
                 text, _ = lean_test_support.check(self, source, make_certificate(source, steps))
                 self.assertNotIn("_tail_", text)
-                self.assertEqual("private def Inputs" in text, outlined)
+                self.assertEqual("private structure Inputs" in text, outlined)
                 imports = re.findall(r"\n  let _step_\d+ := proof_step_\d+ _inputs\n", text)
                 self.assertEqual(len(imports), int(outlined))
                 self.assertRegex(text, r"\n    \(formula_\d+_t%d _atoms %s\)%s\.1\n" % (

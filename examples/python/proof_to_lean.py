@@ -143,6 +143,20 @@ _OUTLINE_WIDE_STEP = 64
 # A step under hypotheses used by one other step is bound inside it
 # (_step_blocks), at most this many such steps deep.
 _NESTED_STEP_DEPTH = 32
+# The outlined lemmas take the assertions as one hypothesis, `_inputs :
+# Inputs ..`, and name each other as `proof_step_N _inputs`. Inputs is a
+# structure with one field, `all`, the balanced conjunction of the assertions;
+# above _INPUT_CHUNK assertions that is the balanced conjunction of chunks of
+# _INPUT_CHUNK assertions, each a definition `Inputs_cK` (_input_definitions).
+# As a definition of the whole conjunction, Lean's elaborator unfolded Inputs
+# twice at every `proof_step_N _inputs` (to see whether the type expected of
+# `_inputs`, and then its own type, is a function type), copying the
+# conjunction each time: 4.1 ms apiece over the 15,332 assertions of QF_IDL
+# vlsat3_c27, whose 316,556 such references left its chain of modules without
+# a verdict after 40 minutes. A structure is not unfolded. A projection of an
+# assertion copies the field's type: the chunks' names and one chunk, not
+# every assertion.
+_INPUT_CHUNK = 32
 # and-elim projects an operand by field notation, one `.2` per operand before
 # it, so eliminating every operand of a wide conjunction is quadratic: 250
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
@@ -315,7 +329,8 @@ _MODULE_CHARS = 8000000
 _MODULE_SIZE = 1000000
 # What a top-level declaration of `reconstruct`'s text starts with (after its
 # own `set_option .. in` and comment lines, if any).
-_MODULE_DECLARATIONS = ("def ", "private def ", "noncomputable def ", "theorem ", "private theorem ", "structure ")
+_MODULE_DECLARATIONS = ("def ", "private def ", "noncomputable def ", "theorem ", "private theorem ", "structure ",
+                        "private structure ")
 _RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
 # The uninterpreted sorts are one type variable; constants, functions, and
 # predicates are indexed families over argument lists, so one signature serves
@@ -2998,7 +3013,8 @@ def _balanced(operator, arguments, identity):
 def _balanced_select(position, count, name):
     """Project a conjunct of a balanced conjunction (_balanced) by field notation.
 
-    The outlined proof steps receive the assertions as one conjunction, Inputs.
+    The outlined proof steps receive the assertions as one conjunction, the
+    field of Inputs (_input_select: of chunks that are such conjunctions).
     Right-nested, the last of 1,211 assertions sat under 1,210 projections,
     and elaborating such a chain against the unfolded definition exhausted
     maxHeartbeats; balanced, every assertion is at most log2(count) levels down.
@@ -3011,6 +3027,55 @@ def _balanced_select(position, count, name):
         else:
             path, position, count = path + ".2", position - middle, count - middle
     return name + path
+
+
+def _input_chunks(count):
+    """The chunks of Inputs, each the range of its assertions' positions; one chunk is no chunk (_INPUT_CHUNK).
+
+    The one place that says which assertions a chunk holds: the definitions
+    (_input_definitions), the projections (_input_select), and the theorem's
+    proof of Inputs (_input_term) all take the chunks from here.
+    """
+    if count <= _INPUT_CHUNK:
+        return []
+    return [range(start, min(start + _INPUT_CHUNK, count)) for start in range(0, count, _INPUT_CHUNK)]
+
+
+def _input_definitions(graph, signature):
+    """The lines defining Inputs, the hypothesis of the outlined lemmas (_INPUT_CHUNK)."""
+    formulas = [_formula(graph, node) for node in graph.assertions]
+    lines, operands = [], formulas
+    chunks = _input_chunks(len(formulas))
+    if chunks:
+        operands = []
+        for index, chunk in enumerate(chunks):
+            name = "Inputs_c%d" % index
+            lines.extend(["", "private def %s %s : Prop := %s" % (
+                name, signature, _balanced("And", [formulas[position] for position in chunk], "True"))])
+            operands.append("(%s _atoms%s)" % (name, graph.valuation))
+    return lines + ["", "private structure Inputs %s : Prop where" % signature,
+                    "  all : %s" % _balanced("And", operands, "True")]
+
+
+def _input_select(position, count):
+    """Project assertion `position` of `count` out of `_inputs` (_input_definitions)."""
+    chunks = _input_chunks(count)
+    if not chunks:
+        return _balanced_select(position, count, "_inputs.all")
+    index = position // _INPUT_CHUNK
+    # `range.index` raises unless the chunk at that index holds the position.
+    return _balanced_select(chunks[index].index(position), len(chunks[index]),
+                            _balanced_select(index, len(chunks), "_inputs.all"))
+
+
+def _input_term(count):
+    """The proof of Inputs from the hypotheses `_h0`, ... of the theorem (_input_definitions)."""
+    def conjunction(positions):
+        return _balanced("And.intro", ["_h%d" % position for position in positions], "True.intro")
+    chunks = _input_chunks(count)
+    if not chunks:
+        return "(Inputs.mk %s)" % conjunction(range(count))
+    return "(Inputs.mk %s)" % _balanced("And.intro", [conjunction(chunk) for chunk in chunks], "True.intro")
 
 
 def _modus_ponens(graph, terms, node):
@@ -11005,8 +11070,8 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     (_step_blocks) is part of that step's lines.
     """
     classical = bool(graph.arithmetic or graph.uninterpreted)
-    inputs = _balanced("And", [_formula(graph, node) for node in graph.assertions], "True")
-    lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    lines = _input_definitions(graph, signature)
+    head = len(lines)
     # The interpretation is implicit in each lemma, determined by the type of
     # _inputs: a lemma is imported as `proof_step_N _inputs`.
     implicit = re.sub(r"\((_\w+ : [^()]*)\)", r"{\1}", signature)
@@ -11070,7 +11135,7 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
         lines.extend(body)
         lines.extend(conclusion)
     if classical and any(_CLASSICAL_CONTRADICTION in line for line in lines):
-        lines[2:2] = _CLASSICAL_CONTRADICTION_LEMMA
+        lines[head:head] = _CLASSICAL_CONTRADICTION_LEMMA
     return lines, ([] if classical else witnesses[graph.proof])
 
 
@@ -11301,7 +11366,7 @@ def reconstruct(source, certificate):
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             position = assumptions[terms[conclusion]]
-            term = (_balanced_select(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
+            term = _input_select(position, len(graph.assertions)) if outline else "_h%d" % position
         elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
@@ -11377,9 +11442,9 @@ def reconstruct(source, certificate):
     if outline:
         for name in witnesses:
             lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
-        inputs = _balanced("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
         lines.append("  @proof_step_%d _atoms%s %s%s" % (
-            graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
+            graph.proof, graph.valuation, _input_term(len(graph.assertions)),
+            "".join(" " + name for name in witnesses)))
     else:
         for atom in sorted(decidable_atoms):
             lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))

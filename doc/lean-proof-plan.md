@@ -1606,7 +1606,10 @@ on `20220307-SMPT/BART-PT-002/RF-00.smt2` (1,211 assertions) and
 (a 601-assertion disjunction reproduces it). `Inputs` and its
 `And.intro` term are now balanced trees (`_balanced`,
 `_balanced_select`), so no assertion is more than log2(count)
-projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s. (2) A
+projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s.
+(2026-11-16: `Inputs` is a structure whose field is that tree, over chunks
+of 32 assertions; see "`Inputs` is a structure over chunks of the
+assertions".) (2) A
 theory rewrite over more than 16 arithmetic atoms is proved atom by atom
 and then propositionally over the atoms' names (`_normalized_rewrite`)
 only when its linear forms range over variables; `mathsat/Wisa/
@@ -1746,6 +1749,133 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### `Inputs` is a structure over chunks of the assertions (2026-11-16)
+
+Scale, not breadth: QF_IDL `20210312-Bouvier/vlsat3_c27` of z3test's
+`smtlib-sample` (15,332 assertions, 119,722 certificate nodes) exports to 141 MB
+of Lean, and its chain of 143 modules had no verdict in the 40 minutes its
+measurement of 2026-11-14 gave it: 92 modules checked, 14 to 45 s each
+after the definitions, 26 s of Lean per MB where the other large files take
+4 to 10.
+
+What dominated, measured before changing anything (the profile of the 15th
+module, 1 MB of 666 outlined lemmas, 37.4 s: elaboration 26.2 s, linting
+6.5 s, type checking 2.5 s; then `trace.profiler` on its first twelve
+lemmas): every `proof_step_N _inputs`, a lemma naming another, took 12 ms,
+8.7 of them in two `whnf` of `Inputs _atoms _vars` at 4.1 ms each. `Inputs`
+was a definition, the balanced conjunction of all assertions (531 kB
+here). Lean's elaborator weak-head-normalizes the type expected of an
+argument (to see whether it is a function type with implicit binders) and
+the type of an applied head (to see whether it is a function type at all),
+and unfolding the definition copies the conjunction with the
+interpretation put in. The 2,470 references of that module were 25 of its
+26 s of elaboration, and the file has 316,556 of them: the cost of the
+lemmas was their number times the number of assertions. A projection of
+an assertion, `_inputs.1.2...`, unfolded the definition as well, and
+carried the conjunction in its proof term: the 14th module (the
+definition, 459 lemmas with 169 projections) took 27.7 s, 7.0 of them
+writing its `.olean` and 6.0 type checking.
+
+`Inputs` is now a structure with one field, `all` (`_input_definitions`):
+`whnf` of a structure type does nothing. Up to 32 assertions the field is
+their balanced conjunction; above, it is the balanced conjunction of
+chunks of 32 assertions, each a definition `Inputs_cK` that is such a
+conjunction, so a projection `_inputs.all.<path to the chunk>.<path inside
+it>` (`_input_select`) copies the chunks' names and one chunk. The theorem
+`unsat` is stated as before, over one hypothesis per assertion, and builds
+`Inputs.mk` of the same tree from them (`_input_term`). Nothing about the
+trust boundary changes: `Inputs` is a private declaration of the
+certificate, a projection that names another assertion than its step's
+type says is a type error, and no limit of the check moved.
+
+Measured on 2026-11-16 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 74 texts are the same byte for byte (not
+outlined), and the 78 outlined ones differ only in the definitions of
+`Inputs`, the projection paths, and the last line of the theorem (checked
+by comparing the texts with those taken out). The 60 changed texts of at
+most 25 MB and `vlsat3_c27` were checked in Lean:
+
+| file | assertions; references; projections | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `vlsat3_c27` | 15,332; 316,556; 579 | 141.33 MB; in the 517 s the new chain takes, the chain of 143 modules had 33 checked, without an error (13.4 to 39.7 s for a module of lemmas, 2.21 GB) | 141.38 MB; **verifies** as 142 modules in 516.7 s at 1.15 GB (3.2 to 5.0 s for a module of lemmas, 13.8 s for the theorem's) |
+| QF_UF `sokoban.3.prop1_ab_br_max` | 7,643; 2,313; 1,384 | 8.52 MB; verifies as 9 modules in 217.8 s at 5.11 GB (one module 179.5 s) | 8.55 MB; verifies as 9 modules in 38.2 s at 1.14 GB |
+| QF_AUFLIA `storecomm_t3_pp_sf_ai_00060_005` | 1,894; 12,042; 1,247 | 5.37 MB; verifies in 72.2 s at 4.43 GB | 5.38 MB; verifies in 50.9 s at 3.67 GB |
+| QF_AX `storecomm_t2_np_sf_ai_00050_005` | 1,326; 8,325; 849 | 3.71 MB; verifies in 20.1 s at 3.53 GB | 3.72 MB; verifies in 11.7 s at 2.57 GB |
+| QF_AX `storecomm_t3_np_sf_ai_00040_001` | 861; 6,460; 679 | 2.63 MB; verifies in 11.0 s at 2.41 GB | 2.63 MB; verifies in 7.3 s at 1.82 GB |
+
+The other 56: 54 verify, none slower than its last measurement by more
+than a second (most have one assertion or a few dozen, where a reference
+cost little: QF_AX `storecomm_t2_np_nf_ai_00050_007`, 1,226 assertions,
+138.5 s to 122.4 s; QF_UF `gensys_icl1228`, 136 assertions and 26,654
+references, 24.5 s to 22.6 s). Two fail, both with the exporter before and
+after: QF_AUFLIA `dlx-regfile` (its cnf lemma, as recorded), and QF_LRA
+`tta_startup/simple_startup_15nodes.synchro.base`, a theory lemma
+(`th_lemma_17023`) out of its 1,000,000 heartbeats at `whnf`: its text is
+4.85 MB today and was 5.20 MB when it verified on 2026-11-13, so the
+certificate changed in between; recorded in BACKLOG, not looked at here.
+Of the 17 changed texts above 25 MB (QF_UF `gensys_*`, the QF_AUFLIA swap
+files, the two qlock files; 73 to 142 assertions or one), QF_UF
+`gensys_icl1079` (verifies as 32 modules in 110.4 s at 0.95 GB; 121.9 s on
+2026-11-14) and QF_IDL `qlock-4-10-8` (as 42 modules in 159.0 s at 1.01 GB;
+157.5 s) were checked, and in the review and the integration of the change
+seven more, which all verify: QF_UF `gensys_brn023` (33 modules, 119.7 s
+at 1.04 GB), `gensys_icl388` (45 modules, 165.7 s at 1.10 GB),
+`gensys_icl665` (55 modules, 199.6 s at 1.10 GB) and `gensys_brn1262` (60
+modules, 222.4 s at 1.18 GB), QF_AUFLIA `swap_t1_pp_sf_ai_00010_008` (36
+modules, 333.3 s at 2.66 GB) and `swap_t3_pp_sf_ai_00009_006` (77 modules,
+651.9 s at 2.76 GB), and QF_IDL `qlock-4-10-9` (88 modules, 321.6 s at
+1.16 GB; 305.7 s before). The other eight (92.6 to 194.8 MB: six
+`gensys_*` and two swap files, 73 to 140 assertions) were not checked
+again.
+
+Generated family `shared_units_among_assertions(unused)`
+(`test_proof_to_lean_wide.py`): a chain of 150 clauses in which every unit
+derived is used by the next six clauses (154 lemmas that name one another
+893 times and project 157 assertions), among `unused` further assertions
+that the refutation does not use. "Heartbeats" is the least limit, of the
+values tried, under which every lemma is accepted (`set_option
+maxHeartbeats` before each, in thousands):
+
+| assertions | 157 | 1,157 | 4,157 | 16,157 |
+| --- | --- | --- | --- | --- |
+| before: Lean | 0.21 MB: 0.9 s, 0.48 GB | 0.37 MB: 2.1 s, 0.62 GB | 0.88 MB: 6.0 s, 1.00 GB | 2.95 MB: 25.1 s, 2.61 GB |
+| after: Lean | 0.21 MB: 0.9 s, 0.47 GB | 0.38 MB: 1.3 s, 0.56 GB | 0.89 MB: 3.1 s, 0.83 GB | 2.99 MB: 18.6 s, 1.91 GB |
+| before: heartbeats of a lemma | not measured | not measured | over 240 for more than 100 lemmas, 640 for all | over 800 for more than 100 lemmas, 3,200 for all |
+| after | not measured | not measured | 100 | 200 |
+
+What is left at 16,157 assertions is the theorem itself (one binder per
+assertion) and the definitions of the assertions' formulas.
+
+Tests: `test_proof_to_lean.py`
+(`test_inputs_are_a_structure_over_chunks_of_the_assertions`: the paths of
+`_input_select` end at their assertion in the trees `_input_definitions`
+writes and at their hypothesis in `_input_term`'s, for 1 to 1,281
+assertions; no Lean), `test_proof_to_lean_wide.py`
+(`test_lemmas_naming_one_another_do_not_pay_for_the_assertions`: the family
+at 4,157 assertions verifies with every lemma under 160 thousand
+heartbeats; `test_projection_of_another_assertion_is_rejected`: a
+projection through another chunk or to another assertion of its chunk, and
+two hypotheses exchanged in the theorem's term, are type mismatches in
+Lean, in a text that is accepted without them; slow:
+`test_lemmas_among_sixteen_thousand_assertions_stay_within_their_heartbeats`,
+under 400 thousand; the 601-assertion test pins the 19 chunks).
+
+Still open:
+
+- A projection still copies the chunks' names, a 32nd of the assertions.
+  Chunks of chunks would make it logarithmic; no input measured needs it
+  (the family's root lemma, with three projections the one that needs the
+  most, is within 100 thousand heartbeats at 4,157 assertions and within
+  200 at 16,157).
+- The theorem `unsat` takes one hypothesis per assertion: 13.8 s for the
+  15,332 of `vlsat3_c27`, and most of the 18.6 s of the family at 16,157.
+  It is the statement being certified.
+- QF_LRA `simple_startup_15nodes.synchro.base` fails in a theory lemma
+  since some change after 2026-11-13 (see above).
 
 ### A sweep reads through nested gates and refutes further below the clause (2026-11-16)
 
@@ -2192,7 +2322,10 @@ Still open:
   1.3 to 1.5 s, and pre-definitions 1.6 to 2.2 s apiece). They do not
   mention the distinct; each takes about 75 projections out of `Inputs`,
   the balanced conjunction of the file's 7,643 assertions. Not traced
-  further. Its replay is 33 of the 42 s of its export.
+  further. Its replay is 33 of the 42 s of its export. (2026-11-16: the
+  cost was the definition of `Inputs`, unfolded at every projection and
+  at every reference to a lemma; the file verifies in 38.2 s at 1.14 GB,
+  see "`Inputs` is a structure over chunks of the assertions".)
 - A true conjunction of 17,955 operands in a cnf lemma (the last row
   above): the prover states every operand before it prunes the ones it did
   not use, 1.44 million characters against its budget of 1 million
@@ -2374,6 +2507,8 @@ Still open:
   the measurement gave it. 92 modules were checked without an error at up
   to 2.2 GB, 14 to 45 s each after the definitions (one 67 s), so the
   whole chain would take about an hour: 26 s of Lean per MB of its text.
+  (2026-11-16: verifies as 142 modules in 517 s, see "`Inputs` is a
+  structure over chunks of the assertions".)
 - The modules of a chain are checked one after another, 4 to 10 s per MB.
   A module imports the one before it; checking modules in parallel would
   need each to import only what it uses.

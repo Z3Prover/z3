@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -896,6 +897,77 @@ class TestProofToLean(unittest.TestCase):
                     self.assertIsInstance(node, tuple)
                     node = node[int(field) - 1]
                 self.assertEqual(node, name)
+
+    def test_inputs_are_a_structure_over_chunks_of_the_assertions(self):
+        # The hypothesis of the outlined lemmas: a structure (which Lean does
+        # not unfold where a lemma is named, `proof_step_N _inputs`) whose
+        # field is the balanced conjunction of the assertions, or above a
+        # chunk of them of the chunks' definitions. _input_select must follow
+        # the trees _input_definitions writes, and _input_term must build them.
+        def parse(text):
+            if not text.startswith("(") or " " not in text or text.startswith(("(formula_", "(Inputs_c")):
+                return text
+            depth, parts, start = 0, [], 1
+            for index, char in enumerate(text[1:-1], 1):
+                if char == " " and depth == 0:
+                    parts.append(text[start:index])
+                    start = index + 1
+                depth += (char == "(") - (char == ")")
+            parts.append(text[start:-1])
+            self.assertEqual(len(parts), 3)
+            self.assertIn(parts[0], ("And", "And.intro"))
+            return parse(parts[1]), parse(parts[2])
+
+        def leaves(tree):
+            return leaves(tree[0]) + leaves(tree[1]) if isinstance(tree, tuple) else [tree]
+
+        def follow(tree, fields):
+            for field in fields:
+                self.assertIsInstance(tree, tuple)
+                tree = tree[int(field) - 1]
+            return tree
+
+        chunk = proof_to_lean._INPUT_CHUNK
+        signature = "(_atoms : Nat -> Prop) (_vars : Nat -> Int)"
+        for count in [1, 2, 3, chunk - 1, chunk, chunk + 1, 2 * chunk, 2 * chunk + 1, 5 * chunk + 7, 40 * chunk + 1]:
+            graph = SimpleNamespace(assertions=list(range(100, 100 + count)), valuation=" _vars")
+            lines = proof_to_lean._input_definitions(graph, signature)
+            self.assertEqual(lines[-2], "private structure Inputs %s : Prop where" % signature)
+            self.assertTrue(lines[-1].startswith("  all : "))
+            field = parse(lines[-1][len("  all : "):])
+            definitions = {}
+            for line in lines[:-2]:
+                if line:
+                    name, body = re.fullmatch(r"private def (Inputs_c\d+) %s : Prop := (.*)" % re.escape(signature),
+                                              line).groups()
+                    definitions["(%s _atoms _vars)" % name] = parse(body)
+            chunks = -(-count // chunk) if count > chunk else 0
+            self.assertEqual(len(definitions), chunks)
+            self.assertEqual(leaves(field), ["(Inputs_c%d _atoms _vars)" % index for index in range(chunks)]
+                             or ["(formula_%d _atoms _vars)" % node for node in graph.assertions])
+            self.assertTrue(all(len(leaves(tree)) <= chunk for tree in definitions.values()))
+            term = proof_to_lean._input_term(count)
+            self.assertTrue(term.startswith("(Inputs.mk ") and term.endswith(")"))
+            proof = parse(term[len("(Inputs.mk "):-1])
+            self.assertEqual(leaves(proof), ["_h%d" % position for position in range(count)])
+            depth = (max(chunks, 1) - 1).bit_length() + (min(count, chunk) - 1).bit_length()
+            for position, node in enumerate(graph.assertions):
+                path = proof_to_lean._input_select(position, count)
+                self.assertTrue(path.startswith("_inputs.all"))
+                fields = path[len("_inputs.all"):].split(".")[1:]
+                self.assertLessEqual(len(fields), depth)
+                # The path passes a chunk's name where the field's tree ends,
+                # and goes on in that chunk's definition.
+                tree, passed = field, 0
+                while isinstance(tree, tuple):
+                    tree, passed = tree[int(fields[passed]) - 1], passed + 1
+                if chunks:
+                    self.assertEqual(tree, "(Inputs_c%d _atoms _vars)" % (position // chunk))
+                    tree = follow(definitions[tree], fields[passed:])
+                else:
+                    self.assertEqual(passed, len(fields))
+                self.assertEqual(tree, "(formula_%d _atoms _vars)" % node)
+                self.assertEqual(follow(proof, fields), "_h%d" % position)
 
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{

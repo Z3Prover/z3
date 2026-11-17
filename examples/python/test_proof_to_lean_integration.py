@@ -1536,7 +1536,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertNotIn("Classical", text)
         self.assertIn("  refute_with_decidable", text)
         closing = text.rstrip().splitlines()[-3]  # the main theorem's body, before "end"
-        self.assertRegex(closing, r"^  @proof_step_%d _atoms \(And\.intro .*\)( _df?\d+)+$" % certificate["proof"])
+        self.assertRegex(closing, r"^  @proof_step_%d _atoms \(Inputs\.mk \(And\.intro .*\)\)( _df?\d+)+$"
+                         % certificate["proof"])
 
 
 if __name__ == "__main__":

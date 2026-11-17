@@ -1166,7 +1166,13 @@ elaborates superlinearly and exhausts Lean's default heartbeat budget between
 counts as that many steps, so a lemma step discharging hundreds of
 hypotheses is not elaborated among hundreds of unrelated steps, which made
 it about ten times slower. Each lemma receives the original assertions as one
-conjunction (the interpretation is implicit, determined by it) and abstracts
+hypothesis, `_inputs : Inputs ..` (the interpretation is implicit, determined
+by it): a structure whose one field is their balanced conjunction, above 32
+assertions the balanced conjunction of chunks of 32, each a definition
+`Inputs_cK`. A structure, because Lean's elaborator unfolds a definition at
+every `proof_step_N _inputs` to see whether it is a function type, which cost
+the whole conjunction each time (QF_IDL vlsat3_c27, 15,332 assertions: about an
+hour of Lean; 517 s now). Each lemma abstracts
 its open hypotheses explicitly, as the premises of its statement; steps the
 root never uses are not outlined. A step under hypotheses that only one other
 step uses is bound inside that step, where its hypotheses are in scope, rather
