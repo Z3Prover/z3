@@ -969,6 +969,53 @@ class TestProofToLean(unittest.TestCase):
                 self.assertEqual(tree, "(formula_%d _atoms _vars)" % node)
                 self.assertEqual(follow(proof, fields), "_h%d" % position)
 
+    def test_facts_of_a_cnf_lemma_are_the_binders_and_arguments_of_one_function(self):
+        # The bridges and theory clauses of a cnf lemma's attempt: no `have`
+        # (a tactic proof of the k-th would run over the k-1 before it), but
+        # one `refine` by a function of the facts applied to their proofs,
+        # in the same order, the goal left to the refutation. Every line
+        # after the first is indented past the column of an alternative of
+        # `first` (seven), a proof of several lines past its argument.
+        self.assertEqual(proof_to_lean._stated_facts([], "(formula_9 _atoms)"), [])
+        split = proof_to_lean._fact_tactics(["omega"], ["grind"])
+        single = proof_to_lean._fact_tactics(["unfold formula_2 formula_1; grind"])
+        facts = [("_f1", "(Iff (formula_1 _atoms) (formula_2 _atoms))", single),
+                 ("_f2", "(Iff (a = b) (b = a))", "eq_comm"),
+                 ("_f3", "(Or (Not (formula_3 _atoms)) (formula_4 _atoms))", split)]
+        (tactic,) = proof_to_lean._stated_facts(facts, "(formula_9 _atoms)")
+        lines = tactic.split("\n")
+        self.assertEqual(lines[0], "refine (fun")
+        self.assertEqual(lines[1:4], [" " * 12 + "(%s : %s)" % (name, statement) for name, statement, _ in facts])
+        self.assertEqual(lines[4], " " * 12 + "=> (?_ : (formula_9 _atoms)))")
+        self.assertEqual(lines[5:7], [" " * 10 + "(by first | ((unfold formula_2 formula_1; grind); done) | fail)",
+                                      " " * 10 + "(eq_comm)"])
+        self.assertEqual("\n".join(lines[7:]), " " * 10 + "(" + split + ")")
+        self.assertTrue(all(len(line) - len(line.lstrip()) > 7 for line in lines[1:]))
+        self.assertTrue(all(len(line) - len(line.lstrip()) > 10 for line in lines[8:]))
+        self.assertNotIn("have ", tactic)
+        self.assertNotIn("\n    | (", tactic)  # where the tests and `first` split the alternatives
+        self.assertEqual(tactic.count("("), tactic.count(")"))
+
+    def test_tactics_of_a_fact_fail_when_they_do_not_prove_it(self):
+        # A fact's tactics are an argument `(by ...)`, which Lean runs with
+        # error recovery on: a failure under a bullet, or a goal left open,
+        # would be logged and the fact admitted, and the lemma's fallback
+        # never tried. So they are alternatives of a `first` that ends in
+        # `fail` (no recovery in the ones before it), each closed by `done`
+        # as a tactic of its own: after the parenthesized line, or on a line
+        # at the column of the alternative's first tactic, where it is not
+        # read into a `first` that ends that line.
+        tactic = "unfold formula_2; first | omega | grind (splits := 64)"
+        self.assertEqual(proof_to_lean._fact_tactics([tactic]), "by first | ((%s); done) | fail" % tactic)
+        pad = " " * 16
+        self.assertEqual(proof_to_lean._fact_tactics(["have _i0 : p := by", "  omega", "exact _i0"], [tactic]).split("\n"), [
+            "by", pad + "first",
+            pad + "  | (have _i0 : p := by", pad + "       omega", pad + "     exact _i0", pad + "     done)",
+            pad + "  | (" + tactic, pad + "     done)",
+            pad + "  | fail"])
+        self.assertEqual(proof_to_lean._fact_tactics(["· omega", "· grind"]).split("\n"), [
+            "by", pad + "first", pad + "  | (· omega", pad + "     · grind", pad + "     done)", pad + "  | fail"])
+
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{
             "pipeline": pipeline, "proofs_enabled": proofs, "result": "unsat",

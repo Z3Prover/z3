@@ -406,9 +406,17 @@ step:
     z3 finds theory clauses over its arithmetic and uninterpreted leaves
     (applications, constants of a sort; congruence included) that make the
     abstraction unsatisfiable (model by model, an unsat core each), each
-    stated with a `have` the theory tactic proves, and the search is
-    repeated with them. A clause that neither search refutes within its
-    budget falls back to the unfolded grind proof.
+    a fact the theory tactic proves, and the search is repeated with them.
+    The bridges and theory clauses of a lemma are the binders of one
+    function the goal is refined by, and their proofs its arguments: each
+    is proved in the lemma's own context, not over the facts before it
+    (as a `have` each, the theory tactic of the k-th read the k-1 before
+    it; the 694 facts of QF_LRA tta_startup simple_startup_15nodes ran the
+    lemma out of its heartbeats). A fact's tactics are written as `first
+    | ((tactics); done) | fail`: Lean recovers from errors in the tactics
+    of an argument, and a fact that is not proved must fail the lemma's
+    attempt, not be admitted with an error. A clause that neither search
+    refutes within its budget falls back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact

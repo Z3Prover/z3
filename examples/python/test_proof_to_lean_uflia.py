@@ -683,10 +683,18 @@ class TestIntegerMixedValidation(unittest.TestCase):
             self.assertNotIn("Or.elim", structural)
             self.assertNotIn("Classical.em", structural)
             self.assertNotIn("Decidable", structural)
-            for first, second in re.findall(
-                    r"have _f\d+ : \(Iff \(formula_(\d+) [^)]*\) \(formula_(\d+) [^)]*\)\) := by unfold [^;]*; "
-                    r"first \| omega \| grind \(splits := 64\)", structural):
-                first, second = int(first), int(second)
+            # The facts: the binders of one function and, in their order, its arguments (_stated_facts).
+            binders = re.findall(r"\n {12}\(_f\d+ : ([^\n]*)\)(?=\n)", structural)
+            proofs = re.findall(r"\n {10}\(((?:by|eq_comm)[^\n]*)", structural)
+            self.assertEqual(len(binders), len(proofs))
+            self.assertNotRegex(structural, r"have _f\d+ : [^\n]* := by")
+            for statement, proof in zip(binders, proofs):
+                match = re.fullmatch(r"\(Iff \(formula_(\d+) [^)]*\) \(formula_(\d+) [^)]*\)\)", statement)
+                if match is None or re.fullmatch(
+                        r"by first \| \(\(unfold [^;]*; first \| omega \| grind \(splits := 64\)\); done\) \| fail\)",
+                        proof) is None:
+                    continue
+                first, second = int(match.group(1)), int(match.group(2))
                 self.assertNotEqual(first, second)
                 self.assertEqual(proof_to_lean._leaf_key(graph, first), proof_to_lean._leaf_key(graph, second))
                 self.assertEqual([graph.kind(first), graph.kind(second)], [z3.Z3_OP_EQ, z3.Z3_OP_EQ])

@@ -8821,10 +8821,11 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     link a small theorem before the lemma, where the search split without
     end. When no search refutes the clause, it rests on what the leaves
     denote beyond the bridges, and the search is repeated with theory
-    clauses over the leaves (_theory_clauses), each a `have` the theory
+    clauses over the leaves (_theory_clauses), each a fact the theory
     tactic proves, within _THEORY_CLAUSE_BUDGET times the limits; the proof
-    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The
-    unfolded theory
+    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The bridges and
+    the theory clauses are proved apart from one another (_stated_facts).
+    The unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
     prover gives up (the clause needs a theory fact no theory clause
@@ -8872,35 +8873,94 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     # the definition of a node side unfolded by unification).
     # The theory clauses come after the leaf bridges.
     bridged = len(bridges) - len(clauses or ())
-    attempt = ["have %s : %s := %s" % (name, _render_structure(bridge), "eq_comm" if definitions is None else
-                                       _theory_clause_proof(graph, bridge, definitions, position >= bridged))
-               for position, ((bridge, definitions), name) in enumerate(zip(bridges, names))]
+    attempt = _stated_facts([(name, _render_structure(bridge), "eq_comm" if definitions is None else
+                              _theory_clause_proof(graph, bridge, definitions, position >= bridged))
+                             for position, ((bridge, definitions), name) in enumerate(zip(bridges, names))],
+                            _formula(graph, conclusion))
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
     if clauses and sum(len(line) + 1 for line in attempt) > _STRUCTURAL_REWRITE_CHARS:
         # The search over the theory clauses may look further, but the proof
         # kept stays within what the first searches could keep: a longer one
         # risks the lemma's heartbeats, which `first` does not catch (a
-        # runtime exception fails the whole lemma, fallback included).
+        # runtime exception fails the whole lemma, fallback included). The
+        # count is of the text as written: a fact as a binder and a guarded
+        # argument (_stated_facts, _fact_tactics) is 43 characters more
+        # than the `have` it was, 30 kB of the limit at 694 facts.
         attempt = None
     return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
 
 
+def _stated_facts(facts, goal):
+    """The tactic that states the facts (name, statement, proof) of a cnf lemma's attempt, each proved apart.
+
+    The bridges and theory clauses were a `have` each, one after the other,
+    and the theory tactic that proves one takes every hypothesis of its
+    context: the k-th fact was proved over the k-1 before it, and the facts
+    of a lemma cost their number squared. The cnf lemma of QF_LRA tta_startup
+    simple_startup_15nodes states 694 of them (665 bridges of comparisons
+    Z3 logged the other way round, 29 theory clauses): 33 s, and the lemma
+    out of its heartbeats, where the facts and the refutation together take
+    under a second as theorems of their own. They are stated as the binders
+    of one function, which the goal is refined by, and proved as its
+    arguments: every proof is elaborated in the context of the lemma,
+    without the other facts, and the refutation that follows has them all,
+    by the same names. A proof is a term (eq_comm) or tactics written by
+    _fact_tactics, which fail when they do not prove the fact: an argument
+    that fails is an error of the `refine`, which `first` catches as it
+    caught a failing `have`. One tactic, its lines indented past the column
+    of an alternative (_grind_lemma); a multi-line proof (_fact_tactics) is
+    indented further still.
+    """
+    if not facts:
+        return []
+    pad = "\n" + " " * 12
+    return ["refine (fun" + "".join("%s(%s : %s)" % (pad, name, statement) for name, statement, _ in facts)
+            + "%s=> (?_ : %s))" % (pad, goal) + "".join("%s(%s)" % (pad[:-2], proof) for _, _, proof in facts)]
+
+
+def _fact_tactics(*alternatives):
+    """A fact's proof by tactics, as an argument of _stated_facts: the first alternative (tactic lines) proving it.
+
+    A `have`'s tactics were tactics of the lemma's block, under its `first`,
+    where a tactic that fails is an exception and the lemma's fallback is
+    taken. The tactics of an argument `(by ...)` are run by the term
+    elaborator, which recovers from errors whatever block the term is in: a
+    tactic failing under a bullet, a `case`, or braces, or a block ending
+    with its goal open, is logged and the fact admitted; the `refine`
+    succeeds, the fallback is never tried, and Lean rejects a certificate
+    its fallback would have proved (never an acceptance: the error is
+    reported). So the alternatives are those of a `first` that ends in
+    `fail`, which turns recovery off in the ones before it, and each is
+    closed by `done`: a fact that is not proved fails the `refine`, whatever
+    the shape of its proof. One alternative of one line stays on the line
+    of its argument; otherwise the lines are indented past the column the
+    argument starts at.
+    """
+    if len(alternatives) == 1 and len(alternatives[0]) == 1:
+        return "by first | ((%s); done) | fail" % alternatives[0][0]
+    pad = "\n" + " " * 16
+    return "by%sfirst%s%s  | fail" % (pad, "".join(
+        "%s  | (%s)" % (pad, (pad + "     ").join(list(lines) + ["done"])) for lines in alternatives), pad)
+
+
+def _unfolded_theory_tactic(graph, definitions):
+    """The theory tactic over the unfolded definitions of a bridge or theory clause, one line."""
+    return "unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph))
+
+
 def _theory_clause_proof(graph, structure, definitions, clause):
-    """The proof of a bridge or theory clause of a cnf lemma: the theory tactic over the unfolded leaves.
+    """The proof of a bridge or theory clause as a fact of a cnf lemma: the theory tactic over the unfolded leaves.
 
     A theory clause (_theory_clauses) over products of Int terms is first
     proved by the signs of their factors (_sign_split_clause), which the
-    theory tactic does not find. The lines of that proof are indented past
-    any column the `have` may start at.
+    theory tactic does not find. An argument of _stated_facts: the tactics
+    fail when they do not prove the fact (_fact_tactics).
     """
-    unfolded = "unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph))
+    unfolded = [_unfolded_theory_tactic(graph, definitions)]
     split = _sign_split_clause(graph, structure) if clause else None
-    if split is None:
-        return "by " + unfolded
-    pad = "\n" + " " * 16
-    return "by%sfirst%s  | (%s)%s  | (%s)" % (pad, pad, (pad + "     ").join(split), pad, unfolded)
+    return _fact_tactics(unfolded) if split is None else _fact_tactics(split, unfolded)
 
 
 def _cnf_refutation(graph, memo, structure, bridges, budget=1, sweep=None):
@@ -8965,7 +9025,7 @@ def _cnf_refutation(graph, memo, structure, bridges, budget=1, sweep=None):
             lines.extend(["", "set_option maxHeartbeats 1000000 in",
                           "private theorem %s_b%d %s" % (scope[0], position, binder),
                           "    : %s := %s" % (_render_structure(bridge), "eq_comm" if definitions is None else
-                                              _theory_clause_proof(graph, bridge, definitions, False))])
+                                              "by " + _unfolded_theory_tactic(graph, definitions))])
     for name, statement, proof in declarations:
         if statement is None:
             lines.append("private def %s %s : Prop := %s" % (name, binder, proof[0]))
@@ -8999,7 +9059,7 @@ def _theory_clauses(graph, order, facts, atom_indices):
     core of those literals, shrunk one literal at a time, is a clause (its
     literals negated) that excludes the model; it is added and the search
     repeats until the abstraction is unsatisfiable. Each clause is returned
-    as (structure, definitions), like a bridge: stated with a `have` that
+    as (structure, definitions), like a bridge: stated as a fact that
     the theory tactic proves over the leaves' unfolded definitions, and
     given to the prover as a fact. z3 is an untrusted oracle here, as in
     _relevant_structures: a clause that does not hold is an error in Lean,
@@ -9084,7 +9144,7 @@ def _theory_clauses(graph, order, facts, atom_indices):
         if not used or used == leaves:
             # A clause over every leaf restates the lemma as one theory fact,
             # which the fallback proves with its helpers (scaled ite gates)
-            # and the `have` would prove without them; over a wide distinct
+            # and the fact's proof would prove without them; over a wide distinct
             # as one leaf it ran omega out of heartbeats the same way.
             return None
         clauses.append((_structure_fold("or", parts), _definition_names(graph, _reachable(graph, *nodes)[0], nodes)))
@@ -9191,8 +9251,8 @@ def _leaf_bridges(graph, leaves, synthetic=None):
     denoting one constraint (or complementary ones); generalized apart they
     are unrelated and propagation stops at them. Each bridge is the
     structure ("iff", leaf, other) or ("iff", leaf, ("not", other)), to be
-    stated as a `have` the theory tactic proves (the sides' definitions
-    unfolded) and given to the prover as a fact. Returns (structure,
+    stated as a fact the theory tactic proves (the sides' definitions
+    unfolded, _stated_facts) and given to the prover. Returns (structure,
     definition names) pairs.
 
     A synthetic pair leaf (a, b) of a distinct (_distinct_pair_leaves, by

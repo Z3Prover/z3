@@ -1067,7 +1067,8 @@ class TestUninterpretedValidation(unittest.TestCase):
                     projections += 1
                     self.assertIn("\n  first\n    | (refine Classical.byContradiction ?_\n", lemma)
                 elif oracle:
-                    self.assertRegex(lemma, r"\n  first\n    \| \(have _f1 : \(Or [^\n]* := by unfold [^\n]*\bterm_")
+                    self.assertRegex(lemma, r"\n  first\n    \| \(refine \(fun\n +\(_f1 : \(Or [^\n]*\n"
+                                            r"(?: +\(_f\d+ : [^\n]*\n)* +=> [^\n]*\n +\(by first \| \(\(unfold [^\n]*\bterm_")
                     self.assertIn("refine Classical.byContradiction ?_\n", lemma)
                 else:
                     self.assertNotIn("Classical.byContradiction", lemma)
@@ -2318,7 +2319,8 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         blocks, dropped = [], 0
         for block in proof_to_lean.reconstruct(source, certificate).split("\n\n"):
             if "private theorem th_lemma_" in block:
-                self.assertEqual(block.count(") := eq_comm\n"), 528)
+                self.assertEqual(block.count("\n          (eq_comm)"), 528)
+                self.assertEqual(len(re.findall(r"\n {12}\(_f\d+ : \(Iff ", block)), 528)
                 block, count = re.subn(r"\n    \| \(unfold [^\n]*\n       grind \(splits := 64\)\)", "", block)
                 dropped += count
             blocks.append(block)

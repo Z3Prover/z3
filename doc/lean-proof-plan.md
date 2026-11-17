@@ -1750,6 +1750,174 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### The facts of a cnf lemma are proved apart from one another (2026-11-17)
+
+Scale, not breadth: QF_LRA `tta_startup/simple_startup_15nodes.synchro.base`
+of z3test's `smtlib-sample` verified on 2026-11-13 and failed since some
+change of its certificate after that: its one cnf lemma (`th_lemma_17023`,
+recorded as "a theory lemma") ran out of its 1,000,000 thousand heartbeats
+after 33 s.
+
+What dominated, measured before changing anything on the text of
+2026-11-16 (4.85 MB), cut after the lemma: the text before the lemma checks
+in 17.7 s, with the lemma it fails after 50.4 s. The lemma's structural
+attempt states 694 facts, 665 bridges between two comparisons denoting one
+constraint (Z3 logged its clause over the rewriter's form of the
+assertion) and 29 theory clauses, each `have _fK : T := by unfold ...;
+grind (splits := 64)`, and then refutes the clause in 2,300 lines of
+propagation steps, which name 32 of the facts. With each `have` moved into a
+theorem of its own (by text substitution) the same cut checks in 18.4 s:
+the 694 proofs and the refutation take under a second together. The cost
+was the context: `grind` (and `omega`) take every hypothesis of the goal
+they are run on, so the k-th fact was proved over the k-1 before it, and
+the facts of a lemma cost their number squared. The lemma had 311 facts
+when the file verified.
+
+The facts are now the binders of one function that the goal is refined by,
+and their proofs are its arguments (`_stated_facts`):
+
+    refine (fun
+            (_f1 : (Iff (formula_265 _atoms _vars) (formula_14560 _atoms _vars)))
+            ...
+            => (?_ : (formula_17022 _atoms _vars)))
+          (by first | ((unfold formula_14560 formula_265 term_237 term_222; grind (splits := 64)); done) | fail)
+          ...
+    refine Classical.byContradiction ?_
+
+Each proof is elaborated in the lemma's own context, and the refutation
+that follows has every fact under the name it had. The statements, the
+tactics that prove them, and the refutation are the same text as before;
+the lemma keeps its one heartbeat limit, and no limit of the check moved.
+A sweep's bridges were theorems of their own already (`th_lemma_N_bK`).
+
+A fact that Lean cannot prove must fail the `refine`, so that the lemma's
+`first` takes the unfolded fallback, as it did when a `have` failed. A
+`have`'s tactics were tactics of the lemma's own block, where a failure
+under `first` is an exception. The tactics of an argument `(by ...)` are
+run by the term elaborator, which recovers from errors whatever block the
+term is in: a tactic that fails under a bullet, a `case`, or braces, or a
+block that ends with its goal open, is logged and the fact admitted; the
+`refine` succeeds, the fallback is never tried, and Lean rejects a
+certificate its fallback would have proved (never an acceptance: the error
+is reported and `sorryAx` is among the axioms). The proofs written today
+do not get there (a single line `unfold ...; grind` throws, and the sign
+split was a non-last alternative of a `first`, which turns recovery off),
+but the next shape of proof could. So a fact's tactics are the
+alternatives of a `first` that ends in `fail`, each closed by `done`
+(`_fact_tactics`): one line as above, or, for a theory clause with a sign
+split,
+
+          (by
+                first
+                  | (have _i0 : ...
+                     ...
+                     done)
+                  | (unfold ...; first | omega | grind (splits := 64)
+                     done)
+                  | fail)
+
+A fact that is not proved fails the `refine`, whatever the shape of its
+proof.
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 116 texts are the same byte for byte, and
+the 36 that state a fact differ only in how the facts are stated (the new
+text with each fact written back as a `have` is the old text, byte for
+byte). All 36 new texts were checked in Lean and verify; the old texts of
+the eight files with the most facts in one lemma were checked the same
+day:
+
+| file | cnf lemmas with facts; facts; most in one lemma | before | after |
+| --- | --- | --- | --- |
+| QF_LRA `simple_startup_15nodes.synchro.base` | 1; 694; 694 | 4.85 MB; FAILS after 51.5 s at 3.35 GB (`th_lemma_17023` out of 1,000,000 heartbeats) | 4.88 MB; **verifies** in 19.4 s at 3.50 GB |
+| QF_LRA `simple_startup_11nodes.synchro.base` | 1; 446; 446 | 3.03 MB; verifies in 24.9 s at 2.30 GB | 3.05 MB; verifies in 10.9 s at 2.17 GB |
+| QF_IDL `BubbleSort_safe_bgmc007` | 1; 342; 342 | 2.96 MB; verifies in 9.6 s at 1.61 GB | 2.97 MB; verifies in 9.0 s at 1.60 GB |
+| QF_LRA `clocksynchro_8clocks.main_invar.base` | 19; 791; 203 | 4.27 MB; verifies in 23.1 s at 2.31 GB | 4.30 MB; verifies in 21.7 s at 2.32 GB |
+| QF_LRA `clocksynchro_3clocks.main_invar.base` | 8; 143; 63 | 1.00 MB; verifies in 6.9 s at 0.99 GB | 1.01 MB; verifies in 6.9 s at 0.98 GB |
+| QF_IDL `FISCHER6-4-ninc` | 7; 378; 54 | 2.25 MB; verifies in 5.4 s at 1.14 GB | 2.26 MB; verifies in 5.4 s at 1.14 GB |
+| QF_LRA `current_frame.base` | 13; 415; 35 | 1.81 MB; verifies in 4.0 s at 1.06 GB | 1.82 MB; verifies in 4.0 s at 1.08 GB |
+| QF_IDL `ckt_PROP1_tf_10` | 4; 50; 47 | 0.85 MB; verifies in 2.9 s at 0.95 GB | 0.85 MB; verifies in 2.9 s at 0.96 GB |
+
+The other 28 have at most 28 facts in a lemma (QF_IDL `qlock-4-10-8` and
+`-9`: 101 and 123 lemmas of up to 24 facts) and all verify. The old texts
+of three of the larger ones were checked the same day: QF_UF
+`NEQ004_size4` 38.7 s before and 39.6 s after, QF_IDL `ckt_PROP1_tf_20`
+31.7 s and 32.5 s, `plan-21` 88.0 s and 88.8 s (chains of 10 to 21
+modules; 1 to 3% apart, not looked into). The other 25 against their last
+measurements (2026-11-13 to 2026-11-16; their old texts were not checked
+again): none is slower by more than 0.3 s but `ckt_PROP3_tf_30` (62.1 s;
+59.7 s) and `qlock-4-10-9` (87.1 MB, 88 modules, 321.8 s; 313.5 s), by 4
+and 3%, about what the old texts above lost against their own last
+measurements (`plan-21` 88.0 s against 85.1 s, `NEQ004_size4` 38.7 s
+against 37.2 s); `qlock-4-10-8` takes 159.0 s (159.0 s). Sample: 152 of
+175 export, 145 verify, 1 fails in Lean (QF_AUFLIA `dlx-regfile`), 6 not
+checked.
+
+The text grows by two lines per lemma and 36 bytes per fact (a line
+break, the indentation, two parentheses, and the 25 bytes of the guard):
+25,055 bytes over the 694 facts of `simple_startup_15nodes`, 0.5% of its
+text. The guard itself costs nothing measurable: the 36 texts were
+checked without it as well, 867 s of Lean in all against 861 s with it
+(no file apart by more than 0.4 s but `qlock-4-10-9`, 329.3 s without
+and 321.8 s with). The bound on an attempt kept after the search over
+theory clauses (`_STRUCTURAL_REWRITE_CHARS`, 1,000,000 characters) counts
+the attempt as written, 43 characters more for a fact than the `have` it
+was: an attempt within 30 kB of the bound at 694 facts is now left to
+the fallback alone. No sample lemma is (every changed text is the old one
+but for how its facts are stated).
+
+Generated family `bridged_comparisons(n)` (`test_proof_to_lean_arith.py`):
+one assertion, `(not b)`, `(or b (<= 1 x))`, `(< x 1)`, and n conjuncts
+`(or (<= 1 yi) (< yi 1))` the refutation does not need; each of its two
+cnf lemmas bridges the n + 1 pairs of comparisons. "Heartbeats" is the
+least limit, of those tried, under which both lemmas are accepted
+(thousands; the exporter gives a lemma 1,000,000):
+
+| pairs | 100 | 200 | 400 | 800 | 1,600 |
+| --- | --- | --- | --- | --- | --- |
+| before | 0.09 MB: 2.3 s | 0.19 MB: 5.9 s | 0.38 MB: 19.6 s (19.8 s) | 0.76 MB: FAILS after 41.6 s, both lemmas out of heartbeats | 1.53 MB: not checked |
+| after | 0.10 MB: 1.4 s | 0.20 MB: 2.1 s | 0.41 MB: 3.8 s | 0.82 MB: 7.1 s | 1.64 MB: 14.0 s at 1.28 GB |
+| heartbeats, before | not measured | fails at 100,000 | fails at 400,000; passes at 600,000 | above 1,000,000 | not measured |
+| heartbeats, after | not measured | not measured | fails at 40,000; passes at 80,000 | fails at 80,000; passes at 160,000 | within 1,000,000 |
+
+Tests: `test_proof_to_lean.py`
+(`test_facts_of_a_cnf_lemma_are_the_binders_and_arguments_of_one_function`,
+no Lean: the layout), `test_proof_to_lean_arith.py`
+(`test_facts_of_a_cnf_lemma_are_proved_apart_from_one_another`: 400 pairs,
+both lemmas under 200,000 thousand heartbeats, a fifth of their limit,
+where the old text needs more than 400,000;
+`test_a_fact_of_a_cnf_lemma_that_fails_is_caught_or_rejected`: a false
+fact leaves the lemma to its fallback, and without the fallback, with a
+proof dropped, or with two proofs exchanged Lean rejects the certificate;
+slow: 1,600 pairs under the exporter's limit, and
+`simple_startup_15nodes` itself, copied to `examples/python/data`;
+`test_a_fact_that_fails_under_a_bullet_or_is_left_open_is_caught`: a
+false fact whose tactic fails under a bullet and a fact whose proof stops
+with its goal open leave the lemma to its fallback when written by
+`_fact_tactics`, and as a bare `by` Lean rejects the same text), and
+`test_proof_to_lean.py`
+(`test_tactics_of_a_fact_fail_when_they_do_not_prove_it`, no Lean: the
+guard's layout).
+
+Still open:
+
+- A refutation names few of the facts its lemma states (32 of 694 in
+  `simple_startup_15nodes`, 12 of 415 in `current_frame`, none of the 23 of
+  `BinarySearch_safe_bgmc002`): the bridges are found over every pair of
+  leaves, before the search. Stating only the facts used would shorten the
+  lemmas (a line and a proof per fact, about 3 ms of Lean each).
+- The unfolded fallback of a lemma states its scaled-gate facts the old
+  way, `have _sN : ... := by unfold ...; grind` after the gate hypotheses
+  (QF_LRA `clocksynchro_8clocks`: 3,338 of them, up to 184 in one lemma).
+  Not measured.
+- `bridged_comparisons(n)` with the comparisons in one clause (`(or b (<= 1
+  x0) ... (<= 1 xn))`, every `xi < 1`) fails at 400 on another declaration
+  with both exporters: the unit resolution over the 401-literal clause
+  runs out of the default 200,000 heartbeats (770 kB in one proof step).
+
 ### `Inputs` is a structure over chunks of the assertions (2026-11-16)
 
 Scale, not breadth: QF_IDL `20210312-Bouvier/vlsat3_c27` of z3test's
@@ -1817,6 +1985,9 @@ after: QF_AUFLIA `dlx-regfile` (its cnf lemma, as recorded), and QF_LRA
 (`th_lemma_17023`) out of its 1,000,000 heartbeats at `whnf`: its text is
 4.85 MB today and was 5.20 MB when it verified on 2026-11-13, so the
 certificate changed in between; recorded in BACKLOG, not looked at here.
+(2026-11-17: it is the file's cnf lemma, whose 694 facts were each proved
+over the ones before; it verifies, see "The facts of a cnf lemma are
+proved apart from one another".)
 Of the 17 changed texts above 25 MB (QF_UF `gensys_*`, the QF_AUFLIA swap
 files, the two qlock files; 73 to 142 assertions or one), QF_UF
 `gensys_icl1079` (verifies as 32 modules in 110.4 s at 0.95 GB; 121.9 s on
@@ -1875,7 +2046,8 @@ Still open:
   15,332 of `vlsat3_c27`, and most of the 18.6 s of the family at 16,157.
   It is the statement being certified.
 - QF_LRA `simple_startup_15nodes.synchro.base` fails in a theory lemma
-  since some change after 2026-11-13 (see above).
+  since some change after 2026-11-13 (see above). (2026-11-17: verifies,
+  see "The facts of a cnf lemma are proved apart from one another".)
 
 ### A sweep reads through nested gates and refutes further below the clause (2026-11-16)
 

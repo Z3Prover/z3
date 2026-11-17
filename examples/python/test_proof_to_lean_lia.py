@@ -1741,8 +1741,8 @@ class TestIntegerValidation(unittest.TestCase):
                                      if right[1] < 0 else proof_to_lean._formula(graph, graph.equalities[(b, a)]))
                 lemma = proof_to_lean.reconstruct(source, certificate).split(
                     "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
-                self.assertIn("\n  first\n    | (have _f1 : (Iff ", lemma)
-                self.assertEqual(lemma.count(") := eq_comm\n"), pairs)
+                self.assertIn("\n  first\n    | (refine (fun\n            (_f1 : (Iff ", lemma)
+                self.assertEqual(lemma.count("\n          (eq_comm)"), pairs)
                 self.assertIn("refine Classical.byContradiction ?_\n", lemma)
                 # Without the bridges the pairs of the two are unrelated:
                 # no propagation proof, the unfolded fallback alone (the
@@ -2193,7 +2193,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertEqual(len(swept), 1)
         name = "th_lemma_%d" % next(iter(swept))
         # The lemma has a bridge, which the search's proof states and the sweep's does not need.
-        self.assertIn("\n    | (have _f", plain.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0])
+        self.assertIn("\n    | (refine (fun\n            (_f1 : ",
+                      plain.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0])
         self.assertFalse("%s_" % name in text, "a declaration of the sweep, or a bridge stated by a theorem's name")
         self.assertFalse("have (th_lemma_" in text)
         alone, refutation = _first_alternative_alone(text, name)
