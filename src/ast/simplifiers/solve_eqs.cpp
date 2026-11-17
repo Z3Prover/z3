@@ -262,6 +262,7 @@ namespace euf {
             m_subst_ids.reset();
             eqs.reset();
             filter_unsafe_vars();
+            collect_num_occs();
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
@@ -280,6 +281,7 @@ namespace euf {
             m_subst_ids.reset();
             eqs.reset();
             filter_unsafe_vars();
+            collect_num_occs();
             solve_context_eqs context_solve(*this);
             context_solve.collect_nested_equalities(eqs);
             extract_dep_graph(eqs);
