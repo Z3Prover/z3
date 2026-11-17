@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T15:53:00-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-16T17:34:46-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,27 +16,26 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-16T14:54:25-08:00`; latest case `2026-11-16T14:54:25-08:00`; checker `a0ca7df92173`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-16T17:04:44-08:00`; latest case `2026-11-16T17:04:43-08:00`; checker `2671dc150931`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-16T14:06:35-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-16T14:54:25-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-16T16:33:25-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-16T17:04:43-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
-| `apply-def` | 203 | 0 |
-| `arith/farkas` | 0 | 27 |
+| `arith/farkas` | 0 | 20 |
 | `arith/lp-monomial-interval` | 0 | 40 |
 | `assumed:nlsat` | 0 | 146 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 147 |
+| `intro-def` | 272 | 139 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 140 | 24701 |
-| `th-lemma` | 3499 | 6244 |
+| `rewrite` | 133 | 24692 |
+| `th-lemma` | 3499 | 6238 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T210335Z`.
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T235736Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
@@ -73,6 +72,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
@@ -82,7 +82,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
 | Nov 15 23:39 | Nonnegative product draft, same Math.Exp proof; superseded by combined product replay | `arith/lp-monomial-interval` +2 / 2 PENDING | `real-nonnegative-math-exp-01.json` |
 | Nov 15 23:29 | Generic-array draft, sample, 11 proofs; **not retained** | Root PENDING: `th-lemma` +681 / 0; `rewrite` +7 / 36; 4 proofs promoted. Paired median time ratio 1.96 | `generic-array-sample-weighted-01.json`, `generic-array-sample-subset-timing-01.json` |
-| Nov 15 18:27 | Larger Real equations, fstar-build, 147 proofs | `rewrite` +2 / 0 PENDING; 2 proofs promoted | `large-real-compare-02.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -172,8 +171,21 @@ Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 An experimental integer-input binding bridge passed LP unit tests, but on the
 same QF_LIA ring input it changed the generated proof and increased root
 PENDING from 15 to 33, adding 18 `arith/lp-integer-lattice` obligations.
-It is not retained. The candidate's shorter run time is not a comparable
-coverage improvement. Evidence: `files\lp-binding-ring-compare-01.json`.
+An isolated lattice replay draft verified 173 F* modules and passed positive and
+negative controls for all 18 nodes. On its pinned experimental proof, the
+same checker reported 18 → 0 lattice PENDING when only the lattice payloads
+were restored; four `intro-def` obligations remain. Eleven frozen sample
+proofs had no verdict regressions and identical weighted counts; seven-proof paired timing
+had median candidate/retained ratio 0.998. The retained producer's original
+ring proof also has four pending obligations, so this is not yet a measured
+end-to-end improvement. The bridge and replay remain unretained; linear-time
+checking has not been established. Evidence:
+`files\lp-binding-ring-compare-01.json`,
+`files\lattice-integration-verification-01.json`,
+`files\lattice-integration-controls-03.json`,
+`files\lattice-same-producer-01.json`,
+`files\lattice-sample-weighted-02.json`,
+`files\lattice-sample-timing-01.json`.
 
 Six-hour SMT-LIB measurements remain scheduled; finite-field work is paused.
 Timeout tails, missing diagnostics and unmeasured candidate cohorts remain N/M.
