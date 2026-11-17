@@ -1747,6 +1747,134 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### A sweep reads through nested gates and refutes further below the clause (2026-11-16)
+
+Scale, not breadth: QF_IDL `qlock/qlock-4-10-8.base.cvc` and
+`qlock-4-10-9.base.cvc` of z3test's `smtlib-sample` (eight and nine steps
+of a queuing lock; one assertion of 395 and 434 conjuncts in binary ands
+nested 378 and 417 deep) export
+since the leaf cores, to 45.96 and 93.77 MB of Lean, and failed in Lean
+after 70 s: a lemma that unfolds 1,194 definitions for `first | omega |
+grind` ran out of its 1,000,000 heartbeats. It was taken for an arithmetic
+lemma; it is a cnf lemma whose two searches and whose sweep ("A cnf lemma
+the search gives up on is swept gate by gate" below) had all given up, so
+that only the unfolded fallback was left. Of the 125 cnf lemmas of
+qlock-4-10-8 the searches prove 118; the other seven were swept, five in
+1.33 MB each, and two not at all, for two reasons.
+
+**A chain of nested conjunctions was quadratic.** Every named and/or was
+linked to the canonical gate of its class, the flat set of its operands'
+classes. Each prefix of a conjunction nested n deep is such a class: n
+canonical gates of 2 to n operands, and n links, each proved by projecting
+every operand of the gate below and building the next. This was the limit
+recorded under "Still open" on 2026-11-14. The lemma over the whole
+assertion of qlock-4-10-8 (`th_lemma_18377`: 4,042 links) had written 13.6
+MB when it reached what the sweeps of the file may still write
+(`_SWEEP_CHARS`, 16 million less the two sweeps before it), after 316 of
+the 395 nested ands; without the limit it writes 23.7 MB. The five lemmas
+that were swept paid the same for the nested ands of one step: 532 links
+and 972 declarations kept each, against 94 and 97 now.
+
+An and whose parents are all ands (an or whose parents are all ors) is now
+*inner* (`_swept_structures`): its class is flattened into the class of
+every parent, what is outside those parents meets it through its operands
+(a structure of its class elsewhere is tied to the class's canonical gate,
+not to it), and it gets neither a link nor a canonical gate. A search reads through it (`_local`)
+down to the operands of the parent's class, which are tied as before. The
+outermost gate of a chain keeps its link, proved through the chain in one
+search; when the chain is longer than a link's search may be (1,000 steps,
+50,000 characters: from about 400 levels on) the link is dropped as any
+unproved link is, and the refutation reads the chain itself.
+
+**The refutation stopped three rounds below the clause.** The clause of a
+swept lemma is refuted over the gates above the links, the operands of the
+canonical gates it meets tied `_SWEEP_ROUNDS[-1]` = 3 rounds down; what is
+below is an input of the search. Z3 logs a clause of a formula as the
+units asserted before it leave it, and the exporter ties that clause to
+the units and the formula as written. The two forms then share no class
+above the atoms the units decide: in `th_lemma_9887` of qlock-4-10-8 the
+clause is the transition relation, a disjunction over the four processes
+of conjunctions of disjunctions of conjunctions, with the 32 state bits of
+the step before put in. Every link was proved, and the refutation ended,
+after four searches, in an assignment of the gates at the cut. Such a
+search is now repeated a round further down, with its openings, up to
+`_SWEEP_DEPTH` = 8 rounds, unless it ran out of its own limits (then more
+gates do not help): `th_lemma_9887` is refuted five rounds down, at the
+seventh search, and so is the one lemma of qlock-4-10-9 that had no proof.
+A round that reads no gate and no fact the search before did not read is
+not searched again, only what it opens is: a clause that does not hold
+(`swept_frames(100, extra=True)` of the tests) ran eight searches, the last
+six the same one, and runs three; over 1,000 frames that was 14.1 s and is
+3.3 s.
+
+Both are heuristics of the exporter's search. What they find is a tactic
+proof that Lean checks as before; a link or a refutation that does not
+hold is an error there. No heartbeat, memory, or time limit of the check
+changes, and nothing is added to the trusted base.
+
+Measured on 2026-11-16, before (the exporter of fork master `c233f1e7f`)
+and after on the same certificate; Lean as chains of 1 MB modules under
+`--memory=8192`, wall time and the largest resident size of one process:
+
+| file (QF_IDL) | before | after |
+| --- | --- | --- |
+| qlock-4-10-8 | 45.96 MB; 5 lemmas swept (6.68 MB), 2 without a structural proof; text stage 11.9 s; Lean FAILS as 47 modules after 69.6 s at 1.13 GB (fifth module, heartbeats) | 41.50 MB; 7 swept (2.22 MB), none without; text stage 10.5 s; Lean verifies as 42 modules in 157.5 s at 1.01 GB (150.5 s in a run of the same text with nothing beside it) |
+| qlock-4-10-9 | 93.77 MB; 7 swept (9.36 MB), 1 without; Lean FAILS as 95 modules after 72.7 s at 1.06 GB (seventh module, heartbeats) | 86.95 MB; 8 swept (2.53 MB), none without; Lean verifies as 88 modules in 313.5 s at 1.16 GB |
+| RTCL ckt_PROP1_tf_20 | 10.00 MB; 5,463 links over 1,469 canonical gates; verifies as 10 modules in 32.8 s at 0.87 GB | 9.64 MB; 5,001 links over 1,434 gates; verifies as 10 modules in 31.8 s at 0.88 GB |
+| RTCL ckt_PROP3_tf_30 | 18.69 MB; 9,786 links over 2,586 gates; verifies as 19 modules in 60.9 s at 0.91 GB | 18.19 MB; 9,088 links over 2,541 gates; verifies as 19 modules in 60.2 s at 0.92 GB |
+
+The other 148 sample files that export keep their Lean text byte for byte
+(all 152 were exported with both exporters), so 144 of the 175 sample files
+verify (142 before) and one fails in Lean (QF_AUFLIA dlx-regfile).
+
+Generated families. `nested_conjunction(n)` of `test_proof_to_lean.py`, a
+conjunction nested n deep against the flat one, swept at the prover's
+level and written out with its definitions as a Lean file:
+
+| n | 100 | 200 | 400 | 600 |
+| --- | --- | --- | --- | --- |
+| characters the sweep writes, before | 881,432 | 3,636,223 | 14,854,384 | gives up at 16.0 million (385 of 599 links, 2.0 s) |
+| after | 19,665 | 39,043 | 79,585 | 276,604 (the link is beyond its limits; the refutation, 40 kB, reads the chain) |
+| the Lean file, before | 0.93 MB: 2.1 s, 1.42 GB | 3.78 MB: 9.0 s, 5.05 GB | 15.3 MB as one file: stopped by the loop's watchdog at 16.2 GB after 26 s | no proof |
+| after | 37 kB: 0.6 s, 0.43 GB | 74 kB: 0.8 s, 0.49 GB | 150 kB: 1.4 s, 0.62 GB | 145 kB: 0.9 s, 0.55 GB |
+
+At 1,000 levels neither sweeps: the classes themselves, kept as sets, have
+half a million members (`_SWEEP_MEMBERS`). `simplified_under_a_unit(d)`, a
+formula nested d levels of `(or (and .. p) r)` deep against its form under
+a unit: swept for d = 1 before, for d up to 4 now (the limit is
+`_SWEEP_DEPTH`); `nested_under_units(d)` of `test_proof_to_lean_lia.py` is
+the same through the pipeline, with the searches made to give up.
+
+Tests: `test_proof_to_lean.py`
+(`test_sweep_reads_through_the_gates_inside_a_nested_conjunction`: one
+link and no canonical gate at 50, 100, and 200 levels, the characters
+linear; an and that is also under an or keeps its link;
+`test_sweep_refutes_a_clause_simplified_under_a_unit_rounds_further_down`:
+the depths found, the number of searches bounded, no two searches of a
+sweep over the same gates and facts, no repetition after a search out of
+its limits; `test_sweep_gives_up_beyond_its_limits` now
+takes its character limit on `swept_frames(30)`),
+`test_proof_to_lean_integration.py`
+(`test_sweep_declarations_check_in_lean`: Lean checks the nested
+conjunction at 64 levels, one link, and at 600, none, and the formula
+under a unit at depth 4; `test_sweep_gives_up_on_a_thousand_nested_conjunctions_before_any_search`:
+400 levels in under 100,000 characters),
+`test_proof_to_lean_lia.py`
+(`test_cnf_lemma_over_a_formula_simplified_under_units_is_swept_rounds_down`:
+`nested_under_units(4)`, the lemma not swept with three rounds, Lean on
+the sweep's refutation alone; the slow
+`test_queuing_lock_transition_lemmas_verify_by_the_sweep`,
+`data/QF_IDL_qlock-4-10-8.base.cvc.smt2`).
+
+Still open: the classes of the inner gates are still computed and kept
+(sets of 2 to n members for a chain of n), so a chain above about 630
+levels is not swept at all; a link's search is bounded, so the outermost
+gate of a chain above about 400 levels is read through rather than
+linked; an untied `iff` or implication that stands for its class is an
+input of every search and is never read through (no input measured needs
+it). What is left of Lean's time on the two qlock files is linear in the
+text: 3 to 9 s per 1 MB module.
+
 ### and-elim out of a chunked conjunction starts from its tail theorems (2026-11-16)
 
 Scale, not breadth: QF_IDL `parity/10.700.graph` of z3test's
@@ -1928,7 +2056,7 @@ as chains of 1 MB modules; before is the exporter of fork master 7abc8fabe):
 | file (QF_IDL) | before | after |
 | --- | --- | --- |
 | PO4-10-PO4 | no export: replay above 17 GB (2026-11-13), 3.4 GB after 6 s | replay 15.7 s at 0.70 GB, 24.36 MB of Lean, verifies as 25 modules in 88.3 s at 0.95 GB |
-| qlock-4-10-8 | replay 137.2 s, 78,004 nodes | replay 16.9 s, 78,160 nodes, 45.96 MB of Lean; Lean FAILS as 47 modules after 67.9 s at 1.13 GB, on `th_lemma_9887`, an arithmetic lemma (`first | omega | grind`) out of heartbeats at `isDefEq`: the Lean side of this file was open before (iter-119, iter-120) |
+| qlock-4-10-8 | replay 137.2 s, 78,004 nodes | replay 16.9 s, 78,160 nodes, 45.96 MB of Lean; Lean FAILS as 47 modules after 67.9 s at 1.13 GB, on `th_lemma_9887`, then taken for an arithmetic lemma (`first | omega | grind`; it is a cnf lemma left to its unfolded fallback, see "A sweep reads through nested gates" above) out of heartbeats at `isDefEq`: the Lean side of this file was open before (iter-119, iter-120) |
 | qlock-4-10-9 | not measured (above 120 s on 2026-11-13) | replay 23.1 s, 93.77 MB of Lean; Lean FAILS as 95 modules after 71.1 s at 1.06 GB, a lemma of the same kind in the seventh module |
 | parity 13.400.graph | no export: resource limit while tying an assumed clause | replay 14.3 s at 0.81 GB, 17.23 MB of Lean, verifies as 17 modules in 267.3 s at 1.39 GB |
 | parity 10.700.graph | no export: the same | replay 46.0 s at 2.08 GB, 45.73 MB of Lean; Lean FAILS as 44 modules after 193.1 s at 1.58 GB: the main theorem (386 kB, under the default 200,000 heartbeats) times out at `whnf` where it binds the tail of the assertion at operand 52,832 of 115,040 |
@@ -1938,9 +2066,10 @@ The two parity files are one flat and of 36,440 and 115,040 conjuncts:
 above the limit, so the last resort ties their clauses by leaf cores
 instead of tracking the whole assertion. So five more sample files export
 (152 of 175) and two more verify (PO4-10-PO4, parity 13.400); the three
-others fail in Lean on costs this change does not touch (an arithmetic
-lemma of the qlock files, and-elim far into a conjunction of 115,040
-operands: closed the same day, see the section above). Of the 147 sample
+others fail in Lean on costs this change does not touch (a lemma of the
+qlock files that was taken for an arithmetic one and is a cnf lemma left
+to its fallback, and-elim far into a conjunction of 115,040 operands: both
+closed the same day, see the two sections above). Of the 147 sample
 files that
 exported before, 146 give the same certificate byte for byte (plan-21 is
 the one that differs); their replays take 345.7 s in all against 345.3 s.
@@ -2353,7 +2482,11 @@ Still open: the sweep is linear in the gates but a chain of n nested
 conjunctions has n canonical gates of up to n operands, quadratic in all
 (the RTCL chains have at most 30), so a deep chain is given up on by the
 bounds above, not swept: canonical gates nested like the class's first
-structure would make it linear. `tf_30` is at 7.1 GB of the 8 GB cap.
+structure would make it linear (closed on 2026-11-16 another way: the
+nested gates are read through and only the outermost is linked, see "A
+sweep reads through nested gates and refutes further below the clause"
+above). `tf_30` is at 7.1 GB of the 8 GB cap (0.9 GB since it is checked
+as a chain of modules).
 The rules read here are those these circuits needed; a rewriter step the
 classes miss costs links, never soundness. Theory clauses
 (`_theory_clauses`) are not combined with a sweep.

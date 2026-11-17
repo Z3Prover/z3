@@ -768,6 +768,29 @@ def nested_conjunction(count):
     return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
 
 
+def simplified_under_a_unit(depth):
+    """A clause tying a formula nested depth levels deep to its form under a unit, and the gates' names.
+
+    The formula is (or (and .. p) r) over the one of the level below, down
+    to (or x (not u)); the second form is what it becomes with u true, x
+    at the bottom, its operands in the other order. The clause is (or (not
+    u) (not first) second). No gate of one form shares a class with a gate
+    of the other, so nothing is linked: the two meet at x, 2 * depth gates
+    down.
+    """
+    unit, x = ("atom", 0), ("atom", 1)
+    first, second = ("or", x, ("not", unit)), x
+    named = [first]
+    for level in range(depth):
+        p, r = ("atom", 2 * level + 2), ("atom", 2 * level + 3)
+        conjunction, simplified = ("and", first, p), ("and", p, second)
+        first, second = ("or", conjunction, r), ("or", r, simplified)
+        named += [conjunction, simplified, first, second]
+    clause = ("or", ("not", unit), ("not", first), second)
+    named.append(clause)
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
 def chained_text(count, namespace="Z3Proofs.NativeCertificate.pchained"):
     """A Lean text laid out as proof_to_lean.reconstruct writes a certificate: `count` definitions,
     each over the one before it, a private lemma per definition with its `set_option .. in` and
@@ -1547,43 +1570,153 @@ class TestProofToLean(unittest.TestCase):
 
     def test_sweep_gives_up_beyond_its_limits(self):
         # A link's search has its own limits; the sweep as a whole has two.
-        # n nested conjunctions have and classes of 2 to n members, and as
-        # many canonical gates of that many operands: beyond _SWEEP_MEMBERS
-        # members the formula is not swept (the thousand nested ands of
-        # QF_IDL FISCHER6-4-ninc have two million; their sweep took half an
-        # hour without an end, and now none of the time). And a sweep stops
-        # once its links and its failed searches have written more than it
-        # may (_SWEEP_CHARS for the sweeps of a file), not after the last
-        # link. The limits as they are, on a conjunction a thousand deep:
-        # test_proof_to_lean_integration (its structures are too deep for
-        # an interpreter that does not cache the hash of a tuple).
-        def sweep(count, **options):
-            clause, names = nested_conjunction(count)
+        # n nested conjunctions have and classes of 2 to n members: beyond
+        # _SWEEP_MEMBERS members the formula is not swept (the thousand
+        # nested ands of QF_IDL FISCHER6-4-ninc have two million; their
+        # sweep took half an hour without an end, and now none of the
+        # time). And a sweep stops once its links and its failed searches
+        # have written more than it may (_SWEEP_CHARS for the sweeps of a
+        # file), not after the last link: here over thirty frames, four
+        # links each. The limits as they are, on a conjunction a thousand
+        # deep: test_proof_to_lean_integration (its structures are too deep
+        # for an interpreter that does not cache the hash of a tuple).
+        def sweep(family, count, **options):
+            clause, names = family(count)
             prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
                                                         scope=("lemma", " _atoms"))
             return prover, prover.sweep(("not", clause), [], **options)
 
-        prover, found = sweep(30)
+        prover, found = sweep(swept_frames, 30)
         self.assertIsNotNone(found)
-        members = sum(range(2, 31)) + 30 * 2  # the nested ands' classes and those of the thirty ors
-        self.assertEqual(prover.members, members)
         links, written = len(prover.proved), prover.spent
         declarations = sum(len(statement or "") + sum(map(len, lines)) for _, statement, lines in found[0])
         self.assertTrue(declarations <= written < 2 * declarations, (declarations, written))
-        self.assertIsNotNone(sweep(30, chars=written)[1])
-        prover, found = sweep(30, chars=written // 2)
+        self.assertIsNotNone(sweep(swept_frames, 30, chars=written)[1])
+        prover, found = sweep(swept_frames, 30, chars=written // 2)
         self.assertIsNone(found)
         self.assertTrue(0 < len(prover.proved) < links, len(prover.proved))
         self.assertLess(prover.spent, written // 2 + proof_to_lean._SWEEP_LINK_CHARS)
         with patch.object(proof_to_lean, "_SWEEP_CHARS", written // 2):  # the default of chars
-            self.assertIsNone(sweep(30)[1])
+            self.assertIsNone(sweep(swept_frames, 30)[1])
+        prover, found = sweep(nested_conjunction, 30)
+        self.assertIsNotNone(found)
+        members = sum(range(2, 31)) + 30 * 2  # the nested ands' classes and those of the thirty ors
+        self.assertEqual(prover.members, members)
         with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members - 1):
-            prover, found = sweep(30)
+            prover, found = sweep(nested_conjunction, 30)
             self.assertIsNone(found)
             self.assertIsNone(prover.links)
             self.assertEqual(prover.proved, {})
         with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members):
-            self.assertIsNotNone(sweep(30)[1])
+            self.assertIsNotNone(sweep(nested_conjunction, 30)[1])
+
+    def test_sweep_reads_through_the_gates_inside_a_nested_conjunction(self):
+        # An and whose parents are all ands has its class flattened into
+        # theirs: it is not linked (_swept_structures, `inner`) and a search
+        # reads through it. With a link for every prefix of a conjunction
+        # nested n deep, each to a canonical gate of the prefix's width, a
+        # sweep wrote 0.2, 0.9, and 3.6 million characters for 50, 100, and
+        # 200 levels, and 15 of the 16 million a file may hold for 400
+        # (QF_IDL qlock-4-10-8, whose one assertion nests 395, got no
+        # further than 316). Now the outermost and is tied to the flat
+        # conjunction by one link, proved through the chain.
+        def sweep(clause, names):
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [])
+
+        spent = {}
+        for count in (50, 100, 200):
+            clause, names = nested_conjunction(count)
+            prover, (declarations, refutation) = sweep(clause, names)
+            nested, flat = clause[1][1], clause[2]
+            self.assertEqual(len(prover.inner), count - 2)  # every nested and but the outermost
+            self.assertNotIn(nested, prover.inner)
+            self.assertEqual(prover.failed, set())
+            self.assertEqual(prover.definitions, [])  # no canonical gate: the two forms are the ends of the link
+            (name, statement, lines), = declarations
+            self.assertEqual(statement, "(Iff %s %s)" % (names[flat], names[nested]))
+            self.assertIn("(%s _atoms)" % name, "\n".join(refutation))
+            self.assertLess(len(lines), 5 * count)
+            spent[count] = prover.spent
+        self.assertLess(spent[200], 2.5 * spent[100])
+        self.assertLess(spent[100], 2.5 * spent[50])
+        self.assertLess(spent[200], 50000)
+        # An and that is also under a gate of another kind is tied as
+        # before: what is outside its and parents may need it as a whole.
+        a, b, c, d = (("atom", index) for index in range(4))
+        inside = ("and", a, b)  # its canonical gate is (and b a): the flat conjunction is read first
+        conjunction, disjunction, flat = ("and", inside, c), ("or", inside, d), ("and", c, b, a)
+        clause = ("or", flat, ("not", conjunction), ("not", disjunction))
+        names = {structure: "(n%d _atoms)" % index
+                 for index, structure in enumerate([inside, conjunction, disjunction, flat, clause])}
+        prover, found = sweep(clause, names)
+        self.assertIsNotNone(found)
+        self.assertEqual(prover.inner, set())
+        self.assertIn(inside, prover.proved)
+
+    def test_sweep_refutes_a_clause_simplified_under_a_unit_rounds_further_down(self):
+        # The refutation of a swept clause reads the gates above the links,
+        # the operands of the canonical gates it meets tied a few rounds
+        # down, and what is below that is an input. When Z3 logged the
+        # clause over the formula simplified under a unit, no gate of one
+        # form is in a class with a gate of the other, and the two meet
+        # only at the atoms: the search ends in an assignment of the inputs
+        # at the cut. It is then repeated a round further down, up to
+        # _SWEEP_DEPTH rounds, each with its openings (QF_IDL qlock-4-10-8
+        # and -9: five rounds; with the three there were, their lemmas were
+        # left to the unfolded fallback, which ran out of heartbeats).
+        searches, read = [], []
+        refutation = proof_to_lean._PropositionalProver.refutation
+
+        def counted(self, structure, facts=()):
+            searches.append(len(self.relevant))
+            read.append((frozenset(self.relevant), tuple(facts)))
+            return refutation(self, structure, facts)
+
+        def sweep(depth, family=simplified_under_a_unit):
+            del searches[:], read[:]
+            clause, names = family(depth)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            with patch.object(proof_to_lean._PropositionalProver, "refutation", counted):
+                return prover, prover.sweep(("not", clause), [])
+
+        rounds, openings = proof_to_lean._SWEEP_ROUNDS[-1], proof_to_lean._SWEEP_OPENINGS
+        self.assertLess(rounds, proof_to_lean._SWEEP_DEPTH)
+        for depth in (1, 2, 3, 4):
+            prover, found = sweep(depth)
+            self.assertIsNotNone(found, depth)
+            self.assertEqual(prover.links, [])
+            self.assertNotIn("Classical.em", "\n".join(found[1]))
+            self.assertEqual(searches, sorted(searches))  # each search reads at least the gates of the one before
+            self.assertEqual(len(set(read)), len(read))  # and never the gates and facts of one that failed
+            if depth > 1:
+                self.assertGreater(len(searches), openings)
+        # Beyond the last round the clause is left to the lemma's other
+        # proofs, after a bounded number of searches.
+        prover, found = sweep(5)
+        self.assertIsNone(found)
+        self.assertLessEqual(len(searches), openings * (proof_to_lean._SWEEP_DEPTH - rounds + 1))
+        self.assertEqual(len(set(read)), len(read))
+        # A round further down that meets no gate the search before did not
+        # read, and nothing to open, is not searched: a clause that does
+        # not hold costs the searches of its openings, not one more for
+        # every round (eight searches, the last six the same one).
+        prover, found = sweep(30, lambda count: swept_frames(count, extra=True))
+        self.assertIsNone(found)
+        self.assertEqual(len(prover.proved), 92)  # the links of the frames, and what the refutation opened
+        self.assertEqual(len(set(read)), len(read))
+        self.assertLessEqual(len(searches), openings)
+        with patch.object(proof_to_lean, "_SWEEP_DEPTH", rounds):  # as it was
+            self.assertIsNotNone(sweep(1)[1])
+            self.assertIsNone(sweep(2)[1])
+            self.assertLessEqual(len(searches), openings)
+        # A search that runs out of its limits is not repeated further
+        # down: more gates do not make it shorter.
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_STEPS", 2):
+            self.assertIsNone(sweep(3)[1])
+            self.assertLessEqual(len(searches), openings)
 
     def test_sweep_classes_follow_the_rewriter(self):
         # The classes of _swept_structures on single rules: equal classes

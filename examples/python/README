@@ -388,8 +388,16 @@ step:
     canonical gates th_lemma_N_kK and the leaf bridges th_lemma_N_bK),
     proved over the few gates between its two ends; the lemma then refutes
     the clause through the links. The classes are hints: a link is stated
-    only with its proof. The twenty- and thirty-frame circuits of QF_IDL
-    RTCL (ckt_PROP1_tf_20, ckt_PROP3_tf_30) verify that way. A sweep is
+    only with its proof. An and under ands only (or an or under ors) is
+    part of its parents' classes and is read through, not linked: a
+    conjunction nested n deep costs one link, where a link and a canonical
+    gate per level were quadratic in n. The refutation reads the gates a
+    few rounds below the clause; when it ends there in an assignment (a
+    clause Z3 logged over the formula simplified under asserted units
+    meets the formula only at the atoms), it is repeated a round further
+    down, up to eight. The twenty- and thirty-frame circuits of QF_IDL
+    RTCL (ckt_PROP1_tf_20, ckt_PROP3_tf_30) and the queuing locks
+    qlock-4-10-8 and -9 verify that way. A sweep is
     bounded as a whole: a formula whose and/or classes have more than
     200,000 members in all (a conjunction nested a thousand deep) is not
     swept, and the sweeps of a file stop once they have written 16 million

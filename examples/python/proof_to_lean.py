@@ -247,7 +247,9 @@ _LINK_CHARS = 5000
 # circuits take at most 15,000 characters each). How many times the operands
 # of the canonical gates a link's search meets are tied in turn, at first and
 # when that fails, and how many times the refutation of the clause may open
-# the structures it meets (the RTCL circuits take one). The characters of
+# the structures it meets (the RTCL circuits take one), and up to how many
+# rounds it is repeated a round further (_SWEEP_DEPTH; the two qlock inputs
+# of the SMT-LIB sample take five rounds and seven searches). The characters of
 # all the declarations of the sweeps of a file: ckt_PROP3_tf_30 takes 12
 # million, in a 19 MB file that Lean checks in 56 s at 7.1 GB, under the
 # 8 GB of check_lean.sh. A sweep stops when its canonical gates, the links
@@ -255,16 +257,17 @@ _LINK_CHARS = 5000
 # the earlier sweeps of the file left of that (ckt_PROP3_tf_30 counts 11.4
 # million), and a longer sweep is not written. The members of all the
 # and/or classes of a sweep: n nested conjunctions have classes of 2 to n
-# members and as many canonical gates of that many operands, each a parent
-# of its operands in every search (ckt_PROP3_tf_30 has 21 thousand members
-# and sweeps in 1.4 s; two forms of a 400-deep conjunction have 81
-# thousand, 1.4 s and 15 MB; the thousand nested ands of QF_IDL
-# FISCHER6-4-ninc have 2 million, and their sweep did not end in 1,700 s).
+# members, sets that are kept though only the outermost gets a canonical
+# gate (_swept_structures) (ckt_PROP3_tf_30 has 21 thousand members and
+# sweeps in 1.4 s; two forms of a 400-deep conjunction have 81 thousand;
+# the thousand nested ands of QF_IDL FISCHER6-4-ninc have 2 million, and
+# their sweep did not end in 1,700 s when every class had its gate).
 # A wider formula is not swept.
 _SWEEP_LINK_STEPS = 1000
 _SWEEP_LINK_CHARS = 50000
 _SWEEP_ROUNDS = (1, 3)
 _SWEEP_OPENINGS = 4
+_SWEEP_DEPTH = 8
 _SWEEP_CHARS = 16000000
 _SWEEP_MEMBERS = 200000
 # Resource limit of z3's unsat core over a cnf lemma's propositional
@@ -7543,6 +7546,7 @@ class _PropositionalProver:
             if names is None or scope is None:
                 raise ValueError("a sweep states its links outside the proof, over the caller's names")
             self.gates, self.proved, self.failed, self.definitions = set(), {}, set(), []
+            self.inner = set()  # the gates under gates of their own kind only (_swept_structures)
             self.spent, self.allowed = 0, None  # the characters written, and how many may be (sweep)
             try:
                 self.links = self._swept_structures(joined)
@@ -7854,8 +7858,18 @@ class _PropositionalProver:
         classes, where two structures that group the operands of one
         conjunction differently meet (_canonical). Negations, atoms,
         leaves, and the unnamed gates (the two branches of an ite) are
-        never linked: a search reads through them. The classes only
-        propose the links; each is proved or dropped (sweep).
+        never linked: a search reads through them. Nor is an and/or whose
+        parents are all gates of its own kind (`inner`, named or not): its
+        class is flattened into each parent's, so what is outside them
+        meets it through its operands, and a search reads through it too,
+        down to the operands of the parent's class. Linked, every prefix of a
+        conjunction nested n deep had a canonical gate as wide as itself
+        and a link as long: 15 million characters for 400 levels, and the
+        chain of 395 that is the one assertion of QF_IDL qlock-4-10-8
+        used up what the sweeps of the file may write after 316; read
+        through, the chain costs its top one link, 80 thousand characters
+        for 400 levels. The classes only propose the links; each is
+        proved or dropped (sweep).
         """
         self.group = {}  # a joined leaf: the leaf it is tied to, and whether as its negation
         for _, left, right in joined:
@@ -7961,6 +7975,10 @@ class _PropositionalProver:
             if structure[0] in ("not", "atom", "leaf", "true", "false"):
                 continue
             cls = self.classes[structure]
+            if keys[cls][0] == structure[0] and self.parents[structure] and all(
+                    parent[0] == structure[0] for parent in self.parents[structure]):
+                self.inner.add(structure)  # its class is flattened into every parent's: read through
+                continue
             base = keys[cls][1] if keys[cls][0] == "not" else cls
             if structure not in self.named and (base not in flattened
                                                  or self.representatives[base][0] is not structure):
@@ -8015,7 +8033,8 @@ class _PropositionalProver:
         sweep, is restricted to these gates (`relevant`). Below a named
         structure nothing is read: its link's fact stands for it, and
         without one it is an input, as an atom is (unless its link was
-        tried and not proved: then it is read through). A fact ties the
+        tried and not proved, or it is an inner gate of its parents' class,
+        see _swept_structures: then it is read through). A fact ties the
         structure to a representative, whose own fact is taken with it, or
         to a canonical gate. A canonical gate propagates between its
         operands, which are not walked either: the operands of the gates
@@ -8042,7 +8061,8 @@ class _PropositionalProver:
                             pending.append(end)
                         elif end in self.named and end not in self.failed:
                             untied.append(end)
-                elif structure not in roots and structure in self.named and structure not in self.failed:
+                elif (structure not in roots and structure in self.named and structure not in self.failed
+                      and structure not in self.inner):
                     untied.append(structure)
                 else:
                     if structure in self.group:
@@ -8145,7 +8165,20 @@ class _PropositionalProver:
         repeated once; a link still not proved is dropped, and the gates
         under its structure are read by the links above. The clause is then
         refuted over the gates above the links, opening what it meets up to
-        _SWEEP_OPENINGS times. facts are the joining facts (see __init__)
+        _SWEEP_OPENINGS times, with the operands of the canonical gates
+        tied _SWEEP_ROUNDS[-1] rounds down. A search that ends there
+        without a refutation, and not for its limits, has met the cut as
+        inputs: it is repeated a round further down, opening as before, up
+        to _SWEEP_DEPTH rounds, but not over the very gates and facts of
+        the search before (a round that met nothing new: only what it
+        opens is tried). A clause Z3 simplified under the units
+        among the assertions shares no class with the assertion above the
+        atoms the units decide: the transition relation of QF_IDL
+        qlock-4-10-8, a disjunction of conjunctions of disjunctions of
+        conjunctions logged with the values of the present state put in,
+        is refuted five rounds down, at the seventh search, and was left to
+        the unfolded fallback, which ran out of heartbeats.
+        facts are the joining facts (see __init__)
         with their proofs. Returns the declarations the refutation needs
         and its tactic lines: a canonical gate as (name, None, [body]), a
         link as (name, statement, tactic lines), the gates first and the
@@ -8180,16 +8213,26 @@ class _PropositionalProver:
             untied = self._tie(link, blocks)
             if untied is not None and not (self._open(untied, blocks) and self._tie(link, blocks) is None):
                 self.failed.add(link[1])
-        refutation = None
-        for _ in range(_SWEEP_OPENINGS):
-            self.relevant, below, untied = self._local((structure, structure[1]), _SWEEP_ROUNDS[-1])
-            self.limits = None
-            self.steps, self.chars = 0, 0
-            refutation = self.refutation(structure, [(fact, name) for fact, truth, name in below
-                                                     if _structure_children(fact)])
-            self.limits = (_SWEEP_LINK_STEPS, _SWEEP_LINK_CHARS)
-            if refutation is not None or not self._open(untied, blocks):
-                break
+        refutation, lost, searched = None, False, None
+        for rounds in range(_SWEEP_ROUNDS[-1], _SWEEP_DEPTH + 1):
+            for _ in range(_SWEEP_OPENINGS):
+                self.relevant, below, untied = self._local((structure, structure[1]), rounds)
+                # A round further down often meets no gate the search before
+                # did not read (a clause that does not hold: five of eight
+                # searches), only named structures to open: over the same
+                # gates and facts the search would end as that one did.
+                if (self.relevant, below) != searched:
+                    searched = (self.relevant, below)
+                    self.limits = None
+                    self.steps, self.chars = 0, 0
+                    refutation = self.refutation(structure, [(fact, name) for fact, truth, name in below
+                                                             if _structure_children(fact)])
+                    lost = refutation is None and self._exhausted()
+                    self.limits = (_SWEEP_LINK_STEPS, _SWEEP_LINK_CHARS)
+                if refutation is not None or not self._open(untied, blocks):
+                    break
+            if refutation is not None or lost:
+                break  # a search that ran out of its limits does not end sooner over more gates
         if refutation is None:
             return None
         # The links the refutation uses, those their proofs use, and the

@@ -28,7 +28,7 @@ from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
     MODULAR_CHAINS, STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, chained_text, gate_inputs,
-    make_certificate, nested_conjunction, opened_frames, swept_frames, time_step_clause,
+    make_certificate, nested_conjunction, opened_frames, simplified_under_a_unit, swept_frames, time_step_clause,
 )
 
 # One small input per kind of certificate text, for the chains of modules: a propositional
@@ -199,14 +199,21 @@ class TestProofToLeanIntegration(unittest.TestCase):
         # definitions, as a certificate has for its nodes, the canonical
         # gates, the links, each a theorem using the ones before it, and the
         # refutation of the clause through them. The second family's links
-        # need a named gate tied on demand (_open).
+        # need a named gate tied on demand (_open). The third is a
+        # conjunction nested 64 deep against the flat one: one link, proved
+        # through the nested ands, which have none; 600 deep that link is
+        # beyond a link's limits and the refutation itself reads through
+        # the 600 ands. The last is refuted four rounds below the first cut
+        # (_SWEEP_DEPTH), over canonical gates opened on the way.
         binder = "(_atoms : Nat -> Prop)"
-        for family in (swept_frames, opened_frames):
-            with self.subTest(family=family.__name__):
-                clause, names = family(3)
+        for family, size, links in ((swept_frames, 3, 7), (opened_frames, 3, 7), (nested_conjunction, 64, 1),
+                                    (nested_conjunction, 600, 0), (simplified_under_a_unit, 4, 2)):
+            with self.subTest(family=family.__name__, size=size):
+                clause, names = family(size)
                 plain = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names)
-                source = ["def %s %s : Prop := %s" % (name[1:].split()[0], binder, plain._shallow(structure))
-                          for structure, name in names.items()]
+                source = ["set_option maxRecDepth 100000", ""]  # as a certificate has: one definition is 600 wide
+                source += ["def %s %s : Prop := %s" % (name[1:].split()[0], binder, plain._shallow(structure))
+                           for structure, name in names.items()]
                 prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
                                                             scope=("lemma", " _atoms"))
                 declarations, refutation = prover.sweep(("not", clause), [])
@@ -218,7 +225,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
                         source += ["  " + line for line in lines]
                 source += ["theorem refutation %s" % binder, "    : Not (Not %s) := by" % names[clause]]
                 source += ["  " + line for line in refutation]
-                self.assertGreater(sum(line.startswith("theorem lemma_s") for line in source), 5)
+                self.assertEqual(sum(line.startswith("theorem lemma_s") for line in source), links)
                 with tempfile.TemporaryDirectory() as directory:
                     path = Path(directory) / "sweep.lean"
                     path.write_text("\n".join(source) + "\n")
@@ -344,8 +351,11 @@ class TestProofToLeanIntegration(unittest.TestCase):
         # lowers them). The and classes of a conjunction nested a thousand
         # deep have half a million members, above _SWEEP_MEMBERS, so the
         # formula is not swept, and that is known from the classes alone;
-        # 400 deep it is within both limits (81 thousand members, 13 of
-        # the 16 million characters).
+        # 400 deep it is within both limits: 81 thousand members, and 80
+        # thousand characters, twice those of 200 levels, since the nested
+        # ands are read through (with a link and a canonical gate each
+        # they took 15 of the 16 million characters, four times those of
+        # 200 levels).
         def sweep(count):
             clause, names = nested_conjunction(count)
             prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
@@ -359,8 +369,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
         prover, found = sweep(400)
         self.assertIsNotNone(found)
         self.assertLess(prover.members, proof_to_lean._SWEEP_MEMBERS // 2)
-        self.assertLess(proof_to_lean._SWEEP_CHARS // 2, prover.spent)
-        self.assertLess(prover.spent, proof_to_lean._SWEEP_CHARS)
+        self.assertLess(prover.spent, 100000)
+        self.assertLess(prover.spent, 2.5 * sweep(200)[0].spent)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
