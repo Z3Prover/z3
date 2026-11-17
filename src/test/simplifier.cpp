@@ -6,9 +6,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 #include "util/util.h"
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
@@ -817,6 +819,59 @@ static void test_solve_eqs_macro_constants() {
     }
 }
 
+// solve-eqs must honor solve_eqs_max_occs: a variable with more occurrences
+// than the bound is not eliminated. Occurrences are argument positions in
+// distinct subterms, and the defining equation counts (the QF_BV preamble
+// sets the bound to 2 for conservative Gaussian elimination).
+static void test_solve_eqs_max_occs() {
+    // xx occurs in its definition and in three other formulas.
+    // yy occurs in its definition and in one other formula.
+    char const* source =
+        "(declare-const a (_ BitVec 8)) (declare-const b (_ BitVec 8))"
+        "(declare-const xx (_ BitVec 8)) (declare-const yy (_ BitVec 8))"
+        "(assert (= xx (bvadd a b)))"
+        "(assert (bvult xx #x10)) (assert (bvult #x01 xx)) (assert (distinct xx b))"
+        "(assert (= yy (bvmul a b))) (assert (bvult yy #x20))"
+        // a and b occur often enough that only xx and yy are candidates.
+        "(assert (distinct a b)) (assert (bvult a #x05))";
+    // Returns the printed result goal of solve-eqs with the given bound.
+    auto run = [&](unsigned max_occs) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source, 0, nullptr, nullptr,
+                                                        0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+            Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+        Z3_params p = Z3_mk_params(ctx);
+        Z3_params_inc_ref(ctx, p);
+        Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "solve_eqs_max_occs"), max_occs);
+        Z3_tactic tactic = Z3_tactic_using_params(ctx, Z3_mk_tactic(ctx, "solve-eqs"), p);
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+        Z3_apply_result_inc_ref(ctx, result);
+        ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+        std::string out = Z3_goal_to_string(ctx, Z3_apply_result_get_subgoal(ctx, result, 0));
+        Z3_apply_result_dec_ref(ctx, result);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_params_dec_ref(ctx, p);
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+        return out;
+    };
+    auto has = [](std::string const& goal, char const* name) { return goal.find(name) != std::string::npos; };
+    // Unbounded: both xx and yy are eliminated.
+    std::string unbounded = run(UINT_MAX);
+    ENSURE(!has(unbounded, "xx") && !has(unbounded, "yy"));
+    // Bound 2: yy (2 occurrences) is eliminated; xx (4 occurrences) is kept.
+    std::string bounded = run(2);
+    ENSURE(has(bounded, "xx") && !has(bounded, "yy"));
+}
+
 static void test_solve_eqs_proof_scope() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -1146,6 +1201,60 @@ static void test_nested_symbolic_rotations() {
     Z3_del_context(ctx);
 }
 
+// max-bv-sharing must rewrite n-ary bvadd into binary trees that reuse
+// common pairs. It does so without a preceding push: the operator kinds it
+// handles are registered when it first rewrites a term.
+static void test_max_bv_sharing() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx,
+        "(declare-const a (_ BitVec 8)) (declare-const b (_ BitVec 8))"
+        "(declare-const c (_ BitVec 8)) (declare-const d (_ BitVec 8))"
+        "(assert (distinct (bvadd a b c) (bvadd a b d)))",
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+        Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "max-bv-sharing");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+    Z3_goal out = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(Z3_goal_size(ctx, out) == 1);
+    // Collect the distinct bvadd nodes of the result.
+    std::vector<Z3_ast> todo{ Z3_goal_formula(ctx, out, 0) };
+    std::vector<unsigned> adds;
+    bool all_binary = true;
+    while (!todo.empty()) {
+        Z3_ast e = todo.back();
+        todo.pop_back();
+        if (Z3_get_ast_kind(ctx, e) != Z3_APP_AST)
+            continue;
+        Z3_app a = Z3_to_app(ctx, e);
+        if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, a)) == Z3_OP_BADD) {
+            unsigned id = Z3_get_ast_id(ctx, e);
+            if (std::find(adds.begin(), adds.end(), id) != adds.end())
+                continue;
+            adds.push_back(id);
+            all_binary &= Z3_get_app_num_args(ctx, a) == 2;
+        }
+        for (unsigned i = 0; i < Z3_get_app_num_args(ctx, a); ++i)
+            todo.push_back(Z3_get_app_arg(ctx, a, i));
+    }
+    // (bvadd a b) is shared: (bvadd (bvadd a b) c), (bvadd (bvadd a b) d).
+    ENSURE(all_binary);
+    ENSURE(adds.size() == 3);
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
     test_proof_mode_simplifier_pipeline();
@@ -1165,10 +1274,12 @@ void tst_simplifier() {
     test_solve_eqs_proofs();
     test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
+    test_solve_eqs_max_occs();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
     test_lambda_simplifier_proofs();
     test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
     test_demodulator_quantified_proofs();
+    test_max_bv_sharing();
 }
