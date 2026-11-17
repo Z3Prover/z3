@@ -173,14 +173,14 @@ public:
         default: throw NativeError("Invalid extracted expression tag");
         }
     }
-    std::string judgment(Z3UnifiedProof_judgment const& value) {
+    std::string judgment(Z3UnifiedProofSyntax_judgment const& value) {
         switch (value.tag) {
-        case Z3UNIFIEDPROOF_HOLDS: return "holds(" + expression(value.val.Holds) + ")";
-        case Z3UNIFIEDPROOF_EQUAL: {
+        case Z3UNIFIEDPROOFSYNTAX_HOLDS: return "holds(" + expression(value.val.Holds) + ")";
+        case Z3UNIFIEDPROOFSYNTAX_EQUAL: {
             auto left = expression(value.val.Equal.left);
             return "eq(" + left + " -> " + expression(value.val.Equal.right) + ")";
         }
-        case Z3UNIFIEDPROOF_OBSERVATIONAL: {
+        case Z3UNIFIEDPROOFSYNTAX_OBSERVATIONAL: {
             auto left = expression(value.val.Observational.left);
             return "oeq(" + left + " -> " + expression(value.val.Observational.right) + ")";
         }
@@ -408,14 +408,14 @@ class Pretty {
         return precedence < minimum ? "(" + result + ")" : result;
     }
 public:
-    std::string judgment(Z3UnifiedProof_judgment const& value) {
+    std::string judgment(Z3UnifiedProofSyntax_judgment const& value) {
         switch (value.tag) {
-        case Z3UNIFIEDPROOF_HOLDS: return expression(value.val.Holds, 12, {}, 0);
-        case Z3UNIFIEDPROOF_EQUAL: {
+        case Z3UNIFIEDPROOFSYNTAX_HOLDS: return expression(value.val.Holds, 12, {}, 0);
+        case Z3UNIFIEDPROOFSYNTAX_EQUAL: {
             auto left = expression(value.val.Equal.left, 12, {}, 31);
             return left + " = " + expression(value.val.Equal.right, 12, {}, 31);
         }
-        case Z3UNIFIEDPROOF_OBSERVATIONAL: {
+        case Z3UNIFIEDPROOFSYNTAX_OBSERVATIONAL: {
             auto left = expression(value.val.Observational.left, 12, {}, 31);
             return left + " ~ " + expression(value.val.Observational.right, 12, {}, 31);
         }
@@ -424,9 +424,9 @@ public:
     }
 };
 
-static std::string rule_name(Z3UnifiedProof_rule const& rule) {
+static std::string rule_name(Z3UnifiedProofSyntax_rule const& rule) {
     switch (rule.tag) {
-#define RULE(tag, name) case Z3UNIFIEDPROOF_##tag: return name
+#define RULE(tag, name) case Z3UNIFIEDPROOFSYNTAX_##tag: return name
     RULE(ASSERTED, "asserted"); RULE(DEFAXIOM, "def-axiom");
     RULE(DEFINITIONINTRODUCTION, "intro-def"); RULE(APPLYDEFINITION, "apply-def");
     RULE(HYPOTHESIS, "hypothesis"); RULE(LEMMARULE, "lemma");
@@ -443,8 +443,8 @@ static std::string rule_name(Z3UnifiedProof_rule const& rule) {
     RULE(NOTORELIMINATION, "not-or-elim"); RULE(IFFTRUE, "iff-true"); RULE(IFFFALSE, "iff-false");
     RULE(QUANTIFIERINSTANTIATION, "quant-inst");
 #undef RULE
-    case Z3UNIFIEDPROOF_UNVERIFIED: return text(rule.val.Unverified);
-    case Z3UNIFIEDPROOF_QUANTIFIERINTRODUCTION: {
+    case Z3UNIFIEDPROOFSYNTAX_UNVERIFIED: return text(rule.val.Unverified);
+    case Z3UNIFIEDPROOFSYNTAX_QUANTIFIERINTRODUCTION: {
         auto const& certificate = rule.val.QuantifierIntroduction;
         auto root = certificate.binder_root;
         if (cherry_int_lt(root, CHERRY_INT_SMALL(0)) ||
@@ -463,9 +463,9 @@ static std::string rule_name(Z3UnifiedProof_rule const& rule) {
     }
 }
 
-static char const* stage_name(Z3ProofDocument_diagnostic_stage stage) {
+static char const* stage_name(Z3DocumentSyntax_diagnostic_stage stage) {
     switch (stage) {
-#define STAGE(tag, name) case Z3PROOFDOCUMENT_##tag: return name
+#define STAGE(tag, name) case Z3DOCUMENTSYNTAX_##tag: return name
     STAGE(LOGICALDECLARATIONS, "logical-declarations");
     STAGE(EXPRESSIONWELLFORMEDNESS, "expression-well-formedness");
     STAGE(ORIGINALASSERTIONS, "original-assertions"); STAGE(ASSERTIONSCOPE, "assertion-scope");
@@ -480,12 +480,12 @@ static char const* stage_name(Z3ProofDocument_diagnostic_stage stage) {
     }
 }
 
-static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value, Result result) {
-    if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED &&
+static void report_diagnostics(Z3DocumentSyntax_document_diagnostic const& value, Result result) {
+    if (value.tag == Z3DOCUMENTSYNTAX_DOCUMENTCHECKED &&
         result.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT &&
         cherry_int_eq(value.val.DocumentChecked.pending, result.val.Some)) {
         // The first obligation of a family names its node and, as in the OCaml driver, gives the conclusion of its expression row.
-        struct Group { Count count; std::string first; Z3UnifiedProof_judgment conclusion{}; };
+        struct Group { Count count; std::string first; Z3UnifiedProofSyntax_judgment conclusion{}; };
         using Key = std::pair<std::string, std::string>;
         std::map<Key, Group> groups;
         Count total;
@@ -521,7 +521,7 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
                       << '\t' << Pretty().judgment(it->second.conclusion) << '\n';
         }
     }
-    else if (value.tag == Z3PROOFDOCUMENT_DOCUMENTREJECTED &&
+    else if (value.tag == Z3DOCUMENTSYNTAX_DOCUMENTREJECTED &&
              result.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT) {
         auto const& rejected = value.val.DocumentRejected;
         std::cerr << "diagnostic\trejected\tstage=" << stage_name(rejected.stage)
@@ -539,8 +539,8 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
 // the order of the machine rows. The node index is the position of the obligation in the document's
 // proof entries, which is where its premise ids are read from. Mirrors Z3NativeMain.Readable.report_text.
 static std::string readable_report(unsigned query, std::string const& verdict,
-                                   Z3ProofDocument_document_Mk_document_s const& doc,
-                                   Z3ProofDocument_document_diagnostic const& diagnostic) {
+                                   Z3DocumentSyntax_document_Mk_document_s const& doc,
+                                   Z3DocumentSyntax_document_diagnostic const& diagnostic) {
     using namespace readable;
     std::string out;
     bool full = false;
@@ -552,7 +552,7 @@ static std::string readable_report(unsigned query, std::string const& verdict,
         else
             out += block;
     };
-    auto entry_at = [&](cherry_int index) -> Z3ProofDocument_entry const* {
+    auto entry_at = [&](cherry_int index) -> Z3DocumentSyntax_entry const* {
         if (!cherry_is_scalar(index) || cherry_int_lt(index, CHERRY_INT_SMALL(0)))
             return nullptr;
         uint64_t wanted = cherry_int_to_u64(index), position = 0;
@@ -575,12 +575,12 @@ static std::string readable_report(unsigned query, std::string const& verdict,
         return result;
     };
     auto family_block = [&](size_t position, size_t total, std::string const& rule, cherry_int count,
-                            size_t members, Z3ProofDocument_unmet_obligation const& first) {
+                            size_t members, Z3DocumentSyntax_unmet_obligation const& first) {
         auto const index = first.obligation_index;
         std::string block = "readable\tfamily=" + std::to_string(position) + "/" + std::to_string(total) +
             "\trule=" + rule + "\tcount=" + integer_text(count) + "\tmembers=" + std::to_string(members) +
             "\tnode=" + integer_text(index) + "\tnode-pending=" + integer_text(first.obligation_count) + "\n";
-        std::vector<Z3UnifiedProof_judgment const*> premises;
+        std::vector<Z3UnifiedProofSyntax_judgment const*> premises;
         each<Prims_list__judgment_Cons_s>(first.obligation_premises,
             [&](auto const& premise) { premises.push_back(&premise); });
         std::vector<cherry_int> ids;
@@ -606,8 +606,8 @@ static std::string readable_report(unsigned query, std::string const& verdict,
             block += "  ...<" + std::to_string(premises.size() - max_premises) + " more premises omitted>\n";
         auto conclusion = judgment_text(first.obligation_conclusion);
         block += "  conclusion: " + conclusion.first + "\n";
-        Z3UnifiedProof_judgment holds{};
-        holds.tag = Z3UNIFIEDPROOF_HOLDS;
+        Z3UnifiedProofSyntax_judgment holds{};
+        holds.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
         holds.val.Holds = first.obligation_source;
         auto source = judgment_text(holds);
         block += source.first == conclusion.first && !conclusion.second && !source.second ?
@@ -615,11 +615,11 @@ static std::string readable_report(unsigned query, std::string const& verdict,
             "  source formula: " + source.first + "\n";
         return block;
     };
-    if (diagnostic.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
+    if (diagnostic.tag == Z3DOCUMENTSYNTAX_DOCUMENTCHECKED) {
         struct Family {
             Count count;
             size_t members = 0;
-            Z3ProofDocument_unmet_obligation const* first = nullptr;
+            Z3DocumentSyntax_unmet_obligation const* first = nullptr;
         };
         using Key = std::pair<std::string, std::string>;
         std::map<Key, Family> families;
@@ -658,8 +658,8 @@ static std::string readable_report(unsigned query, std::string const& verdict,
         std::string block = "readable\tquery=" + std::to_string(query) + "\tverdict=" + verdict +
             "\tstage=" + stage_name(rejected.stage) + "\tindex=" +
             (has_index ? integer_text(rejected.index.val.Some) : std::string("-")) + "\n";
-        if (has_index && (rejected.stage == Z3PROOFDOCUMENT_PROOFENTRY ||
-                          rejected.stage == Z3PROOFDOCUMENT_MISSINGPREMISE)) {
+        if (has_index && (rejected.stage == Z3DOCUMENTSYNTAX_PROOFENTRY ||
+                          rejected.stage == Z3DOCUMENTSYNTAX_MISSINGPREMISE)) {
             auto const index = rejected.index.val.Some;
             if (auto const* entry = entry_at(index)) {
                 std::vector<cherry_int> ids;
@@ -672,8 +672,8 @@ static std::string readable_report(unsigned query, std::string const& verdict,
                     ": no source-node mapping (no document entry at this index)\n";
         }
         if (rejected.source.tag == FSTAR_PERVASIVES_NATIVE_SOME__EXPR) {
-            Z3UnifiedProof_judgment holds{};
-            holds.tag = Z3UNIFIEDPROOF_HOLDS;
+            Z3UnifiedProofSyntax_judgment holds{};
+            holds.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
             holds.val.Holds = rejected.source.val.Some;
             block += "  source formula: " + judgment_text(holds).first + "\n";
         }
@@ -702,7 +702,7 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     Owned<Prims_list__ast, checker_drop_asts> roots(list<Prims_list__ast_Cons_s>(assertions));
     Owned<Z3Cherry_marshaled, checker_drop_marshaled> marshaled(Z3Cherry_marshal(roots.value, proof));
     // document is [@@cherry_boxed]: a counted cell holding the record.
-    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.value.document);
+    auto const& doc = *reinterpret_cast<Z3DocumentSyntax_document_Mk_document_s const*>(marshaled.value.document);
     auto marshal_end = Clock::now();
     bool datatype = !cherry_is_scalar(marshaled.value.schema.cases);
     bool sorted = datatype || options.sorted_core;
@@ -712,12 +712,12 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     // Z3SortedProof.lemma_diagnose_document_epsilon), the fact on which the OCaml driver takes its verdict from
     // check_document_diagnosed*. A second checking pass would only repeat the work.
     std::optional<Owned<Result, checker_drop_result>> checked;
-    std::optional<Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>> diagnosed;
+    std::optional<Owned<Z3DocumentSyntax_document_diagnostic, checker_drop_diagnostic>> diagnosed;
     Result result{};
     if (options.diagnostics) {
         diagnosed.emplace(Z3Cherry_diagnose(sorted, marshaled.value));
         auto const& value = diagnosed->value;
-        if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
+        if (value.tag == Z3DOCUMENTSYNTAX_DOCUMENTCHECKED) {
             result.tag = FSTAR_PERVASIVES_NATIVE_SOME__INT;
             result.val.Some = value.val.DocumentChecked.pending;
         }
@@ -755,7 +755,7 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
         edges += length<Prims_list__int_Cons_s>(entry.premise_ids);
-        if (entry.rule.tag == Z3UNIFIEDPROOF_QUANTIFIERINTRODUCTION)
+        if (entry.rule.tag == Z3UNIFIEDPROOFSYNTAX_QUANTIFIERINTRODUCTION)
             each<Prims_list__binder_entry_Cons_s>(
                 entry.rule.val.QuantifierIntroduction.binder_entries, [&](auto const& bound) {
                     ++binder_nodes;

@@ -102,8 +102,8 @@ Z3AstTheory_expr quantifier(Z3AstTheory_quantifier_kind kind, std::vector<Z3AstT
 }
 
 readable::Rendered text(Z3AstTheory_expr value) {
-    Z3UnifiedProof_judgment holds{};
-    holds.tag = Z3UNIFIEDPROOF_HOLDS;
+    Z3UnifiedProofSyntax_judgment holds{};
+    holds.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
     holds.val.Holds = value;
     return readable::judgment_text(holds);
 }
@@ -250,59 +250,59 @@ bool readable_regressions() {
     return ok;
 }
 
-Z3UnifiedProof_rule unverified(std::string const& name) {
-    Z3UnifiedProof_rule rule{};
-    rule.tag = Z3UNIFIEDPROOF_UNVERIFIED;
+Z3UnifiedProofSyntax_rule unverified(std::string const& name) {
+    Z3UnifiedProofSyntax_rule rule{};
+    rule.tag = Z3UNIFIEDPROOFSYNTAX_UNVERIFIED;
     rule.val.Unverified = str(name);
     return rule;
 }
 
-Z3UnifiedProof_judgment holds_of(Z3AstTheory_expr value) {
-    Z3UnifiedProof_judgment judgment{};
-    judgment.tag = Z3UNIFIEDPROOF_HOLDS;
+Z3UnifiedProofSyntax_judgment holds_of(Z3AstTheory_expr value) {
+    Z3UnifiedProofSyntax_judgment judgment{};
+    judgment.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
     judgment.val.Holds = value;
     return judgment;
 }
 
-Z3UnifiedProof_judgment equal_of(Z3AstTheory_expr left, Z3AstTheory_expr right) {
-    Z3UnifiedProof_judgment judgment{};
-    judgment.tag = Z3UNIFIEDPROOF_EQUAL;
+Z3UnifiedProofSyntax_judgment equal_of(Z3AstTheory_expr left, Z3AstTheory_expr right) {
+    Z3UnifiedProofSyntax_judgment judgment{};
+    judgment.tag = Z3UNIFIEDPROOFSYNTAX_EQUAL;
     judgment.val.Equal.left = left;
     judgment.val.Equal.right = right;
     return judgment;
 }
 
-Z3ProofDocument_entry entry_of(std::string const& rule, Z3AstTheory_expr formula, std::vector<cherry_int> const& premise_ids) {
+Z3DocumentSyntax_entry entry_of(std::string const& rule, Z3AstTheory_expr formula, std::vector<cherry_int> const& premise_ids) {
     return {unverified(rule), formula, list<Prims_list__int_Cons_s>(premise_ids)};
 }
 
-Z3ProofDocument_document_Mk_document_s document_of(std::vector<Z3ProofDocument_entry> const& entries) {
-    Z3ProofDocument_document_Mk_document_s value{};
+Z3DocumentSyntax_document_Mk_document_s document_of(std::vector<Z3DocumentSyntax_entry> const& entries) {
+    Z3DocumentSyntax_document_Mk_document_s value{};
     value.declarations = value.expressions = value.assertions = CHERRY_SCALAR(0);
     value.entries = list<Prims_list__entry_Cons_s>(entries);
     value.root = z(0);
     return value;
 }
 
-Z3ProofDocument_unmet_obligation obligation_of(std::string const& rule, int64_t index, cherry_int count,
-                                               Z3UnifiedProof_judgment conclusion,
-                                               std::vector<Z3UnifiedProof_judgment> const& premises,
+Z3DocumentSyntax_unmet_obligation obligation_of(std::string const& rule, int64_t index, cherry_int count,
+                                               Z3UnifiedProofSyntax_judgment conclusion,
+                                               std::vector<Z3UnifiedProofSyntax_judgment> const& premises,
                                                Z3AstTheory_expr source) {
     return {z(index), unverified(rule), conclusion, list<Prims_list__judgment_Cons_s>(premises), source, count};
 }
 
-Z3ProofDocument_document_diagnostic checked_of(cherry_int pending, std::vector<Z3ProofDocument_unmet_obligation> const& obligations) {
-    Z3ProofDocument_document_diagnostic value{};
-    value.tag = Z3PROOFDOCUMENT_DOCUMENTCHECKED;
+Z3DocumentSyntax_document_diagnostic checked_of(cherry_int pending, std::vector<Z3DocumentSyntax_unmet_obligation> const& obligations) {
+    Z3DocumentSyntax_document_diagnostic value{};
+    value.tag = Z3DOCUMENTSYNTAX_DOCUMENTCHECKED;
     value.val.DocumentChecked.pending = pending;
     value.val.DocumentChecked.obligations = list<Prims_list__unmet_obligation_Cons_s>(obligations);
     return value;
 }
 
-Z3ProofDocument_document_diagnostic rejected_of(Z3ProofDocument_diagnostic_stage stage, std::optional<int64_t> index,
+Z3DocumentSyntax_document_diagnostic rejected_of(Z3DocumentSyntax_diagnostic_stage stage, std::optional<int64_t> index,
                                                 std::optional<Z3AstTheory_expr> source) {
-    Z3ProofDocument_document_diagnostic value{};
-    value.tag = Z3PROOFDOCUMENT_DOCUMENTREJECTED;
+    Z3DocumentSyntax_document_diagnostic value{};
+    value.tag = Z3DOCUMENTSYNTAX_DOCUMENTREJECTED;
     value.val.DocumentRejected.stage = stage;
     if (index)
         value.val.DocumentRejected.index = some<FStar_Pervasives_Native_option__int>(z(*index));
@@ -391,8 +391,8 @@ bool pretty_regressions() {
     expect("depth limit", shown(deep), nested);
     expect("equality judgment", Pretty().judgment(equal_of(x, binary(add_tag, "+", x, numeral(z(1), z(1), int_s)))),
            "x = x + 1");
-    Z3UnifiedProof_judgment observational{};
-    observational.tag = Z3UNIFIEDPROOF_OBSERVATIONAL;
+    Z3UnifiedProofSyntax_judgment observational{};
+    observational.tag = Z3UNIFIEDPROOFSYNTAX_OBSERVATIONAL;
     observational.val.Observational.left = p;
     observational.val.Observational.right = boolean(or_tag, "or", p, q);
     expect("observational judgment", Pretty().judgment(observational), "p ~ (p or q)");
@@ -733,20 +733,20 @@ bool readable_edge_cases() {
             result += row + "\n";
         return result;
     };
-    auto report = [&](unsigned query, std::string const& verdict, Z3ProofDocument_document_Mk_document_s const& document,
-                      Z3ProofDocument_document_diagnostic const& diagnostic) {
+    auto report = [&](unsigned query, std::string const& verdict, Z3DocumentSyntax_document_Mk_document_s const& document,
+                      Z3DocumentSyntax_document_diagnostic const& diagnostic) {
         return readable_report(query, verdict, document, diagnostic);
     };
     auto const two = z(2);
     // two entries, as in the OCaml golden: node 1 has premise ids #31 #77
     auto leaf = entry_of("th-lemma", conclusion, {z(31), z(77)});
     auto doc = document_of({leaf, leaf});
-    auto obligation = [&](std::string const& rule, int64_t index, Z3UnifiedProof_judgment judgment,
-                          std::vector<Z3UnifiedProof_judgment> const& premises) {
+    auto obligation = [&](std::string const& rule, int64_t index, Z3UnifiedProofSyntax_judgment judgment,
+                          std::vector<Z3UnifiedProofSyntax_judgment> const& premises) {
         return obligation_of(rule, index, two, judgment, premises, conclusion);
     };
-    std::vector<Z3UnifiedProof_judgment> const both{holds_of(p), equal_of(x, x)};
-    auto checked = [&](std::vector<Z3ProofDocument_unmet_obligation> const& obligations) {
+    std::vector<Z3UnifiedProofSyntax_judgment> const both{holds_of(p), equal_of(x, x)};
+    auto checked = [&](std::vector<Z3DocumentSyntax_unmet_obligation> const& obligations) {
         return report(3, "PARTIAL 2", doc, checked_of(two, obligations));
     };
     expect("checked report", checked({obligation("th-lemma", 1, holds_of(conclusion), both)}),
@@ -771,9 +771,9 @@ bool readable_edge_cases() {
             contains(checked({obligation("th-lemma", 9, holds_of(conclusion), both)}),
                      "  node 9: no source-node mapping (no document entry at this index): premise ids unavailable\n"));
     require("a rejection without a document entry claimed premises",
-            contains(report(7, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_MISSINGPREMISE, 9, std::nullopt)),
+            contains(report(7, "REJECT", doc, rejected_of(Z3DOCUMENTSYNTAX_MISSINGPREMISE, 9, std::nullopt)),
                      "  node 9: no source-node mapping (no document entry at this index)\n"));
-    std::vector<Z3ProofDocument_unmet_obligation> numbered;
+    std::vector<Z3DocumentSyntax_unmet_obligation> numbered;
     for (int i = 0; i < 25; ++i) {
         char rule[16];
         std::snprintf(rule, sizeof rule, "rule-%02d", i);
@@ -785,29 +785,29 @@ bool readable_edge_cases() {
             contains(limited, "readable\tomitted\tfamilies=5\treason=family-limit\n") &&
             contains(limited, "readable\tfamily=20/25\trule=rule-05\tcount=6\t") && !contains(limited, "rule=rule-04\t"));
     auto heavy = app(declaration("decl!8:h", {}, int_sort), std::vector<Z3AstTheory_expr>(600, x));
-    std::vector<Z3UnifiedProof_judgment> const big_premises(8, holds_of(heavy));
-    std::vector<Z3ProofDocument_unmet_obligation> big;
+    std::vector<Z3UnifiedProofSyntax_judgment> const big_premises(8, holds_of(heavy));
+    std::vector<Z3DocumentSyntax_unmet_obligation> big;
     for (int i = 0; i < 6; ++i)
         big.push_back(obligation_of("big-" + std::to_string(i), 1, two, holds_of(heavy), big_premises, heavy));
     auto sized = checked(big);
     require("report size limit",
             sized.size() < readable::max_report_chars + 200 &&
             contains(sized, "readable\tomitted\treason=report-size\nreadable\tend\tquery=3\n"));
-    expect("rejected report", report(4, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_PROOFENTRY, 1, conclusion)),
+    expect("rejected report", report(4, "REJECT", doc, rejected_of(Z3DOCUMENTSYNTAX_PROOFENTRY, 1, conclusion)),
            lines({"readable\tquery=4\tverdict=REJECT\tstage=proof-entry\tindex=1",
                   "  node 1: rule=th-lemma premises: #31 #77", "  source formula: holds((= x#3:Int 5))",
                   "readable\tend\tquery=4"}));
-    expect("rejected report without a node", report(5, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_MISSINGROOT, std::nullopt, std::nullopt)),
+    expect("rejected report without a node", report(5, "REJECT", doc, rejected_of(Z3DOCUMENTSYNTAX_MISSINGROOT, std::nullopt, std::nullopt)),
            lines({"readable\tquery=5\tverdict=REJECT\tstage=missing-root\tindex=-", "  source formula: none reported",
                   "readable\tend\tquery=5"}));
     require("a root-stage rejection claimed a proof node",
-            !contains(report(6, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_OPENROOT, 1, std::nullopt)), "  node "));
+            !contains(report(6, "REJECT", doc, rejected_of(Z3DOCUMENTSYNTAX_OPENROOT, 1, std::nullopt)), "  node "));
     // the premise limit, other stages, an accepted proof and huge counts
     std::vector<cherry_int> ids;
     for (int i = 0; i < 10; ++i)
         ids.push_back(z(100 + i));
     auto many = document_of({entry_of("th-lemma", conclusion, ids)});
-    std::vector<Z3UnifiedProof_judgment> premises;
+    std::vector<Z3UnifiedProofSyntax_judgment> premises;
     for (int i = 0; i < 10; ++i)
         premises.push_back(i % 2 == 0 ? holds_of(p) : equal_of(x, x));
     expect("premise limit",
@@ -823,12 +823,12 @@ bool readable_edge_cases() {
                   "  ...<2 more premises omitted>", "  conclusion: holds((= x#3:Int 5))",
                   "  source formula: same as conclusion", "readable\tend\tquery=1"}));
     expect("missing-premise rejection names the node and its premise ids",
-           report(8, "REJECT", many, rejected_of(Z3PROOFDOCUMENT_MISSINGPREMISE, 0, std::nullopt)),
+           report(8, "REJECT", many, rejected_of(Z3DOCUMENTSYNTAX_MISSINGPREMISE, 0, std::nullopt)),
            lines({"readable\tquery=8\tverdict=REJECT\tstage=missing-premise\tindex=0",
                   "  node 0: rule=th-lemma premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>",
                   "  source formula: none reported", "readable\tend\tquery=8"}));
     expect("entry rejection without an index",
-           report(9, "REJECT", many, rejected_of(Z3PROOFDOCUMENT_PROOFENTRY, std::nullopt, std::nullopt)),
+           report(9, "REJECT", many, rejected_of(Z3DOCUMENTSYNTAX_PROOFENTRY, std::nullopt, std::nullopt)),
            lines({"readable\tquery=9\tverdict=REJECT\tstage=proof-entry\tindex=-", "  source formula: none reported",
                   "readable\tend\tquery=9"}));
     expect("accepted proof", report(2, "ACCEPT", many, checked_of(z(0), {})),
@@ -846,8 +846,8 @@ bool readable_edge_cases() {
 }
 
 // Every datum the printer reads, as text: the conclusion, premises, source formula, index and count of each obligation.
-std::string rendered_diagnostic(Z3ProofDocument_document_diagnostic const& value) {
-    if (value.tag != Z3PROOFDOCUMENT_DOCUMENTCHECKED)
+std::string rendered_diagnostic(Z3DocumentSyntax_document_diagnostic const& value) {
+    if (value.tag != Z3DOCUMENTSYNTAX_DOCUMENTCHECKED)
         return "rejected";
     std::string out = "pending=" + integer(value.val.DocumentChecked.pending);
     each<Prims_list__unmet_obligation_Cons_s>(value.val.DocumentChecked.obligations, [&](auto const& obligation) {
@@ -856,8 +856,8 @@ std::string rendered_diagnostic(Z3ProofDocument_document_diagnostic const& value
         each<Prims_list__judgment_Cons_s>(obligation.obligation_premises, [&](auto const& premise) {
             out += ";" + readable::judgment_text(premise).first;
         });
-        Z3UnifiedProof_judgment holds{};
-        holds.tag = Z3UNIFIEDPROOF_HOLDS;
+        Z3UnifiedProofSyntax_judgment holds{};
+        holds.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
         holds.val.Holds = obligation.obligation_source;
         out += ";source=" + readable::judgment_text(holds).first;
     });
@@ -865,13 +865,13 @@ std::string rendered_diagnostic(Z3ProofDocument_document_diagnostic const& value
 }
 
 // The marshaled proof document as text: the rule tag, premise ids and formula of every entry.
-std::string rendered_document(Z3ProofDocument_document_Mk_document_s const& doc) {
+std::string rendered_document(Z3DocumentSyntax_document_Mk_document_s const& doc) {
     std::string out;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
         out += "|" + std::to_string(static_cast<unsigned>(entry.rule.tag)) + "[";
         each<Prims_list__int_Cons_s>(entry.premise_ids, [&](auto id) { out += integer(id) + ","; });
-        Z3UnifiedProof_judgment holds{};
-        holds.tag = Z3UNIFIEDPROOF_HOLDS;
+        Z3UnifiedProofSyntax_judgment holds{};
+        holds.tag = Z3UNIFIEDPROOFSYNTAX_HOLDS;
         holds.val.Holds = entry.formula;
         out += "]" + readable::judgment_text(holds).first;
     });
@@ -909,17 +909,17 @@ bool readable_same_proof() {
     auto inputs = list<Prims_list__ast_Cons_s>(assertions);
     auto marshaled = Z3Cherry_marshal(inputs, proof);
     checker_drop_asts(inputs);
-    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.document);
+    auto const& doc = *reinterpret_cast<Z3DocumentSyntax_document_Mk_document_s const*>(marshaled.document);
     auto const entries = doc.entries;
     auto const document_before = rendered_document(doc);
     auto first = Z3Cherry_diagnose(false, marshaled);
-    require("the proof has no pending obligation", first.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED &&
+    require("the proof has no pending obligation", first.tag == Z3DOCUMENTSYNTAX_DOCUMENTCHECKED &&
             !cherry_is_scalar(first.val.DocumentChecked.obligations));
     auto const rendered = rendered_diagnostic(first);
     require("rendering the diagnostic is not repeatable", rendered_diagnostic(first) == rendered);
     auto checked = Z3Cherry_check(false, marshaled);
     require("the check result differs from the diagnosed pending count",
-            first.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED && checked.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT &&
+            first.tag == Z3DOCUMENTSYNTAX_DOCUMENTCHECKED && checked.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT &&
             cherry_int_eq(checked.val.Some, first.val.DocumentChecked.pending));
     auto second = Z3Cherry_diagnose(false, marshaled);
     require("diagnosing again after rendering gave other data", rendered_diagnostic(second) == rendered);
@@ -938,7 +938,7 @@ bool structured_native_sorts(z3::context& context, z3::expr const& proof) {
         auto inputs = list<Prims_list__ast_Cons_s>({value});
         auto marshaled = Z3Cherry_marshal(inputs, proof);
         checker_drop_asts(inputs);
-        auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.document);
+        auto const& doc = *reinterpret_cast<Z3DocumentSyntax_document_Mk_document_s const*>(marshaled.document);
         auto expression = reinterpret_cast<Prims_list__expr_Cons_s*>(doc.assertions)->hd;
         auto actual = sort_shape(expression_sort(expression), 8);
         checker_drop_marshaled(marshaled);
@@ -1007,7 +1007,7 @@ int main() {
         auto document = Z3Cherry_marshal(inputs, proof);
         checker_drop_asts(inputs);
         bool complete = checker::length<Prims_list__expr_Cons_s>(
-            reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(document.document)->assertions) == assertions.size();
+            reinterpret_cast<Z3DocumentSyntax_document_Mk_document_s const*>(document.document)->assertions) == assertions.size();
         checker_drop_marshaled(document);
         if (!complete) {
             std::cerr << "Cherry wide native assertion marshalling regression failed\n";
