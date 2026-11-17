@@ -115,6 +115,7 @@
     X(escaped) \
     X(buffer) \
     X(chashtable) \
+    X(checked_int64) \
     X(egraph) \
     X(ex) \
     X(nlarith_util) \
