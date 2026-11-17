@@ -1180,7 +1180,8 @@ assertions the balanced conjunction of chunks of 32, each a definition
 `Inputs_cK`. A structure, because Lean's elaborator unfolds a definition at
 every `proof_step_N _inputs` to see whether it is a function type, which cost
 the whole conjunction each time (QF_IDL vlsat3_c27, 15,332 assertions: about an
-hour of Lean; 517 s now). Each lemma abstracts
+hour of Lean; 517 s with the structure, and 354 s with the lemma steps as
+chains, see below). Each lemma abstracts
 its open hypotheses explicitly, as the premises of its statement; steps the
 root never uses are not outlined. A step under hypotheses that only one other
 step uses is bound inside that step, where its hypotheses are in scope, rather
@@ -1196,6 +1197,21 @@ step's or lemma's application to its hypotheses that the next term uses once
 is written at that use rather than let-bound. This keeps Lean's memory, which
 grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
 DTP_k2_n35_c245_s9.
+A `lemma` step of a classical lemma proves its clause literal by literal:
+one function takes a refutation of every literal to False (the premise
+applied to them), and one helper per literal, classical_or_intro, turns its
+binders into the clause, the last by contradiction:
+
+    (classical_or_intro (classical_or_intro classical_by_contradiction)
+      (fun _n0 _n1 _n2 => (_step_7 _n2 (classical_by_contradiction _n0) _n1)))
+
+The text is linear in the clause. By contradiction with the negated clause,
+each hypothesis was refuted through an Or.inr per literal before its own:
+13 to 27% of the Lean text of the largest sample files (QF_IDL vlsat3_c27,
+the QF_UF gensys files, the QF_AUFLIA swap files). Lemmas that are not
+classical (the propositional slice, and refutations too short to be
+outlined) keep that form, which needs one decidability witness, the
+clause's.
 The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.

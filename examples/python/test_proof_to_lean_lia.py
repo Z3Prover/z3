@@ -1602,8 +1602,11 @@ class TestIntegerValidation(unittest.TestCase):
         # refuted. The rewrite into their disjunction went to grind, which
         # ran out of heartbeats; it is now one De Morgan step per pair. The
         # lemmas discharging the pairs' hypotheses projected each literal
-        # with its own Or.inr chain (a 2.7 MB line); they now start from
-        # tails of the negated clause. Wide lemmas are outlined apart.
+        # with its own Or.inr chain (a 2.7 MB line), then from tails of the
+        # negated clause, an Or.inr per literal since the tail (295 kB for
+        # the three lemmas); they are chains of classical_or_intro now
+        # (_cases_lemma), 33 bytes a literal here, where every hypothesis is
+        # the negation of its literal. Wide lemmas are outlined apart.
         source = pinned_negated_distinct_source(40)
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
@@ -1614,15 +1617,30 @@ class TestIntegerValidation(unittest.TestCase):
         self.assertNotIn("grind", lemma)
         self.assertEqual(lemma.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 779)
         self.assertIn("  exact Classical.not_not", lemma)
-        self.assertIn("let _not_tail768 := ", text)
-        self.assertLess(max(len(line) for line in text.split("\n")), 400000)
-        self.assertLess(len(text), 3000000)
+        chains = [line for line in text.split("\n") if "(classical_or_intro " in line]
+        widths = [line.count("(classical_or_intro ") + 1 for line in chains]
+        self.assertGreater(max(widths), 700)
+        for line, width in zip(chains, widths):
+            self.assertLess(len(line), 40 * width, width)
+            self.assertNotIn("Or.in", line)
+        self.assertNotIn("_not_tail", text)
+        self.assertNotIn("(fun _not_clause => ", text)
+        self.assertLess(max(len(line) for line in text.split("\n")), 30000)  # 161,130 before
+        self.assertLess(len(text), 1400000)  # 1,561,718 before
         boundaries = proof_to_lean._outline_boundaries(graph)
         # A lemma wider than a chunk is a chunk of its own.
         wide = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_LEMMA
                 and len(graph.clause(graph.conclusion(node))) > proof_to_lean._OUTLINE_CHUNK_STEPS]
         self.assertEqual(len(wide), 2)
         self.assertLessEqual(set(wide), boundaries)
+        # Twelve terms: under _OUTLINE_PROOF_STEPS proof steps nothing is
+        # outlined and no lemma is classical, so the lemma over the 66 pairs
+        # refutes them through the negated clause, from its tails.
+        source = pinned_negated_distinct_source(12)
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertNotIn("private theorem proof_step_", text)
+        self.assertIn("let _not_tail64 := ", text)
+        self.assertNotIn("classical_or_intro", text)
 
     def test_negated_distinct_rewrites_of_other_shapes_go_to_grind(self):
         # Only the rewriter's exact disjunction of the pairs, in order, gets
@@ -1987,6 +2005,24 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # projections, the wide lemmas inside full chunks); so did 30.
         certificate = self.check(pinned_negated_distinct_source(40))
         self.assertEqual(certificate["rule_counts"]["th-lemma"], 780)
+        # Twelve terms are not outlined: the lemmas go through the negated
+        # clause (see test_negated_wide_distincts_are_reconstructed_linearly).
+        certificate = self.check(pinned_negated_distinct_source(12))
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 66)
+
+    @lean_test_support.slow("a negated 56-term distinct, 2.6 MB of Lean, about 20 s at 2.9 GB")
+    def test_a_lemma_step_over_fifteen_hundred_literals_verifies(self):
+        # 56 pinned terms, 1,540 refuted pairs: the lemma step over 1,539 of
+        # them, refuting each through the negated clause's tails (a line of
+        # 321 kB), ran out of the default 200,000 heartbeats, and Lean
+        # rejected the file after 13 s. As a chain (52 kB) it verifies.
+        source = pinned_negated_distinct_source(56)
+        certificate = self.check(source)
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1540)
+        text = proof_to_lean.reconstruct(source, certificate)
+        widths = [line.count("(classical_or_intro ") + 1 for line in text.split("\n") if "(classical_or_intro " in line]
+        self.assertGreater(max(widths), 1500)
+        self.assertLess(max(len(line) for line in text.split("\n")), 60000)
 
     def test_negated_distinct_rewrites_of_reversed_pairs_verify(self):
         # The eq_comm congruence of a pair written (= aj ai), which Z3's

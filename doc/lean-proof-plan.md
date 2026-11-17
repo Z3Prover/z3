@@ -1750,6 +1750,158 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### A lemma step proves its clause literal by literal (2026-11-17)
+
+Scale, not breadth: the largest texts of z3test's `smtlib-sample` that
+verify (QF_IDL `vlsat3_c27`, 141 MB; the QF_UF `gensys_*` files, 32 to 195
+MB; the QF_AUFLIA swap files, 36 to 124 MB) take Lean 3 to 10 s per MB, as
+chains of 1 MB modules, so their cost is their text.
+
+What dominated, measured before changing anything on the texts of
+2026-11-16: the lines of the `lemma` steps, which discharge the hypotheses
+of a subproof into the clause of their negations. A step was a proof by
+contradiction with the negated clause, each hypothesis refuted through it:
+
+    (classical_by_contradiction (fun _not_clause => (_step_4439
+      (classical_by_contradiction (fun _literal => _not_clause (Or.inl _literal)))
+      (fun _literal => _not_clause (Or.inr (Or.inr (Or.inr (Or.inl _literal)))))
+      ...)))
+
+with one `Or.inr` per literal before the hypothesis's own: the square of the
+clause's width up to 32 literals, and about 200 bytes a literal above (the
+refutations start from tails of the negated clause bound every 32
+literals). Over all 152 sample files that export these lines were 316.6 of
+2,149 MB of Lean: 38.8 of the 141.4 MB of `vlsat3_c27` (7,539 steps, clauses
+of up to 110 literals), 13 to 21% of the `gensys_*` texts, 16 to 18% of the
+three largest swap texts.
+
+In the outlined lemmas of the arithmetic and uninterpreted slices, which
+are classical already, a step is now one chain (`_cases_lemma`):
+
+    (classical_or_intro (classical_or_intro classical_by_contradiction)
+      (fun _n0 _n1 _n2 => (_step_7 _n2 (classical_by_contradiction _n0) _n1)))
+
+One function takes a refutation of every literal to False: the premise
+applied to them in the order of its hypotheses, `_nK` itself for a
+hypothesis `(not l)`, the proof by contradiction from `_nK : Not (Not h)`
+for a hypothesis h whose literal is `(not h)`; a literal that discharges no
+hypothesis is bound as `_`. One helper theorem,
+
+    private theorem classical_or_intro {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \/ q :=
+      @Decidable.byCases p (p \/ q) (Classical.propDecidable p) (fun _p => Or.inl _p) (fun _n => Or.inr (g (f _n)))
+
+turns the function's first binder into the clause's first literal and
+leaves the rest to g, the chain of the remaining literals, which ends in
+`classical_by_contradiction` for the last. The chain names no formula
+(each follows from the clause the step states) and nests no binder. A
+literal costs about 33 bytes when its hypothesis is its negation and 29
+more when it negates its hypothesis (the proof by contradiction): over the
+158,787 chains of the sample, 42.5 bytes a literal (32.6 on `vlsat3_c27`,
+37.2 on `gensys_icl1079`, 58.7 on `swap_t1_pp_sf_ai_00010_008`). Nesting a
+binder was tried first (`classical_or_intro (fun _n0
+=> classical_or_intro (fun _n1 => ...))`, each literal's refutation bound
+under the ones before): the two lemmas over 779 and 512 literals of a
+negated 40-term distinct took Lean 22 s more that way (27.8 s for the file
+against 5.2 s; 5.6 s through the negated clause).
+
+Lemmas that are not classical keep the proof through the negated clause,
+which needs one decidability witness, the clause's: the propositional
+slice, whose lemmas take their witnesses as parameters so that it stays
+axiom-free, and refutations of at most 500 proof steps, which are not
+outlined. The helper depends on the axioms `classical_by_contradiction`
+depends on (those of `Classical.propDecidable`) and no other. Nothing else
+changes: the same premise is applied to refutations of the same literals,
+and Lean checks each chain against the clause its step states.
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 79 texts are the same byte for byte, and 73
+differ only in the lines of the `lemma` steps and the helper theorem.
+Together the 152 texts go from 2,149 to 1,930 MB (the lemma lines from
+316.6 to 97.1 MB) and their reconstruction from 389 to 361 s. Checked with
+both exporters the same day:
+
+| file | `lemma` steps; widest clause | their lines | before | after |
+| --- | --- | --- | --- | --- |
+| QF_IDL `vlsat3_c27` | 7,539; 110 | 38.84 -> 7.39 MB | 141.38 MB; verifies as 142 modules in 534.1 s at 1.15 GB | 109.93 MB; verifies as 110 modules in 353.6 s at 1.14 GB |
+| QF_AUFLIA `swap_t1_pp_sf_ai_00010_008` | 2,369; 41 | 4.48 -> 1.78 MB | 35.69 MB; verifies as 36 modules in 332.2 s at 2.66 GB | 32.99 MB; verifies as 33 modules in 318.1 s at 2.66 GB |
+| QF_UF `gensys_icl1079` | 3,335; 48 | 4.75 -> 1.50 MB | 31.73 MB; verifies as 32 modules in 111.3 s at 0.95 GB | 28.48 MB; verifies as 29 modules in 94.7 s at 0.95 GB |
+| QF_UFLIA `xs-11-18-3-3-4-1` | 908; 17 | 1.16 -> 0.54 MB | 6.99 MB; verifies in 27.8 s at 2.49 GB | 6.38 MB; verifies in 26.0 s at 2.26 GB |
+
+The 55 changed texts of at most 25 MB were all checked after the change:
+54 verify, in 1,541 s together where their last measurements (2026-11-13
+to 2026-11-17) sum to 1,562 s, and QF_AUFLIA `dlx-regfile` fails in its cnf
+lemma as before (7.52 MB where it was 8.54, so it is one file now and not
+a chain: the failure is reported after 73 s at 3.04 GB). Of the 18 changed
+texts above 25 MB six were checked: the three in the table and, after the
+change only, QF_IDL `qlock-4-10-8` (38.8 MB, 145.2 s as 39 modules; 159.0
+s on 2026-11-17 before it), QF_UF `gensys_brn023` (29.4 MB, 104.0 s; 127.8
+s on 2026-11-14), and `gensys_icl388` (40.6 MB, 148.6 s; 175.5 s on
+2026-11-14). Review and integration checked five more, again after the
+change only and against their last measurements: `gensys_icl665` (46.3
+MB, 154.6 s as 47 modules; 214.1 s on 2026-11-14), `gensys_brn1262` (55.0
+MB, 181.9 s as 55 modules at 1.17 GB; 233.5 s on 2026-11-14),
+`qlock-4-10-9` (77.8 MB, 251.5 s as 78 modules at 1.14 GB; 321.8 s on
+2026-11-17 before the change), QF_AUFLIA `swap_t3_pp_sf_ai_00009_006`
+(68.3 MB, 590.5 s as 69 modules at 2.76 GB; 676.3 s on 2026-11-14), and
+`gensys_icl565`, which had not been checked in Lean before: 105.5 MB (125.4
+before the change), it verifies as 106 modules in 320.9 s at 1.11 GB. The
+other 7 (five `gensys_*` files, two swap files) are 9 to 12% shorter and
+were not checked again. The sample: 152 of 175 files export, 146 verify
+(145 before, and `gensys_icl565`), 1 fails, 5 were not checked.
+
+Generated: `(not (distinct x0 ... xn-1))` with every `xi` pinned, whose
+proof refutes each pair (`pinned_negated_distinct_source`; three `lemma`
+steps, the widest over all pairs but one):
+
+| terms; pairs | 20; 190 | 40; 780 | 56; 1,540 | 80; 3,160 |
+| --- | --- | --- | --- | --- |
+| line of the widest step, before -> after | 38.4 -> 6.0 kB | 161.1 -> 25.5 kB | 321.0 -> 51.7 kB | 659.6 -> 108.4 kB |
+| text, before -> after | 0.35 -> 0.30 MB | 1.56 -> 1.31 MB | 3.00 -> 2.55 MB | 6.04 -> 5.20 MB |
+| Lean, before | not checked | verifies in 5.6 s at 1.23 GB | FAILS after 12.9 s at 1.96 GB: the step over 1,539 literals out of the default 200,000 heartbeats | FAILS after 52.8 s at 2.49 GB: the two widest steps and the De Morgan rewrite of the distinct out of heartbeats |
+| Lean, after | not checked | verifies in 5.2 s at 1.38 GB | verifies in 19.8 s at 2.88 GB | FAILS after 110.1 s at 5.75 GB: the rewrite alone |
+
+The chain's text is linear in the clause; Lean's time and memory on it are
+not, above a few hundred literals, and nothing bounds or splits a chain. A
+file of one chain, every second hypothesis discharged by a literal that
+negates it (0.6 to 0.8 s with the chain left out):
+
+| literals | 100 | 200 | 400 | 800 | 1,600 | 3,200 | 4,800 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lean | 0.5 s | 0.6 s | 0.8 s | 2.0 s at 0.72 GB | 12.0 s at 1.56 GB | 56.9 s at 4.89 GB | FAILS after 130.4 s: `(kernel) excessive memory consumption` at the 8 GB cap |
+
+Above 800 literals a doubling costs about five times the time and three
+times the memory, so one `lemma` step over about 4,000 literals or more is
+rejected for memory inside one declaration, after two minutes. That is not
+a regression in what verifies: through the negated clause a step ran out
+of heartbeats between 780 and 1,539 literals, after seconds (the 80-term
+distinct fails with both exporters, after 110 s at 5.75 GB now against 53
+s at 2.49 GB). The widest clause of a `lemma` step in the sample has 154
+literals (QF_IDL `PO4-10-PO4`). Where the time and the memory go was not
+traced, beyond that the memory is the kernel's; a chain in pieces of 32
+literals, each over the tail of the clause, would bound both, and is not
+done.
+
+Tests: `test_proof_to_lean.py`
+(`test_a_lemma_step_is_one_chain_linear_in_its_clause`: the layout, the
+length), `test_proof_to_lean_uf.py`
+(`test_lemma_step_chains_prove_their_clause_and_nothing_else`: chains over
+four propositions accepted by Lean, with an unused literal, a literal
+discharging two hypotheses, and clauses of one literal, and seven wrong ones
+rejected; `test_long_refutations_are_outlined_into_bounded_lemmas`: the 136
+chains of the 7-level equality diamond, at most 70 bytes a literal),
+`test_proof_to_lean_lia.py`
+(`test_negated_wide_distincts_are_reconstructed_linearly`, `..._verify`: the
+chains over 779, 512, and 139 literals, under 40 bytes a literal, and the 66
+pairs of a refutation that is not outlined, still through the negated
+clause's tails), and the slow
+`test_a_lemma_step_over_fifteen_hundred_literals_verifies` (the 56-term
+distinct) and
+`test_a_certificate_above_the_memory_of_one_lean_process_verifies_as_modules`
+(`gensys_icl1079` under 29.5 MB).
+
 ### The facts of a cnf lemma are proved apart from one another (2026-11-17)
 
 Scale, not breadth: QF_LRA `tta_startup/simple_startup_15nodes.synchro.base`

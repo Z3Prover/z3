@@ -2287,8 +2287,8 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertEqual(report.count("Checking "), 4)
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
 
-    @lean_test_support.slow("QF_UF QG-classification gensys_icl1079, 31.7 MB of Lean in 32 modules, about two "
-                            "minutes (one file: kernel memory at the 8 GB cap after 94 s)")
+    @lean_test_support.slow("QF_UF QG-classification gensys_icl1079, 28.5 MB of Lean in 29 modules, about 95 s "
+                            "(one file: kernel memory at the 8 GB cap after 94 s)")
     def test_a_certificate_above_the_memory_of_one_lean_process_verifies_as_modules(self):
         # smtlib-sample qg5/gensys_icl1079 (84,058 proof nodes): as one file Lean stops with
         # `(kernel) excessive memory consumption` at the 8 GB cap of check_lean.sh, because the
@@ -2299,6 +2299,14 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertGreater(len(text), 3 * proof_to_lean._MODULE_CHARS)
+        # Its 3,335 `lemma` steps (clauses of up to 48 literals) are 1.5 MB as chains
+        # (proof_to_lean._cases_lemma) where they were 4.75 MB through the negated clause: the
+        # text was 31.7 MB in 32 modules, 111 s of Lean.
+        self.assertLess(len(text), 29500000)
+        chains = [line for line in text.split("\n") if "(classical_or_intro " in line]
+        self.assertGreater(len(chains), 3000)
+        self.assertLess(sum(len(line) for line in chains), 2000000)
+        self.assertNotIn("(fun _not_clause => ", text)
         modules = proof_to_lean.modules(text)
         self.assertGreaterEqual(len(modules), len(text) // proof_to_lean._MODULE_SIZE)
         self.assertLessEqual(max(len(module) for _, module in modules), proof_to_lean._MODULE_SIZE + 2000)
@@ -2485,6 +2493,85 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
         self.assertEqual(sum(sizes), _proof_steps(certificate))
         self.assertIn("  @proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
+        # Its `lemma` steps (136 over clauses of 2 to 13 literals, most hypotheses discharged by
+        # a literal that negates them) are chains of classical_or_intro, linear in the clause:
+        # 50 kB, where the refutations through the negated clause, an Or.inr per literal before
+        # the hypothesis's own, were 92 kB.
+        chains = [line for line in text.split("\n") if "(classical_or_intro " in line]
+        self.assertGreater(len(chains), 100)
+        self.assertGreater(max(line.count("(classical_or_intro ") for line in chains), 8)
+        for line in chains:
+            self.assertLessEqual(len(line), 80 + 70 * line.count("(classical_or_intro "), line)
+        self.assertGreater(text.count("(classical_by_contradiction _n"), 100)
+        self.assertNotIn("(fun _not_clause => ", text)
+        self.assertEqual(text.count("private theorem classical_or_intro "), 1)
+
+    def test_lemma_step_chains_prove_their_clause_and_nothing_else(self):
+        # proof_to_lean._cases_lemma on its own, over four propositions: the chain of a `lemma`
+        # step is accepted for the clause of its literals (a literal that discharges nothing, a
+        # hypothesis discharged by the literal that negates it, a literal discharging two
+        # hypotheses, a clause of one literal) and depends on the standard axioms only, those of
+        # Classical.propDecidable; Lean rejects it when a refutation goes to another hypothesis,
+        # when a hypothesis is taken for the negation of its literal or the other way round, when
+        # the clause has a literal more or less than the chain, and for another clause. Two of
+        # the accepted clauses are definitions over definitions, as every exported formula is
+        # (`formula_N _atoms`): the chain names no formula, so its literals, a hypothesis that
+        # negates one, and the disjunction that is the last literal of the second clause are
+        # there only once Lean unfolds them.
+        helpers = proof_to_lean._CLASSICAL_CONTRADICTION_LEMMA + proof_to_lean._CLASSICAL_DISJUNCT_LEMMA
+        a, b, c, d = ("(_atoms %d)" % index for index in range(4))
+        premise = "Not %s -> %s -> Not %s -> False" % (a, b, d)
+        clause = "%s \\/ (Not %s \\/ (%s \\/ %s))" % (a, b, c, d)
+        good = [(0, False), (1, True), (3, False)]
+        bodies = ["_atoms 0", "_atoms 1", "_atoms 2", "Not (formula_0 _atoms)", "Not (formula_1 _atoms)",
+                  "Not (formula_2 _atoms)", "(formula_0 _atoms) \\/ ((formula_4 _atoms) \\/ (formula_2 _atoms))",
+                  "(formula_1 _atoms) \\/ (formula_2 _atoms)", "Not (formula_7 _atoms)",
+                  "(formula_0 _atoms) \\/ (formula_7 _atoms)"]
+        definitions = [""] + ["def formula_%d (_atoms : Nat -> Prop) : Prop := %s" % (index, body)
+                              for index, body in enumerate(bodies)]
+        f = ["(formula_%d _atoms)" % index for index in range(10)]
+
+        def theorem(name, premise, clause, count, discharges):
+            return ["", "theorem %s (_atoms : Nat -> Prop) (_step_1 : %s) : %s :=" % (name, premise, clause),
+                    "  " + proof_to_lean._cases_lemma(1, count, discharges)]
+
+        accepted = [
+            ("wide", premise, clause, 4, good),
+            ("twice", "%s -> Not (Not %s) -> Not %s -> False" % (b, b, a), "Not %s \\/ %s" % (b, a), 2,
+             [(0, True), (0, False), (1, False)]),
+            ("unit", "Not %s -> False" % a, a, 1, [(0, False)]),
+            ("negated_unit", "%s -> False" % b, "Not %s" % b, 1, [(0, True)]),
+            ("last_unused", "Not %s -> False" % a, "%s \\/ %s" % (a, c), 2, [(0, False)]),
+            ("defined", "%s -> %s -> %s -> False" % (f[3], f[1], f[5]), f[6], 3, [(0, False), (1, True), (2, False)]),
+            ("defined_last_or", "%s -> %s -> False" % (f[8], f[3]), f[9], 2, [(1, False), (0, False)]),
+        ]
+        rejected = [
+            ("exchanged", premise, clause, 4, [(3, False), (1, True), (0, False)]),
+            ("not_negated", premise, clause, 4, [(0, False), (1, False), (3, False)]),
+            ("negated", premise, clause, 4, [(0, True), (1, True), (3, False)]),
+            ("short", premise, clause, 3, [(0, False), (1, True), (2, False)]),
+            ("long", premise, clause, 5, [(0, False), (1, True), (3, False)]),
+            ("other_clause", premise, "%s \\/ (%s \\/ (%s \\/ %s))" % (a, b, c, d), 4, good),
+            ("other_literal", premise, "%s \\/ (Not %s \\/ (%s \\/ %s))" % (a, b, d, c), 4, good),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            lines = helpers + definitions
+            for case in accepted:
+                lines += theorem(*case) + ["#print axioms %s" % case[0]]
+            path = Path(directory) / "accepted.lean"
+            path.write_text("\n".join(lines) + "\n")
+            result = lean_test_support.run_check_lean(path)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            report = " ".join(result.stdout.split())
+            for case in accepted:
+                self.assertIn("'%s' depends on axioms: %s" % (case[0], _STANDARD_AXIOMS), report)
+            for case in rejected:
+                with self.subTest(case=case[0]):
+                    path = Path(directory) / ("%s.lean" % case[0])
+                    path.write_text("\n".join(helpers + theorem(*case)) + "\n")
+                    result = lean_test_support.run_check_lean(path)
+                    self.assertNotEqual(result.returncode, 0, case[0])
+                    self.assertIn("type mismatch", (result.stdout + result.stderr).lower())
 
     def test_small_chunks_cut_every_lemma_shape(self):
         # Force boundaries inside lemma subproofs, between shared steps, and at

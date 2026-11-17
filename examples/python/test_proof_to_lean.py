@@ -996,6 +996,53 @@ class TestProofToLean(unittest.TestCase):
         self.assertNotIn("\n    | (", tactic)  # where the tests and `first` split the alternatives
         self.assertEqual(tactic.count("("), tactic.count(")"))
 
+    def test_a_lemma_step_is_one_chain_linear_in_its_clause(self):
+        # A `lemma` step of an outlined classical lemma: one function from
+        # the refutations of the clause's literals to False (the premise
+        # applied to them in the order of its hypotheses, a hypothesis whose
+        # literal negates it proved by contradiction, a literal that
+        # discharges nothing bound as `_`), under one classical_or_intro per
+        # literal but the last. Through the negated clause every hypothesis
+        # had an Or.inr per literal before its own.
+        chain = proof_to_lean._cases_lemma
+        self.assertEqual(chain(7, 1, [(0, False)]), "(classical_by_contradiction (fun _n0 => (_step_7 _n0)))")
+        self.assertEqual(chain(7, 1, [(0, True)]),
+                         "(classical_by_contradiction (fun _n0 => (_step_7 (classical_by_contradiction _n0))))")
+        self.assertEqual(chain(7, 2, [(1, False), (0, False)]),
+                         "(classical_or_intro classical_by_contradiction (fun _n0 _n1 => (_step_7 _n1 _n0)))")
+        self.assertEqual(
+            chain(9, 4, [(3, False), (1, True), (0, False)]),
+            "(classical_or_intro (classical_or_intro (classical_or_intro classical_by_contradiction)) "
+            "(fun _n0 _n1 _ _n3 => (_step_9 _n3 (classical_by_contradiction _n1) _n0)))")
+        # One literal that discharges two hypotheses is bound once.
+        self.assertIn("(fun _n0 _n1 => (_step_9 (classical_by_contradiction _n0) _n0 _n1))",
+                      chain(9, 2, [(0, True), (0, False), (1, False)]))
+        sizes = []
+        for count in (16, 32, 64, 512, 1024):
+            term = chain(3, count, [(position, False) for position in reversed(range(count))])
+            self.assertEqual(term.count("("), term.count(")"))
+            self.assertEqual(term.count("(classical_or_intro "), count - 1)
+            self.assertNotIn("Or.in", term)
+            sizes.append(len(term))
+        self.assertLess(sizes[1], 2.1 * sizes[0])
+        self.assertLess(sizes[2], 2.1 * sizes[1])
+        self.assertLess(sizes[4], 2.1 * sizes[3])
+        self.assertLess(sizes[4], 34 * 1024)  # a literal whose hypothesis is its negation: about 32 bytes
+        # A literal that negates its hypothesis costs the proof by
+        # contradiction besides, 29 bytes more.
+        negated = chain(3, 1024, [(position, True) for position in reversed(range(1024))])
+        self.assertEqual(negated.count("(classical_by_contradiction _n"), 1024)
+        self.assertEqual(len(negated), sizes[4] + 29 * 1024)
+        # The helper is by cases on the witness of classical_by_contradiction,
+        # so a chain depends on the axioms of that witness (propext,
+        # Classical.choice, Quot.sound), which Lean reports in test_proof_to_lean_uf's
+        # test_lemma_step_chains_prove_their_clause_and_nothing_else.
+        helper = "\n".join(proof_to_lean._CLASSICAL_DISJUNCT_LEMMA)
+        self.assertIn("private theorem classical_or_intro {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \\/ q :=",
+                      helper)
+        self.assertIn("(Classical.propDecidable p)", helper)
+        self.assertIn("(Classical.propDecidable p)", "\n".join(proof_to_lean._CLASSICAL_CONTRADICTION_LEMMA))
+
     def test_tactics_of_a_fact_fail_when_they_do_not_prove_it(self):
         # A fact's tactics are an argument `(by ...)`, which Lean runs with
         # error recovery on: a failure under a bullet, or a goal left open,

@@ -10781,7 +10781,15 @@ def _resolution(graph, terms, node):
     return "".join(cases) + branch(last, subject) + "))" * len(cases), support
 
 
-def _lemma(graph, terms, node, hypotheses):
+def _lemma(graph, terms, node, hypotheses, classical=False):
+    """The term of a `lemma` step, which discharges hypotheses into the clause of their negations.
+
+    Its premise is a function from the hypotheses to False. With classical
+    (the outlined lemmas of the arithmetic and uninterpreted slices, which
+    take classical witnesses anyway) the clause is proved literal by literal
+    (_cases_lemma); otherwise by contradiction with the decidability witness
+    of the clause, each hypothesis refuted through the negated clause.
+    """
     premise, conclusion = graph.arguments(node)
     if graph.kind(graph.conclusion(premise)) != z3.Z3_OP_FALSE:
         raise ReconstructionError("lemma requires a proof of false at node %d" % node)
@@ -10822,6 +10830,7 @@ def _lemma(graph, terms, node, hypotheses):
         positives.setdefault(terms[literal], position)
         if graph.kind(literal) == z3.Z3_OP_NOT:
             negatives.setdefault(terms[graph.arguments(literal)[0]], position)
+    discharges = []  # per hypothesis: its literal's position, and whether that literal negates it
     for hypothesis in hypotheses:
         positive = (positives.get(terms[graph.arguments(hypothesis)[0]])
                     if graph.kind(hypothesis) == z3.Z3_OP_NOT else None)
@@ -10829,14 +10838,67 @@ def _lemma(graph, terms, node, hypotheses):
         if positive is None and negative is None:
             raise ReconstructionError("lemma does not discharge every hypothesis at node %d" % node)
         if negative is None or (positive is not None and positive <= negative):
-            arguments.append(negated_literal(positive))
+            discharges.append((positive, False))
+        else:
+            discharges.append((negative, True))
+    if classical:
+        return _cases_lemma(premise, len(literals), discharges), set()
+    for hypothesis, (position, negated) in zip(hypotheses, discharges):
+        if not negated:
+            arguments.append(negated_literal(position))
         else:
             arguments.append("(@Decidable.byContradiction %s _df%d %s)" % (
-                _formula(graph, hypothesis), hypothesis, negated_literal(negative)))
+                _formula(graph, hypothesis), hypothesis, negated_literal(position)))
             decidable.add(hypothesis)
     contradiction = "%s(_step_%d %s)" % ("".join(bindings), premise, " ".join(arguments))
     return ("(@Decidable.byContradiction %s _df%d (fun _not_clause => %s))" % (
         _formula(graph, conclusion), conclusion, contradiction)), decidable
+
+
+def _cases_lemma(premise, count, discharges):
+    """A `lemma` step's clause of count literals proved literal by literal, in text linear in the clause.
+
+    discharges gives, for each hypothesis of the premise in order, the
+    position of the literal that discharges it and whether that literal is
+    the hypothesis negated (else the hypothesis is the literal negated). One
+    function takes a refutation `_nK` of every literal to False: the premise
+    applied to `_nK` itself for a hypothesis (not l), and for a hypothesis h
+    with literal (not h) to the proof of h by contradiction from `_nK : Not
+    (Not h)`. classical_or_intro turns its binders into the clause's
+    literals one at a time, the last one by contradiction; the chain names
+    no formula (each follows from the clause the step states) and nests no
+    binder: with one `fun _nK =>` per literal, each under the ones before,
+    the two lemmas over 779 and 512 literals of a negated 40-term distinct
+    took Lean 22 s more than this chain (27.8 s for the file against 5.2).
+
+    Through the negated clause (_lemma without classical), the refutation
+    of the literal at position k is `(fun _literal => _not_clause (Or.inr
+    (.. (Or.inl _literal))))`, k injections: for the whole step 4 bytes
+    times the square of the clause's width up to _AND_ELIM_STRIDE literals,
+    and about 200 bytes a literal above. Here a literal costs about 33
+    bytes when its hypothesis is its negation and 29 more when it negates
+    its hypothesis (the proof by contradiction): 42.5 over the chains of
+    the smtlib-sample. Such lines were 38.8 of the 141.4 MB of Lean of
+    QF_IDL vlsat3_c27 (7,539 clauses of up to 110 literals; 7.4 MB as
+    chains) and 13 to 21% of the QF_UF gensys texts of 31.7 to 194.8 MB.
+
+    Nothing bounds or splits a chain, and Lean's time and memory on one
+    grow faster than its width: alone in a file, 2 s at 0.7 GB over 800
+    literals, 12 s at 1.6 GB over 1,600, 57 s at 4.9 GB over 3,200, and
+    over 4,800 the kernel stops at the 8 GB cap of check_lean.sh after 130
+    s (a rejection). The widest clause of a `lemma` step in the sample has
+    154 literals.
+    """
+    needed = {position for position, _ in discharges}
+    binders = " ".join("_n%d" % position if position in needed else "_" for position in range(count))
+    arguments = " ".join(
+        "(%s _n%d)" % (_CLASSICAL_CONTRADICTION, position) if negated else "_n%d" % position
+        for position, negated in discharges)
+    refuted = "(fun %s => (_step_%d %s))" % (binders, premise, arguments)
+    if count == 1:
+        return "(%s %s)" % (_CLASSICAL_CONTRADICTION, refuted)
+    return "%s%s%s %s)" % (("(%s " % _CLASSICAL_DISJUNCT) * (count - 1), _CLASSICAL_CONTRADICTION,
+                           ")" * (count - 2), refuted)
 
 
 def _outline_weight(graph, node):
@@ -10997,12 +11059,24 @@ def _step_blocks(graph, terms, dependencies, excluded):
 
 _CLASSICAL_CONTRADICTION = "classical_by_contradiction"
 # Decidable.byContradiction at the witness Classical.propDecidable, which the
-# classical lemmas bound by a let before: the same axiom (Classical.choice),
-# where Classical.byContradiction would add propext and Quot.sound.
+# classical lemmas bound by a let before: the same axioms, those of the
+# witness (propext, Classical.choice, Quot.sound, which `#print axioms`
+# reports for Classical.propDecidable itself, and for Classical.em and
+# Classical.byContradiction alike).
 _CLASSICAL_CONTRADICTION_LEMMA = [
     "",
     "private theorem %s {p : Prop} (h : Not p -> False) : p :=" % _CLASSICAL_CONTRADICTION,
     "  @Decidable.byContradiction p (Classical.propDecidable p) h",
+]
+# One literal of a `lemma` step's clause (_cases_lemma): from f, which takes
+# a refutation of p to r, and g, which turns r into the rest of the clause,
+# p or the rest; by cases on the witness of the lemma above, so with its
+# axioms and no other.
+_CLASSICAL_DISJUNCT = "classical_or_intro"
+_CLASSICAL_DISJUNCT_LEMMA = [
+    "",
+    "private theorem %s {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \\/ q :=" % _CLASSICAL_DISJUNCT,
+    "  @Decidable.byCases p (p \\/ q) (Classical.propDecidable p) (fun _p => Or.inl _p) (fun _n => Or.inr (g (f _n)))",
 ]
 
 
@@ -11194,6 +11268,8 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
             lines.extend(_tail_lets(node, needed.get(node, 0)))
         lines.extend(body)
         lines.extend(conclusion)
+    if classical and any(_CLASSICAL_DISJUNCT in line for line in lines):
+        lines[head:head] = _CLASSICAL_DISJUNCT_LEMMA
     if classical and any(_CLASSICAL_CONTRADICTION in line for line in lines):
         lines[head:head] = _CLASSICAL_CONTRADICTION_LEMMA
     return lines, ([] if classical else witnesses[graph.proof])
@@ -11436,7 +11512,8 @@ def reconstruct(source, certificate):
                 raise ReconstructionError("true-axiom must conclude true at node %d" % node)
             term = "True.intro"
         elif graph.kind(node) == z3.Z3_OP_PR_LEMMA:
-            term, support = _lemma(graph, terms, node, dependencies[node])
+            term, support = _lemma(graph, terms, node, dependencies[node],
+                                   classical=outline and bool(graph.arithmetic or graph.uninterpreted))
             decidable_formulas.update(support)
             dependencies[node] = ()
         elif graph.kind(node) == z3.Z3_OP_PR_MODUS_PONENS:
