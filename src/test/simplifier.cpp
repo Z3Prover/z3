@@ -6,9 +6,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 #include "util/util.h"
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
@@ -1199,6 +1201,60 @@ static void test_nested_symbolic_rotations() {
     Z3_del_context(ctx);
 }
 
+// max-bv-sharing must rewrite n-ary bvadd into binary trees that reuse
+// common pairs. It does so without a preceding push: the operator kinds it
+// handles are registered when it first rewrites a term.
+static void test_max_bv_sharing() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx,
+        "(declare-const a (_ BitVec 8)) (declare-const b (_ BitVec 8))"
+        "(declare-const c (_ BitVec 8)) (declare-const d (_ BitVec 8))"
+        "(assert (distinct (bvadd a b c) (bvadd a b d)))",
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+        Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "max-bv-sharing");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+    Z3_goal out = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(Z3_goal_size(ctx, out) == 1);
+    // Collect the distinct bvadd nodes of the result.
+    std::vector<Z3_ast> todo{ Z3_goal_formula(ctx, out, 0) };
+    std::vector<unsigned> adds;
+    bool all_binary = true;
+    while (!todo.empty()) {
+        Z3_ast e = todo.back();
+        todo.pop_back();
+        if (Z3_get_ast_kind(ctx, e) != Z3_APP_AST)
+            continue;
+        Z3_app a = Z3_to_app(ctx, e);
+        if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, a)) == Z3_OP_BADD) {
+            unsigned id = Z3_get_ast_id(ctx, e);
+            if (std::find(adds.begin(), adds.end(), id) != adds.end())
+                continue;
+            adds.push_back(id);
+            all_binary &= Z3_get_app_num_args(ctx, a) == 2;
+        }
+        for (unsigned i = 0; i < Z3_get_app_num_args(ctx, a); ++i)
+            todo.push_back(Z3_get_app_arg(ctx, a, i));
+    }
+    // (bvadd a b) is shared: (bvadd (bvadd a b) c), (bvadd (bvadd a b) d).
+    ENSURE(all_binary);
+    ENSURE(adds.size() == 3);
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
     test_proof_mode_simplifier_pipeline();
@@ -1225,4 +1281,5 @@ void tst_simplifier() {
     test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
     test_demodulator_quantified_proofs();
+    test_max_bv_sharing();
 }
