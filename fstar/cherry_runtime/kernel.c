@@ -4,8 +4,8 @@ void checker_drop_marshaled(Z3Cherry_marshaled value) {
     cherry_dec_Z3Cherry_marshaled(value);
 }
 
-void checker_drop_diagnostic(Z3ProofDocument_document_diagnostic value) {
-    cherry_dec_Z3ProofDocument_document_diagnostic(value);
+void checker_drop_diagnostic(Z3DocumentSyntax_document_diagnostic value) {
+    cherry_dec_Z3DocumentSyntax_document_diagnostic(value);
 }
 
 void checker_drop_sort(Z3AstTheory_sort value) {
