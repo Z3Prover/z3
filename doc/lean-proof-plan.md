@@ -1750,6 +1750,120 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### A wide unit resolution keeps its literals where they are (2026-11-17)
+
+Scale, not breadth: a cost that grew with the square of a clause's width. A
+unit resolution that keeps literals of its clause (Z3 logs a clause it
+simplified under units; the replay ties it to its source by one such step)
+was a case split per kept literal, each injected at its position in the
+conclusion:
+
+    (Or.elim (_step_8.resolve_left _step_5) (fun _literal => (Or.inl _literal))
+      (fun _tail => (Or.elim _tail (fun _literal => (Or.inr (Or.inl _literal)))
+        (fun _tail => (Or.elim _tail (fun _literal => (Or.inr (Or.inr (Or.inl _literal)))) ...
+
+one `Or.inr` per literal before it, 8 bytes times half the square of the
+kept literals, for a proof that is the identity on each of them. Measured
+before changing anything, on one assertion `(and (not b) (or b (<= 1 x0) ...
+(<= 1 x399)) (< x0 1) ... (< x399 1))`: the step that cuts `b` is a line of
+745 kB in a text of 1.57 MB, and the outlined lemma that holds it runs out
+of the default 200,000 heartbeats at `isDefEq` (Lean rejects the file after
+17 s); at 200 bounds the line is 192 kB and the file verifies in 8.1 s.
+
+When the conclusion is the clause without the cut literals, in the same
+order, and keeps more than eight of them, the step is now written by
+`_ordered_resolution`, and no literal moves:
+
+    (_step_8.resolve_left _step_5)
+    ((Or.imp_right (Or.imp_right (resolve_first _step_5 id))) _step_8)
+    ((Or.imp_right (resolve_rest (resolve_first _step_5 _step_6))) _step_8)
+
+for `b` cut off `(or b l1 ... ln)`, off `(or l1 l2 b l3 ... ln)`, and `b`
+and `c` cut off `(or l1 l2 b c)`. Literals cut in front are resolved away
+by field notation, as they were, and with no cut left the proof at hand is
+the conclusion as it stands. Cuts further on are one function applied to
+that proof, composed literal by literal without a binder: `Or.imp_right`
+passes over a kept literal, `resolve_first` cuts one and hands the rest to
+its second argument (`id` after the last cut), and `resolve_rest` cuts
+everything after the last kept literal by a refutation of those literals.
+The two helpers are theorems written once in a text that names them,
+
+    private theorem resolve_first {p q r : Prop} (n : Not p) (f : q -> r) : p \/ q -> r :=
+      fun h => f (h.resolve_left n)
+    private theorem resolve_rest {p q : Prop} (n : Not q) : p \/ q -> p :=
+      fun h => h.resolve_right n
+
+and depend on no axiom (the propositional slice stays axiom-free). A cut
+literal `(not p)` whose unit proves `p` is refuted by `(not_not_intro u)`,
+a false literal by `not_false`. The text is 14 bytes and a parenthesis for
+a kept literal that is passed over and about 25 bytes for a cut.
+
+A function per cut was tried first (`(fun _tail => ...)`, each under the
+ones before it): Lean elaborates such a function only once the proof it is
+applied to is known, and a 200-literal clause with every other literal cut
+ran out of heartbeats after 12 s at 3.1 GB, where the case splits verify in
+2 s. Composed without binders the same step takes 0.7 s.
+
+Resolutions that keep at most eight literals (nearly all: of the 5,200
+case-split resolutions in the 73 sample texts with outlined `lemma` steps,
+5,164 keep two literals and 14 keep nine or more) or
+keep them in another order (a reordered or factored conclusion, a double
+negation read through) are case splits as before, so that the texts of the
+sample change in six files only. The limit is `_RESOLUTION_SPLITS`. (Over
+all 152 sample texts that export, a larger set than the 73 surveyed, the
+resolutions rewritten are 15, keeping 10 to 76 literals; see below.)
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules; "before" is the exporter of
+fork master 336498c4c on the same certificate).
+
+The generated family above, n bounds kept (Z3's clause log; the cut is in
+front, so the step is the clause's tail, a line of 43 to 57 bytes):
+
+| bounds kept | 200 | 400 | 800 | 1,600 |
+| --- | --- | --- | --- | --- |
+| line of the step, before | 192 kB | 745 kB | 2.93 MB | 11.62 MB |
+| text, before -> after | 0.63 -> 0.44 MB | 1.57 -> 0.82 MB | 4.59 -> 1.66 MB | 14.97 -> 3.35 MB |
+| Lean, before | verifies in 8.1 s at 0.98 GB | FAILS after 16.7 s at 1.47 GB: the step's lemma out of heartbeats | FAILS after 60.7 s at 3.01 GB: the same | not checked |
+| Lean, after | verifies in 4.5 s at 0.75 GB | **verifies in 10.4 s at 1.13 GB** | **verifies in 48.7 s at 2.26 GB** | **verifies in 408.0 s at 5.55 GB** |
+
+What is left grows faster than the clause: the cnf lemma that ties the
+simplified clause to the assertion states a bridge per bound (800 facts at
+800 bounds; the `refine` that takes them is 20 s of the 49). Not part of
+this change.
+
+Hand-made certificates over `(or p0 ... p(n-1))` (the generator of the
+tests, `wide_resolution`: cuts anywhere, so the function form):
+
+| clause | cut | before | after |
+| --- | --- | --- | --- |
+| 400 literals | the middle one | 0.87 MB; FAILS after 7.4 s at 1.12 GB (heartbeats) | 0.13 MB; verifies in 1.0 s at 0.47 GB |
+| 800 | the middle one | 3.31 MB; FAILS after 8.9 s at 1.95 GB | 0.39 MB; verifies in 1.3 s at 0.61 GB |
+| 1,600 | the middle one | 12.39 MB; not checked | 0.80 MB; verifies in 2.5 s at 0.86 GB |
+| 200 | every other one | 0.11 MB; verifies in 1.9 s at 0.49 GB | 0.06 MB; verifies in 0.6 s at 0.43 GB |
+| 400 | every other one | 0.32 MB; verifies in 13.5 s at 0.73 GB | 0.13 MB; verifies in 1.0 s at 0.47 GB |
+| 800 | every other one | 1.10 MB; FAILS after 7.0 s at 1.25 GB | 0.37 MB; verifies in 1.6 s at 0.62 GB |
+| 1,600 | every other one | 3.69 MB; not checked | 0.78 MB; verifies in 3.3 s at 0.85 GB |
+
+Sample files. All 152 files of z3test's `smtlib-sample` that export were
+exported again and reconstructed with both exporters: 146 texts are the
+same byte for byte, and six differ, only in 15 resolutions that cut in
+front and keep 10 to 76 literals (332 kB before and 1.1 kB after; no sample
+step needs the function form). All six were checked with both texts, back
+to back:
+
+| file | steps rewritten; most literals kept | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `ckt_PROP1_tf_10` | 1; 10 | 0.85 MB; verifies in 2.7 s at 0.95 GB | 0.85 MB; verifies in 2.6 s at 0.96 GB |
+| QF_IDL `ckt_PROP1_tf_20` | 1; 20 | 9.64 MB; verifies as 10 modules in 30.5 s at 0.88 GB | 9.64 MB; verifies as 10 modules in 30.6 s at 0.88 GB |
+| QF_IDL `ckt_PROP3_tf_30` | 1; 30 | 18.16 MB; verifies as 19 modules in 58.4 s at 0.92 GB | 18.16 MB; verifies as 19 modules in 58.2 s at 0.92 GB |
+| QF_IDL `PO4-10-PO4` | 10; 76 | 23.52 MB; verifies as 24 modules in 78.7 s at 0.95 GB | 23.21 MB; verifies as 24 modules in 75.9 s at 0.95 GB |
+| QF_IDL `qlock-4-10-8` | 1; 32 | 38.82 MB; verifies as 39 modules in 135.7 s at 0.99 GB | 38.81 MB; verifies as 39 modules in 135.2 s at 0.99 GB |
+| QF_IDL `qlock-4-10-9` | 1; 36 | 77.83 MB; verifies as 78 modules in 252.2 s at 1.14 GB | 77.83 MB; verifies as 78 modules in 251.7 s at 1.14 GB |
+
+Their cost does not move: the lines were 0.3 MB of 169 MB.
+
 ### A lemma step proves its clause literal by literal (2026-11-17)
 
 Scale, not breadth: the largest texts of z3test's `smtlib-sample` that

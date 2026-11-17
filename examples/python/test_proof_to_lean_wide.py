@@ -198,6 +198,50 @@ def distinct_or_its_pairs(count):
     return source + "(assert (= %s %s))\n(check-sat)\n" % (names[-2], names[-1])
 
 
+def wide_resolution(count, cuts, negated=(), false=()):
+    """A hand-made certificate: a clause of count literals resolved with the units of the positions in cuts.
+
+    Literal k is pk, (not pk) for k in negated, and false for k in false;
+    its unit is (not pk), or pk for k in negated. The first unit resolution
+    keeps the other literals in their order (a false literal is cut without
+    a unit), the second one resolves them away. Returns (source, certificate).
+    """
+    literals = ["false" if index in false else "(not p%d)" % index if index in negated else "p%d" % index
+                for index in range(count)]
+    source = "".join("(declare-const p%d Bool)" % index for index in range(count))
+    source += "(assert (or %s))" % " ".join(literals)
+    source += "".join("(assert %s)" % ("p%d" if index in negated else "(not p%d)") % index for index in range(count))
+    kept = [index for index in range(count) if index not in cuts and index not in false]
+    steps = [("unit-resolution", [0] + [1 + index for index in sorted(cuts)],
+              "(or %s)" % " ".join(literals[index] for index in kept)),
+             ("unit-resolution", [count + 1] + [1 + index for index in kept], "false")]
+    return source, make_certificate(source, steps)
+
+
+def wide_resolution_term(count, cuts, negated=(), false=()):
+    """The Lean term of wide_resolution's first resolution, the clause's step named c and the unit of literal k uk."""
+    text = proof_to_lean.reconstruct(*wide_resolution(count, cuts, negated, false))
+    lets = re.findall(r"^  let (_step_\d+)(?: : .*)? :=\n    (.*)$", text, flags=re.M)
+    assert len(lets) == count + 3, len(lets)
+    names = {name: "c" if index == 0 else "u%d" % (index - 1) for index, (name, _) in enumerate(lets[:count + 1])}
+    return re.sub(r"_step_\d+", lambda match: names[match.group(0)], lets[count + 1][1])
+
+
+def wide_clause_under_a_unit(count):
+    """One assertion: not b, b or 1 <= x0 or ... or 1 <= x(n-1), and every xi < 1.
+
+    Z3 simplifies the clause under the unit before it logs it, so the
+    refutation starts with a unit resolution that cuts b and keeps the count
+    bounds, which no unit complements as written.
+    """
+    lines = ["(set-logic QF_LRA)", "(declare-const b Bool)"]
+    lines += ["(declare-const x%d Real)" % index for index in range(count)]
+    lines.append("(assert (and (not b) (or b %s) %s))" % (
+        " ".join("(<= 1.0 x%d)" % index for index in range(count)),
+        " ".join("(< x%d 1.0)" % index for index in range(count))))
+    return "\n".join(lines + ["(check-sat)", ""])
+
+
 def longest_run(text, step):
     """The most consecutive repetitions of step in text."""
     return max((len(run) // len(step) for run in re.findall("(?:%s)+" % re.escape(step), text)), default=0)
@@ -890,6 +934,184 @@ class TestChunkedConjunctionsClauseLog(_WideLeanIntegration):
         # 32,000); from the tail theorems the file takes 47 s, 23 s, 13 s.
         text = self.check_last_operands(128000)
         self.assertLess(len(text.split("\ntheorem unsat ")[1]), 1000)
+
+
+class TestWideUnitResolution(_WideLeanIntegration):
+    """A unit resolution that keeps many literals of its clause, in their order."""
+
+    @staticmethod
+    def passed_over(count, function, subject="c"):
+        """function applied past count kept literals of the proof subject."""
+        return "(" + "(Or.imp_right " * count + function + ")" * count + " %s)" % subject
+
+    def test_a_resolution_that_keeps_its_literals_in_order_injects_none(self):
+        # No Lean: the term. Cuts in front are resolved away by field
+        # notation, and with no cut left the proof at hand is the
+        # conclusion. Cuts further on are one function applied to it,
+        # composed literal by literal with no binder: Or.imp_right passes
+        # over a kept literal, resolve_first cuts one, id keeps what follows
+        # the last cut, resolve_rest cuts everything after the last kept
+        # literal by a refutation of those literals.
+        term = wide_resolution_term
+        self.assertEqual(term(12, {0}), "(c.resolve_left u0)")
+        self.assertEqual(term(12, {0, 1}), "((c.resolve_left u0).resolve_left u1)")
+        self.assertEqual(term(12, {0}, negated={0}), "(c.neg_resolve_left u0)")
+        self.assertEqual(term(12, {5}), self.passed_over(5, "(resolve_first u5 id)"))
+        self.assertEqual(term(12, {11}), self.passed_over(10, "(resolve_rest u11)"))
+        self.assertEqual(term(12, {10, 11}), self.passed_over(9, "(resolve_rest (resolve_first u10 u11))"))
+        self.assertEqual(term(14, {0, 1, 6, 12, 13}), self.passed_over(
+            4, "(resolve_first u6 %s)" % self.passed_over(4, "(resolve_rest (resolve_first u12 u13))", "")[1:-2],
+            "((c.resolve_left u0).resolve_left u1)"))
+        # A literal (not p) cut by the unit p, and a false literal, which
+        # no unit cuts.
+        self.assertEqual(term(12, {5, 11}, negated={5, 11}), self.passed_over(
+            5, "(resolve_first (not_not_intro u5) %s)" % self.passed_over(
+                4, "(resolve_rest (not_not_intro u11))", "")[1:-2]))
+        self.assertEqual(term(12, {10}, false={5, 11}), self.passed_over(
+            5, "(resolve_first not_false %s)" % self.passed_over(
+                3, "(resolve_rest (resolve_first u10 not_false))", "")[1:-2]))
+        # Up to _RESOLUTION_SPLITS kept literals the term is the case split
+        # per kept literal that the certificates checked so far hold, an
+        # injection in each case: the identity, literal by literal.
+        splits = proof_to_lean._RESOLUTION_SPLITS
+        narrow = term(splits + 1, {0})
+        self.assertEqual(narrow.count("(Or.elim "), splits - 1)
+        self.assertIn("(fun _literal => (Or.inr (Or.inr (Or.inl _literal))))", narrow)
+        self.assertEqual(term(splits + 2, {0}), "(c.resolve_left u0)")
+        # Linear in the clause, wherever the cuts are: 14 bytes and a
+        # parenthesis for a kept literal that is passed over, about 25 for
+        # a cut. With a case split each, the kept literal at position k took
+        # k injections: 8 bytes times half the square of the kept literals.
+        for cuts in (lambda count: {count // 2}, lambda count: set(range(0, count, 2)),
+                     lambda count: set(range(2, count, 3)), lambda count: {0, count // 3, count - 1}):
+            sizes = []
+            for count in (100, 200, 400):
+                wide = term(count, cuts(count))
+                self.assertEqual(wide.count("("), wide.count(")"))
+                for absent in ("Or.in", "Or.elim", "fun "):
+                    self.assertNotIn(absent, wide)
+                sizes.append(len(wide))
+            self.assertLess(sizes[1], 2.1 * sizes[0])
+            self.assertLess(sizes[2], 2.1 * sizes[1])
+            self.assertLess(sizes[2], 30 * 400)
+        self.assertEqual(term(400, {0, 1, 2}), "(((c.resolve_left u0).resolve_left u1).resolve_left u2)")
+        # The two helpers are written once, in a text that names one.
+        text = proof_to_lean.reconstruct(*wide_resolution(12, {5}))
+        self.assertEqual(text.count("\nprivate theorem resolve_first {p q r : Prop} (n : Not p) (f : q -> r) "
+                                    ": p \\/ q -> r :=\n  fun h => f (h.resolve_left n)\n"), 1)
+        self.assertEqual(text.count("\nprivate theorem resolve_rest {p q : Prop} (n : Not q) : p \\/ q -> p :=\n"
+                                    "  fun h => h.resolve_right n\n"), 1)
+        self.assertNotIn("private theorem resolve_", proof_to_lean.reconstruct(*wide_resolution(12, {0})))
+
+    def test_resolutions_that_keep_their_literals_in_order_are_checked_without_axioms(self):
+        # Cuts in front, in the middle, at the end, in runs, of negated and
+        # of false literals, and every other literal of 200 and of 800 (as
+        # a function per cut, each under the ones before it, Lean ran out
+        # of heartbeats at 200; with the case splits it does at 800): Lean
+        # accepts each certificate, and the propositional slice stays
+        # axiom-free.
+        cases = [(12, {0}, (), ()), (12, {5}, (), ()), (12, {11}, (), ()), (12, {10, 11}, (), ()),
+                 (14, {0, 1, 6, 12, 13}, (), ()), (12, {0, 5, 11}, {0, 3, 5, 11}, ()), (12, {10}, (), {5, 11}),
+                 (12, {3}, {3}, {0, 6}), (40, set(range(2, 40, 3)), set(range(0, 40, 4)), ()),
+                 (200, {100}, (), ()), (200, set(range(0, 200, 2)), (), ()), (800, set(range(0, 800, 2)), (), ())]
+        for count, cuts, negated, false in cases:
+            with self.subTest(count=count, cuts=sorted(cuts)[:6], negated=sorted(negated)[:6], false=sorted(false)):
+                source, certificate = wide_resolution(count, cuts, negated, false)
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(".unsat' does not depend on any axioms", report)
+
+    def test_resolutions_through_the_helpers_verify_as_a_chain_of_modules(self):
+        # A text above proof_to_lean._MODULE_CHARS is checked as a chain of
+        # modules, `private` dropped: the helpers are declared in an earlier
+        # module and the steps that apply them are in later ones. The limit
+        # is lowered so that this small certificate splits into four or more.
+        source, certificate = wide_resolution(40, set(range(2, 40, 3)) | {39}, set(range(0, 40, 4)))
+        text, _ = lean_test_support.check(self, source, certificate)
+        self.assertIn("\nprivate theorem resolve_first ", text)
+        self.assertIn("\nprivate theorem resolve_rest ", text)
+        limit = len(text) // 5
+        modules = proof_to_lean.modules(text, limit)
+        self.assertGreaterEqual(len(modules), 4)
+        declared = next(index for index, (_, module) in enumerate(modules) if "theorem resolve_first " in module)
+        for helper in ("(resolve_first ", "(resolve_rest "):
+            self.assertTrue(any(helper in module for _, module in modules[declared + 1:]), helper)
+        with patch.object(proof_to_lean, "_MODULE_CHARS", limit):
+            _, chained = lean_test_support.check(self, source, text=text)
+        self.assertEqual(chained.count("Checking "), len(modules))
+        self.assertIn(".unsat' does not depend on any axioms", chained)
+
+    def test_a_resolution_that_cuts_another_literal_or_keeps_another_clause_is_rejected(self):
+        # What the term proves is checked by Lean against the clause its
+        # step states: a kept literal passed over too few or too many, the
+        # unit of another literal, a cut left out, and a clause that is not
+        # its premise's tail are type mismatches (the texts they are made
+        # from are accepted in the test above).
+        text = proof_to_lean.reconstruct(*wide_resolution(12, {5}))
+        (term,) = re.findall(r"^    (\(\(Or\.imp_right .*)$", text, flags=re.M)
+        function, clause = term[1 + len("(Or.imp_right ") * 5:-1].split("))))) ")
+        self.assertEqual(term, self.passed_over(5, function, clause))
+        unit = re.fullmatch(r"\(resolve_first (_step_\d+) id\)", function).group(1)
+        other = "_step_%d" % (int(unit[len("_step_"):]) + 1)
+        self.assertIn("\n  let %s : " % other, text)
+        mutants = {
+            "one literal too few passed over": text.replace(term, self.passed_over(4, function, clause)),
+            "one literal too many passed over": text.replace(term, self.passed_over(6, function, clause)),
+            "the unit of another literal": text.replace(term, term.replace(unit, other)),
+            "the cut left out": text.replace(term, clause),
+            "the rest cut too": text.replace(term, term.replace(function, "(resolve_rest %s)" % unit)),
+        }
+        front = proof_to_lean.reconstruct(*wide_resolution(12, {0}))
+        (term,) = re.findall(r"^    (\(_step_\d+\.resolve_left _step_\d+\))$", front, flags=re.M)
+        mutants["a cut in front left out"] = front.replace(
+            "\n    %s\n" % term, "\n    %s\n" % term[1:].split(".")[0])
+        tail = proof_to_lean.reconstruct(*wide_resolution(12, {0, 1}))
+        (term,) = re.findall(r"^    \((\(_step_\d+\.resolve_left _step_\d+\))\.resolve_left _step_\d+\)$", tail,
+                             flags=re.M)
+        mutants["a tail one literal longer"] = re.sub(
+            r"\n    \(%s\.resolve_left _step_\d+\)\n" % re.escape(term), "\n    %s\n" % term, tail)
+        for name, mutant in mutants.items():
+            with self.subTest(mutant=name), tempfile.TemporaryDirectory() as directory:
+                self.assertNotIn(mutant, (text, front, tail))
+                self.assertEqual(mutant.count("("), mutant.count(")"))
+                output = Path(directory) / "mutant.lean"
+                output.write_text(mutant)
+                result = lean_test_support.run_check_lean(output)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                self.assertTrue(all("mismatch" in line for line in errors), report)
+
+    def check_clause_under_a_unit(self, count):
+        source = wide_clause_under_a_unit(count)
+        certificate, axioms = self.check(source, "clause-log", "qf_lra", count)
+        self.assertLessEqual(axioms, _STANDARD_AXIOMS)
+        text = proof_to_lean.reconstruct(source, certificate)
+        # The resolution that cuts b: the clause's tail as it stands. Each
+        # kept bound was a case, injected at its position: a line of 13 kB
+        # at 48 bounds, 192 kB at 200, 745 kB at 400.
+        self.assertEqual(len(re.findall(r"^    \(_step_\d+\.neg_resolve_left _step_\d+\)$", text, flags=re.M)), 1)
+        self.assertEqual(max(line.count("(Or.elim ") for line in text.split("\n")), 1)
+        self.assertNotIn("(fun _literal => (Or.inr (Or.inr ", text)
+        self.assertLess(max(len(line) for line in text.split("\n")), 64 * count)
+        return text
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_a_clause_simplified_under_a_unit_keeps_its_other_literals_as_they_stand(self):
+        text = self.check_clause_under_a_unit(48)
+        source = wide_clause_under_a_unit(96)
+        twice = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertLess(len(twice), 2.1 * len(text))  # 89 and 182 kB; 102 and 229 kB with the cases
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    @lean_test_support.slow("a unit resolution that keeps 400 literals, 0.8 MB of Lean, about 10 s at 1.1 GB")
+    def test_a_unit_resolution_that_keeps_four_hundred_literals_verifies(self):
+        # With a case per kept literal the resolution was a line of 745 kB
+        # in a text of 1.57 MB, and its outlined lemma ran out of the
+        # default 200,000 heartbeats at `isDefEq` (Lean rejected the file
+        # after 17 s).
+        text = self.check_clause_under_a_unit(400)
+        self.assertLess(len(text), 900000)
 
 
 if __name__ == "__main__":

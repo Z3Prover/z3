@@ -2165,6 +2165,13 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertIn("Classical.em", structural)  # splits remain, the ones the proof uses
         self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
         self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+        # The step that resolves the first literal off the lemma's clause
+        # keeps the ten others where they are: the clause's tail as it
+        # stands (proof_to_lean._ordered_resolution), where each was a case,
+        # injected at its position (a line of 1.1 kB).
+        self.assertEqual(len(graph.clause(graph.conclusion(cnf[0]))), 11)
+        self.assertRegex(text, r"\n  let _step_\d+ :=\n    \(_step_%d\.neg_resolve_left _step_\d+\)\n" % cnf[0])
+        self.assertNotIn("(fun _literal => (Or.inr (Or.inr ", text)
         # Lean checks the file with the fallback removed, so the structural
         # proof itself is what verifies the lemma.
         alone = text.replace(lemma, head + "\n  first\n" + structural, 1)

@@ -1212,6 +1212,24 @@ the QF_UF gensys files, the QF_AUFLIA swap files). Lemmas that are not
 classical (the propositional slice, and refutations too short to be
 outlined) keep that form, which needs one decidability witness, the
 clause's.
+A unit resolution that keeps more than eight literals of its clause, in the
+order of its conclusion, moves none of them. Literals cut in front are
+resolved away by field notation, and with no cut left the proof at hand is
+the conclusion as it stands, `(_step_7.resolve_left _step_3)`; cuts further
+on are one function applied to that proof, composed literal by literal
+without a binder:
+
+    ((Or.imp_right (Or.imp_right (resolve_first _step_3 id))) _step_7)
+
+Or.imp_right passes over a kept literal, and two helper theorems, written
+once in a text that names them, take the unit first: resolve_first cuts a
+literal and hands the rest to its second argument, resolve_rest cuts
+everything after the last kept literal. The text is linear in the clause.
+As a case split per kept literal, each injected at its position by one
+Or.inr per literal before it, one literal cut off a 401-literal clause was a
+line of 745 kB, and its lemma ran out of Lean's heartbeats. Resolutions that
+keep at most eight literals, or keep them in another order, are case splits
+as before.
 The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.

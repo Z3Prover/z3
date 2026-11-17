@@ -10746,9 +10746,19 @@ def _resolution(graph, terms, node):
             value = "(@Decidable.byContradiction %s _df%d %s)" % (_formula(graph, literal), literal, value)
         return _inject(positions[terms[literal]], len(conclusion), value)
 
+    def refutation(position):
+        """A proof that the eliminated or false literal at position does not hold."""
+        if position not in eliminations:
+            return "not_false"
+        unit, negated_unit = eliminations[position]
+        return "_step_%d" % unit if negated_unit else "(not_not_intro _step_%d)" % unit
+
     support = set(doubles.values())
     if not literals:
         return "(False.elim _step_%d)" % first, support
+    if (len(kept) > _RESOLUTION_SPLITS and not doubles
+            and [terms[literals[position]] for position in kept] == [terms[literal] for literal in conclusion]):
+        return _ordered_resolution("_step_%d" % first, len(literals), cut, eliminate, refutation), support
     # Eliminated literals are cut off the clause by field notation,
     # `(h.resolve_left n)` (Or.resolve_left), which elaborates inside out from
     # the known type of the clause; only kept literals open an Or.elim case
@@ -10779,6 +10789,84 @@ def _resolution(graph, terms, node):
             cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
             subject = "_tail"
     return "".join(cases) + branch(last, subject) + "))" * len(cases), support
+
+
+# A unit resolution that keeps more literals than this, in the order of its
+# conclusion, is written by _ordered_resolution. Narrower ones keep the case
+# split per kept literal: nearly all of them keep two literals (one split),
+# and their text is what the certificates checked so far hold.
+_RESOLUTION_SPLITS = 8
+_RESOLVE_FIRST = "resolve_first"
+_RESOLVE_REST = "resolve_rest"
+# The cut of a literal as a function on the clause, the unit first: the
+# first literal is cut and f treats the rest (the identity when the rest
+# stays as it is, another cut or a refutation otherwise), or everything after
+# the first literal is cut. Written once per file, when a resolution names
+# them; they depend on no axiom.
+_RESOLVE_LEMMAS = (
+    "",
+    "private theorem %s {p q r : Prop} (n : Not p) (f : q -> r) : p \\/ q -> r :=" % _RESOLVE_FIRST,
+    "  fun h => f (h.resolve_left n)",
+    "",
+    "private theorem %s {p q : Prop} (n : Not q) : p \\/ q -> p :=" % _RESOLVE_REST,
+    "  fun h => h.resolve_right n",
+)
+
+
+def _ordered_resolution(subject, count, cut, eliminate, refutation):
+    """A unit resolution whose conclusion is its clause without the cut literals, in text linear in the clause.
+
+    subject proves the clause of count literals; cut(position) tells whether
+    a literal is eliminated by a unit or is false, eliminate(subject,
+    position, "left") cuts the first literal off a proof by field notation,
+    and refutation(position) is a proof that a cut literal does not hold.
+    The kept literals stay where they are, so nothing is injected. Cuts in
+    front are resolved away by field notation, and when no cut is left the
+    proof at hand is the conclusion as it stands. Cuts further on are made by
+    one function applied to that proof, composed literal by literal without
+    a binder: `Or.imp_right` passes over a kept literal, `resolve_first`
+    cuts one, `id` keeps what follows the last cut, and `resolve_rest` cuts
+    everything after the last kept literal, refuted literal by literal:
+
+        (_step_7.resolve_left _step_3)
+        ((Or.imp_right (Or.imp_right (resolve_first _step_3 id))) _step_7)
+        ((Or.imp_right (resolve_rest (resolve_first _step_3 _step_4))) _step_7)
+
+    for b cut off (or b l1 ... ln), any n, off (or l1 l2 b l3 ... ln), and
+    b and c off (or l1 l2 b c). The case split per kept literal
+    (_resolution) injects the literal at position k by k `Or.inr`: 8 bytes
+    times half the square of the kept literals for a proof that is the
+    identity on each of them. A resolution of one literal off a 401-literal
+    clause was a line of 745 kB, and its lemma ran out of Lean's 200,000
+    heartbeats.
+
+    A function per cut, `(fun _tail => ...)` under the ones before it, was
+    tried: Lean elaborates each only once the proof it is applied to is
+    known, and a clause of 200 literals with every other one cut ran out of
+    heartbeats, where the case splits verify in 2 s.
+    """
+    position = 0
+    while cut(position):
+        subject = eliminate(subject, position, "left")
+        position += 1
+    cuts = [later for later in range(position, count) if cut(later)]
+    if not cuts:
+        return subject
+    last_kept = max(later for later in range(position, count) if not cut(later))
+    parts = []
+    for later in range(position, count):
+        if later > cuts[-1]:
+            parts.append("id")  # the literals after the last cut stay as they are
+            break
+        if later < last_kept:
+            parts.append("(%s %s " % (_RESOLVE_FIRST, refutation(later)) if cut(later) else "(Or.imp_right ")
+        elif later == last_kept:
+            parts.append("(%s " % _RESOLVE_REST)
+        else:
+            # The cut literals after the last kept one: a refutation of their disjunction.
+            parts.append("(%s %s " % (_RESOLVE_FIRST, refutation(later)) if later < count - 1 else refutation(later))
+    function = "".join(parts)
+    return "(%s%s %s)" % (function, ")" * (function.count("(") - function.count(")")), subject)
 
 
 def _lemma(graph, terms, node, hypotheses, classical=False):
@@ -11001,7 +11089,9 @@ def _witness_formula(graph, name):
 # A unit resolution that keeps one literal is the clause's proof with every
 # other literal cut off by field notation, `(_step_N.resolve_left u)` and so on
 # (_resolution): Or.resolve_* infer its type from the clause's, the kept
-# literal's formula, so the let binding it states no type. Any other term
+# literal's formula, so the let binding it states no type; nor does the
+# binding of a resolution that keeps a clause's tail as it stands after cuts
+# in front (_ordered_resolution), whose type is that tail. Any other term
 # (an Or.inl/Or.inr injection into a wider conclusion, a case split, a proof by
 # contradiction, False.elim) starts otherwise and keeps the stated type. In
 # the QF_IDL DTP_k2_n35_c245_s9 refutation 46,002 of the 49,550 steps bound
@@ -11555,6 +11645,9 @@ def reconstruct(source, certificate):
         raise ReconstructionError("the root proof has undischarged hypotheses")
     if ite_congruence:
         lines.extend(_ITE_CONGRUENCE)
+    # The helpers are applied, never passed: each use opens a parenthesis.
+    if any("(%s " % _RESOLVE_FIRST in term or "(%s " % _RESOLVE_REST in term for term in step_terms.values()):
+        lines.extend(_RESOLVE_LEMMAS)
     direct = _direct_hypotheses(graph, step_terms)
     step_terms = _reference_hypotheses(step_terms, direct)
     boundaries = _outline_boundaries(graph, direct) if outline else set()
