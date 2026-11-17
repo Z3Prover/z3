@@ -481,7 +481,8 @@ namespace seq {
         live_states&    m_live;
         th_rewriter     m_thrw;                       // normalizes constant-element derivatives
         expr_ref_vector m_pin;                        // keeps derivative states / regexes alive
-        obj_pair_map<expr, expr, expr*> m_der_cache;   // memoizes der_elem per (regex, element)
+        obj_pair_map<expr, expr, expr*> m_der_cache;      // live_states::step per (regex, element)
+        obj_pair_map<expr, expr, expr*> m_sym_der_cache;  // mk_derivative fallback
 
         // The already-flattened atom stream, taken verbatim from
         // str_mem::m_str (a concatenation of sequence variables and
@@ -518,7 +519,7 @@ namespace seq {
         seq_util::rex& re() const { return u.re; }
 
         bool out_of_budget();
-        expr* der_elem(expr* r, expr* elem);
+        expr* der_elem(expr* r, expr* elem);   // null: undecided
         lbool nullable(expr* r);
         // Generalizes nullable(r) to a reach view: true when reaching
         // m_target (or, for a plain membership - m_target == nullptr - the

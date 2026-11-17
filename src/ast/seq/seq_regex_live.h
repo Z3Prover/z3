@@ -89,6 +89,8 @@ namespace seq {
         live_states& operator=(live_states const&) = delete;
 
         reachable reachable_live(view const& v);
+        // Successor of r on elem via the traversal's cofactors; null if undecided.
+        expr_ref step(expr* r, expr* elem);
         bool contains(expr* r) const;
         unsigned state_id(expr* r);
         // Number of interned derivative states, i.e. the size of the shared state table.

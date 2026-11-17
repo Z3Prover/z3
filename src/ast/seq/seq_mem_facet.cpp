@@ -1265,8 +1265,13 @@ namespace seq {
             if (k == sm.m_str.size() || !u.str.is_unit(sm.m_str.get(k), ch))
                 continue;
             expr_ref r(sm.m_view.m_state, m);
-            for (unsigned i = 0; i < k; ++i)
-                r = m_rw.mk_derivative(to_app(sm.m_str.get(i))->get_arg(0), r);
+            for (unsigned i = 0; r && i < k; ++i) {
+                expr* e = to_app(sm.m_str.get(i))->get_arg(0);
+                expr_ref s = mf.live().step(r, e);
+                r = s || sm.m_view.m_target ? s : m_rw.mk_derivative(e, r);
+            }
+            if (!r)
+                continue;
             expr_ref_pair_vector cofactors(m_rw.get_derive().get_cached_cofactors(transition_mode::brzozowski_tm, r));
             if (cofactors.empty()) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -1298,18 +1303,28 @@ namespace seq {
         return false;
     }
 
+    // Reach views need live_states::step; mk_derivative only without a target.
     expr* mem_split::der_elem(expr* r, expr* elem) {
-        expr* cached = nullptr;
-        if (m_der_cache.find(r, elem, cached))
-            return cached;
-        expr_ref d = m_rw.mk_derivative(elem, r);
-        expr_ref d2(m);
-        m_thrw(d, d2);
-        m_pin.push_back(r);
-        m_pin.push_back(elem);
-        m_pin.push_back(d2);
-        m_der_cache.insert(r, elem, d2.get());
-        return d2.get();
+        expr* d = nullptr;
+        if (!m_der_cache.find(r, elem, d)) {
+            expr_ref s = m_live.step(r, elem);
+            m_pin.push_back(r);
+            m_pin.push_back(elem);
+            if (s)
+                m_pin.push_back(s);
+            m_der_cache.insert(r, elem, s.get());
+            d = s.get();
+        }
+        if (d || m_target)
+            return d;
+        if (!m_sym_der_cache.find(r, elem, d)) {
+            expr_ref s(m);
+            m_thrw(m_rw.mk_derivative(elem, r), s);
+            m_pin.push_back(s);
+            m_sym_der_cache.insert(r, elem, s.get());
+            d = s.get();
+        }
+        return d;
     }
 
     lbool mem_split::nullable(expr* r) {
@@ -1359,6 +1374,8 @@ namespace seq {
             if (!u.str.is_unit(m_atoms.get(m_pos_i), elem))
                 return l_true;                 // variable atom
             expr* d = der_elem(m_pos_R, elem);
+            if (!d)
+                return l_undef;
             if (re().is_empty(d))
                 return l_false;
             m_pos_R = d;

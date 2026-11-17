@@ -28,6 +28,8 @@ Abstract:
     that automaton steps in.  A MEMBERSHIP view is mode-independent: m_state denotes a
     language either way.
 
+    Targets are compared by AST identity: step with live_states::step, not mk_derivative.
+
 Author:
 
     Clemens Eisenhofer 2026

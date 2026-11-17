@@ -13,6 +13,8 @@ Abstract:
 
 #include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "util/obj_hashtable.h"
 #include "util/obj_pair_hashtable.h"
 #include "util/uint_set.h"
@@ -49,6 +51,7 @@ namespace seq {
         bool_vector m_expanded;
         obj_map<expr, search*> m_membership_searches;
         obj_pair_map<expr, expr, search*> m_reach_searches;
+        th_rewriter m_thrw;
 
         imp(seq_rewriter& rw, transition_mode mode, unsigned max_states) :
             m_rw(rw),
@@ -56,7 +59,8 @@ namespace seq {
             m_re(rw.u().re),
             m_mode(mode),
             m_max_states(max_states),
-            m_states(m) {
+            m_states(m),
+            m_thrw(m) {
         }
 
         ~imp() {
@@ -281,6 +285,22 @@ namespace seq {
 
     live_states::reachable live_states::reachable_live(view const& v) {
         return reachable(this, m_imp->get_search(v));
+    }
+
+    expr_ref live_states::step(expr* r, expr* elem) {
+        SASSERT(m_imp->m_mode == transition_mode::brzozowski_tm);
+        ast_manager& m = m_imp->m;
+        var_subst sub(m);
+        expr_ref_pair_vector cofactors(m_imp->m_rw.get_derive().get_cached_cofactors(m_imp->m_mode, r));
+        for (auto const& [guard, target] : cofactors) {
+            expr_ref g(m);
+            m_imp->m_thrw(sub(guard, elem), g);
+            if (m.is_true(g))
+                return expr_ref(target, m);
+            if (!m.is_false(g))
+                return expr_ref(m);
+        }
+        return expr_ref(m_imp->m_re.mk_empty(r->get_sort()), m);
     }
 
     bool live_states::contains(expr* r) const {
