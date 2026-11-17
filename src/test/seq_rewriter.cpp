@@ -141,6 +141,71 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_extract_equal_offset_length() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref index(m.mk_const("index", a.mk_int()), m);
+    expr_ref offset(a.mk_sub(index, one), m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        expr_ref word(m.mk_const("word", seq_sort), m);
+        expr_ref head(is_string ? su.str.mk_string("A") : su.str.mk_unit(one), m);
+        expr_ref prefixed(su.str.mk_concat(head, word), m);
+        expr_ref doubled(su.str.mk_concat(head, prefixed), m);
+        expr_ref actual(su.str.mk_substr(prefixed, index, index), m);
+        expr_ref expected(su.str.mk_substr(word, offset, index), m);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.str.mk_substr(doubled, index, index);
+        expected = su.str.mk_substr(prefixed, offset, index);
+        rw(actual);
+        rw(expected);
+        ENSURE(actual == expected);
+        actual = su.str.mk_substr(head, index, index);
+        rw(actual);
+        ENSURE(actual == su.str.mk_empty(seq_sort));
+    }
+}
+
+static void tst_delete_first_character() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    sort_ref seq_int(su.str.mk_seq(a.mk_int()), m);
+    expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+    for (sort* seq_sort : {su.str.mk_string_sort(), seq_int.get()}) {
+        expr_ref source(m.mk_fresh_const("source", seq_sort), m);
+        expr_ref replacement(m.mk_fresh_const("replacement", seq_sort), m);
+        expr_ref other(m.mk_fresh_const("other", seq_sort), m);
+        expr_ref empty(su.str.mk_empty(seq_sort), m);
+        expr_ref length(su.str.mk_length(source), m);
+        expr_ref suffix(su.str.mk_substr(source, one, length), m);
+        expr_ref pattern(su.str.mk_at(source, zero), m);
+        expr_ref actual(su.str.mk_replace(source, pattern, empty), m);
+        rw(actual);
+        rw(suffix);
+        ENSURE(actual == suffix);
+        actual = su.str.mk_replace(source, pattern, replacement);
+        rw(actual);
+        ENSURE(su.str.is_replace(actual));
+        pattern = su.str.mk_at(source, one);
+        actual = su.str.mk_replace(source, pattern, empty);
+        rw(actual);
+        ENSURE(actual != suffix);
+        pattern = su.str.mk_at(other, zero);
+        actual = su.str.mk_replace(source, pattern, empty);
+        rw(actual);
+        ENSURE(actual != suffix);
+    }
+}
+
 static void tst_extract_length_products() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -578,6 +643,8 @@ static void tst_negated_complement_membership() {
 }
 
 void tst_seq_rewriter() {
+    tst_extract_equal_offset_length();
+    tst_delete_first_character();
     tst_empty_language_repetition();
     tst_positive_closure_repetition();
     tst_negated_complement_membership();

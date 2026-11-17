@@ -22,6 +22,7 @@ Abstract:
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -45,6 +46,8 @@ class regular_compiler {
     std::unordered_map<expr*, expr*> normalized;
     std::unordered_map<expr*, expr*> decimal_normalized;
     std::unordered_map<expr*, expr*> scalar_normalized;
+    std::unordered_map<expr*, expr*> definitions;
+    obj_hashtable<expr> definition_formulas;
     std::map<std::pair<comparison_kind, rational>, expr*> decimal_languages;
     struct decimal_rewrite {
         expr* original;
@@ -66,6 +69,12 @@ class regular_compiler {
         bool operator==(linear const& b) const { return constant == b.constant && terms == b.terms; }
     };
     std::unordered_map<expr*, linear> linears;
+    struct scalar_range {
+        std::optional<rational> lo, hi;
+    };
+    using range_map = std::unordered_map<expr*, scalar_range>;
+    range_map scalar_ranges;
+    std::unordered_map<expr*, unsigned> length_bounds;
     struct bounded_occurrences {
         expr* character_class;
         zstring needle;
@@ -125,6 +134,38 @@ class regular_compiler {
     bool same(expr* e, expr* f) { return affine(e) == affine(f); }
     bool single(linear const& l, expr* e, rational const& coefficient = rational(1)) {
         return l.terms.size() == 1 && l.terms.begin()->first == e && l.terms.begin()->second == coefficient;
+    }
+    unsigned bounded_length(expr* e, unsigned depth = 0) {
+        tick();
+        if (depth > 256) throw failure::budget;
+        auto it = length_bounds.find(e);
+        if (it != length_bounds.end()) return it->second;
+        unsigned result = UINT_MAX;
+        expr *source, *offset, *count, *condition, *yes, *no;
+        if (u.str.is_extract(e, source, offset, count)) {
+            linear const& size = affine(count);
+            if (size.terms.empty()) {
+                if (size.constant <= 0) result = 0;
+                else if (size.constant.is_unsigned())
+                    result = std::min(result, size.constant.get_unsigned());
+            }
+            if (result != 0)
+                result = std::min(result, bounded_length(source, depth + 1));
+        }
+        else if (u.str.is_concat(e)) {
+            result = 0;
+            for (expr* arg : *to_app(e))
+                result = add_truncate(result, bounded_length(arg, depth + 1));
+        }
+        else if (m.is_ite(e, condition, yes, no)) {
+            unsigned left = bounded_length(yes, depth + 1);
+            unsigned right = bounded_length(no, depth + 1);
+            result = std::max(left, right);
+        }
+        else
+            result = u.str.max_length(e);
+        length_bounds.emplace(e, result);
+        return result;
     }
     bool first_cut(expr* e, cut& out) {
         expr *s, *begin, *length;
@@ -349,9 +390,82 @@ class regular_compiler {
         else return false;
         return true;
     }
+    scalar_range range(linear const& value, unsigned depth = 0, range_map* context = nullptr) {
+        scalar_range result{value.constant, value.constant};
+        for (auto const& [term, coefficient] : value.terms) {
+            scalar_range r = range(term, depth, context);
+            if (coefficient.is_neg()) std::swap(r.lo, r.hi);
+            if (result.lo && r.lo) *result.lo += coefficient * *r.lo;
+            else result.lo.reset();
+            if (result.hi && r.hi) *result.hi += coefficient * *r.hi;
+            else result.hi.reset();
+        }
+        return result;
+    }
+    scalar_range range(expr* e, unsigned depth = 0, range_map* context = nullptr) {
+        tick();
+        if (depth > 256) throw failure::budget;
+        auto& cache = context ? *context : scalar_ranges;
+        auto it = cache.find(e);
+        if (it != cache.end()) return it->second;
+        scalar_range result;
+        expr *s, *condition, *yes, *no;
+        if (u.str.is_stoi(e, s)) {
+            result.lo = rational(-1);
+            unsigned size = bounded_length(s);
+            if (size <= 4096) {
+                rational limit(1);
+                for (unsigned i = 0; i < size; ++i) {
+                    tick();
+                    limit *= rational(10);
+                }
+                result.hi = size ? limit - rational(1) : rational(-1);
+            }
+        }
+        else if (u.str.is_length(e, s)) {
+            result.lo = rational(0);
+            unsigned size = bounded_length(s);
+            if (size != UINT_MAX) result.hi = rational(size);
+        }
+        else if (m.is_ite(e, condition, yes, no)) {
+            scalar_range y = range(affine(yes), depth + 1, context);
+            scalar_range n = range(affine(no), depth + 1, context);
+            if (y.lo && n.lo) result.lo = std::min(*y.lo, *n.lo);
+            if (y.hi && n.hi) result.hi = std::max(*y.hi, *n.hi);
+        }
+        cache.emplace(e, result);
+        return result;
+    }
+    expr* range_comparison(comparison_kind op, scalar_range const& r) {
+        bool nonnegative = r.lo && *r.lo >= 0;
+        bool positive = r.lo && *r.lo > 0;
+        bool nonpositive = r.hi && *r.hi <= 0;
+        bool negative = r.hi && *r.hi < 0;
+        switch (op) {
+        case comparison_kind::eq:
+        case comparison_kind::ne:
+            if (positive || negative) return keep(m.mk_bool_val(op == comparison_kind::ne));
+            if (nonnegative && nonpositive) return keep(m.mk_bool_val(op == comparison_kind::eq));
+            break;
+        case comparison_kind::le:
+            if (nonpositive || positive) return keep(m.mk_bool_val(nonpositive));
+            break;
+        case comparison_kind::lt:
+            if (negative || nonnegative) return keep(m.mk_bool_val(negative));
+            break;
+        case comparison_kind::ge:
+            if (nonnegative || negative) return keep(m.mk_bool_val(nonnegative));
+            break;
+        case comparison_kind::gt:
+            if (positive || nonpositive) return keep(m.mk_bool_val(positive));
+            break;
+        }
+        return nullptr;
+    }
     expr* scalar_comparison(comparison_kind op, linear const& value, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
+        if (expr* result = range_comparison(op, range(value))) return result;
         if (value.terms.size() != 1) return nullptr;
         auto [term, coefficient] = *value.terms.begin();
         if (coefficient == rational(-1)) op = reverse_comparison(op);
@@ -800,6 +914,13 @@ class regular_compiler {
             language = cat({all, word, all});
             return true;
         }
+        if (u.str.is_contains(e, x, y) && u.str.is_string(x, text) && u.str.max_length(y) <= 1) {
+            source = y;
+            language = epsilon;
+            for (unsigned ch : text)
+                language = join(language, lit(zstring(ch)));
+            return true;
+        }
         if ((u.str.is_prefix(e, x, y) || u.str.is_suffix(e, x, y)) && u.str.is_string(x, text)) {
             source = y;
             expr* word = lit(text);
@@ -877,6 +998,28 @@ class regular_compiler {
         }
         return false;
     }
+    expr* regular_boolean(bool conjunction, expr_ref_vector const& args) {
+        expr* subject = nullptr;
+        expr_ref_vector languages(m);
+        for (expr* arg : args) {
+            tick();
+            if (m.is_true(arg) || m.is_false(arg)) {
+                if (m.is_true(arg) != conjunction) return arg;
+                continue;
+            }
+            expr *s, *r, *child;
+            bool negative = m.is_not(arg, child);
+            if (!u.str.is_in_re(negative ? child : arg, s, r) || (subject && subject != s))
+                return boolean(conjunction, args);
+            subject = s;
+            languages.push_back(negative ? complement(r) : r);
+        }
+        if (!subject) return keep(m.mk_bool_val(conjunction));
+        expr* language = conjunction ? all : empty;
+        for (expr* r : languages)
+            language = conjunction ? meet(language, r) : join(language, r);
+        return membership(subject, language);
+    }
     expr* translate(expr* e, bool defer = false, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
@@ -889,9 +1032,9 @@ class regular_compiler {
             positive.push_back(translate(yes, false, depth + 1));
             negative.push_back(neg(guard));
             negative.push_back(translate(no, false, depth + 1));
-            branches.push_back(boolean(true, positive));
-            branches.push_back(boolean(true, negative));
-            return boolean(false, branches);
+            branches.push_back(regular_boolean(true, positive));
+            branches.push_back(regular_boolean(true, negative));
+            return regular_boolean(false, branches);
         }
         if (m.is_and(e) || m.is_or(e)) {
             bool conjunction = m.is_and(e);
@@ -899,11 +1042,16 @@ class regular_compiler {
             std::map<unsigned, expr*> pending;
             std::unordered_map<expr*, expr*> groups;
             for (expr* arg : *to_app(e)) {
-                expr* child = translate(arg, conjunction, depth + 1);
+                expr* child = translate(arg, true, depth + 1);
+                if (m.is_true(child) || m.is_false(child)) {
+                    if (m.is_true(child) != conjunction) return child;
+                    continue;
+                }
                 expr *s, *r;
-                if (conjunction && u.str.is_in_re(child, s, r)) {
+                if (u.str.is_in_re(child, s, r)) {
                     auto it = groups.find(s);
-                    groups[s] = it == groups.end() ? r : meet(it->second, r);
+                    groups[s] = it == groups.end() ? r :
+                        conjunction ? meet(it->second, r) : join(it->second, r);
                     pending[s->get_id()] = s;
                 }
                 else rest.push_back(child);
@@ -928,6 +1076,11 @@ class regular_compiler {
                 return depths[t];
             };
             while (!pending.empty()) {
+                // Combine observations at a shared selector before pulling them back.
+                if (defer && rest.empty() && groups.size() == 1) {
+                    auto const& [s, r] = *groups.begin();
+                    return membership(s, r);
+                }
                 auto chosen = pending.begin();
                 unsigned deepest = term_depth(chosen->second);
                 for (auto it = std::next(chosen); it != pending.end(); ++it) {
@@ -937,18 +1090,27 @@ class regular_compiler {
                 expr* s = chosen->second;
                 pending.erase(chosen);
                 expr* r = groups[s];
-                if (u.re.is_empty(r)) return keep(m.mk_false());
-                if (u.re.is_full_seq(r)) { groups.erase(s); continue; }
+                if (u.re.is_empty(r)) {
+                    if (conjunction) return keep(m.mk_false());
+                    groups.erase(s);
+                    continue;
+                }
+                if (u.re.is_full_seq(r)) {
+                    if (!conjunction) return keep(m.mk_true());
+                    groups.erase(s);
+                    continue;
+                }
                 expr *parent, *inverse;
                 if (preimage(s, r, parent, inverse)) {
                     groups.erase(s);
                     auto it = groups.find(parent);
-                    groups[parent] = it == groups.end() ? inverse : meet(it->second, inverse);
+                    groups[parent] = it == groups.end() ? inverse :
+                        conjunction ? meet(it->second, inverse) : join(it->second, inverse);
                     pending[parent->get_id()] = parent;
                 }
             }
             for (auto const& [s, r] : groups) rest.push_back(membership(s, r));
-            return boolean(conjunction, rest);
+            return regular_boolean(conjunction, rest);
         }
         expr *source, *language, *child;
         if (atom(e, source, language)) {
@@ -961,7 +1123,21 @@ class regular_compiler {
             }
             return membership(source, language);
         }
-        if (m.is_not(e, child)) return neg(translate(child, false, depth + 1));
+        if (m.is_not(e, child)) {
+            expr* result = translate(child, true, depth + 1);
+            if (u.str.is_in_re(result, source, language)) {
+                language = complement(language);
+                if (!defer) {
+                    expr *parent, *inverse;
+                    while (!u.re.is_empty(language) && !u.re.is_full_seq(language) &&
+                           preimage(source, language, parent, inverse)) {
+                        source = parent; language = inverse;
+                    }
+                }
+                return membership(source, language);
+            }
+            return neg(result);
+        }
         return e;
     }
 public:
@@ -978,7 +1154,7 @@ public:
             if (seen.contains(e)) continue;
             seen.insert(e);
             expr* s;
-            bounded |= u.str.is_stoi(e, s) && !u.str.is_string(s) && u.str.max_length(s) <= 1;
+            bounded |= u.str.is_stoi(e, s) && !u.str.is_string(s) && bounded_length(s) <= 4096;
             if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);
         }
         if (!bounded) {
@@ -1051,6 +1227,21 @@ public:
             // Retain guard values unless the substituted constraints still imply them.
             retained.push_back(outputs.get(0));
             outputs.set(0, boolean(true, retained));
+        }
+
+        expr_ref_vector propagated(m);
+        if (arithmetic_conflict(outputs, &propagated)) {
+            outputs.set(0, m.mk_false());
+            contextual = true;
+        }
+        else if (!propagated.empty()) {
+            outputs.reset();
+            for (expr* formula : propagated) {
+                expr_ref result(formula, m);
+                simplify(result);
+                outputs.push_back(result);
+            }
+            contextual = true;
         }
 
         constexpr unsigned all_digits = (1u << 10) - 1;
@@ -1179,13 +1370,14 @@ public:
         facts.set(facts.size() - 1, comparison(comparison_kind::lt, conversion, rational(0)));
         return arithmetic_conflict(facts);
     }
-    bool arithmetic_conflict(expr_ref_vector const& inputs) {
+    bool arithmetic_conflict(expr_ref_vector const& inputs, expr_ref_vector* simplified = nullptr) {
         unsynch_mpq_manager nm;
         small_object_allocator allocator;
         bound_propagator bounds(nm, allocator, params_ref());
         std::unordered_map<expr*, unsigned> variables;
         obj_hashtable<expr> seen;
         ptr_vector<expr> todo;
+        expr_ref_vector premises(m);
         for (expr* input : inputs) todo.push_back(input);
         while (!todo.empty()) {
             tick();
@@ -1193,6 +1385,7 @@ public:
             todo.pop_back();
             if (seen.contains(e)) continue;
             seen.insert(e);
+            expr* literal = e;
             bool positive = true;
             while (m.is_not(e, e)) {
                 tick();
@@ -1229,13 +1422,64 @@ public:
             rational limit = -value.constant / coefficient;
             auto [it, fresh] = variables.emplace(term, static_cast<unsigned>(variables.size()));
             unsigned v = it->second;
-            if (fresh) bounds.mk_var(v, a.is_int(term));
+            if (fresh) {
+                bounds.mk_var(v, a.is_int(term));
+                scalar_range r = range(term);
+                scoped_mpq n(nm);
+                if (r.lo) {
+                    nm.set(n, r.lo->to_mpq());
+                    bounds.assert_lower(v, n, false);
+                }
+                if (r.hi) {
+                    nm.set(n, r.hi->to_mpq());
+                    bounds.assert_upper(v, n, false);
+                }
+            }
             scoped_mpq n(nm);
             nm.set(n, limit.to_mpq());
             if (equality || lower) bounds.assert_lower(v, n, strict);
             if (equality || !lower) bounds.assert_upper(v, n, strict);
             if (bounds.inconsistent()) return true;
+            if (simplified) premises.push_back(literal);
         }
+        if (!simplified || variables.empty()) return false;
+        range_map context;
+        for (auto const& [term, v] : variables) {
+            scalar_range r;
+            if (bounds.has_lower(v)) r.lo = rational(bounds.lower(v));
+            if (bounds.has_upper(v)) r.hi = rational(bounds.upper(v));
+            context.emplace(term, r);
+        }
+        expr_safe_replace sub(m);
+        seen.reset();
+        todo.append(inputs.size(), inputs.data());
+        while (!todo.empty()) {
+            tick();
+            expr* e = todo.back();
+            todo.pop_back();
+            if (seen.contains(e)) continue;
+            seen.insert(e);
+            if (!is_app(e)) continue;
+            app* t = to_app(e);
+            comparison_kind op;
+            if (comparison_operator(t, op)) {
+                linear value = affine(t->get_arg(0));
+                value.add(affine(t->get_arg(1)), rational(-1));
+                if (value.terms.size() > 1)
+                    if (expr* result = range_comparison(op, range(value, 0, &context)))
+                        sub.insert(e, result);
+            }
+            for (expr* arg : *t) todo.push_back(arg);
+        }
+        if (sub.empty()) return false;
+        for (expr* input : inputs) {
+            expr_ref result(m);
+            sub(input, result);
+            simplified->push_back(result);
+        }
+        // Contextual consequences must not remove their supporting bounds.
+        premises.push_back(simplified->get(0));
+        simplified->set(0, boolean(true, premises));
         return false;
     }
 
@@ -1302,15 +1546,42 @@ public:
         auto& cache = kind == normalization_kind::decimal ? decimal_normalized :
                       kind == normalization_kind::scalar ? scalar_normalized : normalized;
         ptr_vector<expr> todo;
-        todo.push_back(e);
+        obj_hashtable<expr> active;
+        bool expand = kind == normalization_kind::structural && !definitions.empty();
+        auto push = [&](expr* t) {
+            if (expand) {
+                if (active.contains(t)) throw failure::unsupported;
+                active.insert(t);
+            }
+            todo.push_back(t);
+        };
+        auto pop = [&]() {
+            if (expand) active.erase(todo.back());
+            todo.pop_back();
+        };
+        push(e);
         while (!todo.empty()) {
             tick();
             expr* cur = todo.back();
-            if (cache.count(cur)) { todo.pop_back(); continue; }
+            if (cache.count(cur)) { pop(); continue; }
+            if (expand) {
+                if (definition_formulas.contains(cur)) {
+                    cache[cur] = keep(m.mk_true());
+                    pop();
+                    continue;
+                }
+                auto it = definitions.find(cur);
+                if (it != definitions.end()) {
+                    if (!cache.count(it->second)) { push(it->second); continue; }
+                    cache[cur] = cache[it->second];
+                    pop();
+                    continue;
+                }
+            }
             if (!is_app(cur)) throw failure::unsupported;
             bool ready = true;
             for (expr* arg : *to_app(cur)) {
-                if (!cache.count(arg)) { todo.push_back(arg); ready = false; break; }
+                if (!cache.count(arg)) { push(arg); ready = false; break; }
             }
             if (!ready) continue;
             expr_ref_vector args(m);
@@ -1321,7 +1592,7 @@ public:
             }
             else
                 cache[cur] = normalize_node(to_app(cur), args);
-            todo.pop_back();
+            pop();
         }
         return cache[e];
     }
@@ -1347,13 +1618,75 @@ public:
         }
         return true;
     }
+    bool has_nonregular_arithmetic(expr* e) {
+        ptr_vector<expr> todo;
+        obj_hashtable<expr> seen;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            tick();
+            expr* current = todo.back();
+            todo.pop_back();
+            if (seen.contains(current)) continue;
+            seen.insert(current);
+            if (m.is_and(current) || m.is_or(current) || m.is_not(current) || m.is_ite(current)) {
+                for (expr* arg : *to_app(current)) todo.push_back(arg);
+                continue;
+            }
+            comparison_kind op;
+            if (!is_app(current) || !comparison_operator(to_app(current), op)) continue;
+            linear value = affine(to_app(current)->get_arg(0));
+            value.add(affine(to_app(current)->get_arg(1)), rational(-1));
+            for (auto const& [term, coefficient] : value.terms)
+                if (!u.str.is_length(term) && !u.str.is_index(term)) return true;
+        }
+        return false;
+    }
     expr_ref compile(expr* e) {
         if (is_root_regular(e))
             return expr_ref(e, m);
-        expr_ref result(translate(normalize(e)), m);
+        expr_ref result(normalize(e), m);
+        // Avoid speculative preimage allocation for unsupported arithmetic.
+        if (has_nonregular_arithmetic(result)) throw failure::unsupported;
+        result = translate(result);
         if (!is_root_regular(result))
             throw failure::unsupported;
         return result;
+    }
+    expr_ref compile_definitions(expr* e, unsigned& count) {
+        ptr_vector<expr> todo;
+        obj_hashtable<expr> seen;
+        expr_ref_vector retained(m);
+        todo.push_back(e);
+        while (!todo.empty()) {
+            tick();
+            expr* current = todo.back();
+            todo.pop_back();
+            if (seen.contains(current)) continue;
+            seen.insert(current);
+            if (m.is_and(current)) {
+                for (expr* arg : *to_app(current)) todo.push_back(arg);
+                continue;
+            }
+            expr *x, *y;
+            if (!m.is_eq(current, x, y)) continue;
+            for (unsigned i = 0; i < 2; ++i) {
+                if (is_uninterp_const(x) && u.is_string(x->get_sort()) &&
+                    is_app(y) && to_app(y)->get_num_args() != 0) {
+                    definitions.emplace(x, y);
+                    definition_formulas.insert(current);
+                    retained.push_back(current);
+                    break;
+                }
+                std::swap(x, y);
+            }
+        }
+        if (retained.empty()) throw failure::unsupported;
+        normalized.clear();
+        expr_ref result = compile(e);
+        count = retained.size();
+        // Keep definitions for the usual equation solver and model reconstruction.
+        retained.push_back(result);
+        return expr_ref(boolean(true, retained), m);
     }
 };
 }
@@ -1469,14 +1802,33 @@ void seq_regular_simplifier::reduce() {
         }
     }
     catch (failure why) {
-        if (why == failure::unsupported) ++m_unsupported;
-        else if (why == failure::budget) ++m_budget;
-        if (!decimal_changed || why == failure::canceled) {
-            m_steps += steps;
-            return;
+        bool recovered = false;
+        if (why == failure::unsupported) {
+            try {
+                unsigned definitions = 0;
+                expr_ref input(mk_and(decimals), m);
+                expr_ref result(compiler.compile_definitions(input, definitions), m);
+                results.reset();
+                results.push_back(result);
+                for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());
+                m_definitions += definitions;
+                contextual = true;
+                recovered = true;
+            }
+            catch (failure reason) {
+                why = reason;
+            }
         }
-        results.reset();
-        results.append(decimals);
+        if (!recovered) {
+            if (why == failure::unsupported) ++m_unsupported;
+            else if (why == failure::budget) ++m_budget;
+            if (!decimal_changed || why == failure::canceled) {
+                m_steps += steps;
+                return;
+            }
+            results.reset();
+            results.append(decimals);
+        }
     }
     m_steps += steps;
     if (m_automatic && !decimal_changed && m_preimages == preimages_before &&
@@ -1496,7 +1848,7 @@ void seq_regular_simplifier::reduce() {
 }
 
 void seq_regular_simplifier::reset_statistics() {
-    m_steps = m_preimages = m_rewritten = m_stoi_rewritten = m_finite_rewritten = m_unsupported = m_budget = m_skipped = m_arith_refuted = 0;
+    m_steps = m_preimages = m_rewritten = m_stoi_rewritten = m_finite_rewritten = m_unsupported = m_budget = m_skipped = m_arith_refuted = m_definitions = 0;
     m_watch.reset();
 }
 
@@ -1507,6 +1859,7 @@ void seq_regular_simplifier::collect_statistics(statistics& st) const {
     st.update("seq-regular-stoi-rewritten", m_stoi_rewritten);
     st.update("seq-regular-finite-conversions", m_finite_rewritten);
     st.update("seq-regular-arith-refuted", m_arith_refuted);
+    st.update("seq-regular-definitions", m_definitions);
     st.update("seq-regular-unsupported", m_unsupported);
     st.update("seq-regular-budget", m_budget);
     st.update("seq-regular-skipped", m_skipped);

@@ -24,6 +24,7 @@ class seq_regular_simplifier : public dependent_expr_simplifier {
     unsigned m_finite_rewritten = 0;
     unsigned m_unsupported = 0, m_budget = 0, m_skipped = 0;
     unsigned m_arith_refuted = 0;
+    unsigned m_definitions = 0;
     stopwatch m_watch;
 public:
     static bool has_string_terms(ast_manager& m, expr* e);
@@ -37,5 +38,5 @@ public:
 };
 
 Z3_ADD_SIMPLIFIER(seq_regular, "seq-regular",
-                 "lower decimal constant comparisons and fully regular string goals to memberships.",
+                 "lower decimal constant comparisons and regular string observations to memberships.",
                  alloc(seq_regular_simplifier, m, p, s));

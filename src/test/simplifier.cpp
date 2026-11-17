@@ -1575,6 +1575,265 @@ static void test_seq_bounded_conversions() {
     }
 }
 
+static void test_seq_conversion_ranges() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref s(m.mk_const("range-s", u.str.mk_string_sort()), m);
+    expr_ref choice(m.mk_const("range-choice", m.mk_bool_sort()), m);
+    expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m), two(a.mk_int(2), m);
+    expr_ref part(u.str.mk_substr(s, zero, two), m);
+    expr_ref value(u.str.mk_stoi(part), m);
+    expr_ref unbounded(u.str.mk_stoi(s), m);
+    expr_ref negative(a.mk_uminus(unbounded), m);
+    expr_ref signed_value(m.mk_ite(choice, negative, value), m);
+    expr_ref threshold(a.mk_int(255), m);
+    expr_ref impossible(a.mk_gt(signed_value, threshold), m);
+    expr_ref label(m.mk_const("range-label", m.mk_bool_sort()), m);
+    {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, impossible, nullptr, m.mk_leaf(label)));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state.inconsistent());
+        ptr_vector<expr> premises;
+        m.linearize(state[0].dep(), premises);
+        ENSURE(premises.size() == 1 && premises[0] == label);
+    }
+    expr_ref_vector cases(m), pin(m);
+    auto hold = [&](expr* e) { pin.push_back(e); return e; };
+    for (int bound : {-2, -1, 0, 1, 98, 99, 100, 255}) {
+        expr* number = hold(a.mk_int(bound));
+        cases.push_back(a.mk_le(value, number));
+        cases.push_back(a.mk_gt(value, number));
+        cases.push_back(m.mk_eq(signed_value, number));
+        cases.push_back(a.mk_le(signed_value, number));
+    }
+    expr* twice = hold(a.mk_mul(hold(a.mk_int(-2)), value));
+    expr* shifted = hold(a.mk_add(twice, hold(a.mk_int(7))));
+    cases.push_back(a.mk_lt(shifted, hold(a.mk_int(-191))));
+    expr* length = hold(u.str.mk_length(part));
+    cases.push_back(a.mk_gt(length, two));
+    for (expr* formula : cases) {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, formula, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        expr_ref rewritten(state[0].fml(), m);
+        for (char const* text : {"", "0", "00", "01", "09", "98", "99", "100", "999",
+                                 "1000", "-", "-1", "x", "x9"}) {
+            for (bool sign : {false, true}) {
+                expr_ref word(u.str.mk_string(text), m);
+                expr_safe_replace sub(m);
+                sub.insert(s, word);
+                sub.insert(choice, sign ? m.mk_true() : m.mk_false());
+                expr_ref original(m), result(m);
+                sub(formula, original);
+                sub(rewritten, result);
+                rw(original);
+                rw(result);
+                ENSURE(m.is_true(original) || m.is_false(original));
+                ENSURE(original == result);
+            }
+        }
+    }
+    {
+        expr_ref disjunction(m.mk_or(choice, impossible), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, disjunction, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == choice);
+    }
+    {
+        expr_ref count(a.mk_add(one, one), m);
+        expr_ref inner(u.str.mk_substr(s, zero, count), m);
+        expr_ref len(u.str.mk_length(inner), m);
+        expr_ref remaining(a.mk_sub(len, one), m);
+        expr_ref suffix(u.str.mk_substr(inner, one, remaining), m);
+        expr_ref positive(u.str.mk_stoi(inner), m);
+        expr_ref parsed(u.str.mk_stoi(suffix), m);
+        expr_ref negated(a.mk_uminus(parsed), m);
+        expr_ref signed_part(m.mk_ite(choice, negated, positive), m);
+        expr_ref too_large(a.mk_gt(signed_part, threshold), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, too_large, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state.inconsistent());
+    }
+    {
+        expr_ref first(u.str.mk_at(s, zero), m), second(u.str.mk_at(s, one), m);
+        expr_ref d0(u.str.mk_stoi(first), m), d1(u.str.mk_stoi(second), m);
+        expr_ref valid0(a.mk_ge(d0, zero), m), valid1(a.mk_ge(d1, zero), m);
+        expr_ref guarded(m.mk_ite(choice, one, d0), m);
+        expr_ref sixteen(a.mk_int(16), m);
+        expr_ref scaled(a.mk_mul(sixteen, guarded), m);
+        expr_ref sum(a.mk_add(scaled, d1), m);
+        expr_ref nonnegative(a.mk_ge(sum, zero), m);
+        expr_ref difference(a.mk_sub(d0, d1), m), nine(a.mk_int(9), m);
+        expr_ref bounded(a.mk_le(difference, nine), m);
+        expr_ref ordered(a.mk_ge(difference, zero), m);
+        for (expr* comparison : {nonnegative.get(), bounded.get(), ordered.get()}) {
+            expr_ref_vector inputs(m);
+            inputs.push_back(valid0);
+            inputs.push_back(valid1);
+            inputs.push_back(comparison);
+            base_dependent_expr_state state(m);
+            for (expr* input : inputs)
+                state.add(dependent_expr(m, input, nullptr, nullptr));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            expr_ref original(mk_and(inputs), m);
+            expr_ref_vector results(m);
+            for (unsigned i = 0; i < state.qtail(); ++i)
+                results.push_back(state[i].fml());
+            expr_ref rewritten(mk_and(results), m);
+            if (comparison != ordered) {
+                expr *source, *language;
+                ENSURE(u.str.is_in_re(state[0].fml(), source, language) && source == s);
+            }
+            for (char const* text : {"", "0", "9", "x", "90", "09", "99", "01", "123", "x9"}) {
+                for (bool sign : {false, true}) {
+                    expr_ref word(u.str.mk_string(text), m);
+                    expr_safe_replace sub(m);
+                    sub.insert(s, word);
+                    sub.insert(choice, sign ? m.mk_true() : m.mk_false());
+                    expr_ref expected(m), actual(m);
+                    sub(original, expected);
+                    sub(rewritten, actual);
+                    rw(expected);
+                    rw(actual);
+                    ENSURE(m.is_true(expected) || m.is_false(expected));
+                    ENSURE(actual == expected);
+                }
+            }
+        }
+    }
+}
+
+static void test_seq_regular_definitions() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref s(m.mk_const("defined-s", u.str.mk_string_sort()), m);
+    expr_ref h(m.mk_const("defined-head", s->get_sort()), m);
+    expr_ref t(m.mk_const("defined-tail", s->get_sort()), m);
+    expr_ref c(m.mk_const("defined-character", s->get_sort()), m);
+    expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+    expr_ref colon(u.str.mk_string(":"), m), alphabet(u.str.mk_string("aX"), m);
+    expr_ref dot(u.str.mk_string("."), m);
+    expr_ref index(u.str.mk_index(s, colon, zero), m);
+    expr_ref after(a.mk_add(index, one), m);
+    expr_ref len(u.str.mk_length(s), m);
+    expr_ref rest(a.mk_sub(len, after), m);
+    expr_ref head(u.str.mk_substr(s, zero, index), m);
+    expr_ref tail(u.str.mk_substr(s, after, rest), m);
+    expr_ref character(u.str.mk_at(h, zero), m);
+    expr_ref_vector definitions(m), inputs(m), pin(m);
+    definitions.push_back(m.mk_eq(h, head));
+    definitions.push_back(m.mk_eq(t, tail));
+    definitions.push_back(m.mk_eq(c, character));
+    inputs.append(definitions);
+    inputs.push_back(u.str.mk_contains(alphabet, c));
+    pin.push_back(u.str.mk_length(h));
+    inputs.push_back(m.mk_eq(pin.back(), one));
+    pin.push_back(u.str.mk_length(t));
+    inputs.push_back(a.mk_gt(pin.back(), zero));
+    pin.push_back(u.str.mk_contains(t, dot));
+    inputs.push_back(m.mk_not(pin.back()));
+    expr_ref original(mk_and(inputs), m);
+    for (bool labeled : {false, true}) {
+        base_dependent_expr_state state(m);
+        for (expr* input : inputs) {
+            expr_ref label(m.mk_fresh_const("definition-label", m.mk_bool_sort()), m);
+            pin.push_back(label);
+            state.add(dependent_expr(m, input, nullptr, labeled ? m.mk_leaf(label) : nullptr));
+        }
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        expr_ref rewritten(state[0].fml(), m);
+        ENSURE(rewritten != inputs[0]);
+        expr_ref_vector conjuncts(m);
+        flatten_and(rewritten, conjuncts);
+        for (expr* definition : definitions) ENSURE(conjuncts.contains(definition));
+        bool membership = false;
+        for (expr* conjunct : conjuncts) {
+            expr *source, *language;
+            membership |= u.str.is_in_re(conjunct, source, language) && source == s;
+        }
+        ENSURE(membership);
+        if (labeled) {
+            ptr_vector<expr> premises;
+            m.linearize(state[0].dep(), premises);
+            ENSURE(premises.size() == inputs.size());
+        }
+        for (char const* text : {"", "a", "a:", ":a", "a:b", "X:q", "a:b.c",
+                                 "a:b:c", "b:q", "aa:b"}) {
+            for (bool wrong_character : {false, true}) {
+                expr_ref word(u.str.mk_string(text), m);
+                expr_safe_replace sub(m);
+                sub.insert(s, word);
+                for (expr* definition : definitions) {
+                    app* eq = to_app(definition);
+                    expr_ref value(m);
+                    sub(eq->get_arg(1), value);
+                    rw(value);
+                    if (wrong_character && eq->get_arg(0) == c)
+                        value = u.str.mk_string("z");
+                    sub.insert(eq->get_arg(0), value);
+                }
+                expr_ref expected(m), actual(m);
+                sub(original, expected);
+                sub(rewritten, actual);
+                rw(expected);
+                rw(actual);
+                ENSURE(m.is_true(expected) || m.is_false(expected));
+                ENSURE(actual == expected);
+            }
+        }
+    }
+    {
+        expr_ref other(m.mk_const("defined-other", s->get_sort()), m);
+        expr_ref relation(m.mk_eq(s, other), m);
+        base_dependent_expr_state state(m);
+        for (expr* input : inputs)
+            state.add(dependent_expr(m, input, nullptr, nullptr));
+        state.add(dependent_expr(m, relation, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        for (unsigned i = 0; i < inputs.size(); ++i)
+            ENSURE(state[i].fml() == inputs[i]);
+        ENSURE(state[inputs.size()].fml() == relation);
+    }
+    {
+        expr_ref recursive(u.str.mk_at(h, zero), m);
+        expr_ref definition(m.mk_eq(h, recursive), m);
+        expr_ref observation(u.str.mk_contains(alphabet, h), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, definition, nullptr, nullptr));
+        state.add(dependent_expr(m, observation, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == definition && state[1].fml() == observation);
+    }
+    {
+        expr_ref flag(m.mk_const("conditional-definition", m.mk_bool_sort()), m);
+        expr_ref conditional(m.mk_or(flag, definitions.get(0)), m);
+        expr_ref observation(u.str.mk_contains(alphabet, character), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, conditional, nullptr, nullptr));
+        state.add(dependent_expr(m, observation, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == conditional && state[1].fml() == observation);
+    }
+}
+
 static void test_seq_regular() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1670,6 +1929,14 @@ static void test_seq_regular() {
     cases.push_back(conditional);
     cases.push_back(hold(m.mk_not(conditional)));
     expr* first_a = contains(first, "a");
+    expr* first_b = eq(first, "b");
+    cases.push_back(hold(u.str.mk_contains(text("aX"), first)));
+    cases.push_back(hold(u.str.mk_contains(empty, first)));
+    expr* first_either = hold(m.mk_or(first_a, first_b));
+    cases.push_back(first_either);
+    cases.push_back(hold(m.mk_and(first_either, prefix_a)));
+    expr* impossible_first = hold(m.mk_and(first_a, first_b));
+    cases.push_back(hold(m.mk_or(impossible_first, tail_b)));
     expr* fixed_b = eq(fixed, "b");
     cases.push_back(hold(m.mk_ite(first_a, conditional, fixed_b)));
     cases.push_back(hold(a.mk_lt(len, integer(2))));
@@ -1726,6 +1993,14 @@ static void test_seq_regular() {
             ENSURE(m.is_true(original) || m.is_false(original));
             ENSURE(original == result);
         }
+    }
+    {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, conditional, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        expr *source, *language;
+        ENSURE(u.str.is_in_re(state[0].fml(), source, language) && source == s);
     }
     {
         base_dependent_expr_state state(m);
@@ -1994,6 +2269,8 @@ void tst_simplifier() {
 
     test_seq_decimal_comparisons();
     test_seq_bounded_conversions();
+    test_seq_conversion_ranges();
+    test_seq_regular_definitions();
     test_seq_regular();
     test_use_aware_replace_contains();
     test_bit2int_proofs();

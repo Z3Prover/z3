@@ -1398,8 +1398,17 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     }
  
 
-    if (!constantPos) 
+    if (!constantPos) {
+        // The shared length makes nonpositive offsets empty on both sides.
+        if (b == c && str().is_unit(as.get(0))) {
+            expr_ref tail(str().mk_concat(as.size() - 1, as.data() + 1, a_sort), m());
+            expr_ref one(m_autil.mk_int(1), m());
+            expr_ref position(m_autil.mk_sub(b, one), m());
+            result = str().mk_substr(tail, position, c);
+            return BR_REWRITE3;
+        }
         return BR_FAILED;
+    }
 
     unsigned offset = 0;
     for (; offset < as.size() && str().is_unit(as.get(offset)) && offset < pos; ++offset) {};
@@ -2182,6 +2191,15 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_empty(a) && str().is_empty(c)) {
         result = a;
         return BR_DONE;
+    }
+
+    expr *source, *index;
+    if (str().is_empty(c) && str().is_at(b, source, index) &&
+        source == a && m_autil.is_zero(index)) {
+        expr_ref one(m_autil.mk_int(1), m());
+        expr_ref length(str().mk_length(a), m());
+        result = str().mk_substr(a, one, length);
+        return BR_REWRITE2;
     }
 
     m_lhs.reset();
