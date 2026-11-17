@@ -152,9 +152,11 @@ namespace smt {
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         void collect_statistics(::statistics& st) const override;
+        bool is_shared(theory_var v) const override;
         void init_model(model_generator& mg) override;
         void finalize_model(model_generator& mg) override;
         model_value_proc* mk_value(enode* n, model_generator& mg) override;
+        bool include_func_interp(func_decl* f) override { return m_seq.str.is_nth_u(f); }
 
         // Build models from the SAT snapshot left by the search tree.
         bool build_models() const override { return true; }

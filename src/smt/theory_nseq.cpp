@@ -770,6 +770,14 @@ namespace smt {
         }
     }
 
+    bool theory_nseq::is_shared(theory_var v) const {
+        // Distinct nth_u choices can require distinct sequence arguments.
+        for (enode* p : get_enode(v)->get_root()->get_parents())
+            if (m_seq.str.is_nth_u(p->get_expr()))
+                return true;
+        return false;
+    }
+
     bool theory_nseq::assume_shared_equalities() {
         ptr_vector<enode> shared;
         for (unsigned v = 0, sz = get_num_vars(); v < sz; ++v) {

@@ -1486,7 +1486,7 @@ namespace {
     }
 
     static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr,
-                                          unsigned budget = 1000000) {
+                                          unsigned budget = 1000000, char const* logic = "QF_SLIA") {
         ast_manager m;
         reg_decl_plugins(m);
         scoped_rlimit limit(m.limit(), budget);
@@ -1496,7 +1496,7 @@ namespace {
         params_ref p;
         p.set_sym("string_solver", symbol("nseq"));
         p.set_bool("model", true);
-        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        ref<solver> s = mk_smt2_solver(m, p, symbol(logic));
         for (expr* assertion : cmd.assertions())
             s->assert_expr(assertion);
         auto check_model = [&]() {
@@ -1523,6 +1523,48 @@ namespace {
             s->pop(1);
             check_model();
         }
+    }
+
+    static void tst_nseq_nth_models() {
+        char const* cases[] = {
+            R"(
+                (declare-const s (Seq (Seq Int)))
+                (assert (= (seq.len (seq.nth s 0)) 3))
+            )",
+            R"(
+                (declare-const s (Seq (Seq Bool)))
+                (assert (seq.nth (seq.nth s 0) 1))
+            )",
+            R"(
+                (declare-const y Int)
+                (declare-const b (Seq Int))
+                (declare-const c (Seq Int))
+                (assert (> y 0))
+                (assert (distinct (seq.nth b 1) (seq.nth c y)))
+            )",
+            R"(
+                (declare-const s (Seq Int))
+                (assert (= (seq.len s) 0))
+                (assert (distinct (seq.nth s 0) (seq.nth s 1)))
+            )",
+            R"(
+                (declare-const b (Seq Int))
+                (declare-const c (Seq Int))
+                (assert (distinct (seq.nth b (- 1)) (seq.nth c (- 1))))
+            )",
+            R"(
+                (declare-const a (Seq Int))
+                (declare-const b (Seq Int))
+                (declare-const c (Seq Int))
+                (declare-const x Int)
+                (declare-const y Int)
+                (assert (or (= b c) (= a c)))
+                (assert (= (seq.nth c 0) (seq.nth c x)))
+                (assert (distinct (seq.nth b y) (seq.nth c y)))
+            )"
+        };
+        for (char const* input : cases)
+            check_nseq_candidate_model(input, true, nullptr, 1000000, "ALL");
     }
 
     static void tst_nseq_stoi_model_completion() {
@@ -2082,6 +2124,7 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_nth_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();
