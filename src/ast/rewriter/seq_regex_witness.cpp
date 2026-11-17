@@ -240,7 +240,7 @@ namespace seq {
                 element = u().str.mk_char(text[0]);
             else if (!u().str.is_unit(piece, element))
                 return l_undef;
-            state = m_rw.mk_derivative(element, state);
+            state = m_rw.get_derive()(derivative_kind::brzozowski_t, element, state);
             if (re().is_empty(state))
                 return l_false;
         }

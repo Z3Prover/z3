@@ -1961,6 +1961,15 @@ static void test_seq_regular() {
         ENSURE(next == begin);
     }
     th_rewriter rw(m);
+    for (int width : {2, 3}) {
+        expr* bounded = hold(u.str.mk_substr(s, zero, integer(width)));
+        expr* bounded_length = hold(u.str.mk_length(bounded));
+        expr_ref remaining(a.mk_sub(bounded_length, one), m);
+        rw(remaining);
+        expr* bounded_tail = hold(u.str.mk_substr(bounded, one, remaining));
+        cases.push_back(contains(bounded_tail, "a"));
+        cases.push_back(eq(bounded_tail, ""));
+    }
     {
         expr* expanded = hold(u.str.mk_replace(s, a_word, text("bb")));
         expr* character = hold(u.re.mk_full_char(colon_re->get_sort()));

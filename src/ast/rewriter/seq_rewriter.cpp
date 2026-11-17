@@ -3851,7 +3851,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                 return BR_DONE;
             }
             unsigned ch = s[i];
-            expr_ref new_r = mk_derivative(m_util.mk_char(ch), r);
+            expr_ref new_r = m_derive(seq::derivative_kind::brzozowski_t, m_util.mk_char(ch), r);
             r = new_r;
         }
 

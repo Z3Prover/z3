@@ -21,6 +21,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_witness.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "util/rlimit.h"
 #include <iostream>
 #include <string>
@@ -161,6 +162,47 @@ public:
             report("a*, max_states=1", m_wit.nonempty(star(a)), l_true);
             m_wit.set_max_states(saved);
             report("abc, bound restored", m_wit.nonempty(word("abc")), l_true);
+        }
+
+        std::cout << "=== regex_witness: Boolean concrete membership ===\n";
+        {
+            expr_ref full = dotstar();
+            expr_ref r(full, m);
+            for (unsigned i = 0; i < 12; ++i) {
+                expr_ref first = word(zstring('a' + 2 * i));
+                expr_ref second = word(zstring('b' + 2 * i));
+                expr_ref left = cat(full, first);
+                left = cat(left, full);
+                expr_ref right = cat(full, second);
+                right = cat(right, full);
+                expr_ref either = alt(left, right);
+                r = inter(r, either);
+            }
+            expr_ref ch(u.mk_char('!'), m);
+            expr_ref derivative = m_rw.get_derive()(seq::derivative_kind::brzozowski_t, ch, r);
+            ENSURE(re().is_intersection(derivative));
+
+            expr_ref short_word(u.str.mk_string(zstring("!")), m);
+            app_ref membership(re().mk_in_re(short_word, r), m);
+            expr* args[] = { short_word, r };
+            unsigned before = m.get_num_asts();
+            expr_ref checked = m_rw.mk_app(membership->get_decl(), 2, args);
+            ENSURE(m.is_false(checked));
+            // A fixed witness must not materialize the exponential union of products.
+            ENSURE(m.get_num_asts() < before + 4096);
+
+            expr_ref accepted(u.str.mk_string(zstring("!acegikmoqsuw")), m);
+            expr_ref rejected(u.str.mk_string(zstring("!acegikmoqsu")), m);
+            report("Boolean regex, matching word", m_wit.accepts(accepted, r), l_true);
+            report("Boolean regex, missing a choice", m_wit.accepts(rejected, r), l_false);
+
+            th_rewriter simplify(m);
+            expr_ref result(re().mk_in_re(accepted, r), m);
+            simplify(result);
+            ENSURE(m.is_true(result));
+            result = re().mk_in_re(rejected, r);
+            simplify(result);
+            ENSURE(m.is_false(result));
         }
 
         std::cout << "=== regex_witness: flat repeated words ===\n";

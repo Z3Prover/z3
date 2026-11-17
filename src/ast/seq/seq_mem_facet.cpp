@@ -742,7 +742,10 @@ namespace seq {
                     break; 
                 }
                 VERIFY(u.str.is_unit(t, elem));
-                cur = m_rw.mk_derivative(elem, cur);
+                // Keep concrete witness checks factored instead of distributing intersections over unions.
+                cur = m.is_value(elem) ?
+                    m_rw.get_derive()(derivative_kind::brzozowski_t, elem, cur) :
+                    m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
                     return stx::simplify_result::conflict;

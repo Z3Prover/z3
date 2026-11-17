@@ -838,7 +838,13 @@ class regular_compiler {
                 unsigned k = v.get_unsigned();
                 linear sum = l;
                 sum.add(affine(i), rational(1));
-                if (sum == affine(slen)) {
+                bool tail = sum == affine(slen);
+                if (!tail) {
+                    th_rewriter simplify(m);
+                    simplify(slen);
+                    tail = sum == affine(slen);
+                }
+                if (tail) {
                     expr* yes = cat(length(k, k), r);
                     result = join(yes, nullable(r) && k ? length(0, k - 1) : empty);
                     ++preimages;

@@ -1932,7 +1932,7 @@ namespace sls {
         expr_ref r(_r, m);
         for (unsigned i = 0; i < s.length(); ++i) {
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            expr_ref r1 = rw.mk_derivative(ch, r);
+            expr_ref r1 = rw.get_derive()(seq::derivative_kind::brzozowski_t, ch, r);
             if (seq.re.is_empty(r1))
                 return false;   
             r = r1;
