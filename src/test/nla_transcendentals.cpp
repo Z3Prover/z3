@@ -369,6 +369,27 @@ void test_atan2_unsat_regression() {
     Z3_del_context(ctx);
 }
 
+void test_ignore_int_div_mod_sat() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-option :smt.arith.ignore_int true)\n"
+        "(set-logic QF_NIA)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(assert (and (<= (- 4) x) (<= x 4)))\n"
+        "(assert (and (<= (- 4) y) (<= y 4)))\n"
+        "(assert (distinct y (mod y 2)))\n"
+        "(assert (< (mod (div 0 (ite (= y 0) 1 y)) (- (* 5 x) 1)) y))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\n")
+        std::cout << response << "\n";
+    VERIFY(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
 void test_nla_transcendentals() {
     test_zero_exponent_power();
     test_sin_cos_identity_detects_conflict();
@@ -383,6 +404,7 @@ void test_nla_transcendentals() {
     test_transcendental_enclosures_do_not_certify_sat();
     test_pi_positive_sat();
     test_atan2_unsat_regression();
+    test_ignore_int_div_mod_sat();
 }
 
 } // namespace nla

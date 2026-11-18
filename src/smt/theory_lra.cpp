@@ -2254,9 +2254,9 @@ public:
             TRACE(arith, tout << "canceled\n";);
             return FC_CONTINUE;
         }
-        auto cr = m_lia->check(&m_explanation);
-        if (cr != lp::lia_move::sat && ctx().get_fparams().m_arith_ignore_int) 
+        if (ctx().get_fparams().m_arith_ignore_int)
             return FC_GIVEUP;
+        auto cr = m_lia->check(&m_explanation);
 
         switch (cr) {
         case lp::lia_move::sat:
@@ -2285,8 +2285,6 @@ public:
             return FC_CONTINUE;
         }
         case lp::lia_move::cut: {
-            if (ctx().get_fparams().m_arith_ignore_int) 
-                return FC_GIVEUP;
             TRACE(arith, tout << "cut\n";);
             // m_explanation implies term <= k
             reset_evidence();
