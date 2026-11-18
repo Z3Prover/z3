@@ -288,10 +288,18 @@ void tactic::display(params_ref const & p, tactic_display_ctx & ctx) {
     else
         ctx.leaf(std::string("(") + name() + ")",
                  join_comments(std::string("not parseable: no registered tactic for ") + name(), comment));
+    ctx.descrs.copy(d);
 }
 
-void display_tactic(std::ostream & out, tactic & t, params_ref const & p) {
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused) {
+    // First walk: collect the descriptors of the whole pipeline.
+    // lazy_tactic builds its tactic when displayed, so the walk cannot be replaced
+    // by collect_param_descrs.
+    tactic_display_ctx all;
+    t.display(p, all);
     tactic_display_ctx ctx;
+    ctx.pipeline = &all.descrs;
+    ctx.unused = unused;
     t.display(p, ctx);
     std::vector<display_line> lines;
     for (display_node const & n : ctx.roots())

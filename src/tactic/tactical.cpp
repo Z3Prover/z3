@@ -1151,6 +1151,12 @@ public:
     // A key is written as syntax if the parser accepts it: the parser of using-params
     // requires that t declares the key in collect_param_descrs. Other keys go in a
     // "not parseable:" comment.
+    //
+    // A parameter set here is [unused] if no tactic of the pipeline declares it.
+    // It is not checked if it is passed on unchanged from p: it is checked where it is set.
+    // Checking against the tactics below instead of the whole pipeline would flag
+    // the idiom q = p; q.set_*(...); using_params(t, q): q carries every key of the
+    // factory parameters p, which are meant for other steps.
     void display(params_ref const & p, tactic_display_ctx & ctx) override {
         if (m_params.size() == 0) {
             m_t->display(p, ctx);
@@ -1166,10 +1172,16 @@ public:
             std::ostringstream v;
             m_params.display(v, k);
             std::string entry = ":" + std::string(k.str()) + " " + v.str();
-            if (has_syntax(child, k))
-                tail += (tail.empty() ? "" : " ") + entry;
+            bool unused = ctx.pipeline && !declares(*ctx.pipeline, k) && !is_inherited(p, k, v.str());
+            if (unused && ctx.unused)
+                ctx.unused->push_back(k);
+            std::string note;
+            if (!has_syntax(child, k))
+                note = entry + (unused ? " [unused]" : "");
             else
-                comment += (comment.empty() ? "not parseable: " : ", ") + entry;
+                tail += (tail.empty() ? "" : " ") + entry;
+            if (!note.empty())
+                comment += (comment.empty() ? "not parseable: " : ", ") + note;
         }
         ctx.open("(using-params");
         m_t->display(new_p, ctx);
@@ -1184,6 +1196,18 @@ public:
         default:
             return false;
         }
+    }
+
+    static bool declares(param_descrs const & d, symbol k) {
+        return d.get_kind_in_module(k) != CPK_INVALID;
+    }
+
+    static bool is_inherited(params_ref const & p, symbol const & k, std::string const & v) {
+        if (!p.contains(k))
+            return false;
+        std::ostringstream w;
+        p.display(w, k);
+        return w.str() == v;
     }
 
     void updt_params(params_ref const & p) override {

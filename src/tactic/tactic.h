@@ -50,6 +50,13 @@ struct tactic_display_ctx {
         std::vector<node> children;
         bool              is_leaf = true;
     };
+    // out: descriptors of the tactics displayed with this context
+    param_descrs           descrs;
+    // in: descriptors of every tactic of the pipeline, collected by a previous walk
+    param_descrs const *   pipeline = nullptr;
+    // out: the parameters marked [unused]
+    svector<symbol> *      unused = nullptr;
+
     tactic_display_ctx() { m_stack.push_back(node()); }
     void leaf(std::string const & text, std::string const & comment = std::string());
     void open(std::string const & head, std::string const & comment = std::string());
@@ -79,8 +86,9 @@ public:
        Combinators display their children with the parameters the children receive,
        so a leaf shows the values in effect for it. The default displays a leaf: the
        display name, with the entries of \c p declared by collect_param_descrs in a
-       comment. Parameters that a tactic only receives through its constructor are
-       not shown. Use display_tactic to display a pipeline.
+       comment, and adds its descriptors to ctx.descrs. Parameters that a tactic only
+       receives through its constructor are not shown. Use display_tactic to display
+       a pipeline.
     */
     virtual void display(params_ref const & p, tactic_display_ctx & ctx);
 
@@ -224,9 +232,10 @@ void display_tactic_params(std::ostream & out, params_ref const & p, param_descr
    in the syntax of the tactic language.
 
    The output parses back with check-sat-using unless it contains a comment
-   "not parseable:".
+   "not parseable:". A parameter set by using_params is marked [unused] if no tactic
+   of the pipeline declares it in collect_param_descrs, and it is then added to \c unused.
 */
-void display_tactic(std::ostream & out, tactic & t, params_ref const & p);
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused = nullptr);
 
 /**
    \brief Quote \c s as a string of the tactic language.

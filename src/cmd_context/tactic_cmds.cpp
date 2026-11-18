@@ -16,6 +16,7 @@ Notes:
 
 --*/
 #include<sstream>
+#include <algorithm>
 #include "cmd_context/tactic_cmds.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/cmd_util.h"
@@ -107,6 +108,36 @@ void help_tactic(cmd_context & ctx) {
 
 ATOMIC_CMD(help_tactic_cmd, "help-tactic", "display the tactic combinators and primitives.", help_tactic(ctx););
 
+// One line listing each [unused] key once, most frequent first: "; unused parameters: k (n), ...".
+static void display_unused_summary(std::ostream & out, svector<symbol> const & unused) {
+    if (unused.empty())
+        return;
+    svector<symbol> keys;
+    svector<unsigned> counts;
+    for (symbol const & k : unused) {
+        unsigned i = 0;
+        for (; i < keys.size(); ++i)
+            if (keys[i] == k)
+                break;
+        if (i == keys.size()) {
+            keys.push_back(k);
+            counts.push_back(0);
+        }
+        counts[i]++;
+    }
+    svector<unsigned> order;
+    for (unsigned i = 0; i < keys.size(); ++i)
+        order.push_back(i);
+    std::stable_sort(order.begin(), order.end(), [&](unsigned a, unsigned b) { return counts[a] > counts[b]; });
+    out << "; unused parameters:";
+    bool first = true;
+    for (unsigned i : order) {
+        out << (first ? " " : ", ") << keys[i] << " (" << counts[i] << ")";
+        first = false;
+    }
+    out << "\n";
+}
+
 // Display a tactic without running it, in the tactic language: the steps, the probes
 // guarding them, and in comments the parameters each step receives (see display_tactic).
 class display_tactic_cmd : public cmd {
@@ -126,7 +157,9 @@ public:
         // the parameters check-sat-using passes to its tactic
         params_ref p = ctx.params().merge_default_params(params_ref());
         tactic_ref t = sexpr2tactic(ctx, m_tactic);
-        display_tactic(ctx.regular_stream(), *t, p);
+        svector<symbol> unused;
+        display_tactic(ctx.regular_stream(), *t, p, &unused);
+        display_unused_summary(ctx.regular_stream(), unused);
     }
 };
 
