@@ -71,6 +71,7 @@
     X(small_object_allocator) \
     X(context_params) \
     X(params) \
+    X(tactic_unused_params) \
     X(timeout) \
     X(proof_checker) \
     X(proof_replay) \

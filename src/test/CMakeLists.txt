@@ -33,6 +33,7 @@ add_executable(test-z3
   cnf_backbones.cpp
   context_params.cpp
   params.cpp
+  tactic_unused_params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
