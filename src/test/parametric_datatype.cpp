@@ -265,13 +265,17 @@ static void test_array_field_cardinality() {
     }
 }
 
-static void check_datatype_commands(char const* input, char const* expected) {
+static void check_datatype_commands(char const* input, char const* expected, char const* string_solver = nullptr) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-    std::string actual = Z3_eval_smtlib2_string(ctx, input);
+    std::string commands;
+    if (string_solver)
+        commands = "(set-option :smt.string_solver " + std::string(string_solver) + ")\n";
+    commands += input;
+    std::string actual = Z3_eval_smtlib2_string(ctx, commands.c_str());
     if (actual != expected)
-        std::cout << input << "\n" << actual;
+        std::cout << commands << "\n" << actual;
     ENSURE(actual == expected);
     Z3_del_context(ctx);
 }
@@ -318,6 +322,145 @@ static void test_sequence_field_occurs_check() {
         "(assert (= (seq.nth s 0) x))\n"
         "(check-sat)\n";
     check_datatype_commands(input.c_str(), "unsat\nsat\n");
+}
+
+static void test_sequence_field_occurs_check_terminates(char const* solver) {
+    char const* input =
+        "(declare-sort E)\n"
+        "(declare-datatypes ((S 0)) (((leaf (val E)) (block (stmts (Seq S))))))\n"
+        "(declare-const s S)\n"
+        "(declare-const t S)\n"
+        "(assert ((_ is block) t))\n"
+        "(assert ((_ is block) s))\n"
+        "(assert (= s (seq.nth (stmts t) 2)))\n"
+        "(assert (>= (seq.len (stmts s)) 5))\n"
+        "(check-sat)\n"
+        "(assert (= s (block (seq.unit s))))\n"
+        "(check-sat)\n";
+    check_datatype_commands(input, "sat\nunsat\n", solver);
+}
+
+static void test_nested_sequence_field_occurs_check(char const* solver) {
+    for (unsigned depth : {2, 3}) {
+        std::string field = "Tree", unit = "t", leaf = "leaf";
+        for (unsigned i = 0; i < depth; ++i) {
+            field = "(Seq " + field + ")";
+            unit = "(seq.unit " + unit + ")";
+            leaf = "(seq.unit " + leaf + ")";
+        }
+        std::string prelude =
+            "(declare-datatype Tree ((leaf) (node (children " + field + "))))\n"
+            "(declare-const t Tree)\n";
+        std::string input = prelude +
+            "(assert (= t (node " + unit + ")))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n", solver);
+        input = prelude +
+            "(declare-const s " + field + ")\n"
+            "(assert (= t (node s)))\n"
+            "(push)\n(assert (= s " + unit + "))\n(check-sat)\n(pop)\n"
+            "(assert (= s " + leaf + "))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n", solver);
+    }
+    char const* prelude =
+        "(declare-datatype Tree ((leaf) (node (children (Seq (Seq Tree))))))\n"
+        "(declare-const t Tree)\n"
+        "(declare-const s (Seq (Seq Tree)))\n"
+        "(declare-const u (Seq Tree))\n";
+    for (char const* cycle : {
+            "(assert (= t (node (seq.++ s (seq.unit (seq.unit leaf))))))\n"
+            "(assert (= s (seq.unit u)))\n"
+            "(assert (= u (seq.++ (seq.unit leaf) (seq.unit t))))\n",
+            "(assert (= t (node s)))\n"
+            "(assert (> (seq.len s) 0))\n"
+            "(assert (= u (seq.nth s 0)))\n"
+            "(assert (> (seq.len u) 0))\n"
+            "(assert (= t (seq.nth u 0)))\n",
+            "(declare-const v Tree)\n"
+            "(assert (= t (node (seq.unit (seq.unit v)))))\n"
+            "(assert (= v (node (seq.unit (seq.unit t)))))\n"}) {
+        std::string input = std::string(prelude) + cycle + "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n", solver);
+    }
+}
+
+static void test_mixed_container_occurs_check(char const* solver) {
+    for (char const* schema : {"SS", "FF", "AS", "SF", "FS", "AF", "SAFAS"}) {
+        std::string field = "Tree", cycle = "t", control = "leaf", declarations, cycles, controls;
+        unsigned index = 0;
+        for (char kind : std::string(schema)) {
+            std::string name = "s" + std::to_string(index++);
+            if (kind == 'S') {
+                field = "(Seq " + field + ")";
+                cycle = "(seq.unit " + cycle + ")";
+                control = "(seq.unit " + control + ")";
+            }
+            else if (kind == 'A') {
+                field = "(Array Int " + field + ")";
+                cycle = "((as const " + field + ") " + cycle + ")";
+                control = "((as const " + field + ") " + control + ")";
+            }
+            else {
+                field = "(FiniteSet " + field + ")";
+                cycle = "(set.singleton " + cycle + ")";
+                control = "(set.singleton " + control + ")";
+            }
+            declarations += "(declare-const " + name + " " + field + ")\n";
+            cycles += "(assert (= " + name + " " + cycle + "))\n";
+            controls += "(assert (= " + name + " " + control + "))\n";
+            cycle = control = name;
+        }
+        std::string input =
+            "(declare-datatype Tree ((leaf) (node (children " + field + "))))\n"
+            "(declare-const t Tree)\n" + declarations +
+            "(assert (= t (node " + cycle + ")))\n"
+            "(push)\n" + cycles + "(check-sat)\n(pop)\n" +
+            controls + "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n", solver);
+    }
+    check_datatype_commands(
+        "(declare-datatypes ((A 0) (B 0))\n"
+        " (((al) (an (af (Seq (Array Int B)))))\n"
+        "  ((bl) (bn (bf (FiniteSet (Seq A)))))))\n"
+        "(declare-const a A) (declare-const b B)\n"
+        "(assert (= a (an (seq.unit ((as const (Array Int B)) b)))))\n"
+        "(push)\n(assert (= b (bn (set.singleton (seq.unit a)))))\n"
+        "(check-sat)\n(pop)\n(assert (= b bl))\n(check-sat)\n", "unsat\nsat\n", solver);
+    check_datatype_commands(
+        "(declare-datatype T ((leaf) (node (children (Seq (Array Int (FiniteSet T)))))))\n"
+        "(declare-const t T) (declare-const a (Array Int (FiniteSet T)))\n"
+        "(declare-const b Bool)\n"
+        "(assert (= t (node (seq.unit a))))\n"
+        "(assert (or (not b) (set.in t (select a 0))))\n"
+        "(push)\n(assert b)\n(check-sat)\n(pop)\n"
+        "(assert (not b))\n(check-sat)\n", "unsat\nsat\n", solver);
+    check_datatype_commands(
+        "(declare-datatype T ((leaf) (node (children (Seq (FiniteSet T))))))\n"
+        "(declare-const t T) (declare-const s (Seq (FiniteSet T)))\n"
+        "(assert (= t (node s)))\n"
+        "(assert (= s (seq.++ s (as seq.empty (Seq (FiniteSet T))))))\n"
+        "(assert (= s (seq.unit (set.difference (set.singleton t) (set.singleton t)))))\n"
+        "(check-sat)\n", "sat\n", solver);
+    check_datatype_commands(
+        "(declare-datatype T ((leaf) (node (children (Seq (Array Bool (Seq T)))))))\n"
+        "(declare-const t T) (declare-const a (Array Bool (Seq T)))\n"
+        "(assert (= t (node (seq.unit a))))\n"
+        "(push)\n"
+        "(assert (= a (store (store ((as const (Array Bool (Seq T))) (seq.unit t))\n"
+        " false (as seq.empty (Seq T))) true (as seq.empty (Seq T)))))\n"
+        "(check-sat)\n", "sat\n", solver);
+    check_datatype_commands(
+        "(declare-datatype T ((leaf) (node (children (Seq (FiniteSet T))))))\n"
+        "(declare-const t T) (declare-const u (FiniteSet T))\n"
+        "(declare-const v (FiniteSet T))\n"
+        "(assert (= t (node (seq.unit (set.difference u v)))))\n"
+        "(check-sat)\n(push)\n"
+        "(assert (= u (set.singleton t)))\n"
+        "(assert (= v (set.singleton t)))\n(check-sat)\n", "sat\nsat\n", solver);
+    check_datatype_commands(
+        "(declare-datatype T ((leaf) (node (children (Seq (FiniteSet T))))))\n"
+        "(declare-const t T) (declare-const u (FiniteSet T))\n"
+        "(assert (= t (node (seq.unit (set.union u (set.singleton t))))))\n"
+        "(check-sat)\n", "unsat\n", solver);
 }
 
 static void test_subterm_recursive_polarity() {
@@ -381,6 +524,11 @@ void tst_parametric_datatype() {
     test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
+    for (char const* solver : {"seq", "nseq"}) {
+        test_sequence_field_occurs_check_terminates(solver);
+        test_nested_sequence_field_occurs_check(solver);
+        test_mixed_container_occurs_check(solver);
+    }
     test_subterm_recursive_polarity();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
