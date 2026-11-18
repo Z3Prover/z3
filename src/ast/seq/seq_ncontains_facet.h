@@ -22,6 +22,9 @@ Abstract:
     mismatch can shorten or discharge the obligation; unresolved variable
     alignments stay pending. An empty needle is an immediate conflict.
 
+    `ncontains_split` tries a shorter haystack as a sufficient case, retaining
+    the negative obligation in the complementary length case.
+
     `m_ncs` is append-only: removing or replacing an obligation only flips
     `m_active`, and replacements append a shortened obligation to the end.
     `m_qhead` records the first obligation that still needs scanning;
@@ -169,6 +172,34 @@ namespace seq {
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-ncontains-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
+    };
+
+    class ncontains_split : public eq_tree::split_plugin_i {
+        ast_manager& m;
+        seq_util& u;
+        unsigned m_num_splits = 0;
+
+        void apply_case(eq_tree::node& n, unsigned idx, expr* condition, bool shorter, eq_tree::edge& out);
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            ncontains_split& m_owner;
+            unsigned m_idx;
+            expr_ref m_condition;
+            bool m_pending = true;
+        public:
+            iterator(eq_tree::node& n, ncontains_split& owner, unsigned idx, expr* condition, ast_manager& m) :
+                m_n(n), m_owner(owner), m_idx(idx), m_condition(condition, m) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        ncontains_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        char const* name() const override { return "ncontains-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(
+            eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-ncontains-split num splits", m_num_splits); }
+        void reset_statistics() override { m_num_splits = 0; }
     };
 
 } // namespace seq

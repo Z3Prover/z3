@@ -99,6 +99,7 @@ namespace {
             tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, u, a));
             tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw));
             tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
+            tree.add_split_plugin(alloc(seq::ncontains_split, m, u));
             tree.set_max_search_depth(12);
         }
     };
@@ -234,6 +235,50 @@ namespace {
         ENSURE(nf.is_satisfied());
         fx.trail.pop_scope(1);
         ENSURE(fx.solver.get_scope_level() == 0);
+    }
+
+    static void tst_ncontains_symbolic_length_split() {
+        for (bool integers : { false, true }) {
+            fixture fx;
+            sort* s = integers ? fx.u.str.mk_seq(fx.a.mk_int()) : fx.s;
+            expr_ref h(fx.m.mk_fresh_const("h", s), fx.m);
+            expr_ref needle(fx.m.mk_fresh_const("needle", s), fx.m);
+            fx.root->facet_as<seq::ncontains_facet>(fx.nc_id).add_ncontains(h, needle);
+            ENSURE(fx.tree.solve() == stx::search_result::sat);
+        }
+    }
+
+    static void tst_ncontains_length_split_backtracking() {
+        fixture fx;
+        expr_ref h(fx.m.mk_fresh_const("h", fx.s), fx.m);
+        expr_ref needle(fx.m.mk_fresh_const("needle", fx.s), fx.m);
+        auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+        auto& sf = fx.root->facet_as<seq::solver_facet>(fx.arith_id);
+        auto& af = fx.root->facet_as<seq::assumption_facet>(fx.assumption_id);
+        nf.add_ncontains(h, needle);
+        seq::ncontains_split split(fx.m, fx.u);
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        fx.trail.push_scope();
+        auto it = split.split(*fx.root, 0, edge, more, committed);
+        ENSURE(it && more && committed && nf.is_satisfied());
+        sf.add_constraint(fx.m.mk_not(af.assumptions()[0].first));
+        ENSURE(sf.has_conflict());
+        fx.trail.pop_scope(1);
+        ENSURE(!nf.is_satisfied() && af.assumptions().empty() && !sf.has_conflict());
+
+        fx.trail.push_scope();
+        ENSURE(it->next(edge));
+        ENSURE(!nf.is_satisfied());
+        ENSURE(!split.split(*fx.root, 0, edge, more, committed));
+        ENSURE(!more && !committed);
+        expr_ref a(fx.u.str.mk_string("a"), fx.m);
+        auto& ef = fx.root->facet_as<seq::eq_facet>(fx.eq_id);
+        ef.add_equation(h, a);
+        ef.add_equation(needle, a);
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+        fx.trail.pop_scope(1);
+        ENSURE(!nf.is_satisfied() && af.assumptions().empty());
     }
 
     // `len(h) < len(n)` is asserted directly: `not contains("a","ab")`
@@ -530,6 +575,8 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_symbolic_length_split();
+    tst_ncontains_length_split_backtracking();
     tst_ncontains_symbolic_unit_clauses();
     tst_ncontains_symbolic_unit_false_clause();
     tst_ncontains_large_symbolic_units_deferred();

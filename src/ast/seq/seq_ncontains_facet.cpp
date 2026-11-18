@@ -432,4 +432,67 @@ namespace seq {
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
+    void ncontains_split::apply_case(
+        eq_tree::node& n, unsigned idx, expr* condition, bool shorter, eq_tree::edge& out) {
+        auto ac = get_ambient(n);
+        auto& sf = ac.solver_facet_ref();
+        auto& a = sf.get_arith_util();
+        auto& f = ac.ncontains_facet_ref();
+        auto const& nc = f.ncontains()[idx];
+        expr_ref zero(a.mk_int(0), m);
+        for (auto const* tokens : { &nc.m_haystack, &nc.m_needle })
+            for (expr* token : *tokens)
+                if (!u.str.is_unit(token))
+                    sf.add_constraint(a.mk_ge(u.str.mk_length(token), zero));
+        auto dep = ac.assumption_facet_ref().add_assumption(condition, ac.context());
+        sf.add_constraint(condition, dep);
+        if (shorter)
+            f.remove(idx);
+        out = eq_tree::edge(shorter ? "ncontains len<" : "ncontains len>=", dep, true, 0);
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> ncontains_split::split(
+        eq_tree::node& n, unsigned, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        auto& f = ac.ncontains_facet_ref();
+        if (f.is_satisfied())
+            return nullptr;
+        auto& sf = ac.solver_facet_ref();
+        auto& a = sf.get_arith_util();
+        th_rewriter rw(m);
+        for (unsigned idx = 0; idx < f.ncontains().size(); ++idx) {
+            auto const& nc = f.ncontains()[idx];
+            if (!nc.active())
+                continue;
+            expr_ref haystack(tokens_to_expr(u, m, nc.m_haystack), m);
+            expr_ref needle(tokens_to_expr(u, m, nc.m_needle), m);
+            expr_ref len_h(u.str.mk_length(haystack), m);
+            expr_ref len_n(u.str.mk_length(needle), m);
+            expr_ref shorter(a.mk_lt(len_h, len_n), m);
+            rw(shorter);
+            expr_ref longer(m.mk_not(shorter), m);
+            if (m.is_false(shorter) || sf.implies(longer) == l_true)
+                continue;
+
+            auto* it = alloc(iterator, n, *this, idx, longer, m);
+            apply_case(n, idx, shorter, true, out);
+            has_more = true;
+            committed = true;
+            ++m_num_splits;
+            return it;
+        }
+        return nullptr;
+    }
+
+    bool ncontains_split::iterator::next(eq_tree::edge& out) {
+        if (!m_pending)
+            return false;
+        m_pending = false;
+        // A longer haystack may still avoid the needle: keep the obligation.
+        m_owner.apply_case(m_n, m_idx, m_condition, false, out);
+        return true;
+    }
+
 } // namespace seq

@@ -1567,6 +1567,30 @@ namespace {
             check_nseq_candidate_model(input, true, nullptr, 1000000, "ALL");
     }
 
+    static void tst_nseq_symbolic_ncontains_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (not (str.contains x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const b Bool)
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const z String)
+            (assert (or b (str.contains (str.++ x z) (str.++ y z))))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const a (Seq Int))
+            (declare-const b (Seq Int))
+            (declare-const c (Seq Int))
+            (declare-const d (Seq Int))
+            (declare-const e (Seq Int))
+            (declare-const f (Seq Int))
+            (assert (or (seq.contains c (seq.++ d f)) (seq.contains (seq.++ a b) e)))
+        )", true, nullptr, 1000000, "ALL");
+    }
+
     static void tst_nseq_stoi_model_completion() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -2125,6 +2149,7 @@ void tst_seq_eq_facet() {
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
     tst_nseq_nth_models();
+    tst_nseq_symbolic_ncontains_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();
