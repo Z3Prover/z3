@@ -36,6 +36,7 @@ Author:
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include <algorithm>
+#include <functional>
 
 namespace seq {
 
@@ -412,6 +413,10 @@ namespace seq {
 
         // Deterministic simplification pass over all active disequations.
         bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
+
+        // Replace each adjacent token pair `t1 t2` by `merge(t1, t2)` where
+        // that is non-null, in every pending disequation. Trailed.
+        bool merge_adjacent(std::function<expr*(expr*, expr*)> const& merge);
     };
 
     // Deterministic propagation plugin wrapping deq_facet::simplify.

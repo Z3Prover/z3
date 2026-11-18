@@ -47,7 +47,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_parikh_n = p.seq_parikh_n();
     m_seq_parikh_chars = p.seq_parikh_chars();
     m_seq_eq_approx = p.seq_eq_approx();
-    m_seq_fine_wilf = p.seq_fine_wilf();
+    m_seq_power_trichotomy = p.seq_power_trichotomy();
     m_seq_mem_parikh = p.seq_mem_parikh();
     m_seq_monadic_leaf = p.seq_monadic_leaf();
     m_seq_monadic_leaf_budget = p.seq_monadic_leaf_budget();

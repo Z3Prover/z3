@@ -215,7 +215,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
-        m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_trichotomy, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
@@ -951,8 +951,16 @@ namespace smt {
                     proc->add_literal(m_seq.str.mk_empty(t->get_sort()));
                 else {
                     expr_ref exponent(m_autil.mk_int(count), m);
+                    // The base may be a variable bound by the leaf's substitutions.
+                    expr_ref_vector base_toks(m);
+                    if (snap)
+                        m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(s, base_toks);
+                    else
+                        m_seq.str.get_concat_units(s, base_toks);
                     proc->begin_power(exponent);
-                    add_token(s);
+                    for (expr* b : base_toks) {
+                        add_token(b);
+                    }
                     proc->end_power();
                 }
             }

@@ -126,6 +126,7 @@ namespace seq {
         void set_deq_id(stx::facet_id id) { m_deq_id = id; }
         void set_arith_id(stx::facet_id id) { m_arith_id = id; }
         void set_pow_id(stx::facet_id id) { m_pow_id = id; }
+        bool has_power_facet() const { return m_pow_id != no_facet; }
         void set_mem_id(stx::facet_id id) { m_mem_id = id; }
         void set_ncontains_id(stx::facet_id id) { m_ncontains_id = id; }
         void set_replace_all_id(stx::facet_id id) { m_replace_all_id = id; }

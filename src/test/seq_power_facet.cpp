@@ -65,7 +65,7 @@ namespace {
             tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
             tree.add_propagation_plugin(alloc(seq::power_propagation, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split, m, u, a));
-            tree.add_split_plugin(alloc(seq::power_fine_wilf, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_trichotomy, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split_elim, m, u, a));
             tree.add_split_plugin(alloc(seq::power_var_decompose, m, u, a));
             tree.add_split_plugin(alloc(seq::power_peel, m, u, a));
@@ -168,7 +168,7 @@ namespace {
 
     // Large equal-length powers beyond the unfolding bound must not be
     // spuriously refuted.
-    static void tst_fine_wilf_large_exponent_not_refuted() {
+    static void tst_two_powers_large_exponent_not_refuted() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -192,7 +192,7 @@ namespace {
     // e_w = Y^m, X and Y both length 1, with equation e_u = e_w and no
     // additional constraint pinning down the (equal, but otherwise
     // free) common length - sat via n = m = 0 (both sides epsilon).
-    static void tst_fine_wilf_sat() {
+    static void tst_two_powers_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -206,9 +206,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // Constrain the lengths so Fine-Wilf must use a progress case rather
-    // than the short-overlap case; the instance remains satisfiable.
-    static void tst_fine_wilf_progress_sat() {
+    // Same pattern with both powers pinned to length 5; still satisfiable.
+    static void tst_two_powers_fixed_length_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -524,11 +523,11 @@ void tst_seq_power_facet() {
     std::cout << "=== test5b ===\n" << std::flush;
     tst_power_symbolic_split_unsat();
     std::cout << "=== test5c ===\n" << std::flush;
-    tst_fine_wilf_sat();
+    tst_two_powers_sat();
     std::cout << "=== test5d ===\n" << std::flush;
-    tst_fine_wilf_large_exponent_not_refuted();
+    tst_two_powers_large_exponent_not_refuted();
     std::cout << "=== test5e ===\n" << std::flush;
-    tst_fine_wilf_progress_sat();
+    tst_two_powers_fixed_length_sat();
     std::cout << "=== test5f ===\n" << std::flush;
     tst_power_num_cmp_sat();
     std::cout << "=== test5g ===\n" << std::flush;
