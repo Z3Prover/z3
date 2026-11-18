@@ -566,15 +566,25 @@ namespace mbp {
             m_reduce_all_selects = false;
         }
 
-        bool is_equals (expr *e1, expr *e2) {
-            return e1 == e2 || (*m_mev)(e1) == (*m_mev)(e2);
+        lbool is_equals (expr *e1, expr *e2) {
+            if (e1 == e2)
+                return l_true;
+            expr_ref eq(m.mk_eq(e1, e2), m);
+            expr_ref val = (*m_mev)(eq);
+            if (m.is_true(val))
+                return l_true;
+            if (m.is_false(val))
+                return l_false;
+            return l_undef;
         }
 
-        bool is_equals (unsigned arity, expr * const* xs, expr * const * ys) {
+        lbool is_equals (unsigned arity, expr * const* xs, expr * const * ys) {
             for (unsigned i = 0; i < arity; ++i) {
-                if (!is_equals(xs[i], ys[i])) return false;
+                lbool r = is_equals(xs[i], ys[i]);
+                if (r != l_true)
+                    return r;
             }
-            return true;
+            return l_true;
         }
 
         expr_ref mk_eq(unsigned arity, expr * const* xs, expr * const * ys) {
@@ -672,6 +682,7 @@ namespace mbp {
          */
         expr* reduce_core (app *a) {
             if (!m_arr_u.is_store (a->get_arg (0))) return a;
+            app* select = a;
             expr* array = a->get_arg(0);
             unsigned arity = get_array_arity(array->get_sort());
 
@@ -682,14 +693,17 @@ namespace mbp {
                 expr* const* idxs = a->get_args() + 1;
                 expr_ref cond = mk_eq(arity, idxs, js);
 
-                if (is_equals (arity, idxs, js)) {
+                switch (is_equals (arity, idxs, js)) {
+                case l_true:
                     add_idx_cond (cond);
                     return a->get_arg (a->get_num_args() - 1);
-                }
-                else {
+                case l_false:
                     cond = m.mk_not (cond);
                     add_idx_cond (cond);
                     array = a->get_arg (0);
+                    break;
+                case l_undef:
+                    return select;
                 }
             }
             ptr_vector<expr> args;
@@ -1481,6 +1495,10 @@ namespace mbp {
         rs (mdl, arr_vars, fml, reduce_all_selects);
 
         TRACE(qe, tout << "Reduced selects:\n" << fml << "\n"; );
+
+        // Select reduction may introduce array equalities that can eliminate
+        // variables from the remaining formula.
+        pe (mdl, arr_vars, fml, aux_vars);
 
         // 3. project selects using model based ackermannization
         array_project_selects_util ps (m);
