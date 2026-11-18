@@ -690,6 +690,7 @@ namespace arith {
             ensure_column(v1);
             lp::impq r1 = get_ivalue(v1);
             rational r2;
+
             if (!r1.x.is_int() || r1.x.is_neg() || !r1.y.is_zero()) {
                 // TBD
                 // r1 = 223/4, r2 = 2, r = 219/8 
