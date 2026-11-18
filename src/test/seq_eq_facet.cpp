@@ -1618,6 +1618,18 @@ namespace {
         )");
     }
 
+    static void tst_nseq_large_witness_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (assert (>= (str.len x) 4294967296))
+            (assert (not (str.contains x "ABCD")))
+        )", false);
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (assert (>= (str.len x) 4294967296))
+        )");
+    }
+
     static void tst_nseq_epsilon_intersection_models() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -2198,6 +2210,7 @@ void tst_seq_eq_facet() {
     tst_nseq_symbolic_ncontains_models();
     tst_nseq_qfs_character_models();
     tst_nseq_large_membership_models();
+    tst_nseq_large_witness_models();
     tst_nseq_epsilon_intersection_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();

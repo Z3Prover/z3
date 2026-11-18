@@ -462,6 +462,15 @@ namespace seq {
         }
     }
 
+    static bool witness_matches_model_length(seq_util& u, seq_rewriter& rw, solver_facet_i& sf,
+                                             expr* var, expr* word) {
+        expr_ref length(u.str.mk_length(var), rw.m());
+        rational expected, actual;
+        // Larger lengths cannot be encoded as indexed loops in the witness query.
+        return !sf.value(length, expected) || expected.is_unsigned() ||
+            (rw.get_ground_seq_length(word, actual) && actual == expected);
+    }
+
     std::ostream& mem_facet::display(std::ostream& out) const {
         unsigned num_active = 0;
         for (auto const& sm : m_mems)
@@ -547,9 +556,17 @@ namespace seq {
             expr_substitution subst(m);
             if (m_mon.materialize_all(subst) != l_true)
                 result = l_undef;
-            else
-                for (auto const& entry : subst.sub())
-                    f.set_witness(&entry.get_key(), entry.get_value());
+            else {
+                for (auto const& entry : subst.sub()) {
+                    if (!witness_matches_model_length(u, m_rw, sf, &entry.get_key(), entry.get_value())) {
+                        result = l_undef;
+                        break;
+                    }
+                }
+                if (result == l_true)
+                    for (auto const& entry : subst.sub())
+                        f.set_witness(&entry.get_key(), entry.get_value());
+            }
         }
         m_mon_trail.pop_scope(1);
         return result;
@@ -897,6 +914,8 @@ namespace seq {
                 }
                 if (r == l_true) {
                     expr_mark seen;
+                    expr_ref_pair_vector witnesses(m);
+                    bool valid_lengths = true;
                     for (auto const& sm : f.memberships()) {
                         if (!sm.active() || sm.m_str.size() != 1)
                             continue;
@@ -905,16 +924,24 @@ namespace seq {
                             continue;
                         seen.mark(v);
                         expr_ref w = vw.materialize_witness(v);
-                        f.set_witness(v, w);
+                        if (!witness_matches_model_length(u, m_rw, sf, v, w)) {
+                            valid_lengths = false;
+                            break;
+                        }
+                        witnesses.push_back(v, w);
                     }
-                    f.set_witness_extracted();
-                    changed = true;
-                    vw.shrink(num_views);
-                    for (auto const& req : lens) {
-                        eq_tree::dep_tracker dep = ac.assumption_facet_ref().add_assumption(mk_len_eq(req), ac.context());
-                        vw.add(req.v, view::membership(mk_exact_len(req), m), static_cast<void*>(dep));
+                    if (valid_lengths) {
+                        for (auto const& [v, w] : witnesses)
+                            f.set_witness(v, w);
+                        f.set_witness_extracted();
+                        changed = true;
+                        vw.shrink(num_views);
+                        for (auto const& req : lens) {
+                            eq_tree::dep_tracker dep = ac.assumption_facet_ref().add_assumption(mk_len_eq(req), ac.context());
+                            vw.add(req.v, view::membership(mk_exact_len(req), m), static_cast<void*>(dep));
+                        }
+                        num_views = vw.size(); // drop_guesses must keep the trailed views
                     }
-                    num_views = vw.size(); // drop_guesses must keep the trailed views
                 }
             }
             }
