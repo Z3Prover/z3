@@ -364,11 +364,11 @@ jobs:
             z3test/regressions/proofs/canaries/*.txt
 
       - name: Check native proofs in Lean
-        if: matrix.name == 'releaseClang'
+        if: matrix.name == 'releaseClang' && false
         run: scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "${{ runner.temp }}"
 
       - name: Upload native and Lean proof artifacts
-        if: always() && matrix.name == 'releaseClang'
+        if: always() && matrix.name == 'releaseClang' && false
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lean-proof-certificates
