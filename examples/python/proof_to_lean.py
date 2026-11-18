@@ -11559,7 +11559,8 @@ def reconstruct(source, certificate):
                                            opaque_tactic=_opaque_tactic(graph, node),
                                            structural=(_farkas_combination(graph, node)
                                                        or _product_combination(graph, node)
-                                                       or _split_combination(graph, node)))
+                                                       or _split_combination(graph, node)
+                                                       or _sign_split(graph, node)))
             lines.extend(lemma)
             th_lemmas[node] = term
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:

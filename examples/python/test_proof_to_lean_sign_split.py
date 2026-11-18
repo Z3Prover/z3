@@ -528,6 +528,18 @@ class TestSignSplitValidation(unittest.TestCase):
                 self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
                 self.assertTrue(_split_steps(proof_to_lean.reconstruct(source, _export(source))))
 
+    def test_integer_cut_lemmas_with_products_get_sign_splits(self):
+        source = random_product_instance(894)
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        nodes = [node for node in range(len(graph.nodes))
+                 if graph.decl(node).name == "th-lemma" and graph.decl(node).parameters == ("cut",)]
+        node = next(node for node in nodes if proof_to_lean._sign_split(graph, node))
+        text = proof_to_lean.reconstruct(source, certificate)
+        start = text.index("private theorem th_lemma_%d " % node)
+        end = text.find("\nprivate ", start + 1)
+        self.assertIn("Int.lt_trichotomy", text[start:end if end >= 0 else None])
+
 
 class TestSignSplitLeanIntegration(unittest.TestCase):
     """End-to-end: clause log, certificate, Lean reconstruction, kernel check."""
