@@ -1277,7 +1277,6 @@ namespace arith {
     lbool solver::make_feasible() {
         TRACE(pcs, tout << lp().constraints(););
         auto status = lp().find_feasible_solution();
-        IF_VERBOSE(0, verbose_stream() << "LP feasibility " << status << "\n"; display(verbose_stream()));
         TRACE(arith_verbose, display(tout););
         TRACE(arith, tout << status << "\n");
         switch (status) {
@@ -1306,7 +1305,6 @@ namespace arith {
             if (p.second)
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
-                IF_VERBOSE(0, verbose_stream() << "equal arithmetic diseq: " << mk_bounded_pp(e.eq()->get_expr(), m) << "\n");
                 mk_diseq_axiom(e.v1(), e.v2());
                 TRACE(arith, tout << mk_bounded_pp(e.eq()->get_expr(), m) << " " << use_nra_model() << "\n");
                 found_diseq = true;
@@ -1321,13 +1319,10 @@ namespace arith {
         if (!m.inc())
             return l_undef;
         lbool lia_check = l_undef;
-        bool div_bounds_ok = check_idiv_bounds();
-        IF_VERBOSE(0, verbose_stream() << "check_lia idiv bounds " << div_bounds_ok << "\n");
-        if (!div_bounds_ok)
+        if (!check_idiv_bounds())
             return l_false;
 
         auto cr = m_lia->check(&m_explanation);
-        IF_VERBOSE(0, verbose_stream() << "check_lia int solver " << static_cast<unsigned>(cr) << "\n");
         if (cr != lp::lia_move::sat && ctx.get_config().m_arith_ignore_int) 
             return l_undef;
 

@@ -407,7 +407,8 @@ void bound_simplifier::get_bounds(expr* x, scoped_dep_interval& i) {
         get_bounds(y, iy);
         get_bounds(z, iz);
         if (!im.lower_is_inf(iz) && im.lower(iz) > 0 && 
-            !im.upper_is_inf(iy) && im.upper(iy) >= 0) {
+            !im.upper_is_inf(iy) && im.upper(iy) >= 0 &&
+            !im.lower_is_inf(iy) && im.lower(iy) >= 0) {
             im.set_upper_is_inf(tmp_i, false);
             im.set_upper_is_open(tmp_i, im.upper_is_open(iy));
             im.set_upper(tmp_i, im.upper(iy));
