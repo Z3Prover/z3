@@ -1860,10 +1860,9 @@ namespace seq {
                 expr_ref len(u.str.mk_length(var), m);
                 rational lo, hi;
                 eq_tree::dep_tracker lo_dep = nullptr, hi_dep = nullptr;
-                bool has_lo = ac.lower_bound(len, lo, lo_dep);
-                bool has_hi = ac.upper_bound(len, hi, hi_dep);
-                if (has_lo && lo.is_neg())
-                    has_lo = false;
+                // Only forward bounds that fit indexed regex-loop parameters.
+                bool has_lo = ac.lower_bound(len, lo, lo_dep) && lo.is_unsigned();
+                bool has_hi = ac.upper_bound(len, hi, hi_dep) && hi.is_unsigned();
                 // No bound known yet: leave `var` unmarked so a later
                 // membership mentioning it (e.g. from a split or
                 // substitution) gets another chance.
@@ -1873,19 +1872,18 @@ namespace seq {
                 sort* re_sort = u.re.mk_re(var->get_sort());
                 app* full_char = u.re.mk_full_char(re_sort);
                 expr* state = nullptr;
-                unsigned lo_u = has_lo ? (lo.is_unsigned() ? lo.get_unsigned() : 0) : 0;
+                unsigned lo_u = has_lo ? lo.get_unsigned() : 0;
                 if (has_lo && has_hi) {
                     // An infeasible range is an arithmetic conflict; leave
                     // it to `arith_propagation`.
-                    if (hi.is_neg() || hi < lo)
+                    if (hi < lo)
                         continue;
-                    unsigned hi_u = hi.is_unsigned() ? hi.get_unsigned() : lo_u;
-                    state = u.re.mk_loop_proper(full_char, lo_u, hi_u);
+                    state = u.re.mk_loop_proper(full_char, lo_u, hi.get_unsigned());
                 }
                 else if (has_lo)
                     state = u.re.mk_loop(full_char, lo_u);
                 else /* has_hi only */
-                    state = u.re.mk_loop_proper(full_char, 0, hi.is_unsigned() ? hi.get_unsigned() : 0);
+                    state = u.re.mk_loop_proper(full_char, 0, hi.get_unsigned());
 
                 eq_tree::dep_tracker dep = nullptr;
                 if (has_lo)
