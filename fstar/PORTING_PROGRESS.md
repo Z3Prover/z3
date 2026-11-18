@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T11:07:35-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T11:40:21-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -41,26 +41,23 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-16T15:05:01-08:00`; latest case `2026-11-16T15:05:01-08:00`; checker `a0ca7df92173`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-18T11:28:44-08:00`; latest case `2026-11-18T11:28:44-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 583 / 583 | 546 | 37 | 0 | 0 | 570 / 583 | 0 |
+| 98 / 583 | 97 | 1 | 0 | 485 | 95 / 98 | 0 |
 
-Observed proofs: **10960 ACCEPT / 348 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **463**.
+Observed proofs: **1351 ACCEPT / 15 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **17**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `arith/farkas` | 4 |
-| `arith/lp-monomial-interval` | 2 |
-| `assumed:nlsat` | 358 |
-| `nnf-neg` | 23 |
-| `quant-intro` | 41 |
-| `rewrite` | 11 |
-| `sk` | 18 |
-| `th-lemma` | 823 |
+| `nnf-neg` | 2 |
+| `quant-intro` | 2 |
+| `rewrite` | 1 |
+| `sk` | 2 |
+| `th-lemma` | 12 |
 
-State: **complete**. Per-case evidence and pins: session `files\int-quotient-fstar-pending-01`.
+State: **stage complete**. Per-case evidence and pins: session `files\current-fstar-pending-2671-01`.
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Last 10 incremental improvements
@@ -72,6 +69,8 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five `arith/farkas` steps accepted | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
+| Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
 | Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
 | Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
@@ -80,8 +79,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 | Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
 | Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
-| Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
-| Nov 15 23:39 | Nonnegative product draft, same Math.Exp proof; superseded by combined product replay | `arith/lp-monomial-interval` +2 / 2 PENDING | `real-nonnegative-math-exp-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -175,10 +172,15 @@ is linear or whether its producer evidence is malformed. The sample cohort has
 zero `arith/farkas` PENDING. On the identical frozen QF_LIA ring proof
 `23fedbd874be`, all five Farkas steps are accepted by Legacy and both
 independent-checker arms; the remaining independent PENDING are definitions
-and rewrites. The separate QF_NIA AProVE producer capture uses checker
+and rewrites. The current-pin trace shows the four `intro-def` entries define
+nullary integer `z3name!` symbols using paired ITE branch clauses. The
+independent definition replay accepts unary-Boolean paired definitions or
+direct nullary equalities, so neither route covers this shape; this is a
+checker coverage gap, not evidence of faulty Farkas generation. The separate QF_NIA AProVE producer capture uses checker
 `35ef16e3adce`, not `2671dc150931`, and does not establish proof identity.
 Evidence: session `files\periodic-smtlib-20261118T170450Z`,
 `files\ite-add-sample-02.json`, `files\extended-farkas-capture-02.json`.
+The current-pin entry trace is `files\ring-definitions-trace-2671-03.json`.
 
 An experimental integer-input binding bridge passed LP unit tests, but on the
 same QF_LIA ring input it changed the generated proof and increased root
