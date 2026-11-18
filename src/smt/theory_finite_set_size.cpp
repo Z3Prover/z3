@@ -430,13 +430,12 @@ namespace smt {
 
 
             expr_ref_vector props(m);
-            for (auto [n, b] : n2b)
-                props.push_back(mdl->is_true(b) ? b : m.mk_not(b));
             for (auto f : m_set_size_decls) {
                 for (auto n : ctx.enodes_of(f)) {
                     auto arg = n->get_arg(0);
                     auto b = n2b[arg];
                     auto b_is_true = mdl->is_true(b);
+                    props.push_back(b_is_true ? b : m.mk_not(b));
                     if (b_is_true) {
                         auto s = slack_sums[n->get_expr()];
                         s = s == z ? slack : a.mk_add(s, slack);
