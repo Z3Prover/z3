@@ -2053,6 +2053,8 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
 }
 
 seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) const {
+    if (lower > upper)
+        return info(true, l_false, UINT_MAX, 0, false);
     if (is_known()) {
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
         info r(interpreted, loop_nullable, 0, 0, classical);
