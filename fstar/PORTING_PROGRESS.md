@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T14:24:02-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T15:01:39-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -70,16 +70,16 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
 | Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
-| Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring `arith/farkas` steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
+| Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring arithmetic steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
-| Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five `arith/farkas` steps accepted | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
+| Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five arithmetic steps accepted (one native bound, four native Farkas) | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
 | Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
 | Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
 | Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
-| Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -184,12 +184,19 @@ gated to `m_farkas`, not `m_bound`; moreover, `set_evidence` omits hard
 definition constraints and constraints with no SAT-core source. These facts
 make a bound-evidence/replay gap plausible, but do not show that skipped
 constraints occur in the Count nodes. Their nonlinear residuals mean the
-visible payload is not a complete plain-linear certificate. The QF_LIA
-sample's five Farkas steps all pass; no current QF_LIA failure demonstrates
-an integer-rounding gap. Recover the full bound explanation before changing
-the Farkas checker or producer.
+visible payload is not a complete plain-linear certificate. On the exact
+frozen QF_LIA ring proof `23fedbd874be`, a same-process trace matches the
+frozen proof hash and finds five arithmetic nodes: native `arith bound` at
+655 and native `arith farkas` at 460, 912, 846 and 929. All five pass the
+current checker after both hint kinds are mapped to `ArithmeticFarkas`; the
+bound node is a valid linear certificate in this proof, not an
+integer-rounding failure. Recover full provenance for the separate nonlinear
+Count nodes before changing the Farkas checker or producer.
+Evidence: `ring-native-hints-2671-01.json`,
+`ring-native-hints-2671-01.stderr` and
+`ring-definitions-trace-2671-03.json`.
 
-On the identical frozen QF_LIA ring proof `23fedbd874be`, all five Farkas
+On the identical frozen QF_LIA ring proof `23fedbd874be`, all five arithmetic
 steps are accepted by Legacy and both independent-checker arms; the remaining
 independent PENDING are definitions and rewrites. The current-pin trace shows
 the four `intro-def` entries define nullary integer `z3name!` symbols using
@@ -204,9 +211,10 @@ faulty Farkas generation. Evidence: session
 
 The QF_LIA slice of that SMT-LIB sample capture contains 25 selected inputs:
 17 ACCEPT, one PARTIAL, two TIMEOUT and five UNKNOWN. The only PARTIAL is the
-ring proof above, with four `intro-def` PENDING; its five Farkas steps are
-accepted. The extended capture contains no selected QF_LIA inputs, so it
-provides no QF_LIA comparison. Two definitions have cross-entry dependencies,
+ring proof above, with four `intro-def` PENDING; its five arithmetic nodes
+(one native bound and four native Farkas) are accepted. The extended capture
+contains no selected QF_LIA inputs, so it provides no QF_LIA comparison. Two
+definitions have cross-entry dependencies,
 including `z3name!3` referring to `z3name!2` before the latter's definition
 entry. A sound replay therefore needs freshness checks and dependency-aware
 interpretation of all four constants; recognizing one paired-ITE formula in
