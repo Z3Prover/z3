@@ -562,6 +562,111 @@ def untrimmed_log():
     return patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf"))
 
 
+# Small inputs whose cnf lemmas are swept once their searches are made to
+# give up (_searches_give_up). In the first the clause is over the gates of
+# the assertion as they are: its sweep refutes it without a link, a
+# canonical gate, or the bridge between the two comparisons of x and y. In
+# the second three lemmas are swept, each with a canonical gate and a link.
+SWEPT_WITHOUT_DECLARATIONS = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (and (or (<= x y) p) (or (>= y x) q) (or a b c)))
+(assert (not c))
+(assert (not a))
+(assert (not b))
+(check-sat)
+"""
+SWEPT_THREE_TIMES = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (and (or (<= x y) p (not c)) (or (not (>= y x)) q) (or a b c) (or (not p) a) (or (not q) b)))
+(assert (not a))
+(assert (not b))
+(check-sat)
+"""
+
+
+def nested_under_units(depth):
+    """A formula nested depth levels deep, asserted after the units that decide every level of it.
+
+    (or (and .. p) r) over the formula of the level below, down to (or
+    (<= i j) (not u)), with u and every (not r) asserted first: Z3 logs
+    what is left of the formula under them, the units (<= i j) and p, and
+    the exporter ties (<= i j) to the units and the formula by a cnf
+    lemma. Its clause shares no gate with the formula, 2 * depth gates
+    above the comparison.
+    """
+    lines = ["(set-logic QF_LIA)", "(declare-const i Int)", "(declare-const j Int)", "(declare-const u Bool)"]
+    formula = "(or (<= i j) (not u))"
+    for level in range(depth):
+        lines += ["(declare-const p%d Bool)" % level, "(declare-const r%d Bool)" % level]
+        formula = "(or (and %s p%d) r%d)" % (formula, level, level)
+    lines.append("(assert u)")
+    lines += ["(assert (not r%d))" % level for level in range(depth)]
+    lines += ["(assert %s)" % formula, "(assert (> i j))", "(check-sat)"]
+    return "\n".join(lines) + "\n"
+
+
+@contextlib.contextmanager
+def _searches_give_up():
+    """Make the two searches of every cnf lemma give up, as they do on a large circuit, so that it is swept.
+
+    Yields, for the last reconstruction and by node, the characters of the
+    sweeps written (_Graph.swept) and the characters every sweep counted
+    while it ran (the links it does not keep and its failed searches
+    included).
+    """
+    prover = proof_to_lean._PropositionalProver
+    cnf_refutation, refutation, sweep = proof_to_lean._cnf_refutation, prover.refutation, prover.sweep
+    swept, spent, sweeping = {}, {}, []
+
+    def lemma(graph, memo, structure, bridges, budget=1, sweep=None):
+        sweeping.append(sweep is not None)
+        try:
+            return cnf_refutation(graph, memo, structure, bridges, budget, sweep)
+        finally:
+            sweeping.pop()
+            swept.clear()
+            swept.update(graph.swept)
+
+    def give_up(self, structure, facts=()):
+        if sweeping and sweeping[-1] and self.scope is None:
+            return None  # the plain search and the one over z3's core; the sweep's own refutation runs
+        return refutation(self, structure, facts)
+
+    def counted(self, structure, facts, chars=None):
+        try:
+            return sweep(self, structure, facts, chars)
+        finally:
+            spent[int(self.scope[0].rsplit("_", 1)[1])] = self.spent
+
+    with patch.object(proof_to_lean, "_cnf_refutation", lemma), patch.object(prover, "refutation", give_up), \
+            patch.object(prover, "sweep", counted):
+        yield swept, spent
+
+
+def _first_alternative_alone(text, name):
+    """The text with the lemma `name` proved by the first alternative of its `first` alone, and that alternative."""
+    start = text.index("private theorem %s " % name)
+    end = re.compile(r"\n(?! )").search(text, start).start()
+    head, _, attempts = text[start:end].partition("\n  first\n")
+    alternatives = attempts.split("\n    | (")
+    assert len(alternatives) > 1, name
+    return text[:start] + head + "\n  first\n" + alternatives[0] + text[end:], alternatives[0]
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -1217,15 +1322,18 @@ class TestIntegerValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "true-axiom must conclude true"):
             proof_to_lean.reconstruct(source, tampered)
         # The unit true matches false literals only: resolving it against a
-        # clause without one (a triangle-eq axiom) is rejected.
-        resolution = next(index for index, raw in enumerate(nodes)
-                          if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_UNIT_RESOLUTION
-                          and true_axiom in raw["arguments"])
-        triangle = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"])
+        # clause without one (a triangle-eq axiom) is rejected. The axiom
+        # must precede the resolution it is put into (since Z3's rewriter
+        # leaves equalities unnormalized, upstream #11698, the first
+        # triangle-eq follows the first such resolution).
+        resolutions = [index for index, raw in enumerate(nodes)
+                       if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_UNIT_RESOLUTION
+                       and true_axiom in raw["arguments"]]
+        triangles = [n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"]]
+        resolution, triangle = next((r, t) for r in resolutions for t in triangles if t < r)
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][resolution]["arguments"][0] = triangle
-        expected_error = "unit-resolution" if triangle < resolution else "earlier node index"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, expected_error):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unit-resolution"):
             proof_to_lean.reconstruct(source, tampered)
         # Z3's rewriter cancels the common factor of (div (* 2 x3) (- 2))
         # through an ite whose dead branch is (div (* 2 x3) 0): such a term
@@ -1494,8 +1602,11 @@ class TestIntegerValidation(unittest.TestCase):
         # refuted. The rewrite into their disjunction went to grind, which
         # ran out of heartbeats; it is now one De Morgan step per pair. The
         # lemmas discharging the pairs' hypotheses projected each literal
-        # with its own Or.inr chain (a 2.7 MB line); they now start from
-        # tails of the negated clause. Wide lemmas are outlined apart.
+        # with its own Or.inr chain (a 2.7 MB line), then from tails of the
+        # negated clause, an Or.inr per literal since the tail (295 kB for
+        # the three lemmas); they are chains of classical_or_intro now
+        # (_cases_lemma), 33 bytes a literal here, where every hypothesis is
+        # the negation of its literal. Wide lemmas are outlined apart.
         source = pinned_negated_distinct_source(40)
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
@@ -1506,15 +1617,30 @@ class TestIntegerValidation(unittest.TestCase):
         self.assertNotIn("grind", lemma)
         self.assertEqual(lemma.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 779)
         self.assertIn("  exact Classical.not_not", lemma)
-        self.assertIn("let _not_tail768 := ", text)
-        self.assertLess(max(len(line) for line in text.split("\n")), 400000)
-        self.assertLess(len(text), 3000000)
+        chains = [line for line in text.split("\n") if "(classical_or_intro " in line]
+        widths = [line.count("(classical_or_intro ") + 1 for line in chains]
+        self.assertGreater(max(widths), 700)
+        for line, width in zip(chains, widths):
+            self.assertLess(len(line), 40 * width, width)
+            self.assertNotIn("Or.in", line)
+        self.assertNotIn("_not_tail", text)
+        self.assertNotIn("(fun _not_clause => ", text)
+        self.assertLess(max(len(line) for line in text.split("\n")), 30000)  # 161,130 before
+        self.assertLess(len(text), 1400000)  # 1,561,718 before
         boundaries = proof_to_lean._outline_boundaries(graph)
         # A lemma wider than a chunk is a chunk of its own.
         wide = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_LEMMA
                 and len(graph.clause(graph.conclusion(node))) > proof_to_lean._OUTLINE_CHUNK_STEPS]
         self.assertEqual(len(wide), 2)
         self.assertLessEqual(set(wide), boundaries)
+        # Twelve terms: under _OUTLINE_PROOF_STEPS proof steps nothing is
+        # outlined and no lemma is classical, so the lemma over the 66 pairs
+        # refutes them through the negated clause, from its tails.
+        source = pinned_negated_distinct_source(12)
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertNotIn("private theorem proof_step_", text)
+        self.assertIn("let _not_tail64 := ", text)
+        self.assertNotIn("classical_or_intro", text)
 
     def test_negated_distinct_rewrites_of_other_shapes_go_to_grind(self):
         # Only the rewriter's exact disjunction of the pairs, in order, gets
@@ -1633,8 +1759,8 @@ class TestIntegerValidation(unittest.TestCase):
                                      if right[1] < 0 else proof_to_lean._formula(graph, graph.equalities[(b, a)]))
                 lemma = proof_to_lean.reconstruct(source, certificate).split(
                     "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
-                self.assertIn("\n  first\n    | (have _f1 : (Iff ", lemma)
-                self.assertEqual(lemma.count(") := eq_comm\n"), pairs)
+                self.assertIn("\n  first\n    | (refine (fun\n            (_f1 : (Iff ", lemma)
+                self.assertEqual(lemma.count("\n          (eq_comm)"), pairs)
                 self.assertIn("refine Classical.byContradiction ?_\n", lemma)
                 # Without the bridges the pairs of the two are unrelated:
                 # no propagation proof, the unfolded fallback alone (the
@@ -1879,6 +2005,24 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # projections, the wide lemmas inside full chunks); so did 30.
         certificate = self.check(pinned_negated_distinct_source(40))
         self.assertEqual(certificate["rule_counts"]["th-lemma"], 780)
+        # Twelve terms are not outlined: the lemmas go through the negated
+        # clause (see test_negated_wide_distincts_are_reconstructed_linearly).
+        certificate = self.check(pinned_negated_distinct_source(12))
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 66)
+
+    @lean_test_support.slow("a negated 56-term distinct, 2.6 MB of Lean, about 20 s at 2.9 GB")
+    def test_a_lemma_step_over_fifteen_hundred_literals_verifies(self):
+        # 56 pinned terms, 1,540 refuted pairs: the lemma step over 1,539 of
+        # them, refuting each through the negated clause's tails (a line of
+        # 321 kB), ran out of the default 200,000 heartbeats, and Lean
+        # rejected the file after 13 s. As a chain (52 kB) it verifies.
+        source = pinned_negated_distinct_source(56)
+        certificate = self.check(source)
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1540)
+        text = proof_to_lean.reconstruct(source, certificate)
+        widths = [line.count("(classical_or_intro ") + 1 for line in text.split("\n") if "(classical_or_intro " in line]
+        self.assertGreater(max(widths), 1500)
+        self.assertLess(max(len(line) for line in text.split("\n")), 60000)
 
     def test_negated_distinct_rewrites_of_reversed_pairs_verify(self):
         # The eq_comm congruence of a pair written (= aj ai), which Z3's
@@ -2021,11 +2165,218 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertIn("Classical.em", structural)  # splits remain, the ones the proof uses
         self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
         self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+        # The step that resolves the first literal off the lemma's clause
+        # keeps the ten others where they are: the clause's tail as it
+        # stands (proof_to_lean._ordered_resolution), where each was a case,
+        # injected at its position (a line of 1.1 kB).
+        self.assertEqual(len(graph.clause(graph.conclusion(cnf[0]))), 11)
+        self.assertRegex(text, r"\n  let _step_\d+ :=\n    \(_step_%d\.neg_resolve_left _step_\d+\)\n" % cnf[0])
+        self.assertNotIn("(fun _literal => (Or.inr (Or.inr ", text)
         # Lean checks the file with the fallback removed, so the structural
         # proof itself is what verifies the lemma.
         alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
         self.assertNotEqual(alone, text)
         _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_circuit_cnf_lemma_is_swept_when_the_search_gives_up(self):
+        # The same circuit, with the search's character limit lowered so
+        # that it gives up on the nine-case clause as it does, at its own
+        # limits, on the twenty and thirty frames of the family (tf_20 and
+        # tf_30: the search splits without end, over z3's unsat core too,
+        # and the unfolded fallback ran Lean out of heartbeats). The clause
+        # is over the rewriter's form of the assertion, so the lemma is
+        # swept (_PropositionalProver.sweep): the gates of the two forms are
+        # linked class by class, each link a theorem of its own before the
+        # lemma, th_lemma_N_sK, over the canonical gates th_lemma_N_kK and
+        # the leaf bridges th_lemma_N_bK, and the lemma refutes the clause
+        # through them in a few steps.
+        source = (_EXAMPLES / "data" / "QF_IDL_ckt_PROP1_tf_10.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertNotIn("_s0 ", proof_to_lean.reconstruct(source, certificate))  # the search suffices
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 100000):
+            text = proof_to_lean.reconstruct(source, certificate)
+        swept = sorted(set(re.findall(r"\nprivate theorem (th_lemma_\d+)_s0 ", text)))
+        self.assertEqual(len(swept), 1)
+        links = len(re.findall(r"\nprivate theorem %s_s\d+ " % swept[0], text))
+        gates = len(re.findall(r"\nprivate def %s_k\d+ " % swept[0], text))
+        bridges = len(re.findall(r"\nprivate theorem %s_b\d+ " % swept[0], text))
+        self.assertTrue(500 < links < 3000 and 100 < gates < links and 10 < bridges < 100, (links, gates, bridges))
+        proofs = [part for part in text.split("\n\n") if "private theorem %s_s" % swept[0] in part]
+        self.assertLess(max(map(len, proofs)), proof_to_lean._SWEEP_LINK_CHARS)
+        self.assertLess(sum(map(len, proofs)), 2000 * links)
+        lemma = text.split("private theorem %s " % swept[0], 1)[1].split("\n\n", 1)[0]
+        head, _, attempts = lemma.partition("\n  first\n")
+        structural, fallback = attempts.split("\n    | (")
+        self.assertTrue(structural.startswith("    | (refine Classical.byContradiction ?_\n"), structural[:80])
+        self.assertIn("(%s_s" % swept[0], structural)
+        self.assertNotIn("Classical.em", structural)
+        self.assertLess(len(structural), 20000)
+        self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+        # Lean checks the file with the fallback removed.
+        alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+        self.assertNotEqual(alone, text)
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_cnf_lemma_swept_without_a_declaration_states_no_bridge(self):
+        # A sweep may refute the clause over the gates as they are, with no
+        # link, no canonical gate, and no bridge. Its refutation names the
+        # bridges as theorems applied to the valuation
+        # ((th_lemma_N_b0 _atoms _vars)), so the lemma must not state them
+        # as hypotheses by those names: `have (th_lemma_N_b0 _atoms _vars)
+        # : ... ` is not a binder (Lean: "Invalid pattern"), and the lemma
+        # was left to its unfolded fallback, which is the proof that fails
+        # on the inputs whose searches give up.
+        source = SWEPT_WITHOUT_DECLARATIONS
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        plain = proof_to_lean.reconstruct(source, certificate)
+        with _searches_give_up() as (swept, _):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(len(swept), 1)
+        name = "th_lemma_%d" % next(iter(swept))
+        # The lemma has a bridge, which the search's proof states and the sweep's does not need.
+        self.assertIn("\n    | (refine (fun\n            (_f1 : ",
+                      plain.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0])
+        self.assertFalse("%s_" % name in text, "a declaration of the sweep, or a bridge stated by a theorem's name")
+        self.assertFalse("have (th_lemma_" in text)
+        alone, refutation = _first_alternative_alone(text, name)
+        self.assertTrue(refutation.startswith("    | (refine Classical.byContradiction ?_\n"), refutation[:80])
+        self.assertNotEqual(alone, text)  # the fallback is removed: Lean checks the sweep's refutation
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_sweeps_of_a_file_share_their_characters(self):
+        # Lean's memory grows with the file (the 12 million characters of
+        # ckt_PROP3_tf_30's one sweep take 7 GB), so _SWEEP_CHARS is what
+        # all the sweeps of a file may write: here three lemmas are swept,
+        # and with one character less than the third needs after the first
+        # two it is not; it keeps the proof it has without the sweep. A
+        # sweep counts what it writes while it runs, so it stops there, not
+        # after its last link.
+        source = SWEPT_THREE_TIMES
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with _searches_give_up() as (swept, spent):
+            text = proof_to_lean.reconstruct(source, certificate)
+            sizes, counted = dict(swept), dict(spent)
+            self.assertEqual(len(sizes), 3)
+            nodes = sorted(sizes)
+            for node in nodes:
+                self.assertIn("\nprivate theorem th_lemma_%d_s" % node, text)
+                self.assertIn("\nprivate def th_lemma_%d_k" % node, text)
+            enough = sizes[nodes[0]] + sizes[nodes[1]] + counted[nodes[2]]
+            with patch.object(proof_to_lean, "_SWEEP_CHARS", enough - 1):
+                less = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual(dict(swept), {node: sizes[node] for node in nodes[:2]})
+                self.assertEqual(spent[nodes[2]], counted[nodes[2]])  # it stopped at its last character
+            with patch.object(proof_to_lean, "_SWEEP_CHARS", enough):
+                self.assertEqual(proof_to_lean.reconstruct(source, certificate), text)
+        self.assertFalse("th_lemma_%d_" % nodes[2] in less)
+        for node in nodes[:2]:
+            self.assertIn("\nprivate theorem th_lemma_%d_s" % node, less)
+            less, refutation = _first_alternative_alone(less, "th_lemma_%d" % node)
+            self.assertIn("(th_lemma_%d_s" % node, refutation)
+        _, report = lean_test_support.check(self, source, certificate, text=less)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_cnf_lemma_over_a_formula_simplified_under_units_is_swept_rounds_down(self):
+        # Z3 logs a clause of a formula as the units asserted before it
+        # leave it, and the cnf lemma ties that clause to the units and the
+        # formula as written. The two forms share no gate above the atoms
+        # the units decide, so a sweep links nothing and its refutation
+        # must read both down to them: over the gates a few rounds below
+        # the clause it ends in an assignment of the gates at the cut, and
+        # is repeated a round further down (_SWEEP_DEPTH). With the three
+        # rounds there were, the lemmas of the transition relations of
+        # QF_IDL qlock-4-10-8 and -9 (a disjunction of conjunctions of
+        # disjunctions of conjunctions under the 32 units of a state; the
+        # searches give up on them at their own limits) kept only the
+        # unfolded fallback, which ran out of heartbeats: the two files
+        # verify now. Here four levels under five units, the searches made
+        # to give up, and Lean checks the sweep's refutation alone.
+        source = nested_under_units(4)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with _searches_give_up() as (swept, _):
+            text = proof_to_lean.reconstruct(source, certificate)
+            found = dict(swept)
+            with patch.object(proof_to_lean, "_SWEEP_DEPTH", proof_to_lean._SWEEP_ROUNDS[-1]):
+                shallow = proof_to_lean.reconstruct(source, certificate)
+                before = dict(swept)
+            deeper = proof_to_lean.reconstruct(nested_under_units(5),
+                                               proof_certificate.export_clause_log_certificate(nested_under_units(5)))
+            beyond = dict(swept)
+        self.assertEqual(len(found), 2)
+        self.assertEqual(len(before), 1)  # the lemma of the last unit, p, one gate below the formula
+        self.assertEqual(len(beyond), 1)  # the limit as it is
+        name = "th_lemma_%d" % next(node for node in found if node not in before)
+        lemma = shallow.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0]
+        self.assertNotIn("Classical.byContradiction", lemma)  # the fallback alone
+        self.assertNotIn("\n  first\n", lemma)
+        self.assertIn("private theorem th_lemma_", deeper)
+        for node in found:
+            text, refutation = _first_alternative_alone(text, "th_lemma_%d" % node)
+            self.assertTrue(refutation.startswith("    | (refine Classical.byContradiction ?_\n"), refutation[:80])
+            self.assertNotIn("Classical.em", refutation)
+        self.assertIn("(%s_s" % name, text)  # the canonical gates opened on the way down are tied by links
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("QF_IDL qlock-4-10-8, 41.5 MB of Lean: 40 s of export, 150 s of Lean at 1.0 GB as the "
+                            "chain of 42 modules it is checked as")
+    def test_queuing_lock_transition_lemmas_verify_by_the_sweep(self):
+        # SMT-LIB QF_IDL qlock/qlock-4-10-8.base.cvc (118 KB): eight steps
+        # of a queuing lock, one assertion nesting 395 conjuncts. Of its
+        # 125 cnf lemmas the searches give up on seven, which were swept:
+        # five in 1.3 MB each, most of it the links of the nested ands of
+        # one step, and two not at all. One, over the whole assertion, had
+        # written 13.6 MB when it reached what the sweeps of the file may
+        # write, after 316 of the 395 nested ands (each tied to a canonical
+        # gate as wide as its prefix); the other proved every link and its
+        # refutation ended, at the cut three rounds down, in an assignment
+        # of the gates there (the clause is the transition relation under
+        # the 32 units of a state). Both kept only the unfolded fallback,
+        # and the first ran Lean out of heartbeats in the fifth of 47
+        # modules. With the nested ands read through and the refutation
+        # repeated further down, the seven sweeps take 2.4 MB in all.
+        source = (_EXAMPLES / "data" / "QF_IDL_qlock-4-10-8.base.cvc.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        swept = sorted(set(re.findall(r"\nprivate theorem (th_lemma_\d+)_s0 ", text)))
+        self.assertEqual(len(swept), 7)
+        for name in swept:
+            lemma = text.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0]
+            self.assertIn("\n    | (refine Classical.byContradiction ?_\n", lemma)
+        # No cnf lemma is left to its fallback alone.
+        declarations = certificate["declarations"]
+        cnf = [index for index in _th_lemma_nodes(certificate)
+               if declarations[certificate["nodes"][index]["declaration"]]["parameters"][0] == "cnf"]
+        self.assertGreater(len(cnf), 100)
+        for index in cnf:
+            lemma = text.split("private theorem th_lemma_%d " % index, 1)[1].split("\n\n", 1)[0]
+            self.assertIn("Classical.byContradiction", lemma, index)
+        self.assertLess(len(re.findall(r"\nprivate theorem th_lemma_\d+_s\d+ ", text)), 1000)
+        self.assertLess(len(text), 43000000)
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("a 10 MB certificate: 30 s of Lean at 4.2 GB as one file, 33 s at 0.9 GB as the chain "
+                            "of 10 modules it is checked as")
+    def test_twenty_frame_circuit_verifies_by_the_sweep(self):
+        # SMT-LIB QF_IDL RTCL/b13_tf_20/ckt_PROP1_tf_20: twenty frames, a
+        # 19-case clause over the rewriter's form of the one assertion
+        # (4,000 gates each way, 77 bridged leaves). At the limits the
+        # search gives up, with and without the unsat core, and the lemma
+        # is swept: about 5,500 links over 1,500 canonical gates. Before,
+        # the unfolded fallback ran out of heartbeats after 30 s.
+        source = (_EXAMPLES / "data" / "QF_IDL_ckt_PROP1_tf_20.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        swept = sorted(set(re.findall(r"\nprivate theorem (th_lemma_\d+)_s0 ", text)))
+        self.assertEqual(len(swept), 1)
+        links = len(re.findall(r"\nprivate theorem %s_s\d+ " % swept[0], text))
+        self.assertTrue(4000 < links < 8000, links)
+        self.assertLess(len(text), 12000000)
+        _, report = lean_test_support.check(self, source, certificate, text=text)
         self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_nested_conjunction_model_checking_input_exports_with_few_solver_checks(self):
@@ -2282,7 +2633,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                          + len(text.split("\nprivate theorem proof_step_")[1:]),
                          sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
 
-    @lean_test_support.slow("QF_IDL plan-21, 20.4 MB of Lean, about 80 s at 6.5 GB")
+    @lean_test_support.slow("QF_IDL plan-21, 20.4 MB of Lean, about 80 s at 6.5 GB as one file, 90 s at 1.0 GB "
+                            "as the chain of 21 modules it is checked as")
     def test_planning_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL planning/plan-21.cvc (110 KB): 25,842 proof steps.
         # Its 33 MB of Lean ran out of the 8 GB cap of check_lean.sh after
@@ -2293,6 +2645,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # with single imports applied in place 21.4 MB (79 s, 6.6 GB); with
         # resolution types inferred and re-applications applied in place it
         # is 20.4 MB, verified in 78 s at a 6.5 GB peak (see the tests above).
+        # Those are the numbers of the text as one file; above 8 MB a text is
+        # checked as a chain of modules (proof_to_lean.modules, 2026-11-14).
         source = (_EXAMPLES / "data" / "QF_IDL_plan-21.cvc.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 25000)
@@ -2300,7 +2654,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertLess(len(text), 21000000)
         self.assertIn(_STANDARD_AXIOMS, report)
 
-    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 23.2 MB of Lean, about 115 s at 7.5 GB")
+    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 23.2 MB of Lean, about 120 s at 7.5 GB as one file, "
+                            "145 s at 1.8 GB as the chain of 24 modules it is checked as")
     def test_disjunctive_temporal_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL DTP/DTP_k2_n35_c245_s9 (14 KB): 69,000 proof steps,
         # 16,557 outlined lemmas. Its Lean ran out of the 8 GB cap in every
@@ -2315,8 +2670,10 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 60000)
         text, report = lean_test_support.check(self, source, certificate)
-        # 23,155,182 characters; the peak leaves little margin, so the bound
-        # fails before a text regression runs Lean out of memory.
+        # 23,155,182 characters. As one file the peak left little margin, and
+        # the bound failed before a text regression ran Lean out of memory;
+        # as the chain of modules it is checked as since 2026-11-14 the peak
+        # is 1.75 GB, and the bound is on the text alone.
         self.assertLess(len(text), 23500000)
         self.assertIn(_STANDARD_AXIOMS, report)
 
@@ -2658,9 +3015,17 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                     # linear combination of the rounded bounds.
                     self.assertIn(["arith"], parameters)
                     self.assertTrue(any(p[0] == "farkas" and len(p) > 1 for p in parameters), parameters)
+                    # A cut: a bare arith step deriving its bound from the premises it lists.
+                    self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
                 if name == "lia_equality_elimination":
-                    # The parity conflict may use a bare arithmetic cut or a Farkas lemma.
-                    self.assertTrue(any(p in (["arith"], ["farkas"]) for p in parameters), parameters)
+                    # Since Z3's rewriter leaves an equality between sums as
+                    # written (upstream #11698) the two equalities reach
+                    # theory_lra as their four triangle-eq bounds, and the
+                    # parity conflict is one coefficient-free farkas over
+                    # them (before: a cut, as in lia_gomory above).
+                    self.assertTrue(any(p == ["farkas"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
                 if name in ("lia_div", "lia_mod_sum", "lia_div_sum"):
                     # The div and mod axioms, stated (or false l) and resolved with the unit true.
                     self.assertIn("arith", _hints(certificate))

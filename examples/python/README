@@ -358,7 +358,15 @@ step:
     single assertion implies the clause (Z3 found a contradiction while
     asserting, or simplified an ite inside one assertion under a unit
     asserted by another, which shows in alldiff clauses), the cnf lemma is
-    over an unsat core of the assertions. Clauses with true, not
+    over an unsat core of the assertions. A conjunction of more than 8,192
+    formulas (itself, its conjuncts, and those of the ands nested in it,
+    the nested ands counted too: 4,097 leaf conjuncts when the ands are
+    binary) is never given to a solver
+    whole, and once a conjunction is not decided the clause is tied to an
+    unsat core of leaf conjuncts instead, each and-eliminated from its
+    assertion (the assertions themselves when the core is more than a
+    quarter of them); the replay's tables are linear in the nesting depth
+    (QF_IDL PO4-10-PO4 nests 41,822 binary ands). Clauses with true, not
     false, or complementary literals are def-axiom nodes. Nothing else is
     accepted as an assumption. In Lean a cnf lemma is first proved by gate
     propagation over the Boolean structure of the clause with the theory
@@ -370,13 +378,45 @@ step:
     steps it uses, and a case split whose branch does not need its
     hypothesis is dropped. When the search gives up, it is repeated over the
     gates of z3's unsat core of the propositional abstraction (an untrusted
-    hint; Lean checks the proof). When neither search refutes the clause,
+    hint; Lean checks the proof). When that search gives up too, the lemma
+    is swept: Z3 logged the clause over its rewriter's form of the
+    assertion (ite terms with a constant branch as and/or, conjunctions
+    flattened, atoms normalized), and the gates of the two forms are put in
+    classes by what the rewriter makes of them, each named gate is linked
+    to its class's representative or canonical flat gate, and each link is
+    a small theorem of its own before the lemma (th_lemma_N_sK, over the
+    canonical gates th_lemma_N_kK and the leaf bridges th_lemma_N_bK),
+    proved over the few gates between its two ends; the lemma then refutes
+    the clause through the links. The classes are hints: a link is stated
+    only with its proof. An and under ands only (or an or under ors) is
+    part of its parents' classes and is read through, not linked: a
+    conjunction nested n deep costs one link, where a link and a canonical
+    gate per level were quadratic in n. The refutation reads the gates a
+    few rounds below the clause; when it ends there in an assignment (a
+    clause Z3 logged over the formula simplified under asserted units
+    meets the formula only at the atoms), it is repeated a round further
+    down, up to eight. The twenty- and thirty-frame circuits of QF_IDL
+    RTCL (ckt_PROP1_tf_20, ckt_PROP3_tf_30) and the queuing locks
+    qlock-4-10-8 and -9 verify that way. A sweep is
+    bounded as a whole: a formula whose and/or classes have more than
+    200,000 members in all (a conjunction nested a thousand deep) is not
+    swept, and the sweeps of a file stop once they have written 16 million
+    characters; the lemma then keeps its other proofs. When no search
+    refutes the clause,
     z3 finds theory clauses over its arithmetic and uninterpreted leaves
     (applications, constants of a sort; congruence included) that make the
     abstraction unsatisfiable (model by model, an unsat core each), each
-    stated with a `have` the theory tactic proves, and the search is
-    repeated with them. A clause that neither search refutes within its
-    budget falls back to the unfolded grind proof.
+    a fact the theory tactic proves, and the search is repeated with them.
+    The bridges and theory clauses of a lemma are the binders of one
+    function the goal is refined by, and their proofs its arguments: each
+    is proved in the lemma's own context, not over the facts before it
+    (as a `have` each, the theory tactic of the k-th read the k-1 before
+    it; the 694 facts of QF_LRA tta_startup simple_startup_15nodes ran the
+    lemma out of its heartbeats). A fact's tactics are written as `first
+    | ((tactics); done) | fail`: Lean recovers from errors in the tactics
+    of an argument, and a fact that is not proved must fail the lemma's
+    attempt, not be admitted with an error. A clause that neither search
+    refutes within its budget falls back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact
@@ -452,6 +492,18 @@ and rup steps, exactly as for arithmetic; no new hint kind is involved. An
 ite term over the sort is an opaque element for the euf core, tied to its
 branches by the same two gate clauses as a Real ite, which the replay adds
 as def-axiom nodes.
+
+Z3 logs an assertion of nested binary gates flattened, its operands sorted,
+the duplicates and the tautologous clauses (or (not A) A) dropped, and the
+replay ties the logged clause to the assertion by a rewrite. Over more than
+16 theory atoms such a rewrite is first proved by the Boolean structure of
+its two sides, every atom an opaque leaf and the goal folded (the prover of
+the cnf lemmas, with a disjunction of a leaf and its negation stated as a
+fact by excluded middle); the theory tactic over the unfolded sides stays
+the fallback, and is the only proof of a smaller rewrite or of one the
+structure does not prove. grind alone ran out of its heartbeats on the
+five-way disjunctions of 25-clause conjunctions of the QF_UF quasigroup
+benchmarks (QG-classification).
 
 Uninterpreted functions mixed with arithmetic (QF_UFLRA) need nothing new
 in the log either: an application with a Real result, (f x) or (g a), is an
@@ -724,6 +776,31 @@ You can check the resulting Lean file again without Z3:
 
     ./scripts/check_lean.sh /tmp/unit_resolution.lean
 
+A certificate of more than 8 MB of Lean text is checked and published as a
+chain of modules (since 2026-11-14): the output file holds the theorem and the
+last declarations, and imports the module before it, which the command writes
+next to it as Z3Certificate_<hash of the text>_<k>.lean (k zero-padded to one
+width, so the names sort in checking order) and reports. One Lean
+process keeps what it elaborated of a whole file until the file ends, so its
+memory grows with the text (0.25 to 2 GB per MB, by the kind of declaration:
+z3test's QF_UF gensys_icl1079, 31.7 MB, stopped at the 8 GB --memory cap as
+one file and checks as 32 modules of at most 1 MB). The modules are checked by
+one process each, in order, under the same flags:
+
+    ./scripts/check_lean.sh --chain /tmp/Z3Certificate_<hash>_*.lean /tmp/big.lean
+
+(the shell lists the modules in their order; the output file is last and names
+<hash> in its header). While a chain is checked its compiled modules take 5 to
+9 MB of disk per MB of Lean text, in a temporary directory that is removed when
+the check ends; proof_to_lean.py keeps it in its staging directory next to the
+output, so a check that is killed leaves nothing in the system's temporary
+directory (Z3_LEAN_CHAIN_DIR, see lean/README.md).
+
+Each module holds whole declarations of the one text, in its namespace and
+under its options, with `private` dropped from the declarations (later modules
+name them); nothing else differs from the single file. See "Check proofs" in
+lean/README.md for what --chain does.
+
 The generated file imports only Init. It contains shared formula definitions
 and proof steps built from input hypotheses and Lean core logical rules.
 Rewrite lemmas split only the atoms occurring in that rewrite and use
@@ -731,6 +808,24 @@ of_decide_eq_true rfl to check every case by kernel reduction, not native_decide
 or a solver call. The case count is exponential in a rewrite's atom count;
 large rewrites can exceed Lean's normal resource limits and fail without
 publishing a proof.
+
+A conjunction of more than 256 operands (an and, or the pairs of a distinct:
+24 arguments or more) is defined in chunks (since 2026-11-16): formula_N holds
+its first 32 operands and then formula_N_c1, which holds the next 32 and then
+formula_N_c2, and so on, and theorem formula_N_tk proves chunk k from
+formula_N. Unfolded, the chunks are the conjunction written out; the proofs
+reach an operand through the chunk's theorem, so that no step works over a
+type longer than a chunk. Lean's time for a projection out of a conjunction
+written out grows with what is left of the conjunction: z3test's QF_UF
+sokoban.3.prop1_ab_br_max, whose 71 lemmas each refute a distinct over 209
+constants (21,736 pairs) from one pair, went from 40.1 MB of Lean that ran out
+of heartbeats to 8.5 MB that verifies. An and-elim step past the first 32
+operands of such a conjunction starts from the chunk's theorem as well and
+binds nothing (the tails of a conjunction of at most 256 operands are bound by
+a let every 32 operands, in each proof that projects from them): z3test's
+QF_IDL parity/10.700.graph, 36 and-elims out of an assertion of 115,040
+operands, held 3,339 such lets in its theorem and ran out of heartbeats, and
+verifies without them.
 
 Arithmetic in Lean
 ------------------
@@ -1079,7 +1174,14 @@ elaborates superlinearly and exhausts Lean's default heartbeat budget between
 counts as that many steps, so a lemma step discharging hundreds of
 hypotheses is not elaborated among hundreds of unrelated steps, which made
 it about ten times slower. Each lemma receives the original assertions as one
-conjunction (the interpretation is implicit, determined by it) and abstracts
+hypothesis, `_inputs : Inputs ..` (the interpretation is implicit, determined
+by it): a structure whose one field is their balanced conjunction, above 32
+assertions the balanced conjunction of chunks of 32, each a definition
+`Inputs_cK`. A structure, because Lean's elaborator unfolds a definition at
+every `proof_step_N _inputs` to see whether it is a function type, which cost
+the whole conjunction each time (QF_IDL vlsat3_c27, 15,332 assertions: about an
+hour of Lean; 517 s with the structure, and 354 s with the lemma steps as
+chains, see below). Each lemma abstracts
 its open hypotheses explicitly, as the premises of its statement; steps the
 root never uses are not outlined. A step under hypotheses that only one other
 step uses is bound inside that step, where its hypotheses are in scope, rather
@@ -1095,6 +1197,39 @@ step's or lemma's application to its hypotheses that the next term uses once
 is written at that use rather than let-bound. This keeps Lean's memory, which
 grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
 DTP_k2_n35_c245_s9.
+A `lemma` step of a classical lemma proves its clause literal by literal:
+one function takes a refutation of every literal to False (the premise
+applied to them), and one helper per literal, classical_or_intro, turns its
+binders into the clause, the last by contradiction:
+
+    (classical_or_intro (classical_or_intro classical_by_contradiction)
+      (fun _n0 _n1 _n2 => (_step_7 _n2 (classical_by_contradiction _n0) _n1)))
+
+The text is linear in the clause. By contradiction with the negated clause,
+each hypothesis was refuted through an Or.inr per literal before its own:
+13 to 27% of the Lean text of the largest sample files (QF_IDL vlsat3_c27,
+the QF_UF gensys files, the QF_AUFLIA swap files). Lemmas that are not
+classical (the propositional slice, and refutations too short to be
+outlined) keep that form, which needs one decidability witness, the
+clause's.
+A unit resolution that keeps more than eight literals of its clause, in the
+order of its conclusion, moves none of them. Literals cut in front are
+resolved away by field notation, and with no cut left the proof at hand is
+the conclusion as it stands, `(_step_7.resolve_left _step_3)`; cuts further
+on are one function applied to that proof, composed literal by literal
+without a binder:
+
+    ((Or.imp_right (Or.imp_right (resolve_first _step_3 id))) _step_7)
+
+Or.imp_right passes over a kept literal, and two helper theorems, written
+once in a text that names them, take the unit first: resolve_first cuts a
+literal and hands the rest to its second argument, resolve_rest cuts
+everything after the last kept literal. The text is linear in the clause.
+As a case split per kept literal, each injected at its position by one
+Or.inr per literal before it, one literal cut off a 401-literal clause was a
+line of 745 kB, and its lemma ran out of Lean's heartbeats. Resolutions that
+keep at most eight literals, or keep them in another order, are case splits
+as before.
 The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.
@@ -1626,8 +1761,12 @@ a separate Lean proof artifact rather than changing the producer's claim.
 
 The reconstruction API is reconstruct(source, certificate), which returns
 unchecked Lean source, and check_and_write(source, certificate, output), which
-checks before publishing. Public API signatures and proof-disabled solving
-are unchanged by the preprocessing proof support described below.
+checks before publishing and returns the published files (the output, after
+the modules it imports when the text was split). modules(text) is the split
+itself, write_modules(text, output) writes it, and check_command(paths) is the
+checker's command for the written files. Public API signatures and
+proof-disabled solving are unchanged by the preprocessing proof support
+described below.
 
 Audit preprocessing proof evidence
 ---------------------------------

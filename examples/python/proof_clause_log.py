@@ -98,6 +98,21 @@ _RLIMIT = 200000
 # Up to this many assertion conjuncts, an assumed clause is checked against all
 # of them; above it, only against those sharing a symbol (_candidate_sources).
 _SEARCH_ALL_SOURCES = 64
+# An and with more sources at and below it than this (the and itself, its
+# conjuncts, and those of the ands nested in it, the nested ands counted
+# too: 4,097 leaf conjuncts when the ands are binary) is never handed to a
+# solver whole, in an equivalence or
+# implication check or as a tracked assertion: asserting a deeply nested
+# and costs Z3 time and memory that the resource limit of the check does
+# not bound (one check of the 41,822 nested binary ands of QF_IDL
+# PO4-10-PO4 took 24 s and 10 GB inside Z3_solver_assert; the cause,
+# presumably the rewriter flattening the ands a level at a time, was not
+# traced).
+# Such an and is tied to a clause through its leaf conjuncts instead
+# (_implying_leaves). The limit is far above what a check is known to
+# decide (QF_IDL FISCHER6-4-ninc's assertion of 3,993 sources is the
+# largest seen), so that certificates tied to an and keep their shape.
+_CHECKED_CONJUNCTS = 8192
 # Limits of every z3 run below unless the caller passes its own: seconds (-T)
 # and megabytes (-memory). Z3 stops itself at either; a run that outlives its
 # time limit by _LIMIT_GRACE seconds anyway is killed.
@@ -1240,6 +1255,91 @@ def _parameter_names(decl):
                     for parameter in decl.params())
 
 
+_WORD = 2 ** 64 - 1
+
+
+def _mix(value):
+    """A permutation of the 64-bit integers that scatters consecutive ones (the splitmix64 finalizer)."""
+    value = (value + 0x9E3779B97F4A7C15) & _WORD
+    value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & _WORD
+    value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & _WORD
+    return value ^ (value >> 31)
+
+
+class _KeySets:
+    """Sets of keys named by integers: two sets are equal exactly when their names are.
+
+    The operands of a flattened and or or. A set is a search tree over its
+    keys in which every key's priority (_mix, a permutation, so no two
+    keys tie) is above those of the keys below it; the keys determine that
+    tree, and its nodes are interned, so equal sets built in any order are
+    one node and a set that extends another shares all but a path of it.
+    The union of a set of n keys with one more key adds about log n nodes.
+    As sorted tuples, the sets of a conjunction nested n levels deep held
+    n * n / 2 keys in all: 8.7e8 for the 41,822 levels of QF_IDL
+    PO4-10-PO4, about 7 GB.
+    """
+
+    def __init__(self):
+        self.ids = {}        # (lower keys, key, higher keys) -> name
+        self.nodes = [None]  # name -> (lower keys, key, higher keys); 0 names the empty set
+
+    def _node(self, lower, key, higher):
+        node = (lower, key, higher)
+        name = self.ids.get(node)
+        if name is None:
+            name = self.ids[node] = len(self.nodes)
+            self.nodes.append(node)
+        return name
+
+    def single(self, key):
+        return self._node(0, key, 0)
+
+    def only(self, name):
+        """The key of a set of one key, None for any other set."""
+        lower, key, higher = self.nodes[name]
+        return None if lower or higher else key
+
+    def _split(self, name, key):
+        """The sets of the keys of a set below key and above key."""
+        if not name:
+            return 0, 0
+        lower, root, higher = self.nodes[name]
+        if key == root:
+            return lower, higher
+        if key < root:
+            below, above = self._split(lower, key)
+            return below, self._node(above, root, higher)
+        below, above = self._split(higher, key)
+        return self._node(lower, root, below), above
+
+    def union(self, first, second):
+        """The name of the union of two sets; the depth of the recursion is that of the trees, about log n."""
+        if not first or first == second:
+            return second
+        if not second:
+            return first
+        if _mix(self.nodes[first][1]) < _mix(self.nodes[second][1]):
+            first, second = second, first
+        lower, root, higher = self.nodes[first]
+        below, above = self._split(second, root)
+        return self._node(self.union(lower, below), root, self.union(higher, above))
+
+    def keys(self, name):
+        """The keys of a set in increasing order."""
+        keys, pending = [], [(name, False)]
+        while pending:
+            name, expanded = pending.pop()
+            if not name:
+                continue
+            lower, key, higher = self.nodes[name]
+            if expanded:
+                keys.append(key)
+            else:
+                pending.extend(((higher, False), (name, True), (lower, False)))
+        return keys
+
+
 class _Normalizer:
     """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
 
@@ -1249,7 +1349,11 @@ class _Normalizer:
     hashing, and sorting the forms is linear in the formula read as a DAG.
     With the forms nested, a parent's form repeated every child's form and
     the children were sorted by `repr`, which cost two minutes on the
-    13,000-node circuit of a QF_IDL bounded model checking input.
+    13,000-node circuit of a QF_IDL bounded model checking input. The form
+    of an and or an or is its tag and the name of the set of its operands'
+    keys (`sets`), nested ands and ors flattened into one set: an and and
+    the and it nests share most of that set, so a conjunction nested n
+    levels deep is keyed in about n log n steps (_KeySets).
     """
 
     def __init__(self):
@@ -1258,6 +1362,7 @@ class _Normalizer:
         self.traces = {}  # identifier of a failed error -> its traceback where it was first caught
         self.ids = {}  # canonical form -> key
         self.forms = []  # key -> canonical form
+        self.sets = _KeySets()  # the operand sets of the and and or forms
 
     def key(self, expr):
         return self._key(expr, True)
@@ -1330,7 +1435,7 @@ class _Normalizer:
                 tag = "and"
             else:
                 tag = "or"
-            parts = set()
+            parts = 0  # the empty set
             identity = ("true",) if tag == "and" else ("false",)
             absorbing = ("false",) if tag == "and" else ("true",)
             for child in expr.children():
@@ -1340,15 +1445,14 @@ class _Normalizer:
                     return absorbing
                 if child_form == identity:
                     continue
-                if child_form[0] == tag:
-                    parts.update(child_form[1])
-                else:
-                    parts.add(child_key)
+                parts = self.sets.union(parts, child_form[1] if child_form[0] == tag
+                                        else self.sets.single(child_key))
             if not parts:
                 return identity
-            if len(parts) == 1:
-                return self.forms[next(iter(parts))]
-            return (tag, tuple(sorted(parts)))
+            only = self.sets.only(parts)
+            if only is not None:
+                return self.forms[only]
+            return (tag, parts)
         if kind == z3.Z3_OP_IMPLIES:
             return self.forms[self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
         if kind == z3.Z3_OP_TRUE:
@@ -1400,18 +1504,28 @@ class _Normalizer:
         return ("not", ("le", negated)) if polarity else ("le", negated)
 
 
-def _conjuncts(expr, path=()):
-    """Yield (formula, and-elim path) for every conjunct reachable through nested ands.
+def _conjuncts(expr):
+    """Yield (formula, parent) for every conjunct reachable through nested ands.
 
     Depth first, parents before their conjuncts, without recursion: a
     QF_IDL model checking input (FISCHER6-4-ninc) nests a thousand ands.
+    parent is the position, in the order yielded, of the and the conjunct
+    is an operand of, and None for expr itself: the and-elim path of a
+    conjunct is read off the parents above it (_derive_assumption), so all
+    of them take memory linear in the number of conjuncts. Written out as
+    one tuple of steps per conjunct the paths are quadratic in the nesting
+    depth: QF_IDL PO4-10-PO4, one assertion that nests 41,822 binary ands,
+    held 1.75e9 steps (about 14 GB), and its replay grew to 17 GB before
+    it read the first line of the log.
     """
-    pending = [(expr, path)]
+    pending = [(expr, None)]
+    position = 0
     while pending:
-        expr, path = pending.pop()
-        yield expr, path
+        expr, parent = pending.pop()
+        yield expr, parent
         if expr.decl().kind() == z3.Z3_OP_AND:
-            pending.extend((child, path + (child,)) for child in reversed(expr.children()))
+            pending.extend((child, position) for child in reversed(expr.children()))
+        position += 1
 
 
 def _refute_conjuncts(expr, refuted):
@@ -1458,6 +1572,11 @@ def _symbols(expr):
     return symbols
 
 
+def _symbol_signature(symbols):
+    """A hash of a set of symbols that the union with another set updates a symbol at a time (_index_sources)."""
+    return sum(_mix(symbol) for symbol in symbols) & _WORD
+
+
 class _Replay:
     def __init__(self, source, fragment, assertions, context, timeout=None):
         self.source, self.fragment, self.context = source, fragment, context
@@ -1468,11 +1587,29 @@ class _Replay:
         self.assertion_nodes = [self.dag.expression(expr) for expr in self.assertions]
         self.normalizer = _Normalizer()
         self.assertions_by_id = {expr.get_id(): expr for expr in self.assertions}
-        self.assumption_sources = [(assertion, conjunct, path) for assertion in self.assertions
-                                   for conjunct, path in _conjuncts(assertion)]
+        # (assertion, conjunct, position in this list), an and before its
+        # conjuncts; source_parents[position] is the position of the and the
+        # conjunct is an operand of, None for an assertion itself.
+        # source_roots[position] is the position of its assertion, and
+        # source_leaves[position] whether the conjunct is not an and.
+        self.assumption_sources, self.source_parents, self.source_roots, self.source_leaves = [], [], [], []
+        for assertion in self.assertions:
+            base = len(self.assumption_sources)
+            for conjunct, parent in _conjuncts(assertion):
+                self.assumption_sources.append((assertion, conjunct, len(self.assumption_sources)))
+                self.source_parents.append(None if parent is None else base + parent)
+                self.source_roots.append(base)
+                self.source_leaves.append(conjunct.decl().kind() != z3.Z3_OP_AND)
+        self.source_sizes = [1] * len(self.assumption_sources)  # the sources at and below each (_CHECKED_CONJUNCTS)
+        for position in reversed(range(len(self.assumption_sources))):
+            if self.source_parents[position] is not None:
+                self.source_sizes[self.source_parents[position]] += self.source_sizes[position]
+        self.largest_source = max(self.source_sizes, default=0)  # an assertion's: no source is larger than its root
+        self.and_elim_nodes = {}  # position of a source below an and -> the and-elim node deriving it
+        self.leaf_solver = None   # (solver over every leaf conjunct, tracking literal id -> (literal, source))
         self.assumptions_by_key = None
         self.sources_by_symbol = None  # declaration id (None: no symbol) -> source positions
-        self.symbol_signatures = None  # conjunct AST id -> hash of its symbol set, with the index
+        self.symbol_signatures = None  # source position -> hash of its symbol set, with the index
         self.clauses = {}        # entry id -> (proof node, literal expressions)
         self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
         self.literal_keys = {}   # AST id -> (literal kept alive, key)
@@ -1616,6 +1753,9 @@ class _Replay:
         or conjunct (by canonical key, then by a bounded solver check) bridged
         with a rewrite, or an implying formula or conjunct bridged with a cnf
         theory lemma, for assertions that preprocessing split into clauses.
+        Once an and is not decided (its check is cut off, or it is above
+        _CHECKED_CONJUNCTS), leaf conjuncts that imply the clause together
+        (_implying_leaves), bridged with a cnf theory lemma too.
         Tautological clauses need no source and become def-axiom nodes.
         """
         formula = self.clause_formula(literals)
@@ -1631,8 +1771,8 @@ class _Replay:
                 self.assumptions_by_key.setdefault(self.normalizer.key(source[1]), source)
         source = self.assumptions_by_key.get(target)
         if source is not None:
-            assertion, conjunct, path = source
-            return self._derive_assumption(assertion, path, conjunct, formula)
+            assertion, conjunct, position = source
+            return self._derive_assumption(assertion, position, conjunct, formula)
         # A clause Z3 assumed on its nonlinear solver's word (nlsat) is no
         # assertion's: when its literals have a polynomial refutation it is a
         # theorem about the products, an nla th-lemma as in infer.
@@ -1646,22 +1786,37 @@ class _Replay:
         # chosen and the order of the checks, and only drops checks that
         # could not succeed.
         refuted = set()
-        for assertion, conjunct, path in self._equivalence_candidates(formula, candidates):
+        for assertion, conjunct, position in self._equivalence_candidates(formula, candidates):
             result, solver = self._check(conjunct == formula)
             if result == z3.unsat:
-                return self._derive_assumption(assertion, path, conjunct, formula)
+                return self._derive_assumption(assertion, position, conjunct, formula)
             if result == z3.sat and z3.is_false(solver.model().eval(formula, model_completion=True)):
                 # The conjunct holds and the clause does not: no implication either.
                 _refute_conjuncts(conjunct, refuted)
-        for assertion, conjunct, path in candidates:
+        undecided = False
+        for assertion, conjunct, position in candidates:
             if conjunct.get_id() in refuted:
                 continue
-            result, _ = self._check(z3.Implies(conjunct, formula))
+            if self.source_sizes[position] > _CHECKED_CONJUNCTS:
+                result = z3.unknown  # too large to hand to a solver, see _CHECKED_CONJUNCTS
+            else:
+                result, _ = self._check(z3.Implies(conjunct, formula))
             if result == z3.unsat:
-                source = self._derive_assumption(assertion, path, conjunct, conjunct)
+                source = self._derive_assumption(assertion, position, conjunct, conjunct)
                 return self._cnf_lemma([(source, conjunct)], literals)
             if result == z3.sat:
                 _refute_conjuncts(conjunct, refuted)
+            elif not undecided and not self.source_leaves[position]:
+                # An and too large to decide within the limit, and so, most
+                # likely, is every and below it down to a small one: a
+                # conjunction nested n levels deep cost up to n cut-off
+                # checks per clause. An unsat core over the leaf conjuncts
+                # settles the clause in a few checks, and with a lemma
+                # over the leaves that imply it rather than over an and.
+                undecided = True
+                sources = self._implying_leaves(formula, candidates)
+                if sources is not None:
+                    return self._cnf_lemma(sources, literals)
         # Preprocessing may combine several assertions, for example into the
         # empty clause, or simplify an ite inside one assertion under a unit
         # asserted by another.
@@ -1677,38 +1832,82 @@ class _Replay:
         an uninterpreted symbol (an interpolant over no shared symbol is true
         or false), so the per-source solver checks skip the other conjuncts;
         a source or clause without symbols is always a candidate. The order
-        of the sources is kept. Nothing is trusted by skipping: a clause no
-        candidate ties to an assertion goes to the unsat-core fallback. A
-        few sources are all searched: indexing them traverses every
-        assertion, which costs more than the checks it saves.
+        of the sources is kept, an and before its conjuncts. Nothing is
+        trusted by skipping: a clause no candidate ties to an assertion goes
+        to the unsat-core fallback. A few sources are all searched: indexing
+        them traverses every assertion, which costs more than the checks it
+        saves.
         """
         if len(self.assumption_sources) <= _SEARCH_ALL_SOURCES:
             return self.assumption_sources
         if self.sources_by_symbol is None:
-            self.sources_by_symbol = {}
-            self.symbol_signatures = {}
-            # Sources list an and before its conjuncts, so in reverse an and
-            # takes the union of its conjuncts' sets instead of a traversal.
-            # The sets are dropped once the index is built; a hash of each
-            # stays for _equivalence_candidates.
-            symbols_of = {}
-            for position in reversed(range(len(self.assumption_sources))):
-                conjunct = self.assumption_sources[position][1]
-                if conjunct.decl().kind() == z3.Z3_OP_AND:
-                    symbols = set().union(*(symbols_of[child.get_id()] for child in conjunct.children()))
-                else:
-                    symbols = _symbols(conjunct)
-                symbols_of[conjunct.get_id()] = symbols
-                self.symbol_signatures[conjunct.get_id()] = hash(frozenset(symbols))
-                for symbol in symbols or (None,):
-                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+            self._index_sources()
         symbols = _symbols(formula)
         if not symbols:
             return self.assumption_sources
         positions = set(self.sources_by_symbol.get(None, ()))
         for symbol in symbols:
-            positions.update(self.sources_by_symbol.get(symbol, ()))
+            for position in self.sources_by_symbol.get(symbol, ()):
+                # A leaf over the symbol, and every and above it up to one
+                # already taken. Of the ands no solver is given
+                # (_CHECKED_CONJUNCTS) only the assertion stands for all:
+                # the search does the same at each, and listing every
+                # level above every leaf is the depth per clause.
+                while position is not None and position not in positions:
+                    positions.add(position)
+                    position = self.source_parents[position]
+                    if position is not None and self.source_sizes[position] > _CHECKED_CONJUNCTS:
+                        positions.add(self.source_roots[position])
+                        break
         return [self.assumption_sources[position] for position in sorted(positions)]
+
+    def _index_sources(self):
+        """Index the sources by symbol for _candidate_sources and _equivalence_candidates.
+
+        sources_by_symbol lists, per symbol, the leaf conjuncts (not ands)
+        over it, and under None the sources without symbols, ands included.
+        An and shares a symbol with a clause exactly when a leaf below it
+        does, so the ands are found from the leaves (source_parents) and
+        are not listed: an and nested n levels deep is over the symbols of
+        all n levels, and listing every and under each of its symbols took
+        memory quadratic in the depth, as did the set of symbols kept for
+        every and while the index was built (on QF_IDL PO4-10-PO4, 41,822
+        levels, the replay peaked at 3.7 GB with them and at 0.5 GB
+        without). symbol_signatures gives each conjunct a
+        hash of its symbol set (_symbol_signature). Sources list an and
+        before its conjuncts, so in reverse every conjunct is read before
+        the and above it, which takes over the largest symbol set among its
+        conjuncts and adds the others' symbols to it: no set is copied, and
+        a symbol moves to a larger set about log n times.
+        """
+        self.sources_by_symbol = {}
+        self.symbol_signatures = [0] * len(self.assumption_sources)
+        gathered = {}  # position of an and -> [symbols of its conjuncts read so far, their signature]
+        for position in reversed(range(len(self.assumption_sources))):
+            if not self.source_leaves[position]:
+                symbols, signature = gathered.pop(position, (set(), 0))
+                if not symbols:
+                    self.sources_by_symbol.setdefault(None, []).append(position)
+            else:
+                symbols = _symbols(self.assumption_sources[position][1])
+                signature = _symbol_signature(symbols)
+                for symbol in symbols or (None,):
+                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+            self.symbol_signatures[position] = signature
+            parent = self.source_parents[position]
+            if parent is None:
+                continue
+            above = gathered.get(parent)
+            if above is None:
+                gathered[parent] = [symbols, signature]
+                continue
+            if len(above[0]) < len(symbols):
+                symbols, above[0] = above[0], symbols
+                signature, above[1] = above[1], signature
+            for symbol in symbols:
+                if symbol not in above[0]:
+                    above[0].add(symbol)
+                    above[1] = (above[1] + _mix(symbol)) & _WORD
 
     def _equivalence_candidates(self, formula, candidates):
         """Return the candidates worth a solver check for equivalence with formula.
@@ -1726,24 +1925,118 @@ class _Replay:
         formula also implies it, so the implication pass of assume still
         ties a skipped one (through a cnf lemma rather than a rewrite);
         nothing is trusted by skipping. Symbol sets are compared by hash
-        (_candidate_sources); a collision costs one check. A few sources are
-        not indexed and are all checked.
+        (_symbol_signature); a collision costs one check. A few sources are
+        not indexed and are all checked. An and above _CHECKED_CONJUNCTS
+        is not checked either; the implication pass ties it by its leaves.
         """
         if self.symbol_signatures is None:
             return candidates
         symbols = _symbols(formula)
-        signature = hash(frozenset(symbols))
+        signature = _symbol_signature(symbols)
         if symbols:
             positions = set(self.sources_by_symbol.get(next(iter(symbols)), ()))
             for symbol in symbols:
                 positions.intersection_update(self.sources_by_symbol.get(symbol, ()))
-            covering = {self.assumption_sources[position][1].get_id() for position in positions}
+            covering = positions  # of leaves: the index lists no and under a symbol
         else:
             covering = None  # every source covers no symbols
         return [source for source in candidates
-                if self.symbol_signatures[source[1].get_id()] == signature
-                or (source[1].decl().kind() != z3.Z3_OP_AND
-                    and (covering is None or source[1].get_id() in covering))]
+                if (self.symbol_signatures[source[2]] == signature
+                    and self.source_sizes[source[2]] <= _CHECKED_CONJUNCTS)
+                or (self.source_leaves[source[2]] and (covering is None or source[2] in covering))]
+
+    def _implying_leaves(self, formula, candidates):
+        """Return (proof node, formula) sources from leaf conjuncts (not ands) that imply formula together, or None.
+
+        An unsat core of the candidates' leaves with the negated formula
+        or, when those do not imply it, of all leaves: a clause Z3
+        simplified under a unit conjunct shares no symbol with that unit.
+        None when no core is found (the leaves do not imply the formula,
+        or a check is cut off): the search then goes on as before. Lean
+        proves the lemma over the sources returned (_leaf_sources), or the
+        certificate fails.
+        """
+        leaves = {}
+        for source in candidates:
+            if self.source_leaves[source[2]]:
+                leaves.setdefault(source[1].get_id(), source)
+        core = self._leaf_core(formula, list(leaves.values()))
+        if core is None and len(candidates) < len(self.assumption_sources):
+            core = self._all_leaves_core(formula)[1]
+        return None if core is None else self._leaf_sources(formula, core)
+
+    def _leaf_sources(self, formula, core):
+        """The (proof node, formula) sources for a core of leaves implying formula, after shrinking it.
+
+        Z3's cores are not minimal: the core is checked again on its own
+        for as long as that leaves a smaller one. Each leaf of the core is
+        and-eliminated from its assertion, unless the core is a large part
+        of the assertions it draws on (more than a quarter of their
+        sources): then those assertions are the sources, as they imply
+        what their leaves do, and the lemma has one premise each instead
+        of one per leaf (the empty clause of a chain of implications needs
+        every conjunct).
+        """
+        while len(core) > 1:
+            smaller = self._leaf_core(formula, core)
+            if smaller is None or len(smaller) >= len(core):
+                break
+            core = smaller
+        roots = sorted({self.source_roots[position] for _, _, position in core})
+        if 4 * len(core) > sum(self.source_sizes[root] for root in roots):
+            assertions = dict.fromkeys(self.assumption_sources[root][1] for root in roots)
+            return [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
+                    for assertion in assertions]
+        return [(self._derive_assumption(assertion, position, conjunct, conjunct), conjunct)
+                for assertion, conjunct, position in core]
+
+    def _leaf_core(self, formula, leaves):
+        """The sources among leaves in an unsat core of them and the negated formula, None without one."""
+        if not leaves:
+            return None
+        self._check_deadline()
+        solver = z3.Solver(ctx=self.context)
+        solver.set("rlimit", _RLIMIT)
+        tracking = [z3.FreshBool("cnf_source", self.context) for _ in leaves]
+        for literal, source in zip(tracking, leaves):
+            solver.assert_and_track(source[1], literal)
+        solver.add(z3.Not(formula))
+        if solver.check() != z3.unsat:
+            return None
+        core = {literal.get_id() for literal in solver.unsat_core()}
+        return [source for literal, source in zip(tracking, leaves) if literal.get_id() in core]
+
+    def _all_leaves_core(self, formula):
+        """The result of checking the negated formula with every leaf conjunct, and the sources in its unsat core.
+
+        One solver holds the leaves for the whole replay, each tracked;
+        a formula is checked between a push and a pop.
+        """
+        self._check_deadline()
+        if self.leaf_solver is None:
+            leaves = {}
+            for source in self.assumption_sources:
+                if self.source_leaves[source[2]]:
+                    leaves.setdefault(source[1].get_id(), source)
+            solver = z3.Solver(ctx=self.context)
+            solver.set("rlimit", _RLIMIT)
+            tracked = {}
+            for source in leaves.values():
+                literal = z3.FreshBool("cnf_source", self.context)
+                solver.assert_and_track(source[1], literal)
+                tracked[literal.get_id()] = (literal, source)
+            self.leaf_solver = solver, tracked
+        solver, tracked = self.leaf_solver
+        solver.push()
+        try:
+            solver.add(z3.Not(formula))
+            result = solver.check()
+            if result != z3.unsat:
+                return result, None
+            core = {literal.get_id() for literal in solver.unsat_core()}
+        finally:
+            solver.pop()
+        return result, [source for ident, (_, source) in tracked.items() if ident in core]
 
     def _implying_assertions(self, formula):
         """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.
@@ -1754,6 +2047,13 @@ class _Replay:
         assertions = list(dict.fromkeys(self.assertions, None))
         if not assertions:
             return None
+        if self.largest_source > _CHECKED_CONJUNCTS:
+            # An assertion too large to hand to a solver whole: a core of the leaves instead.
+            result, core = self._all_leaves_core(formula)
+            if result == z3.unknown:
+                raise ProofExportError("resource limit reached while tying an assumed clause to the assertions: %s"
+                                       % formula)
+            return self._leaf_sources(formula, core) if result == z3.unsat else None
         self._check_deadline()
         solver = z3.Solver(ctx=self.context)
         solver.set("rlimit", _RLIMIT)
@@ -1802,10 +2102,24 @@ class _Replay:
         solver.add(z3.Not(claim))
         return solver.check(), solver
 
-    def _derive_assumption(self, assertion, path, conjunct, formula):
-        node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
-        for step in path:
-            node = self.dag.node(self.and_elim, [node, self.dag.expression(step)])
+    def _derive_assumption(self, assertion, position, conjunct, formula):
+        # One and-elim step per and above the conjunct (source_parents),
+        # each made once: a conjunct starts from the nearest source above it
+        # that an earlier one reached, so tying every conjunct of a deeply
+        # nested assertion makes one step per conjunct, not one per level
+        # each. The nodes and their order are those of walking each path
+        # from the assertion.
+        steps = []
+        while self.source_parents[position] is not None and position not in self.and_elim_nodes:
+            steps.append(position)
+            position = self.source_parents[position]
+        if self.source_parents[position] is None:
+            node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
+        else:
+            node = self.and_elim_nodes[position]
+        for position in reversed(steps):
+            node = self.and_elim_nodes[position] = self.dag.node(
+                self.and_elim, [node, self.dag.expression(self.assumption_sources[position][1])])
         if conjunct.get_id() != formula.get_id():
             equivalence = self.dag.node(self.rewrite, [self.dag.expression(conjunct == formula)])
             node = self.dag.node(self.mp, [node, equivalence, self.dag.expression(formula)])
