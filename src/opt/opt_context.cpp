@@ -635,7 +635,7 @@ namespace opt {
                 return r;
             }
             if (r == l_true && i + 1 < sz) {
-                update_lower();
+                update_lower(i + 1);
             }
         }
         DEBUG_CODE(if (r == l_true) validate_lex(););
@@ -2187,10 +2187,11 @@ namespace opt {
         }
     }
 
-    void context::update_bound(bool is_lower) {
+    void context::update_bound(bool is_lower, unsigned start) {
         expr_ref val(m);
         if (!m_model.get()) return;
-        for (objective const& obj : m_objectives) {
+        for (unsigned i = start; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
             rational r;
             switch(obj.m_type) {
             case O_MINIMIZE: {

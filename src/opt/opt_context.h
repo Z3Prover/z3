@@ -342,8 +342,8 @@ namespace opt {
         void simplify_fmls(expr_ref_vector& fmls, expr_ref_vector const& asms);
         void mk_atomic(expr_ref_vector& terms);
 
-        void update_lower() { update_bound(true); }
-        void update_bound(bool is_lower);
+        void update_lower(unsigned start = 0) { update_bound(true, start); }
+        void update_bound(bool is_lower, unsigned start = 0);
 
         objective_value get_lower_value(unsigned idx);
         objective_value get_upper_value(unsigned idx);
