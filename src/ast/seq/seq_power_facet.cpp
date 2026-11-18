@@ -20,6 +20,7 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
+#include "util/uint_set.h"
 
 namespace seq {
 
@@ -118,6 +119,13 @@ namespace seq {
             str_power const& p = f.powers()[i];
             rational v;
 
+            // `epsilon^n = epsilon`; otherwise power_peel unfolds it forever.
+            if (u.str.is_empty(p.m_s)) {
+                broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep);
+                changed = true;
+                continue;
+            }
+
             // Large fixed powers remain tokens, including in extracted witnesses.
             if (a.is_numeral(p.m_n, v) && v <= rational(1024)) {
                 expr_ref rhs(m);
@@ -159,207 +167,14 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
-    // -- power_fine_wilf --
-
     // Thin wrapper around `power_facet::find_power`.
     static bool is_power_token(power_facet const& f, expr* e, unsigned& idx) {
         return f.find_power(e, idx);
     }
 
-    // Scan `side` for its first registered power token. Tokens before it
-    // become `Y`. Returns false if none exists or if the first power has
-    // the same base as `u_base`.
-    static bool find_wpow(power_facet const& f, expr_ref_vector const& side, expr* u_base,
-                           unsigned& y_len, unsigned& wpow_idx) {
-        for (unsigned i = 0; i < side.size(); ++i) {
-            unsigned idx;
-            if (is_power_token(f, side[i], idx)) {
-                if (f.powers()[idx].m_s.get() == u_base)
-                    return false; // same base: not this rule's business
-                y_len = i;
-                wpow_idx = idx;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Locate one Fine & Wilf trigger site, if any.
-    static bool find_fw_trigger(power_facet const& f, eq_facet const& ef, power_fine_wilf::trigger& t) {
-        for (unsigned eq_idx = 0; eq_idx < ef.equations().size(); ++eq_idx) {
-            eq_facet::equation const& eq = ef.equations()[eq_idx];
-            if (!eq.active())
-                continue;
-            if (eq.m_lhs.empty() || eq.m_rhs.empty())
-                continue;
-            for (bool pow_on_lhs : {true, false}) {
-                expr_ref_vector const& head_side = pow_on_lhs ? eq.m_lhs : eq.m_rhs;
-                expr_ref_vector const& other_side = pow_on_lhs ? eq.m_rhs : eq.m_lhs;
-                unsigned pow_idx;
-                if (!is_power_token(f, head_side[0], pow_idx))
-                    continue;
-                str_power const& p = f.powers()[pow_idx];
-                if (p.m_fw_marked)
-                    continue; // case 1 already offered for this obligation
-                unsigned y_len, wpow_idx;
-                if (!find_wpow(f, other_side, p.m_s.get(), y_len, wpow_idx))
-                    continue;
-                t.m_eq_idx = eq_idx;
-                t.m_pow_on_lhs = pow_on_lhs;
-                t.m_pow_idx = pow_idx;
-                t.m_other_pow_idx = wpow_idx;
-                t.m_y_len = y_len;
-                t.m_dep = eq.m_dep;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // `len(U^n)` as an expression.
     static expr_ref mk_len(seq_util& u, ast_manager& m, expr* e) {
         return expr_ref(u.str.mk_length(e), m);
     }
-
-    // Sanity check that the trigger's obligation indices still refer to
-    // live power obligations (defensive; see call site comment).
-    static bool t_stale(power_facet const& f, power_fine_wilf::trigger const& t) {
-        return t.m_pow_idx >= f.powers().size() || t.m_other_pow_idx >= f.powers().size()
-            || !f.powers()[t.m_pow_idx].active() || !f.powers()[t.m_other_pow_idx].active();
-    }
-
-    bool power_fine_wilf::iterator::next(eq_tree::edge& out) {
-        if (m_next_case > 3)
-            return false;
-        unsigned this_case = m_next_case++;
-
-        auto ac = get_ambient(m_n);
-        auto& f = ac.power_facet_ref();
-        auto& ef = ac.eq_facet_ref();
-        auto& sf = ac.solver_facet_ref();
-
-        // The trigger equation may already have been consumed or replaced.
-        if (t_stale(f, m_t) || m_t.m_eq_idx >= ef.equations().size() || !ef.equations()[m_t.m_eq_idx].active())
-            return false;
-
-        eq_facet::equation const& eq = ef.equations()[m_t.m_eq_idx];
-        expr_ref_vector const& head_side = m_t.m_pow_on_lhs ? eq.m_lhs : eq.m_rhs;
-        expr_ref_vector const& other_side = m_t.m_pow_on_lhs ? eq.m_rhs : eq.m_lhs;
-        str_power const& p_u = f.powers()[m_t.m_pow_idx];
-        str_power const& p_w = f.powers()[m_t.m_other_pow_idx];
-        eq_tree::dep_tracker dep = m_t.m_dep;
-
-        expr_ref len_upow = mk_len(u, m, p_u.m_e.get());
-        expr_ref len_wpow = mk_len(u, m, p_w.m_e.get());
-        expr_ref len_y = mk_len_sum(u, a, m, other_side, 0, m_t.m_y_len);
-        expr_ref T(a.mk_add(mk_len(u, m, p_u.m_s.get()).get(), mk_len(u, m, p_w.m_s.get()).get()), m);
-
-        // V, Z: the remainders after `U^n` and `Y.W^m`.
-        expr_ref_vector V(m); // remainder of head_side after U^n (index 0)
-        V.append(head_side.size() - 1, head_side.data() + 1);
-        expr_ref_vector Z(m); // remainder of other_side after Y . W^m
-        Z.append(other_side.size() - (m_t.m_y_len + 1), other_side.data() + m_t.m_y_len + 1);
-        expr_ref_vector Y(m);
-        Y.append(m_t.m_y_len, other_side.data());
-        sort* s = p_u.m_e.get()->get_sort();
-        expr_ref lhs(u.str.mk_concat(eq.m_lhs, s), m);
-        expr_ref rhs(u.str.mk_concat(eq.m_rhs, s), m);
-        expr_ref prefix(u.str.mk_concat(Y, s), m);
-        if (this_case == 2) {
-            // Case 2: U^n = Y . R1, W^m = R1 . R2, V = R2 . Z.
-            expr* r1 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-r1" : "fine-wilf-rhs-r1",
-                                     s, { lhs, rhs, prefix });
-            expr* r2 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-r2" : "fine-wilf-rhs-r2",
-                                     s, { lhs, rhs, prefix });
-            expr_ref_vector un_lhs(m); un_lhs.push_back(p_u.m_e.get());
-            expr_ref_vector un_rhs(m); un_rhs.append(Y); un_rhs.push_back(r1);
-            expr_ref_vector wm_lhs(m); wm_lhs.push_back(p_w.m_e.get());
-            expr_ref_vector wm_rhs(m); wm_rhs.push_back(r1); wm_rhs.push_back(r2);
-            expr_ref_vector v_lhs(m); v_lhs.append(V);
-            expr_ref_vector v_rhs(m); v_rhs.push_back(r2); v_rhs.append(Z);
-
-            ef.remove_equation_trailed(m_t.m_eq_idx);
-            ef.add_equation(un_lhs, un_rhs, dep);
-            ef.add_equation(wm_lhs, wm_rhs, dep);
-            ef.add_equation(v_lhs, v_rhs, dep);
-
-            expr_ref len_r1(u.str.mk_length(r1), m);
-            expr_ref len_r2(u.str.mk_length(r2), m);
-            sf.add_constraint(m.mk_eq(a.mk_add(len_y, len_r1), len_upow), dep);
-            sf.add_constraint(a.mk_ge(len_r1, T), dep);
-            sf.add_constraint(m.mk_eq(a.mk_add(len_r1, len_r2), len_wpow), dep);
-            sf.add_constraint(a.mk_ge(len_r2, a.mk_int(0)), dep);
-
-            out = eq_tree::edge("fine-wilf:case2", dep, true, 0);
-            return true;
-        }
-        else {
-            // Case 3: U^n = S1 . S2, S1 = Y . W^m, Z = S2 . V.
-            expr* s1 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-s1" : "fine-wilf-rhs-s1",
-                                     s, { lhs, rhs, prefix });
-            expr* s2 = ac.mk_fresh_var(m_t.m_pow_on_lhs ? "fine-wilf-lhs-s2" : "fine-wilf-rhs-s2",
-                                     s, { lhs, rhs, prefix });
-            expr_ref_vector un_lhs(m); un_lhs.push_back(p_u.m_e.get());
-            expr_ref_vector un_rhs(m); un_rhs.push_back(s1); un_rhs.push_back(s2);
-            expr_ref_vector s1_lhs(m); s1_lhs.push_back(s1);
-            expr_ref_vector s1_rhs(m); s1_rhs.append(Y); s1_rhs.push_back(p_w.m_e.get());
-            expr_ref_vector z_lhs(m); z_lhs.append(Z);
-            expr_ref_vector z_rhs(m); z_rhs.push_back(s2); z_rhs.append(V);
-
-            ef.remove_equation_trailed(m_t.m_eq_idx);
-            ef.add_equation(un_lhs, un_rhs, dep);
-            ef.add_equation(s1_lhs, s1_rhs, dep);
-            ef.add_equation(z_lhs, z_rhs, dep);
-
-            expr_ref len_s1(u.str.mk_length(s1), m);
-            expr_ref len_s2(u.str.mk_length(s2), m);
-            sf.add_constraint(m.mk_eq(len_s1, a.mk_add(len_y, len_wpow)), dep);
-            sf.add_constraint(a.mk_ge(len_wpow, T), dep);
-            sf.add_constraint(a.mk_ge(len_s2, a.mk_int(1)), dep);
-            sf.add_constraint(m.mk_eq(a.mk_add(len_s1, len_s2), len_upow), dep);
-
-            out = eq_tree::edge("fine-wilf:case3", dep, true, 0);
-            return true;
-        }
-    }
-
-    scoped_ptr<eq_tree::split_iterator_i> power_fine_wilf::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
-        has_more = false;
-        committed = false;
-        auto ac = get_ambient(n);
-        if (!ac.fparams().m_seq_fine_wilf)
-            return nullptr;
-        auto& f = ac.power_facet_ref();
-        auto& ef = ac.eq_facet_ref();
-
-        trigger t;
-        if (!find_fw_trigger(f, ef, t))
-            return nullptr;
-        has_more = true;
-
-        eq_facet::equation const& eq = ef.equations()[t.m_eq_idx];
-        expr_ref_vector const& other_side = t.m_pow_on_lhs ? eq.m_rhs : eq.m_lhs;
-        str_power const& p_u = f.powers()[t.m_pow_idx];
-        str_power const& p_w = f.powers()[t.m_other_pow_idx];
-        eq_tree::dep_tracker dep = t.m_dep;
-
-        expr_ref len_upow = mk_len(u, m, p_u.m_e.get());
-        expr_ref len_wpow = mk_len(u, m, p_w.m_e.get());
-        expr_ref len_y = mk_len_sum(u, a, m, other_side, 0, t.m_y_len);
-        expr_ref T(a.mk_add(mk_len(u, m, p_u.m_s.get()).get(), mk_len(u, m, p_w.m_s.get()).get()), m);
-
-        // Case 1: small overlap, arith-only, no string-side progress.
-        expr_ref case1(m.mk_or(a.mk_lt(a.mk_sub(len_upow, len_y), T), a.mk_lt(len_wpow, T)), m);
-        ac.solver_facet_ref().add_constraint(case1, dep);
-        f.mark(t.m_pow_idx, &str_power::m_fw_marked);
-
-        iterator* it = alloc(iterator, n, t, 2u, m, u, a);
-        out = eq_tree::edge("fine-wilf:case1", dep, true, 0);
-        committed = true;
-        m_stats.m_num_splits++;
-        return it;
-    }
-
 
     bool power_split::iterator::next(eq_tree::edge& out) {
         auto ac = get_ambient(m_n);
@@ -448,6 +263,354 @@ namespace seq {
             return it;
         }
         return nullptr;
+    }
+
+    // -- power_trichotomy --
+
+    // A base made only of constant characters, as a string.
+    static bool constant_word(seq_util& u, expr_ref_vector const& toks, zstring& s) {
+        s.reset();
+        for (expr* t : toks) {
+            expr* ch = nullptr;
+            unsigned c;
+            if (!u.str.is_unit(t, ch) || !u.is_const_char(ch, c))
+                return false;
+            s += zstring(c);
+        }
+        return !s.empty();
+    }
+
+    static bool has_period(zstring const& s, unsigned r) {
+        for (unsigned i = 0; i + r < s.length(); ++i) {
+            if (s[i] != s[i + r])
+                return false;
+        }
+        return true;
+    }
+
+    static zstring primitive_root(zstring const& s) {
+        for (unsigned d = 1; d < s.length(); ++d) {
+            if (s.length() % d == 0 && has_period(s, d))
+                return s.extract(0, d);
+        }
+        return s;
+    }
+
+    // Collect the ways the tokens `todo` (next token last) can begin. A power is
+    // either empty or yields one copy of its base followed by an unknown rest.
+    static bool beginnings(power_facet const& f, seq_util& u, ast_manager& m, ptr_vector<expr>& todo,
+                           svector<unsigned>& cur, vector<svector<unsigned>>& out, unsigned& budget) {
+        if (budget == 0)
+            return false;
+        --budget;
+        ptr_vector<expr> consumed;
+        expr* ch = nullptr;
+        unsigned c, idx;
+        while (!todo.empty() && todo.back() && u.str.is_unit(todo.back(), ch) && u.is_const_char(ch, c)) {
+            consumed.push_back(todo.back());
+            todo.pop_back();
+            cur.push_back(c);
+        }
+        bool ok = true;
+        expr* t = todo.empty() ? nullptr : todo.back();
+        if (t && f.find_power(t, idx)) {
+            todo.pop_back();
+            ok = beginnings(f, u, m, todo, cur, out, budget);
+            expr_ref_vector base(m);
+            u.str.get_concat_units(f.powers()[idx].m_s, base);
+            unsigned sz = todo.size();
+            todo.push_back(nullptr);
+            for (unsigned i = base.size(); i-- > 0; ) {
+                todo.push_back(base.get(i));
+            }
+            ok = ok && beginnings(f, u, m, todo, cur, out, budget);
+            todo.shrink(sz);
+            todo.push_back(t);
+        }
+        else
+            out.push_back(cur); // end of the base or unknown continuation
+        cur.shrink(cur.size() - consumed.size());
+        for (unsigned i = consumed.size(); i-- > 0; ) {
+            todo.push_back(consumed[i]);
+        }
+        return ok;
+    }
+
+    // The characters that may occur in base `s` (`can`; false if unbounded) and,
+    // outside nested powers, those that surely occur (`must`).
+    static bool letters(power_facet const& f, seq_util& u, ast_manager& m, expr* s, bool top, uint_set& must, uint_set& can) {
+        expr_ref_vector toks(m);
+        u.str.get_concat_units(s, toks);
+        for (expr* t : toks) {
+            expr* ch = nullptr;
+            unsigned c, idx;
+            if (u.str.is_unit(t, ch) && u.is_const_char(ch, c)) {
+                can.insert(c);
+                if (top)
+                    must.insert(c);
+            }
+            else if (!f.find_power(t, idx) || !letters(f, u, m, f.powers()[idx].m_s, false, must, can))
+                return false;
+        }
+        return true;
+    }
+
+    // Whether one of the bases `s1`, `s2` can be a prefix of the other.
+    static bool may_be_prefix(power_facet const& f, seq_util& u, ast_manager& m, expr* s1, expr* s2) {
+        vector<svector<unsigned>> bs[2];
+        expr* s[2] = { s1, s2 };
+        for (unsigned i = 0; i < 2; ++i) {
+            expr_ref_vector toks(m);
+            u.str.get_concat_units(s[i], toks);
+            ptr_vector<expr> todo;
+            for (unsigned j = toks.size(); j-- > 0; ) {
+                todo.push_back(toks.get(j));
+            }
+            svector<unsigned> cur;
+            unsigned budget = 256;
+            if (!beginnings(f, u, m, todo, cur, bs[i], budget))
+                return true;
+        }
+        for (auto const& p : bs[0]) {
+            for (auto const& q : bs[1]) {
+                unsigned k = std::min(p.size(), q.size()), i = 0;
+                while (i < k && p[i] == q[i]) {
+                    ++i;
+                }
+                if (i == k)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // Both sides start with powers of different bases, not both exponents numerals.
+    bool power_trichotomy::find_trigger(eq_tree::node& n, trigger& t) const {
+        auto ac = get_ambient(n);
+        auto& f = ac.power_facet_ref();
+        for (auto const& eq : ac.eq_facet_ref().equations()) {
+            unsigned xi, yi;
+            if (!eq.active() || eq.m_lhs.empty() || eq.m_rhs.empty() ||
+                !f.find_power(eq.m_lhs[0], xi) || !f.find_power(eq.m_rhs[0], yi))
+                continue;
+            str_power const& px = f.powers()[xi];
+            str_power const& py = f.powers()[yi];
+            if (px.m_s == py.m_s || (a.is_numeral(px.m_n) && a.is_numeral(py.m_n)))
+                continue; // power_split_elim resp. power_propagation
+            // A base starting with a power has no known first character yet; power_peel exposes it.
+            expr_ref_vector xs(m), ys(m);
+            u.str.get_concat_units(px.m_s, xs);
+            u.str.get_concat_units(py.m_s, ys);
+            if (xs.empty() || ys.empty() || u.str.is_power(xs.get(0)) || u.str.is_power(ys.get(0)))
+                continue;
+            t = {xi, yi, eq.m_dep};
+            return true;
+        }
+        return false;
+    }
+
+    // Branches 0..4 for `|X^M| <= |Y^N|`, 5..9 mirrored. Constant bases give
+    // direct witnesses: f2 its primitive root, f3 one branch per period `r`.
+    void power_trichotomy::enumerate(eq_tree::node& n, trigger const& t, branches& out) const {
+        auto& f = get_ambient(n).power_facet_ref();
+        expr* bases[2] = { f.powers()[t.m_x_idx].m_s, f.powers()[t.m_y_idx].m_s };
+        // f1..f4 make one base a prefix of the other
+        bool prefix = may_be_prefix(f, u, m, bases[0], bases[1]);
+        // fits[d]: base d's letters may occur in the other base. f1 needs it
+        // for X, f2..f4 need equal alphabets (f4 with q = 0 is f1).
+        uint_set must[2], can[2];
+        bool bounded[2];
+        for (unsigned d = 0; d < 2; ++d) {
+            bounded[d] = letters(f, u, m, bases[d], true, must[d], can[d]);
+        }
+        bool fits[2] = { !bounded[1] || must[0].subset_of(can[1]), !bounded[0] || must[1].subset_of(can[0]) };
+        for (unsigned dir = 0; dir < 2; ++dir) {
+            expr_ref_vector xs(m), ys(m);
+            u.str.get_concat_units(bases[dir], xs);
+            u.str.get_concat_units(bases[1 - dir], ys);
+            zstring sx, sy;
+            bool gx = constant_word(u, xs, sx), gy = constant_word(u, ys, sy);
+            unsigned b = 5 * dir;
+            out.push_back({b, 0});
+            if (!prefix)
+                continue;
+            if (fits[dir] && !(gx && gy && !sx.prefixof(sy)))
+                out.push_back({b + 1, 0});
+            if (!fits[0] || !fits[1])
+                continue;
+            if (!(gx && gy && sx + sy != sy + sx))
+                out.push_back({b + 2, 0});
+            if (!gx)
+                out.push_back({b + 3, 0});
+            else {
+                for (unsigned r = 1; r < sx.length(); ++r) {
+                    if (has_period(sx, r) && (!gy || (sy.length() >= sx.length() + r && (sy.length() - r) % sx.length() == 0)))
+                        out.push_back({b + 3, r});
+                }
+            }
+            out.push_back({b + 4, 0});
+        }
+    }
+
+    void power_trichotomy::apply(eq_tree::node& n, trigger const& t, unsigned b, unsigned param) const {
+        auto ac = get_ambient(n);
+        auto& f = ac.power_facet_ref();
+        auto& ef = ac.eq_facet_ref();
+        auto& sf = ac.solver_facet_ref();
+        bool dir_u = b < 5;
+        // copies: add_power and broadcast_subst may reallocate m_pows
+        str_power px = f.powers()[dir_u ? t.m_x_idx : t.m_y_idx]; // the shorter power X^M
+        str_power py = f.powers()[dir_u ? t.m_y_idx : t.m_x_idx]; // the longer power Y^N
+        eq_tree::dep_tracker dep = t.m_dep;
+        expr* X = px.m_s, *M = px.m_n, *Y = py.m_s, *N = py.m_n;
+        expr_ref_vector xs(m), ys(m);
+        u.str.get_concat_units(X, xs);
+        u.str.get_concat_units(Y, ys);
+        zstring sx, sy;
+        bool gx = constant_word(u, xs, sx), gy = constant_word(u, ys, sy);
+
+        auto constrain = [&](expr* c) { sf.add_constraint(c, dep); };
+        auto mk_pow = [&](expr* base, expr* exp) {
+            expr_ref e = mk_exp(m, exp);
+            expr_ref tok(u.str.mk_power(base, e), m);
+            f.add_power(tok, base, e, dep);
+            return tok;
+        };
+        auto fresh_str = [&](char const* name) { return expr_ref(ac.mk_fresh_var(name, px.m_e->get_sort(), { px.m_e.get(), py.m_e.get() }), m); };
+        auto fresh_int = [&](char const* name) { return expr_ref(ac.mk_fresh_var(name, a.mk_int(), { px.m_e.get(), py.m_e.get() }), m); };
+        auto word = [&](zstring const& s) {
+            expr_ref_vector r(m);
+            u.str.get_concat_units(u.str.mk_string(s), r);
+            return r;
+        };
+        auto one = [&](expr* e) {
+            expr_ref_vector r(m);
+            r.push_back(e);
+            return r;
+        };
+        auto cat = [&](std::initializer_list<expr_ref_vector> parts) {
+            expr_ref_vector r(m);
+            for (auto const& p : parts) {
+                r.append(p);
+            }
+            return r;
+        };
+
+        constrain(dir_u ? a.mk_le(mk_len(u, m, px.m_e), mk_len(u, m, py.m_e))
+                        : a.mk_lt(mk_len(u, m, px.m_e), mk_len(u, m, py.m_e)));
+
+        // Each case asserts exactly what its substitution `Y^N := X^M . z` needs.
+        expr_ref_vector z(m);
+        switch (b % 5) {
+        case 0:
+            // X^M = epsilon
+            constrain(m.mk_or(a.mk_le(M, a.mk_int(0)), m.mk_eq(mk_len_sum(u, a, m, xs, 0, xs.size()), a.mk_int(0))));
+            broadcast_subst(n, px.m_e, expr_ref_vector(m), dep);
+            return;
+        case 1: {
+            // Y = X^M y',  z = y' Y^(N-1)
+            expr_ref y1 = fresh_str("power-trichotomy-f1-y");
+            constrain(a.mk_ge(N, a.mk_int(1)));
+            ef.add_equation(ys, cat({one(px.m_e), one(y1)}), dep);
+            z = cat({one(y1), one(mk_pow(Y, a.mk_sub(N, a.mk_int(1))))});
+            break;
+        }
+        case 2: {
+            // X = w^i, Y = w^j, M >= 1,  z = w^(jN - iM); `iM <= jN` follows from the length guard.
+            expr_ref w(m), i(m), j(m);
+            constrain(a.mk_ge(M, a.mk_int(1)));
+            if (gx || gy) {
+                zstring root = primitive_root(gx ? sx : sy);
+                w = u.str.mk_string(root);
+                if (gx)
+                    i = a.mk_int(sx.length() / root.length());
+                if (gy)
+                    j = a.mk_int(sy.length() / root.length());
+            }
+            else
+                w = fresh_str("power-trichotomy-f2-w");
+            if (!i) {
+                i = fresh_int("power-trichotomy-f2-i");
+                constrain(a.mk_ge(i, a.mk_int(1)));
+                ef.add_equation(xs, one(mk_pow(w, i)), dep);
+            }
+            if (!j) {
+                j = fresh_int("power-trichotomy-f2-j");
+                constrain(a.mk_ge(j, a.mk_int(1)));
+                ef.add_equation(ys, one(mk_pow(w, j)), dep);
+            }
+            z = one(mk_pow(w, a.mk_sub(a.mk_mul(j, N), a.mk_mul(i, M))));
+            break;
+        }
+        case 3: {
+            // X = (p'p'')^k p', Y = X^(M-1) p'p'',  z = p'' p' X^(M-2) p'p'' Y^(N-2)
+            expr_ref_vector p1(m), p2(m);
+            constrain(a.mk_ge(M, a.mk_int(2)));
+            constrain(a.mk_ge(N, a.mk_int(2)));
+            if (param > 0) {
+                // constant X with period r: p'p'' = X[0..r), p' = the last |X| mod r characters
+                unsigned r = param, l1 = sx.length() % r;
+                p1 = word(sx.extract(sx.length() - l1, l1));
+                p2 = word(sx.extract(l1, r - l1));
+            }
+            else {
+                expr_ref v1 = fresh_str("power-trichotomy-f3-p1"), v2 = fresh_str("power-trichotomy-f3-p2"), k = fresh_int("power-trichotomy-f3-k");
+                p1 = one(v1);
+                p2 = one(v2);
+                ef.add_equation(xs, cat({one(mk_pow(u.str.mk_concat(v1, v2), k)), p1}), dep);
+            }
+            ef.add_equation(ys, cat({one(mk_pow(X, a.mk_sub(M, a.mk_int(1)))), p1, p2}), dep);
+            z = cat({p2, p1, one(mk_pow(X, a.mk_sub(M, a.mk_int(2)))), p1, p2, one(mk_pow(Y, a.mk_sub(N, a.mk_int(2))))});
+            break;
+        }
+        default: {
+            // M = 1, Y = y'y'', X = Y^q y', q+1 <= N,  z = y'' Y^(N-q-1)
+            expr_ref y1 = fresh_str("power-trichotomy-f4-y1"), y2 = fresh_str("power-trichotomy-f4-y2"), q = fresh_int("power-trichotomy-f4-q");
+            constrain(m.mk_eq(M, a.mk_int(1)));
+            constrain(a.mk_ge(q, a.mk_int(0)));
+            constrain(a.mk_le(a.mk_add(q, a.mk_int(1)), N));
+            ef.add_equation(ys, cat({one(y1), one(y2)}), dep);
+            ef.add_equation(xs, cat({one(mk_pow(Y, q)), one(y1)}), dep);
+            z = cat({one(y2), one(mk_pow(Y, a.mk_sub(a.mk_sub(N, q), a.mk_int(1))))});
+            break;
+        }
+        }
+        broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep);
+    }
+
+    static char const* const trichotomy_labels[10] = {
+        "trichotomy:u:empty", "trichotomy:u:f1", "trichotomy:u:f2", "trichotomy:u:f3", "trichotomy:u:f4",
+        "trichotomy:v:empty", "trichotomy:v:f1", "trichotomy:v:f2", "trichotomy:v:f3", "trichotomy:v:f4",
+    };
+
+    // Resumption restores the node state of the split, so `m_t` stays valid.
+    bool power_trichotomy::iterator::next(eq_tree::edge& out) {
+        if (m_next >= m_branches.size())
+            return false;
+        auto [b, param] = m_branches[m_next++];
+        m_owner.apply(m_n, m_t, b, param);
+        out = eq_tree::edge(trichotomy_labels[b], m_t.m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_trichotomy::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        trigger t;
+        if (!get_ambient(n).fparams().m_seq_power_trichotomy || !find_trigger(n, t))
+            return nullptr;
+        branches bs;
+        enumerate(n, t, bs);
+        // With f1 as the only non-empty form this is power_peel plus a fresh variable.
+        if (any_of(bs, [](auto const& p) { return p.first % 5 == 1; }) && all_of(bs, [](auto const& p) { return p.first % 5 <= 1; }))
+            return nullptr;
+        auto [b, param] = bs[0]; // the empty branch is always first
+        apply(n, t, b, param);
+        has_more = true;
+        committed = true;
+        m_stats.m_num_splits++;
+        out = eq_tree::edge(trichotomy_labels[b], t.m_dep, true, 0);
+        return alloc(iterator, *this, n, t, bs);
     }
 
     // -- power_split_elim --
@@ -755,6 +918,11 @@ namespace seq {
                     rational v;
                     if (a.is_numeral(f.powers()[pidx].m_n, v))
                         continue; // resolved directly by power_propagation
+                    // Cuts only at token boundaries: complete only for character bases.
+                    expr_ref_vector base_toks(f.get_manager());
+                    u.str.get_concat_units(f.powers()[pidx].m_s.get(), base_toks);
+                    if (!all_of(base_toks, [&](expr* t) { return u.str.is_unit(t); }))
+                        continue;
                     pow_idx = pidx;
                     var = var_tok;
                     fwd = f2;

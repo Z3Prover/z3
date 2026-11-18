@@ -23,6 +23,7 @@ Author:
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/seq/seq_stoi_facet.h"
 #include "ast/for_each_expr.h"
+#include "ast/seq/seq_power_facet.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_pp.h"
@@ -1067,13 +1068,61 @@ namespace seq {
         return sum;
     }
 
+    bool deq_facet::merge_adjacent(std::function<expr*(expr*, expr*)> const& merge) {
+        bool changed = false;
+        for (unsigned i = 0; i < m_diseqs.size(); ++i) {
+            if (!m_diseqs[i].active())
+                continue;
+            for (expr_ref_vector disequation::* side : {&disequation::m_lhs, &disequation::m_rhs}) {
+                expr_ref_vector out(m);
+                bool side_changed = false;
+                for (expr* t : m_diseqs[i].*side) {
+                    expr* r = out.empty() ? nullptr : merge(out.back(), t);
+                    if (r) {
+                        out.set(out.size() - 1, r);
+                        side_changed = true;
+                    }
+                    else
+                        out.push_back(t);
+                }
+                if (side_changed) {
+                    m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, side));
+                    m_diseqs[i].*side = std::move(out);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
     stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.deq_facet_ref();
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
         m_stats.m_num_propagate++;
-        bool changed = f.simplify(conflict, conflict_dep);
+        // Merge adjacent same-base powers: `w^a w^b = w^(a+b)`.
+        bool merged = ac.context().has_power_facet() && f.merge_adjacent([&](expr* t1, expr* t2) -> expr* {
+            auto& pf = ac.power_facet_ref();
+            unsigned i, j;
+            if (!pf.find_power(t1, i) || !pf.find_power(t2, j))
+                return nullptr;
+            if (pf.powers()[i].m_s.get() != pf.powers()[j].m_s.get())
+                return nullptr;
+            arith_util a(m);
+            auto clamp = [&](expr* e) { return m.mk_ite(a.mk_ge(e, a.mk_int(0)), e, a.mk_int(0)); };
+            expr_ref base(pf.powers()[i].m_s, m);
+            expr_ref e1(clamp(pf.powers()[i].m_n), m), e2(clamp(pf.powers()[j].m_n), m);
+            if (e1->get_id() > e2->get_id())
+                std::swap(e1, e2); // canonical order: `w^a w^b` and `w^b w^a` merge alike
+            expr_ref exp(a.mk_add(e1, e2), m);
+            th_rewriter rw(m);
+            rw(exp);
+            expr_ref tok(u.str.mk_power(base, exp), m);
+            pf.add_power(tok, base, exp); // keeps tok alive
+            return tok.get();
+        });
+        bool changed = f.simplify(conflict, conflict_dep) || merged;
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;

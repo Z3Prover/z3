@@ -38,8 +38,7 @@ struct theory_seq_params {
     // Opt-in gate for eq_approx_split (ast/seq/seq_eq_facet.h), read via
     // ambient_context_i::fparams(). Mirrors c3's `smt.nseq.eq_approx`.
     bool m_seq_eq_approx = false;
-    // Opt-in gate for power_fine_wilf, mirroring c3's smt.nseq.fine_wilf.
-    bool m_seq_fine_wilf = false;
+    bool m_seq_power_trichotomy = true;
     // Opt-in gate for mem_parikh_split, mirroring c3's smt.nseq.parikh.
     bool m_seq_mem_parikh = false;
     // Master gate for mem_leaf_split, the whole-language monadic decision

@@ -374,6 +374,79 @@ static void tst_compact_model_dependencies() {
     ENSURE(m.is_true(eval_generic(distinct)));
 }
 
+// power_trichotomy (seq.power_trichotomy) and the fixes it depends on.
+static void tst_power_trichotomy() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util seq(m);
+    arith_util a(m);
+
+    sort* str_sort = seq.str.mk_string_sort();
+    app_ref x(m.mk_const("x", str_sort), m);
+    app_ref y(m.mk_const("y", str_sort), m);
+    app_ref w(m.mk_const("w", str_sort), m);
+    app_ref r(m.mk_const("r", str_sort), m);
+    app_ref mm(m.mk_const("m", a.mk_int()), m);
+    app_ref n(m.mk_const("n", a.mk_int()), m);
+    app_ref i(m.mk_const("i", a.mk_int()), m);
+    app_ref j(m.mk_const("j", a.mk_int()), m);
+    auto str = [&](char const* s) { return expr_ref(seq.str.mk_string(zstring(s)), m); };
+    auto cat = [&](expr* s, expr* t) { return expr_ref(seq.str.mk_concat(s, t), m); };
+    auto pw = [&](expr* s, expr* k) { return expr_ref(seq.str.mk_power(s, k), m); };
+    expr_ref_vector fmls(m);
+
+    // x^m . "b" . r = "ab"^n forces m = 1 (x = (ab)^q a); m >= 2 is unsat.
+    // Plain power unfolding cannot refute this for all n.
+    fmls.push_back(a.mk_ge(mm, a.mk_int(2)));
+    fmls.push_back(m.mk_eq(cat(pw(x, mm), cat(str("b"), r)), pw(str("ab"), n)));
+    ENSURE(check(m, fmls) == l_false);
+
+    // x^m . r = y^n with xy != yx, m,n >= 2 is sat through form f3
+    // (x = "aba", y = "abaab").
+    fmls.reset();
+    fmls.push_back(a.mk_ge(mm, a.mk_int(2)));
+    fmls.push_back(a.mk_ge(n, a.mk_int(2)));
+    fmls.push_back(a.mk_ge(seq.str.mk_length(x), a.mk_int(1)));
+    fmls.push_back(m.mk_not(m.mk_eq(cat(x, y), cat(y, x))));
+    fmls.push_back(m.mk_eq(cat(pw(x, mm), r), pw(y, n)));
+    ENSURE(check(m, fmls) == l_true);
+
+    // ... and with m >= 3 and |y| < 2|x| it is unsat: f3 needs (m-1)|x| < |y|.
+    fmls.reset();
+    fmls.push_back(a.mk_ge(mm, a.mk_int(3)));
+    fmls.push_back(a.mk_ge(n, a.mk_int(1)));
+    fmls.push_back(a.mk_ge(seq.str.mk_length(x), a.mk_int(1)));
+    fmls.push_back(a.mk_lt(seq.str.mk_length(y), a.mk_mul(a.mk_int(2), seq.str.mk_length(x))));
+    fmls.push_back(m.mk_not(m.mk_eq(cat(x, y), cat(y, x))));
+    fmls.push_back(m.mk_eq(cat(pw(x, mm), r), pw(y, n)));
+    ENSURE(check(m, fmls) == l_false);
+
+    // power_var_decompose must not cut a variable base only at token
+    // boundaries: w = "abaab", i = j = 1, y = "aba" is a solution.
+    fmls.reset();
+    fmls.push_back(m.mk_eq(pw(w, i), str("abaab")));
+    fmls.push_back(m.mk_eq(pw(w, j), cat(y, str("ab"))));
+    fmls.push_back(a.mk_ge(i, a.mk_int(1)));
+    fmls.push_back(a.mk_ge(j, a.mk_int(1)));
+    fmls.push_back(a.mk_ge(seq.str.mk_length(w), a.mk_int(1)));
+    ENSURE(check(m, fmls) == l_true);
+
+    // Nested bases: (a (ba)^i)^m = (aba)^n with m >= 2 is sat (i = 1, m = n).
+    fmls.reset();
+    fmls.push_back(a.mk_ge(mm, a.mk_int(2)));
+    fmls.push_back(a.mk_ge(n, a.mk_int(1)));
+    fmls.push_back(m.mk_eq(pw(cat(str("a"), pw(str("ba"), i)), mm), pw(str("aba"), n)));
+    ENSURE(check(m, fmls) == l_true);
+
+    // (a b^i c)^m = (a b^j d)^n with m, n >= 1 is unsat: c occurs only on the left.
+    fmls.reset();
+    fmls.push_back(a.mk_ge(mm, a.mk_int(1)));
+    fmls.push_back(a.mk_ge(n, a.mk_int(1)));
+    fmls.push_back(m.mk_eq(pw(cat(str("a"), cat(pw(str("b"), i), str("c"))), mm),
+                           pw(cat(str("a"), cat(pw(str("b"), j), str("d"))), n)));
+    ENSURE(check(m, fmls) == l_false);
+}
+
 void tst_seq_power() {
     tst_power_rewriter();
     tst_power_solver();
@@ -381,4 +454,5 @@ void tst_seq_power() {
     tst_compact_nseq_models();
     tst_compact_regex_bounds();
     tst_compact_model_dependencies();
+    tst_power_trichotomy();
 }

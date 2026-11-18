@@ -44,10 +44,6 @@ namespace seq {
         // been asserted into `solver_facet`.
         bool                 m_axiomatized = false;
 
-        // Set once `power_fine_wilf` has fired its non-progress case-1
-        // branch for this obligation, so that branch is not offered again.
-        bool                 m_fw_marked = false;
-
         // power_split has taken its residual `n > bound` branch: the obligation stays
         // pending for the other rules, power_split does not re-enumerate it. Trailed.
         bool                 m_split_exhausted = false;
@@ -222,76 +218,49 @@ namespace seq {
         stats m_stats;
     };
 
-    // Fine & Wilf periodicity rule. Only the symbolic path is implemented;
-    // it is complete but may be less direct on fully ground cases.
-    //
-    // Trigger: an equation starts with `U^n` on one side and with `Y.W^m`
-    // on the other, where `W^m` is the first power token there and the
-    // two bases are syntactically different.
-    //
-    // With `Ly = len(Y)`, `len_upow = len(U^n)`, `len_wpow = len(W^m)`, and
-    // `T = len(U) + len(W)`, the three branches are:
-    //
-    //   Case 1 (small overlap; arith-only, no string-side progress):
-    //     side constraint `len_upow - Ly < T \/ len_wpow < T`. Guarded by
-    //     `str_power::m_fw_marked` so it is only ever offered once per
-    //     obligation (it makes no string-side change, so without a guard
-    //     it would be re-offered forever).
-    //   Case 2 (progress; eliminates `U^n`): fresh `R1, R2` with
-    //     `U^n = Y.R1`, `W^m = R1.R2`, `V = R2.Z`, plus
-    //     `Ly + |R1| = len_upow`, `|R1| >= T`, `|R1| + |R2| = len_wpow`.
-    //   Case 3 (progress; eliminates `W^m`): fresh `S1, S2` with
-    //     `U^n = S1.S2`, `S1 = Y.W^m`, `Z = S2.V`, plus
-    //     `|S1| = Ly + len_wpow`, `len_wpow >= T`, `|S2| >= 1`,
-    //     `|S1| + |S2| = len_upow`.
-    //
-    // The three branches are generated together as sibling branches.
-    class power_fine_wilf : public eq_tree::split_plugin_i {
-    public:
-        // Trigger-site description reused by the iterator for cases 2 and 3
-        // after case 1 is materialized in `split()`.
+    // `X^M . V = Y^N . Z` with two leading powers: for the shorter side,
+    // `Y^N = X^M . z` holds iff one of five forms (empty, f1..f4) does.
+    class power_trichotomy : public eq_tree::split_plugin_i {
         struct trigger {
-            unsigned    m_eq_idx;
-            bool        m_pow_on_lhs;   // U^n is eq.lhs[0] (true) or eq.rhs[0] (false)
-            unsigned    m_pow_idx;      // power_facet index of U^n
-            unsigned    m_other_pow_idx; // power_facet index of W^m
-            unsigned    m_y_len;        // number of non-power tokens making up Y
+            unsigned    m_x_idx;    // power_facet index of the lhs head
+            unsigned    m_y_idx;    // power_facet index of the rhs head
             eq_tree::dep_tracker m_dep;
         };
+        using branches = svector<std::pair<unsigned, unsigned>>; // (branch 0..9, parameter)
 
-    private:
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
 
         class iterator : public eq_tree::split_iterator_i {
-            eq_tree::node& m_n;
-            trigger        m_t;
-            unsigned       m_next_case; // 2, then 3, then done
-            ast_manager&   m;
-            seq_util&      u;
-            arith_util&    a;
+            power_trichotomy const& m_owner;
+            eq_tree::node&          m_n;
+            trigger                 m_t;
+            branches                m_branches;
+            unsigned                m_next = 1; // branch 0 is applied by split()
         public:
-            iterator(eq_tree::node& n,
-                      trigger const& t, unsigned next_case, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n),
-                m_t(t), m_next_case(next_case), m(m), u(u), a(a) {}
+            iterator(power_trichotomy const& owner, eq_tree::node& n, trigger const& t, branches const& bs) :
+                m_owner(owner), m_n(n), m_t(t), m_branches(bs) {}
             bool next(eq_tree::edge& out) override;
         };
 
-    public:
-        power_fine_wilf(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a) {}
-        char const* name() const override { return "power-fine-wilf"; }
-        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-power-fine-wilf num splits", m_stats.m_num_splits); }
-        void reset_statistics() override { m_stats.reset(); }
-    private:
+        bool find_trigger(eq_tree::node& n, trigger& t) const;
+        void enumerate(eq_tree::node& n, trigger const& t, branches& out) const;
+        void apply(eq_tree::node& n, trigger const& t, unsigned b, unsigned param) const;
+
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
+
+    public:
+        power_trichotomy(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
+        char const* name() const override { return "power-trichotomy"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-trichotomy num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Power `U^e` at one end of an equation side whose other side begins,

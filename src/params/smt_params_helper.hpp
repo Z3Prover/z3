@@ -218,7 +218,7 @@ Abstract:
   BOOL_  (seq_split_w_len,                         "seq.split_w_len",                         true,                     "enable splitting guided by length constraints") \
   BOOL_  (seq_validate,                            "seq.validate",                            false,                    "enable self-validation of theory axioms created by seq theory") \
   BOOL_  (seq_eq_approx,                           "seq.eq_approx",                           false,                    "nseq: enable eq_approx_split (c3's opt-in rule)") \
-  BOOL_  (seq_fine_wilf,                           "seq.fine_wilf",                           false,                    "nseq: enable power_fine_wilf (c3's opt-in rule)") \
+  BOOL_  (seq_power_trichotomy,                    "seq.power_trichotomy",                    true,                     "nseq: enable decomposition of power terms based on each other") \
   BOOL_  (seq_mem_parikh,                          "seq.mem_parikh",                          false,                    "nseq: enable mem_parikh_split (c3's Parikh feasibility check)") \
   BOOL_  (seq_monadic_leaf,                        "seq.monadic_leaf",                        true,                     "nseq: enable mem_leaf_split, the whole-language monadic decision over plain regex memberships") \
   UINT_  (seq_monadic_leaf_budget,                 "seq.monadic_leaf_budget",                 300000,                   "nseq: work budget for mem_leaf_split's per-node ask") \
