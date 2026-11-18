@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T12:27:23-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T14:13:52-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -70,6 +70,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
 | Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring `arith/farkas` steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
 | Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five `arith/farkas` steps accepted | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
@@ -79,7 +80,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
-| Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -159,27 +159,32 @@ seven Windows skips. Evidence: session `files\multiple-zero-downstream-01.json`,
 `files\multiple-zero-checkout-build-01.json`, `files\multiple-zero-checkout-smoke-01.json`.
 
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
-PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively). The
-sample cohort has zero. Same-timeout current-pin traces recaptured four inputs:
-13 weighted PENDING across 10 nodes, all with native `arith bound` hints; the
-Count input timed out before producing a matched capture. For those traced
-nodes, F* preparation succeeds but linear Farkas acceptance fails with
-nonzero residual terms. The 60-second Count control produced two different
-PENDING nodes and is not a matched baseline.
+PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively); the
+sample cohort has zero. Same-timeout traces recaptured four inputs: 13 weighted
+PENDING across 10 nodes, all with native `arith bound` hints. The 10-second
+Count capture timed out, but a 60-second same-input control completed with a
+different 5,142-entry proof: `PARTIAL 172` with Farkas PENDING at 4159 and
+4160, versus the 10-second baseline's `PARTIAL 74` and index 2409. This is not
+a matched-proof comparison. Both new nodes carry 32 rational weights for 31
+visible premises plus the negated conclusion. F* preparation succeeds, but
+the weighted sums leave 10 and 9 residual monomials, including nonlinear
+products; they are not plain-linear certificates over the visible premises.
+Evidence: `count-farkas-trace-2671-01.json` and
+`count-farkas-trace-2671-01.txt`.
 
 The bridge maps `arith bound` and `arith farkas` to the same checker rule, but
 the producer semantics differ. In `src/smt/theory_lra.cpp`, LP bound
 propagation calls `set_proof_params(m_bound, true)`, which emits explanation
-weights and a unit consequent coefficient. The producer's `check_farkas_conflict`
-validation is gated to `m_farkas`, not `m_bound`; moreover, `set_evidence`
-omits hard definition constraints and constraints with no SAT-core source.
-Thus the `bound` payload is not by itself evidence that its listed premises
-form a complete plain-linear certificate. The residuals and source path point
-to a bound-evidence/replay gap, potentially involving omitted nonlinear
-relations or integer tightening, but do not yet identify which cause applies
-to each node or prove that Z3 generated malformed certificates. The next
-comparison must recover the full bound explanation, including any omitted
-constraints, before changing the Farkas checker or producer.
+weights and a unit consequent coefficient. The producer's
+`check_farkas_conflict` validation is gated to `m_farkas`, not
+`m_bound`; moreover, `set_evidence` omits hard definition constraints and
+constraints with no SAT-core source. Thus the `bound` payload is not by itself
+evidence that its listed premises form a complete plain-linear certificate.
+`set_evidence`'s skipped constraints are not yet mapped to these two nodes.
+This narrows the issue to bound-evidence/replay, potentially involving omitted
+nonlinear relations or integer tightening, but does not prove malformed
+generation or a defect in checking well-formed linear certificates. Recover
+the full bound explanation before changing the Farkas checker or producer.
 
 On the identical frozen QF_LIA ring proof `23fedbd874be`, all five Farkas
 steps are accepted by Legacy and both independent-checker arms; the remaining
