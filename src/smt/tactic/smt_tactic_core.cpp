@@ -98,6 +98,8 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
+        // read by smt_params::updt_params; not in smt_params_helper (hidden from the smt module)
+        r.insert("preprocess", CPK_BOOL, "(default: true) apply the smt preprocessor to the goal");
         smt_params_helper::collect_param_descrs(r);
     }
 

@@ -40,10 +40,6 @@ static char const * const g_known_unused[] = {
     "max_power",                // math/subpaving/tactic/subpaving_tactic.cpp
     "use_ls",                   // tactic/smtlogics/qfnra_tactic.cpp
     "ls_time",                  // tactic/smtlogics/qfnra_tactic.cpp
-    // read, but not declared by the reader's collect_param_descrs:
-    "preprocess",               // tactic/smtlogics/qfbv_tactic.cpp, read by params/smt_params.cpp
-    "lia2card.max_range",       // tactic/smtlogics/qflia_tactic.cpp, read by tactic/arith/lia2card_tactic.cpp
-    "lia2card.max_ite_nesting", // tactic/smtlogics/qflia_tactic.cpp, read by tactic/arith/lia2card_tactic.cpp
 };
 
 static bool is_known(symbol const & k) {
