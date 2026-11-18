@@ -3463,7 +3463,7 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         else if (re().get_info(r2).nullable == l_false)
             result = re().mk_empty(r1->get_sort());
         else
-            result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
+            result = re_and(is_nullable(r2), r1);
     }
     else if (re().is_dot_plus(r1) && re().get_info(r2).min_length > 0)
         result = r2;
@@ -4375,7 +4375,7 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     if (try_collapse_re_inter(a, b, result))
         return BR_DONE;
     result = mk_regex_inter_normalize(a, b);
-    return BR_DONE;
+    return m().is_ite(result) ? BR_REWRITE_FULL : BR_DONE;
 }
 
 br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {

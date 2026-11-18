@@ -610,6 +610,45 @@ static void tst_empty_language_repetition() {
     }
 }
 
+static void tst_epsilon_intersection() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    for (bool generic : {false, true}) {
+        sort_ref sequence(generic ? su.str.mk_seq(a.mk_int()) : su.str.mk_string_sort(), m);
+        sort_ref regex_sort(su.re.mk_re(sequence), m);
+        app_ref x(m.mk_fresh_const("x", sequence), m);
+        app_ref r(m.mk_fresh_const("R", regex_sort), m);
+        expr_ref empty(su.str.mk_empty(sequence), m);
+        expr_ref epsilon(su.re.mk_to_re(empty), m);
+        expr_ref bottom(su.re.mk_empty(regex_sort), m);
+        expr_ref suffix(generic ? su.str.mk_unit(a.mk_int(7)) : su.str.mk_string("a"), m);
+        expr_ref suffix_re(su.re.mk_to_re(suffix), m);
+        expr_ref_vector regexes(m);
+        regexes.push_back(r);
+        regexes.push_back(su.re.mk_to_re(x));
+        for (expr* body : regexes) {
+            expr_ref nullable(su.re.mk_in_re(empty, body), m);
+            expr_ref expected(m.mk_ite(nullable, epsilon, bottom), m);
+            expr_ref expected_concat(m.mk_ite(nullable, suffix_re, bottom), m);
+            rw(expected);
+            rw(expected_concat);
+            for (bool reverse : {false, true}) {
+                expr_ref intersection(reverse ? su.re.mk_inter(body, epsilon) : su.re.mk_inter(epsilon, body), m);
+                expr_ref actual(intersection, m);
+                rw(actual);
+                ENSURE(actual == expected);
+
+                expr_ref concatenated(su.re.mk_concat(intersection, suffix_re), m);
+                rw(concatenated);
+                ENSURE(concatenated == expected_concat);
+            }
+        }
+    }
+}
+
 static void tst_negated_complement_membership() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -647,6 +686,7 @@ void tst_seq_rewriter() {
     tst_delete_first_character();
     tst_empty_language_repetition();
     tst_positive_closure_repetition();
+    tst_epsilon_intersection();
     tst_negated_complement_membership();
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();

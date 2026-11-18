@@ -1591,6 +1591,25 @@ namespace {
         )", true, nullptr, 1000000, "ALL");
     }
 
+    static void tst_nseq_epsilon_intersection_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x
+                (re.inter (re.union (str.to_re "hcoyHvwKX") (str.to_re x) (str.to_re y))
+                          (re.* (str.to_re "")))))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.inter (str.to_re y) (str.to_re ""))))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (assert (= (re.inter (str.to_re x) (str.to_re "")) (str.to_re "")))
+        )");
+    }
+
     static void tst_nseq_stoi_model_completion() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -2150,6 +2169,7 @@ void tst_seq_eq_facet() {
     tst_nseq_candidate_model();
     tst_nseq_nth_models();
     tst_nseq_symbolic_ncontains_models();
+    tst_nseq_epsilon_intersection_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();
