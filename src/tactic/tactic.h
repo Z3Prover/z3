@@ -223,7 +223,7 @@ public:
 
 /**
    \brief Display the entries of \c p as " :key value", restricted to the keys declared
-   in \c descrs if it is not null.
+   in \c descrs if it is not null. Default values are marked "(default)".
 */
 void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs = nullptr);
 

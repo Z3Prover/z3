@@ -98,6 +98,8 @@ void display_tactic_params(std::ostream & out, params_ref const & p, param_descr
             continue;
         out << " :" << k << " ";
         p.display(out, k);
+        if (p.is_default(k))
+            out << " (default)";
     }
 }
 

@@ -32,6 +32,7 @@ add_executable(test-z3
   checked_int64.cpp
   cnf_backbones.cpp
   context_params.cpp
+  params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp

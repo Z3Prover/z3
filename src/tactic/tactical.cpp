@@ -1150,7 +1150,8 @@ public:
     //
     // A key is written as syntax if the parser accepts it: the parser of using-params
     // requires that t declares the key in collect_param_descrs. Other keys go in a
-    // "not parseable:" comment.
+    // "not parseable:" comment. A default (flagged) value has no syntax either: the
+    // key is written and the comment says so.
     //
     // A parameter set here is [unused] if no tactic of the pipeline declares it.
     // It is not checked if it is passed on unchanged from p: it is checked where it is set.
@@ -1178,8 +1179,11 @@ public:
             std::string note;
             if (!has_syntax(child, k))
                 note = entry + (unused ? " [unused]" : "");
-            else
+            else {
                 tail += (tail.empty() ? "" : " ") + entry;
+                if (m_params.is_default(k))
+                    note = entry + " (default)";
+            }
             if (!note.empty())
                 comment += (comment.empty() ? "not parseable: " : ", ") + note;
         }
