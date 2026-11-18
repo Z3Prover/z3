@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T11:40:21-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T12:18:19-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -41,21 +41,22 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-18T11:28:44-08:00`; latest case `2026-11-18T11:28:44-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-18T12:03:58-08:00`; latest case `2026-11-18T12:03:58-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 98 / 583 | 97 | 1 | 0 | 485 | 95 / 98 | 0 |
+| 158 / 583 | 150 | 8 | 0 | 425 | 154 / 158 | 0 |
 
-Observed proofs: **1351 ACCEPT / 15 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **17**.
+Observed proofs: **3862 ACCEPT / 111 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **74**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
+| `assumed:nlsat` | 67 |
 | `nnf-neg` | 2 |
-| `quant-intro` | 2 |
-| `rewrite` | 1 |
+| `quant-intro` | 3 |
+| `rewrite` | 4 |
 | `sk` | 2 |
-| `th-lemma` | 12 |
+| `th-lemma` | 123 |
 
 State: **stage complete**. Per-case evidence and pins: session `files\current-fstar-pending-2671-01`.
 <!-- END CURRENT FSTAR PENDING -->
@@ -69,6 +70,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
 | Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five `arith/farkas` steps accepted | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
 | Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
 | Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
@@ -78,7 +80,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
 | Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
 | Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
-| Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -157,30 +158,41 @@ native tests and SMT/Python/help smoke checks passed. Scope tests passed with
 seven Windows skips. Evidence: session `files\multiple-zero-downstream-01.json`,
 `files\multiple-zero-checkout-build-01.json`, `files\multiple-zero-checkout-smoke-01.json`.
 
-The reader combines native `arith bound` and `arith farkas` hints under
-`arith/farkas`. Inspected pending cases include nonlinear bound propagation;
-they do not demonstrate faulty linear Farkas certificates. Current source
-exports propagation coefficients but attempts structured LP proof export for
-conflicts; the captured binary's exact source provenance is unverified.
-Evidence: session `files\farkas-bound-producer-analysis-01.json`,
-`files\extended-farkas-capture-02.json`.
-
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
-PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively). Their
-fingerprints hide operands, so they cannot establish whether each certificate
-is linear or whether its producer evidence is malformed. The sample cohort has
-zero `arith/farkas` PENDING. On the identical frozen QF_LIA ring proof
-`23fedbd874be`, all five Farkas steps are accepted by Legacy and both
-independent-checker arms; the remaining independent PENDING are definitions
-and rewrites. The current-pin trace shows the four `intro-def` entries define
-nullary integer `z3name!` symbols using paired ITE branch clauses. The
-independent definition replay accepts unary-Boolean paired definitions or
-direct nullary equalities, so neither route covers this shape; this is a
-checker coverage gap, not evidence of faulty Farkas generation. The separate QF_NIA AProVE producer capture uses checker
-`35ef16e3adce`, not `2671dc150931`, and does not establish proof identity.
-Evidence: session `files\periodic-smtlib-20261118T170450Z`,
-`files\ite-add-sample-02.json`, `files\extended-farkas-capture-02.json`.
-The current-pin entry trace is `files\ring-definitions-trace-2671-03.json`.
+PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively). The
+sample cohort has zero. Same-timeout current-pin traces recaptured four inputs:
+13 weighted PENDING across 10 nodes, all with native `arith bound` hints; the
+Count input timed out before producing a matched capture. For those traced
+nodes, F* preparation succeeds but linear Farkas acceptance fails with
+nonzero residual terms. The 60-second Count control produced two different
+PENDING nodes and is not a matched baseline.
+
+The bridge maps `arith bound` and `arith farkas` to the same checker rule, but
+the producer semantics differ. In `src/smt/theory_lra.cpp`, LP bound
+propagation calls `set_proof_params(m_bound, true)`, which emits explanation
+weights and a unit consequent coefficient. The producer's `check_farkas_conflict`
+validation is gated to `m_farkas`, not `m_bound`; moreover, `set_evidence`
+omits hard definition constraints and constraints with no SAT-core source.
+Thus the `bound` payload is not by itself evidence that its listed premises
+form a complete plain-linear certificate. The residuals and source path point
+to a bound-evidence/replay gap, potentially involving omitted nonlinear
+relations or integer tightening, but do not yet identify which cause applies
+to each node or prove that Z3 generated malformed certificates. The next
+comparison must recover the full bound explanation, including any omitted
+constraints, before changing the Farkas checker or producer.
+
+On the identical frozen QF_LIA ring proof `23fedbd874be`, all five Farkas
+steps are accepted by Legacy and both independent-checker arms; the remaining
+independent PENDING are definitions and rewrites. The current-pin trace shows
+the four `intro-def` entries define nullary integer `z3name!` symbols using
+paired ITE branch clauses. The independent definition replay accepts
+unary-Boolean paired definitions or direct nullary equalities, so neither
+route covers this shape; this is a checker coverage gap, not evidence of
+faulty Farkas generation. Evidence: session
+`files\periodic-smtlib-20261118T170450Z`,
+`files\ite-add-sample-02.json`, `files\extended-farkas-capture-2671-05.json`,
+`files\extended-farkas-capture-2671-06.json`,
+`files\ring-definitions-trace-2671-03.json`.
 
 An experimental integer-input binding bridge passed LP unit tests, but on the
 same QF_LIA ring input it changed the generated proof and increased root
