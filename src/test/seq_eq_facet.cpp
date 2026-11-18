@@ -915,13 +915,17 @@ namespace {
         expr_ref len_y(u.str.mk_length(y), m);
         expr_ref prefix(mk_unit_char(m, u, 'a'));
         expr_ref_vector lhs(m), rhs(m), empty(m);
-        if (form == 1) {
+        if (form == 1 || form == 4) {
             lhs.push_back(prefix);
             rhs.push_back(prefix);
         }
         if (form == 2)
             lhs.push_back(x);
         rhs.push_back(y);
+        if (form >= 3) {
+            lhs.push_back(x);
+            rhs.push_back(x);
+        }
 
         trail_stack tr;
         seq::eq_tree tree(tr, m.limit());
@@ -937,7 +941,9 @@ namespace {
         tree.set_ambient_context(&ac);
         auto& df = root->facet_as<seq::deq_facet>(deq_id);
         auto& sf = root->facet_as<seq::solver_facet>(arith_id);
-        df.add_disequation(reverse ? rhs : lhs, reverse ? lhs : rhs, tree.dep_mgr().mk_leaf(7));
+        auto const& original_lhs = reverse ? rhs : lhs;
+        auto const& original_rhs = reverse ? lhs : rhs;
+        df.add_disequation(original_lhs, original_rhs, tree.dep_mgr().mk_leaf(7));
         seq::deq_propagation prop(m, u);
         for (unsigned length : { 0u, 2u }) {
             tr.push_scope();
@@ -959,14 +965,17 @@ namespace {
             else
                 ENSURE(sf.is_satisfied());
             tr.pop_scope(1);
-            ENSURE(df.disequations()[0].active());
+            auto const& dq = df.disequations()[0];
+            ENSURE(dq.active());
+            ENSURE(std::equal(dq.m_lhs.begin(), dq.m_lhs.end(), original_lhs.begin(), original_lhs.end()));
+            ENSURE(std::equal(dq.m_rhs.begin(), dq.m_rhs.end(), original_rhs.begin(), original_rhs.end()));
             ENSURE(sf.is_satisfied());
         }
     }
 
     static void tst_deq_empty_length() {
         for (bool reverse : { false, true })
-            for (unsigned form : { 0u, 1u, 2u })
+            for (unsigned form : { 0u, 1u, 2u, 3u, 4u })
                 check_deq_empty_length(reverse, form);
     }
 
@@ -1400,6 +1409,38 @@ namespace {
         ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
         s->assert_expr(assertion);
         ENSURE(s->check_sat(0, nullptr) == l_false);
+    }
+
+    static void tst_nseq_split_identity() {
+        for (bool generic : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util u(m);
+            arith_util a(m);
+            scoped_rlimit limit(m.limit(), 1000000);
+            sort_ref sequence(generic ? u.str.mk_seq(a.mk_int()) : u.str.mk_string_sort(), m);
+            expr_ref x(m.mk_const("x", sequence), m);
+            expr_ref i(m.mk_const("i", a.mk_int()), m);
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref len(u.str.mk_length(x), m);
+            expr_ref remaining(a.mk_sub(len, i), m);
+            expr_ref empty(u.str.mk_empty(sequence), m);
+            expr_ref nonpositive(a.mk_le(i, zero), m);
+            expr_ref past_end(a.mk_ge(i, len), m);
+            expr_ref prefix(u.str.mk_substr(x, zero, i), m);
+            expr_ref suffix(u.str.mk_substr(x, i, remaining), m);
+            prefix = m.mk_ite(past_end, x, prefix);
+            prefix = m.mk_ite(nonpositive, empty, prefix);
+            suffix = m.mk_ite(nonpositive, x, suffix);
+            suffix = m.mk_ite(past_end, empty, suffix);
+            expr_ref joined(u.str.mk_concat(prefix, suffix), m);
+            expr_ref different(m.mk_not(m.mk_eq(x, joined)), m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> s = mk_smt_solver(m, p, symbol("ALL"));
+            s->assert_expr(different);
+            ENSURE(s->check_sat(0, nullptr) == l_false);
+        }
     }
 
     static void tst_nseq_regex_bounds() {
@@ -2272,6 +2313,7 @@ void tst_seq_eq_facet() {
     tst_nseq_index_suffix_axiom(false, false, '=', false, true);
     tst_nseq_length_model();
     tst_nseq_empty_diseq();
+    tst_nseq_split_identity();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
     tst_nseq_nth_models();

@@ -1013,15 +1013,19 @@ namespace seq {
                 }
             }
 
-            // strip a common leading prefix, exactly as eq_facet::simplify.
+            // Cancel common prefixes and suffixes.
             unsigned li = 0, ri = 0;
             while (li < L.size() && ri < R.size() && L.get(li) == R.get(ri)) {
                 ++li; ++ri;
             }
-            if (li > 0 || ri > 0) {
+            unsigned le = L.size(), re = R.size();
+            while (li < le && ri < re && L.get(le - 1) == R.get(re - 1)) {
+                --le; --re;
+            }
+            if (li > 0 || ri > 0 || le < L.size() || re < R.size()) {
                 expr_ref_vector newL(m), newR(m);
-                newL.append(L.size() - li, L.data() + li);
-                newR.append(R.size() - ri, R.data() + ri);
+                newL.append(le - li, L.data() + li);
+                newR.append(re - ri, R.data() + ri);
                 m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_lhs));
                 m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_rhs));
                 L = std::move(newL);
