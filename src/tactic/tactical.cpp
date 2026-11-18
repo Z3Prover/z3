@@ -1150,8 +1150,8 @@ public:
     //
     // A key is written as syntax if the parser accepts it: the parser of using-params
     // requires that t declares the key in collect_param_descrs. Other keys go in a
-    // "not parseable:" comment. A default (flagged) value has no syntax either: the
-    // key is written and the comment says so.
+    // "not parseable:" comment. A default (flagged) value is written like the others;
+    // with ctx.annotate it is also listed in the comment, marked "(default)".
     //
     // A parameter set here is [unused] if no tactic of the pipeline declares it.
     // It is not checked if it is passed on unchanged from p: it is checked where it is set.
@@ -1181,7 +1181,7 @@ public:
                 note = entry + (unused ? " [unused]" : "");
             else {
                 tail += (tail.empty() ? "" : " ") + entry;
-                if (m_params.is_default(k))
+                if (ctx.annotate && m_params.is_default(k))
                     note = entry + " (default)";
             }
             if (!note.empty())

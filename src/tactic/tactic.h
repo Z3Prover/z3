@@ -38,7 +38,7 @@ class progress_callback;
    syntax of the tactic language (the syntax check-sat-using parses). A node is a leaf
    ("simplify", "(fail-if produce-proofs)") or a combinator opened with open("(then")
    and closed with close(), whose children are the nodes added in between.
-   Comments hold what has no syntax: the effective parameters of a leaf, and the
+   Comments hold what has no syntax: the effective parameters of a leaf ("active: :k v"), and the
    constructs marked "not parseable:".
 */
 struct tactic_display_ctx {
@@ -56,6 +56,8 @@ struct tactic_display_ctx {
     param_descrs const *   pipeline = nullptr;
     // out: the parameters marked [unused]
     svector<symbol> *      unused = nullptr;
+    // in: mark default values "(default)" and global values "(global)" (see display_tactic_params)
+    bool                   annotate = false;
 
     tactic_display_ctx() { m_stack.push_back(node()); }
     void leaf(std::string const & text, std::string const & comment = std::string());
@@ -223,19 +225,23 @@ public:
 
 /**
    \brief Display the entries of \c p as " :key value", restricted to the keys declared
-   in \c descrs if it is not null. Default values are marked "(default)".
+   in \c descrs if it is not null. For a default (flagged) entry whose key is set in the
+   global parameters of its module (taken from \c descrs), the global value is displayed
+   instead: it is the value the module's parameter helpers return. If \c annotate is
+   set, a default value is marked "(default)" and a global one "(global)".
 */
-void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs = nullptr);
+void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs = nullptr, bool annotate = false);
 
 /**
    \brief Display the pipeline rooted at \c t when it receives the parameters \c p,
    in the syntax of the tactic language.
 
    The output parses back with check-sat-using unless it contains a comment
-   "not parseable:". A parameter set by using_params is marked [unused] if no tactic
+   "not parseable:". If \c annotate is set, the output also carries the marks "(default)"
+   and "(global)", which are not part of the tactic language. A parameter set by using_params is marked [unused] if no tactic
    of the pipeline declares it in collect_param_descrs, and it is then added to \c unused.
 */
-void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused = nullptr);
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused = nullptr, bool annotate = false);
 
 /**
    \brief Quote \c s as a string of the tactic language.
