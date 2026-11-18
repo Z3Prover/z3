@@ -31,7 +31,7 @@ Notes:
 // Display a probe; a comment marks a probe that the tactic language has no name for.
 static std::string display_probe(probe const & p, std::string & comment) {
     std::ostringstream out;
-    p.display(out);
+    p.display_sexpr(out);
     if (!p.has_syntax())
         comment = "not parseable: unregistered probe";
     return out.str();
@@ -119,10 +119,10 @@ public:
     char const* name() const override { return "and_then"; }
 
     // tactic_display_ctx::close displays and_then(t1, and_then(t2, t3)) as (then t1 t2 t3).
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         ctx.open(strcmp(name(), "par_then") == 0 ? "(par-then" : "(then");
-        m_t1->display(p, ctx);
-        m_t2->display(p, ctx);
+        m_t1->display_pipeline(p, ctx);
+        m_t2->display_pipeline(p, ctx);
         ctx.close();
     }
 
@@ -320,9 +320,9 @@ public:
         for (tactic* t : m_ts) t->collect_param_descrs(r);
     }
 
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         ctx.open(strcmp(name(), "par") == 0 ? "(par-or" : "(or-else");
-        for (tactic* t : m_ts) t->display(p, ctx);
+        for (tactic* t : m_ts) t->display_pipeline(p, ctx);
         ctx.close();
     }
     
@@ -907,14 +907,14 @@ public:
     void reset_statistics() override { m_t->reset_statistics(); }    
     void updt_params(params_ref const & p) override { m_t->updt_params(p); }
     void collect_param_descrs(param_descrs & r) override { m_t->collect_param_descrs(r); }
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         char const * n = language_name();
         if (n)
             ctx.open(std::string("(") + n);
         else
             ctx.open(std::string("(") + name() + (display_tail().empty() ? "" : " " + display_tail()),
                      std::string("not parseable: ") + name());
-        m_t->display(p, ctx);
+        m_t->display_pipeline(p, ctx);
         ctx.close(n ? display_tail() : std::string());
     }
     // name of the combinator in the tactic language, nullptr if it has none
@@ -1081,8 +1081,8 @@ public:
     char const* name() const override { return "cleanup"; }
 
     // cleanup does not change what runs: display the tactic it wraps
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
-        m_t->display(p, ctx);
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        m_t->display_pipeline(p, ctx);
     }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
@@ -1158,9 +1158,9 @@ public:
     // Checking against the tactics below instead of the whole pipeline would flag
     // the idiom q = p; q.set_*(...); using_params(t, q): q carries every key of the
     // factory parameters p, which are meant for other steps.
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         if (m_params.size() == 0) {
-            m_t->display(p, ctx);
+            m_t->display_pipeline(p, ctx);
             return;
         }
         params_ref new_p = p;
@@ -1188,7 +1188,7 @@ public:
                 comment += (comment.empty() ? "not parseable: " : ", ") + note;
         }
         ctx.open("(using-params");
-        m_t->display(new_p, ctx);
+        m_t->display_pipeline(new_p, ctx);
         ctx.close(tail, comment);
     }
 
@@ -1286,14 +1286,14 @@ public:
     char const* name() const override { return "cond"; }
 
     // cond(p, t, skip) is what (when p t) builds: display it as such.
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         bool is_when = strcmp(m_t2->name(), "skip") == 0;
         std::string comment;
         std::string c = display_probe(*m_p, comment);
         ctx.open((is_when ? "(when " : "(if ") + c, comment);
-        m_t1->display(p, ctx);
+        m_t1->display_pipeline(p, ctx);
         if (!is_when)
-            m_t2->display(p, ctx);
+            m_t2->display_pipeline(p, ctx);
         ctx.close();
     }
     
@@ -1335,7 +1335,7 @@ public:
 
     char const* name() const override { return "fail_if"; }
 
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         std::string comment;
         std::string c = display_probe(*m_p, comment);
         ctx.leaf("(fail-if " + c + ")", comment);

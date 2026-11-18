@@ -56,7 +56,7 @@ public:
     virtual char const* name() const { return "unnamed-probe"; }
 
     // Display the probe in the syntax of the tactic language, e.g. (> num-consts 5000).
-    virtual std::ostream& display(std::ostream& out) const { return out << name(); }
+    virtual std::ostream& display_sexpr(std::ostream& out) const { return out << name(); }
 
     // Whether display gives a probe the tactic language parses: false if the probe,
     // or a probe it is built from, is not registered with Z3_ADD_PROBE.

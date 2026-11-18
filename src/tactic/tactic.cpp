@@ -275,7 +275,7 @@ namespace {
     }
 }
 
-void tactic::display(params_ref const & p, tactic_display_ctx & ctx) {
+void tactic::display_pipeline(params_ref const & p, tactic_display_ctx & ctx) {
     param_descrs d;
     // collect first: some tactics only know their name once their state is created.
     collect_param_descrs(d);
@@ -298,11 +298,11 @@ void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svecto
     // lazy_tactic builds its tactic when displayed, so the walk cannot be replaced
     // by collect_param_descrs.
     tactic_display_ctx all;
-    t.display(p, all);
+    t.display_pipeline(p, all);
     tactic_display_ctx ctx;
     ctx.pipeline = &all.descrs;
     ctx.unused = unused;
-    t.display(p, ctx);
+    t.display_pipeline(p, ctx);
     std::vector<display_line> lines;
     for (display_node const & n : ctx.roots())
         layout(n, 0, lines);
@@ -352,17 +352,17 @@ public:
     }
     void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
     char const* name() const override { return "lazy tactic"; }
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         // display the tactic that ensure_tactic would build after updt_params(p)
         params_ref new_p = this->p;
         new_p.append(p);
         if (m_tactic) {
-            m_tactic->display(new_p, ctx);
+            m_tactic->display_pipeline(new_p, ctx);
             return;
         }
         tactic_ref t = m_mk_tactic(m, new_p);
         t->updt_params(new_p);
-        t->display(new_p, ctx);
+        t->display_pipeline(new_p, ctx);
     }
     void collect_statistics(statistics& st) const override { if (m_tactic) m_tactic->collect_statistics(st); }
     void user_propagate_initialize_value(expr* var, expr* value) override { if (m_tactic) m_tactic->user_propagate_initialize_value(var, value); }
@@ -405,7 +405,7 @@ public:
 
     char const* name() const override { return "report-verbose"; }
 
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         ctx.leaf("(" + std::string(name()) + " " + tactic_display_string(m_msg) + ")", "not parseable: report-verbose");
     }
 
@@ -426,7 +426,7 @@ public:
 
     char const* name() const override { return "trace"; }
 
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         ctx.leaf("(" + std::string(name()) + " " + tactic_display_string(m_tag) + ")", "not parseable: trace");
     }
     

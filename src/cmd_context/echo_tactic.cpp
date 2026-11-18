@@ -31,7 +31,7 @@ public:
     char const* name() const override { return "echo"; }
 
     // (echo "a" "b") builds a sequence of echo tactics; only the last prints a newline.
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         ctx.leaf("(echo " + tactic_display_string(m_msg) + ")",
                  m_newline ? std::string() : std::string("not parseable: echo without newline"));
     }
@@ -62,9 +62,9 @@ public:
 
     char const* name() const override { return "probe-value"; }
 
-    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         std::ostringstream out;
-        m_p->display(out << "(echo ");
+        m_p->display_sexpr(out << "(echo ");
         out << ")";
         std::string comment;
         if (m_msg || !m_newline)

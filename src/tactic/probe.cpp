@@ -117,9 +117,9 @@ public:
 
     bool has_syntax() const override { return m_p1->has_syntax() && m_p2->has_syntax(); }
 
-    std::ostream& display(std::ostream& out) const override {
-        m_p1->display(out << "(" << name() << " ");
-        return m_p2->display(out << " ") << ")";
+    std::ostream& display_sexpr(std::ostream& out) const override {
+        m_p1->display_sexpr(out << "(" << name() << " ");
+        return m_p2->display_sexpr(out << " ") << ")";
     }
 };
 
@@ -129,7 +129,7 @@ public:
     result operator()(goal const & g) override {
         return result(!m_p->operator()(g).is_true());
     }
-    std::ostream& display(std::ostream& out) const override;
+    std::ostream& display_sexpr(std::ostream& out) const override;
 };
 
 class and_probe : public bin_probe {
@@ -209,7 +209,7 @@ class const_probe : public probe {
 public:
     const_probe(double v):m_val(v) {}
 
-    std::ostream& display(std::ostream& out) const override {
+    std::ostream& display_sexpr(std::ostream& out) const override {
         if (m_val == std::floor(m_val) && std::fabs(m_val) < 1e15)
             return out << static_cast<int64_t>(m_val);
         return out << m_val;
@@ -226,14 +226,14 @@ public:
 };
 
 // mk_lt and mk_gt are encoded with not_probe; display them as (< a b).
-std::ostream& not_probe::display(std::ostream& out) const {
+std::ostream& not_probe::display_sexpr(std::ostream& out) const {
     auto* b = dynamic_cast<bin_probe const*>(m_p);
     if (b && dynamic_cast<le_probe const*>(m_p)) {
         // mk_lt(p1, p2) is (not (<= p2 p1)); print it as (< p1 p2)
-        b->arg2()->display(out << "(< ");
-        return b->arg1()->display(out << " ") << ")";
+        b->arg2()->display_sexpr(out << "(< ");
+        return b->arg1()->display_sexpr(out << " ") << ")";
     }
-    return m_p->display(out << "(not ") << ")";
+    return m_p->display_sexpr(out << "(not ") << ")";
 }
 
 probe * mk_const_probe(double v) {

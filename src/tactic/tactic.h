@@ -90,7 +90,7 @@ public:
        receives through its constructor are not shown. Use display_tactic to display
        a pipeline.
     */
-    virtual void display(params_ref const & p, tactic_display_ctx & ctx);
+    virtual void display_pipeline(params_ref const & p, tactic_display_ctx & ctx);
 
     /**
        \brief Name of the tactic in the tactic language: the name under which the
