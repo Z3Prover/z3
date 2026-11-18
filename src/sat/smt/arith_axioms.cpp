@@ -83,6 +83,7 @@ namespace arith {
         if (a.is_zero(q)) {
             return;
         }
+        IF_VERBOSE(0, verbose_stream() << "idiv/mod axiom p=" << mk_bounded_pp(p, m) << " q=" << mk_bounded_pp(q, m) << "\n");
         TRACE(arith, tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
         // if q is zero, then idiv and mod are uninterpreted functions.
         expr_ref div(a.mk_idiv(p, q), m);
@@ -576,6 +577,7 @@ namespace arith {
         force_push();
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
+        IF_VERBOSE(0, verbose_stream() << "new arithmetic equality: " << mk_bounded_pp(e1, m) << " = " << mk_bounded_pp(e2, m) << "\n");
         TRACE(arith, tout << "new eq: v" << v1 << " v" << v2 << "\n";);
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
@@ -599,6 +601,7 @@ namespace arith {
     void solver::new_diseq_eh(euf::th_eq const& e) {
         if (a.is_complex(var2expr(e.v1())))
             return;
+        IF_VERBOSE(0, verbose_stream() << "new arith diseq: " << mk_bounded_pp(e.eq()->get_expr(), m) << "\n");
         TRACE(artih, tout << mk_bounded_pp(e.eq()->get_expr(), m) << "\n");
         ensure_column(e.v1());
         ensure_column(e.v2());
@@ -612,6 +615,7 @@ namespace arith {
         force_push();
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
+        IF_VERBOSE(0, verbose_stream() << "mk arithmetic diseq: " << mk_bounded_pp(e1, m) << " != " << mk_bounded_pp(e2, m) << "\n");
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
         if (m.are_distinct(e1, e2))
@@ -681,6 +685,7 @@ namespace arith {
         if (m_idiv_terms.empty()) {
             return true;
         }
+        IF_VERBOSE(0, verbose_stream() << "check_idiv_bounds: " << m_idiv_terms.size() << "\n");
         bool all_divs_valid = true;
         for (unsigned i = 0; i < m_idiv_terms.size(); ++i) {
             expr* n = m_idiv_terms[i];
@@ -690,8 +695,9 @@ namespace arith {
             ensure_column(v1);
             lp::impq r1 = get_ivalue(v1);
             rational r2;
+            IF_VERBOSE(0, verbose_stream() << "  div term " << mk_bounded_pp(n, m) << " p=" << r1 << " bounded=" << a.is_bounded(n) << "\n");
 
-            if (!r1.x.is_int() || r1.x.is_neg() || !r1.y.is_zero()) {
+            if (!r1.x.is_int() || !r1.y.is_zero()) {
                 // TBD
                 // r1 = 223/4, r2 = 2, r = 219/8 
                 // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0

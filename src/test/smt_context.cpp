@@ -141,6 +141,21 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static lbool check_sat_smt_result(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    return slv->check_sat(0, nullptr);
+}
+
 static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1519,6 +1534,17 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    VERIFY(check_sat_smt_result(
+        "(declare-const x Int)\n"
+        "(assert (<= x 4))\n"
+        "(assert (distinct 0 (div x 5)))\n") == l_true);
+    VERIFY(check_sat_smt_result(
+        "(set-logic QF_NIA)\n"
+        "(declare-const x Int)(declare-const y Int)\n"
+        "(assert (< x 0))(assert (<= (- 4) y))(assert (<= y 4))\n"
+        "(assert (=> (<= 0 (div y 7)) (< y 0)))\n"
+        "(assert (=> (not (<= 0 (div y 7))) (< (* y x) 0)))\n") != l_true);
+
     check_late_equality_justification();
     check_proof_mode_guards();
     check_proof_mode_compositions();
