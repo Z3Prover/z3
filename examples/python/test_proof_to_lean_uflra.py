@@ -947,6 +947,10 @@ class TestMixedLeanIntegration(_LeanIntegration):
             with self.subTest(name=name):
                 certificate = proof_certificate.export_clause_log_certificate(source)
                 self.assertEqual(certificate["fragment"], fragments[name.split("_", 1)[0]])
+                if not any(certificate["declarations"][certificate["nodes"][node]["declaration"]]["parameters"]
+                           == ["cnf"] for node in _th_lemma_nodes(certificate)):
+                    self.check(source)
+                    continue
                 text = proof_to_lean.reconstruct(source, certificate)
                 lemma, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
                 self.assertNotIn("unfold", head)

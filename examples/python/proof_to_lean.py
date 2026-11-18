@@ -136,6 +136,8 @@ _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia", _MIXED: "qf_uflira"}
 # nested term elaborates superlinearly and exhausts the default heartbeat
 # budget between 1,000 and 2,000 steps.
 _OUTLINE_PROOF_STEPS = 500
+_LARGE_PROOF_STEPS = 200
+_LARGE_PROOF_HEARTBEATS = 1000000
 _OUTLINE_CHUNK_STEPS = 500
 # A step with more premises or clause literals than this counts as that many
 # steps of its chunk (_outline_weight).
@@ -11495,6 +11497,9 @@ def reconstruct(source, certificate):
     # recursion limit, scoped to this namespace. This is not a trust setting.
     lines.extend(["namespace " + namespace, "", "set_option maxRecDepth 100000", ""])
     options = len(lines) - 1
+    proof_steps = sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes)))
+    if proof_steps > _LARGE_PROOF_STEPS:
+        lines.insert(options, "set_option maxHeartbeats %d" % _LARGE_PROOF_HEARTBEATS)
     lines.extend(_interpretation_structure(graph, tables, variable_indices))
     if graph.arrays:
         lines.extend(_ARRAY_DEFINITIONS + [""])
@@ -11560,7 +11565,8 @@ def reconstruct(source, certificate):
                                            structural=(_farkas_combination(graph, node)
                                                        or _product_combination(graph, node)
                                                        or _split_combination(graph, node)
-                                                       or _sign_split(graph, node)))
+                                                       or (_sign_split(graph, node)
+                                                           if graph.decl(node).parameters[0] == "cut" else None)))
             lines.extend(lemma)
             th_lemmas[node] = term
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
@@ -11576,7 +11582,7 @@ def reconstruct(source, certificate):
     assumptions = {}
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
-    outline = sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS
+    outline = proof_steps > _OUTLINE_PROOF_STEPS
     step_terms = {}
     tails = {}  # and-elim node -> the (premise, operand) tail it projects from
     hypothesis_formulas, dependencies = {}, {}

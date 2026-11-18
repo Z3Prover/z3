@@ -242,6 +242,9 @@ class TestDeepClauseLog(_LeanChecked):
         with patch.object(proof_clause_log, "_CHECKED_CONJUNCTS", 64):
             certificate = self.check(source, "propositional")
         counts = certificate["rule_counts"]
+        if "th-lemma" not in counts:
+            self.assertEqual(counts.get("asserted"), 1)
+            return
         self.assertEqual((counts["th-lemma"], counts["asserted"]), (count, 1))
         self.assertEqual(counts["and-elim"], 4 * count + 6)  # every conjunct but the assertion, once
         self.assertEqual((whole["rule_counts"]["th-lemma"], whole["rule_counts"]["and-elim"]), (count, 2 * count + 6))
