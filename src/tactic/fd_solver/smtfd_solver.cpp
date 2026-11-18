@@ -2141,5 +2141,7 @@ solver * mk_smtfd_solver(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_smtfd_tactic(ast_manager & m, params_ref const & p) {
-    return mk_solver2tactic(mk_smtfd_solver(m, p));
+    tactic * t = mk_solver2tactic(mk_smtfd_solver(m, p));
+    t->set_display_name("smtfd");
+    return t;
 }

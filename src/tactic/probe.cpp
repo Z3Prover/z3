@@ -19,6 +19,8 @@ Author:
 Revision History:
 
 --*/
+#include <cstring>
+#include <cmath>
 #include "tactic/probe.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -27,6 +29,7 @@ Revision History:
 
 class memory_probe : public probe {
 public:
+    char const* name() const override { return "memory"; }
     result operator()(goal const & g) override {
         return result(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024));
     }
@@ -38,6 +41,7 @@ probe * mk_memory_probe() {
 
 class depth_probe : public probe {
 public:
+    char const* name() const override { return "depth"; }
     result operator()(goal const & g) override {
         return result(g.depth());
     }
@@ -45,6 +49,7 @@ public:
 
 class size_probe : public probe {
 public:
+    char const* name() const override { return "size"; }
     result operator()(goal const & g) override {
         return result(g.size());
     }
@@ -52,6 +57,7 @@ public:
 
 class num_exprs_probe : public probe {
 public:
+    char const* name() const override { return "num-exprs"; }
     result operator()(goal const & g) override {
         return result(g.num_exprs());
     }
@@ -83,6 +89,8 @@ public:
         m_p->dec_ref();
     }
 
+    bool has_syntax() const override { return m_p->has_syntax(); }
+
 };
 
 class bin_probe : public probe {
@@ -103,6 +111,16 @@ public:
         m_p1->dec_ref();
         m_p2->dec_ref();
     }
+
+    probe const* arg1() const { return m_p1; }
+    probe const* arg2() const { return m_p2; }
+
+    bool has_syntax() const override { return m_p1->has_syntax() && m_p2->has_syntax(); }
+
+    std::ostream& display(std::ostream& out) const override {
+        m_p1->display(out << "(" << name() << " ");
+        return m_p2->display(out << " ") << ")";
+    }
 };
 
 class not_probe : public unary_probe {
@@ -111,11 +129,13 @@ public:
     result operator()(goal const & g) override {
         return result(!m_p->operator()(g).is_true());
     }
+    std::ostream& display(std::ostream& out) const override;
 };
 
 class and_probe : public bin_probe {
 public:
     and_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "and"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() && m_p2->operator()(g).is_true());
     }
@@ -124,6 +144,7 @@ public:
 class or_probe : public bin_probe {
 public:
     or_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "or"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() || m_p2->operator()(g).is_true());
     }
@@ -132,6 +153,7 @@ public:
 class eq_probe : public bin_probe {
 public:
     eq_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() == m_p2->operator()(g).get_value());
     }
@@ -140,6 +162,7 @@ public:
 class le_probe : public bin_probe {
 public:
     le_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "<="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() <= m_p2->operator()(g).get_value());
     }
@@ -148,6 +171,7 @@ public:
 class add_probe : public bin_probe {
 public:
     add_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "+"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() + m_p2->operator()(g).get_value());
     }
@@ -156,6 +180,7 @@ public:
 class sub_probe : public bin_probe {
 public:
     sub_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "-"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() - m_p2->operator()(g).get_value());
     }
@@ -164,6 +189,7 @@ public:
 class mul_probe : public bin_probe {
 public:
     mul_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "*"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() * m_p2->operator()(g).get_value());
     }
@@ -172,6 +198,7 @@ public:
 class div_probe : public bin_probe {
 public:
     div_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    char const* name() const override { return "/"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() / m_p2->operator()(g).get_value());
     }
@@ -182,10 +209,32 @@ class const_probe : public probe {
 public:
     const_probe(double v):m_val(v) {}
 
+    std::ostream& display(std::ostream& out) const override {
+        if (m_val == std::floor(m_val) && std::fabs(m_val) < 1e15)
+            return out << static_cast<int64_t>(m_val);
+        return out << m_val;
+    }
+
+    // the parser reads a constant as a 32-bit integer
+    bool has_syntax() const override {
+        return m_val == std::floor(m_val) && std::fabs(m_val) <= INT32_MAX;
+    }
+
     result operator()(goal const & g) override {
         return result(m_val);
     }
 };
+
+// mk_lt and mk_gt are encoded with not_probe; display them as (< a b).
+std::ostream& not_probe::display(std::ostream& out) const {
+    auto* b = dynamic_cast<bin_probe const*>(m_p);
+    if (b && dynamic_cast<le_probe const*>(m_p)) {
+        // mk_lt(p1, p2) is (not (<= p2 p1)); print it as (< p1 p2)
+        b->arg2()->display(out << "(< ");
+        return b->arg1()->display(out << " ") << ")";
+    }
+    return m_p->display(out << "(not ") << ")";
+}
 
 probe * mk_const_probe(double v) {
     return alloc(const_probe, v);
@@ -303,6 +352,7 @@ struct is_non_qfbv_predicate {
 
 class is_propositional_probe : public probe {
 public:
+    char const* name() const override { return "is-propositional"; }
     result operator()(goal const & g) override {
         return !test<is_non_propositional_predicate>(g);
     }
@@ -311,6 +361,7 @@ public:
 
 class is_qfbv_probe : public probe {
 public:
+    char const* name() const override { return "is-qfbv"; }
     result operator()(goal const & g) override {
         return !test<is_non_qfbv_predicate>(g);
     }
@@ -353,6 +404,7 @@ struct is_non_qfaufbv_predicate {
 
 class is_qfaufbv_probe : public probe {
 public:
+    char const* name() const override { return "is-qfaufbv"; }
     result operator()(goal const & g) override {
         return !test<is_non_qfaufbv_predicate>(g);
     }
@@ -391,6 +443,8 @@ struct is_non_qfufbv_predicate {
 
 class is_qfufbv_probe : public probe {
 public:
+    char const* name() const override { return "is-qfufbv"; }
+    bool has_syntax() const override { return false; } // not registered
     result operator()(goal const & g) override {
         return !test<is_non_qfufbv_predicate>(g);
     }
@@ -439,6 +493,14 @@ class num_consts_probe : public probe {
     };
 
 public:
+    char const* name() const override {
+        if (m_bool)
+            return "num-bool-consts";
+        if (m_family == nullptr)
+            return "num-consts";
+        return strcmp(m_family, "arith") == 0 ? "num-arith-consts" : "num-bv-consts";
+    }
+
     num_consts_probe(bool b, char const * f):
         m_bool(b), m_family(f) {
     }
@@ -471,6 +533,7 @@ probe * mk_num_bv_consts_probe() {
 
 class produce_proofs_probe : public probe {
 public:
+    char const* name() const override { return "produce-proofs"; }
     result operator()(goal const & g) override {
         return g.proofs_enabled();
     }
@@ -478,6 +541,7 @@ public:
 
 class produce_models_probe : public probe {
 public:
+    char const* name() const override { return "produce-model"; }
     result operator()(goal const & g) override {
         return g.models_enabled();
     }
@@ -485,6 +549,7 @@ public:
 
 class produce_unsat_cores_probe : public probe {
 public:
+    char const* name() const override { return "produce-unsat-cores"; }
     result operator()(goal const & g) override {
         return g.unsat_core_enabled();
     }
@@ -503,6 +568,7 @@ probe * mk_produce_unsat_cores_probe() {
 }
 
 struct has_pattern_probe : public probe {
+    char const* name() const override { return "has-patterns"; }
     struct found : public std::exception {};
 
     struct proc {
@@ -536,6 +602,7 @@ probe * mk_has_pattern_probe() {
 
 
 struct has_quantifier_probe : public probe {
+    char const* name() const override { return "has-quantifiers"; }
     struct found : public std::exception {};
 
     struct proc {

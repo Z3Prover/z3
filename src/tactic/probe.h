@@ -23,6 +23,8 @@ Revision History:
 --*/
 #pragma once
 
+#include <cstring>
+
 #include "tactic/goal.h"
 
 class probe {
@@ -49,6 +51,16 @@ public:
     void dec_ref() { SASSERT(m_ref_count > 0); --m_ref_count; if (m_ref_count == 0) dealloc(this); }
 
     virtual result operator()(goal const & g) = 0;
+
+    // Name of the probe; the name it is registered under with Z3_ADD_PROBE if it is registered.
+    virtual char const* name() const { return "unnamed-probe"; }
+
+    // Display the probe in the syntax of the tactic language, e.g. (> num-consts 5000).
+    virtual std::ostream& display(std::ostream& out) const { return out << name(); }
+
+    // Whether display gives a probe the tactic language parses: false if the probe,
+    // or a probe it is built from, is not registered with Z3_ADD_PROBE.
+    virtual bool has_syntax() const { return strcmp(name(), "unnamed-probe") != 0; }
 };
 
 typedef ref<probe> probe_ref;

@@ -107,6 +107,29 @@ void help_tactic(cmd_context & ctx) {
 
 ATOMIC_CMD(help_tactic_cmd, "help-tactic", "display the tactic combinators and primitives.", help_tactic(ctx););
 
+// Display a tactic without running it, in the tactic language: the steps, the probes
+// guarding them, and in comments the parameters each step receives (see display_tactic).
+class display_tactic_cmd : public cmd {
+    sexpr * m_tactic = nullptr;
+public:
+    display_tactic_cmd(): cmd("display-tactic") {}
+
+    char const * get_usage() const override { return "<tactic>"; }
+    char const * get_descr(cmd_context & ctx) const override {
+        return "display a tactic in the tactic language, with the parameters each step receives in comments, without running it.";
+    }
+    unsigned get_arity() const override { return 1; }
+    void prepare(cmd_context & ctx) override { m_tactic = nullptr; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_SEXPR; }
+    void set_next_arg(cmd_context & ctx, sexpr * n) override { m_tactic = n; }
+    void execute(cmd_context & ctx) override {
+        // the parameters check-sat-using passes to its tactic
+        params_ref p = ctx.params().merge_default_params(params_ref());
+        tactic_ref t = sexpr2tactic(ctx, m_tactic);
+        display_tactic(ctx.regular_stream(), *t, p);
+    }
+};
+
 class exec_given_tactic_cmd : public parametric_cmd {
 protected:
     sexpr * m_tactic;
@@ -395,6 +418,7 @@ void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));
     ctx.insert(alloc(help_tactic_cmd));
+    ctx.insert(alloc(display_tactic_cmd));
     ctx.insert(alloc(check_sat_using_tactic_cmd));
     ctx.insert(alloc(apply_tactic_cmd));
     install_tactics(ctx);

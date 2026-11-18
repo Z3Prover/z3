@@ -177,6 +177,10 @@ public:
     bool contains(symbol const & k) const;
     bool contains(char const * k) const;
 
+    // number of entries and the key of the idx-th entry, in insertion order
+    unsigned size() const;
+    symbol get_key(unsigned idx) const;
+
     void reset();
     void reset(symbol const & k);
     void reset(char const * k);

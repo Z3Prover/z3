@@ -708,6 +708,15 @@ bool params_ref::empty() const {
     return m_params->empty();
 }
 
+unsigned params_ref::size() const {
+    return m_params ? m_params->m_entries.size() : 0;
+}
+
+symbol params_ref::get_key(unsigned idx) const {
+    SASSERT(idx < size());
+    return m_params->m_entries[idx].first;
+}
+
 bool params_ref::contains(symbol const & k) const {
     if (!m_params)
         return false;

@@ -25,6 +25,17 @@ Notes:
 #include <thread>
 #endif
 #include <vector>
+#include <cstring>
+#include <sstream>
+
+// Display a probe; a comment marks a probe that the tactic language has no name for.
+static std::string display_probe(probe const & p, std::string & comment) {
+    std::ostringstream out;
+    p.display(out);
+    if (!p.has_syntax())
+        comment = "not parseable: unregistered probe";
+    return out.str();
+}
 
 class binary_tactical : public tactic {
 protected:
@@ -50,7 +61,7 @@ public:
         m_t1->collect_param_descrs(r);
         m_t2->collect_param_descrs(r);
     }
-    
+
     void collect_statistics(statistics & st) const override {
         m_t1->collect_statistics(st);
         m_t2->collect_statistics(st);
@@ -106,6 +117,14 @@ public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
 
     char const* name() const override { return "and_then"; }
+
+    // tactic_display_ctx::close displays and_then(t1, and_then(t2, t3)) as (then t1 t2 t3).
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        ctx.open(strcmp(name(), "par_then") == 0 ? "(par-then" : "(then");
+        m_t1->display(p, ctx);
+        m_t2->display(p, ctx);
+        ctx.close();
+    }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         m_clean = false;
@@ -299,6 +318,12 @@ public:
     
     void collect_param_descrs(param_descrs & r) override {
         for (tactic* t : m_ts) t->collect_param_descrs(r);
+    }
+
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        ctx.open(strcmp(name(), "par") == 0 ? "(par-or" : "(or-else");
+        for (tactic* t : m_ts) t->display(p, ctx);
+        ctx.close();
     }
     
     void collect_statistics(statistics & st) const override {
@@ -882,6 +907,20 @@ public:
     void reset_statistics() override { m_t->reset_statistics(); }    
     void updt_params(params_ref const & p) override { m_t->updt_params(p); }
     void collect_param_descrs(param_descrs & r) override { m_t->collect_param_descrs(r); }
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        char const * n = language_name();
+        if (n)
+            ctx.open(std::string("(") + n);
+        else
+            ctx.open(std::string("(") + name() + (display_tail().empty() ? "" : " " + display_tail()),
+                     std::string("not parseable: ") + name());
+        m_t->display(p, ctx);
+        ctx.close(n ? display_tail() : std::string());
+    }
+    // name of the combinator in the tactic language, nullptr if it has none
+    virtual char const * language_name() const { return nullptr; }
+    // arguments of the combinator displayed after the tactic it wraps: "5"
+    virtual std::string display_tail() const { return std::string(); }
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
@@ -987,6 +1026,11 @@ public:
     }
 
     char const* name() const override { return "repeat"; }
+
+    char const * language_name() const override { return "repeat"; }
+    std::string display_tail() const override {
+        return m_max_depth == UINT_MAX ? std::string() : std::to_string(m_max_depth);
+    }
     
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         operator()(0, in, result);
@@ -1008,6 +1052,9 @@ public:
     fail_if_branching_tactical(tactic * t, unsigned threshold):unary_tactical(t), m_threshold(threshold) {}
 
     char const* name() const override { return "fail_if_branching"; }
+
+    char const * language_name() const override { return "fail-if-branching"; }
+    std::string display_tail() const override { return std::to_string(m_threshold); }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         m_t->operator()(in, result);
@@ -1033,6 +1080,11 @@ public:
 
     char const* name() const override { return "cleanup"; }
 
+    // cleanup does not change what runs: display the tactic it wraps
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        m_t->display(p, ctx);
+    }
+
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         m_t->operator()(in, result);
         m_t->cleanup();
@@ -1054,6 +1106,9 @@ public:
     try_for_tactical(tactic * t, unsigned ts):unary_tactical(t), m_timeout(ts) {}
 
     char const* name() const override { return "try_for"; }
+
+    char const * language_name() const override { return "try-for"; }
+    std::string display_tail() const override { return std::to_string(m_timeout); }
     
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         cancel_eh<reslimit> eh(in->m().limit());
@@ -1090,6 +1145,46 @@ public:
     }
 
     char const* name() const override { return "using_params"; }
+
+    // Display (using-params t :k v ...) and t with the parameters updt_params passes to it.
+    //
+    // A key is written as syntax if the parser accepts it: the parser of using-params
+    // requires that t declares the key in collect_param_descrs. Other keys go in a
+    // "not parseable:" comment.
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        if (m_params.size() == 0) {
+            m_t->display(p, ctx);
+            return;
+        }
+        params_ref new_p = p;
+        new_p.append(m_params);
+        param_descrs child;
+        m_t->collect_param_descrs(child);
+        std::string tail, comment;
+        for (unsigned i = 0; i < m_params.size(); ++i) {
+            symbol k = m_params.get_key(i);
+            std::ostringstream v;
+            m_params.display(v, k);
+            std::string entry = ":" + std::string(k.str()) + " " + v.str();
+            if (has_syntax(child, k))
+                tail += (tail.empty() ? "" : " ") + entry;
+            else
+                comment += (comment.empty() ? "not parseable: " : ", ") + entry;
+        }
+        ctx.open("(using-params");
+        m_t->display(new_p, ctx);
+        ctx.close(tail, comment);
+    }
+
+    // the parser of using-params accepts k for a tactic that declares d
+    static bool has_syntax(param_descrs const & d, symbol k) {
+        switch (d.get_kind_in_module(k)) {
+        case CPK_BOOL: case CPK_UINT: case CPK_NUMERAL: case CPK_SYMBOL: case CPK_DOUBLE:
+            return true;
+        default:
+            return false;
+        }
+    }
 
     void updt_params(params_ref const & p) override {
         TRACE(using_params, 
@@ -1142,6 +1237,8 @@ public:
     }
 
     char const* name() const override { return "annotate"; }
+
+    std::string display_tail() const override { return tactic_display_string(m_name.c_str()); }
     
 };
 
@@ -1159,6 +1256,18 @@ public:
     }
 
     char const* name() const override { return "cond"; }
+
+    // cond(p, t, skip) is what (when p t) builds: display it as such.
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        bool is_when = strcmp(m_t2->name(), "skip") == 0;
+        std::string comment;
+        std::string c = display_probe(*m_p, comment);
+        ctx.open((is_when ? "(when " : "(if ") + c, comment);
+        m_t1->display(p, ctx);
+        if (!is_when)
+            m_t2->display(p, ctx);
+        ctx.close();
+    }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         m_clean = false;
@@ -1198,6 +1307,12 @@ public:
 
     char const* name() const override { return "fail_if"; }
 
+    void display(params_ref const & p, tactic_display_ctx & ctx) override {
+        std::string comment;
+        std::string c = display_probe(*m_p, comment);
+        ctx.leaf("(fail-if " + c + ")", comment);
+    }
+
     void cleanup() override {}
 
     void  operator()(goal_ref const & in, goal_ref_buffer& result) override {
@@ -1228,6 +1343,8 @@ public:
     if_no_proofs_tactical(tactic * t):unary_tactical(t) {}
 
     char const* name() const override { return "if_no_proofs"; }
+
+    char const * language_name() const override { return "if-no-proofs"; }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         if (in->proofs_enabled()) {
@@ -1247,6 +1364,8 @@ public:
     if_no_unsat_cores_tactical(tactic * t):unary_tactical(t) {}
 
     char const* name() const override { return "if_no_unsat_cores"; }
+
+    char const * language_name() const override { return "if-no-unsat-cores"; }
     
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (in->unsat_core_enabled()) {
@@ -1265,6 +1384,8 @@ public:
     if_no_models_tactical(tactic * t):unary_tactical(t) {}
 
     char const* name() const override { return "if_no_models"; }
+
+    char const * language_name() const override { return "if-no-models"; }
     
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (in->models_enabled()) {
