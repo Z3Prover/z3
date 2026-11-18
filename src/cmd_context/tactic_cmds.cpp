@@ -753,7 +753,7 @@ static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                   
     if (num_children == 2)                                                                                      \
         return r;                                                                                               \
     ref<probe> prev = r;                                                                                        \
-    unsigned i = 1;                                                                                             \
+    unsigned i = 2;                                                                                             \
     while (true) {                                                                                              \
         r = NAME(prev.get(), sexpr2probe(ctx, n->get_child(i)));                                                \
         if (i == num_children - 1)                                                                              \
