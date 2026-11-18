@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T15:01:39-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T15:17:07-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -71,6 +71,7 @@ whole cohorts; overlapping candidate gains must not be added.
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
 | Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
+| Nov 18 14:37 | Bounded-integers fstar-build diagnostic replay, 10 queries; no checker change | Three `th-lemma` PENDING remain with identical fingerprints; replay reports 9 ACCEPT / 1 PARTIAL. Proof-node counts differ on queries 7-10 and proof hash is N/M, so this is not a matched-proof burn-down | `fstar-build-bounded-integers-2671-03.json` |
 | Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
 | Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
 | Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring arithmetic steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
@@ -79,7 +80,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
 | Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
 | Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
-| Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -157,6 +157,24 @@ checking a linear contradiction; strict downstream F* verification, checkout
 native tests and SMT/Python/help smoke checks passed. Scope tests passed with
 seven Windows skips. Evidence: session `files\multiple-zero-downstream-01.json`,
 `files\multiple-zero-checkout-build-01.json`, `files\multiple-zero-checkout-smoke-01.json`.
+
+An additional bounded-integers `fstar-build` diagnostic covered 10 queries:
+the replay reports 9 ACCEPT / 1 PARTIAL and preserves three `th-lemma`
+PENDING fingerprints. Proof-node counts differ on queries 7-10 and the proof
+document hash is N/M, so this does not establish a matched-proof burn-down or
+change the aggregate 158/583 cohort counts. Evidence:
+`files\fstar-build-bounded-integers-2671-03.json`.
+
+The current worktree's strict verification uses pinned F* 2026.10.25, but
+`Z3UnifiedProof.fst` timed out at 1800 seconds; no module was verified in that
+attempt. The conditional-definition modules retain their previously passing
+strict and checkout controls, and the 11-proof baseline comparison has zero
+regressions or unobserved proofs. Do not promote the separate uncommitted
+worktree edits based on the timeout. Evidence:
+`files\current-unified-fstar-verification-05.json`,
+`files\conditional-downstream-02.json`,
+`files\conditional-checkout-current-2671-02.json`,
+`files\conditional-current-baseline-2671-01.json`.
 
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
 PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively); the
