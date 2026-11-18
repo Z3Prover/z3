@@ -610,6 +610,34 @@ static void tst_empty_language_repetition() {
     }
 }
 
+static void tst_invalid_repetition_bounds() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    for (bool generic : {false, true}) {
+        sort_ref sequence(generic ? su.str.mk_seq(a.mk_int()) : su.str.mk_string_sort(), m);
+        sort_ref regex_sort(su.re.mk_re(sequence), m);
+        expr_ref empty(su.str.mk_empty(sequence), m);
+        expr_ref epsilon(su.re.mk_to_re(empty), m);
+        expr_ref arbitrary(m.mk_fresh_const("R", regex_sort), m);
+        for (expr* body : {epsilon.get(), arbitrary.get()}) {
+            for (unsigned upper : {0u, 2u}) {
+                expr_ref repeated(su.re.mk_loop(body, upper + 1, upper), m);
+                auto info = su.re.get_info(repeated);
+                ENSURE(info.is_known() && info.nullable == l_false);
+                ENSURE(info.min_length > info.max_length);
+                smt_params sp;
+                sp.m_string_solver = symbol("nseq");
+                smt::context ctx(m, sp);
+                expr_ref membership(su.re.mk_in_re(empty, repeated), m);
+                ctx.assert_expr(membership);
+                ENSURE(ctx.check() == l_false);
+            }
+        }
+    }
+}
+
 static void tst_epsilon_intersection() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -685,6 +713,7 @@ void tst_seq_rewriter() {
     tst_extract_equal_offset_length();
     tst_delete_first_character();
     tst_empty_language_repetition();
+    tst_invalid_repetition_bounds();
     tst_positive_closure_repetition();
     tst_epsilon_intersection();
     tst_negated_complement_membership();
