@@ -574,11 +574,9 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        if (m_params.m_string_solver == "seq") {
+        if (m_params.m_string_solver == "seq" || m_params.m_string_solver == "nseq") {
+            // Sequence axioms can introduce arithmetic and bit-vector terms.
             setup_unknown();
-        }
-        else if (m_params.m_string_solver == "nseq") {
-            setup_nseq();
         }
         else if (m_params.m_string_solver == "char") {
             setup_QF_BV();

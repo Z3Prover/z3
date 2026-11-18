@@ -1509,8 +1509,13 @@ namespace {
             model_ref md;
             s->get_model(md);
             ENSURE(md);
-            for (expr* assertion : cmd.assertions())
-                ENSURE(md->is_true(assertion));
+            for (expr* assertion : cmd.assertions()) {
+                bool valid = md->is_true(assertion);
+                if (!valid)
+                    std::cerr << "nseq candidate model did not validate: " << input << "\n"
+                              << mk_pp(assertion, m) << "\n";
+                ENSURE(valid);
+            }
         };
         check_model();
         if (scoped_integer) {
@@ -1589,6 +1594,14 @@ namespace {
             (declare-const f (Seq Int))
             (assert (or (seq.contains c (seq.++ d f)) (seq.contains (seq.++ a b) e)))
         )", true, nullptr, 1000000, "ALL");
+    }
+
+    static void tst_nseq_qfs_character_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (assert (str.is_digit (str.at x 1)))
+            (assert (str.is_digit (str.at x 2)))
+        )", true, nullptr, 1000000, "QF_S");
     }
 
     static void tst_nseq_epsilon_intersection_models() {
@@ -2169,6 +2182,7 @@ void tst_seq_eq_facet() {
     tst_nseq_candidate_model();
     tst_nseq_nth_models();
     tst_nseq_symbolic_ncontains_models();
+    tst_nseq_qfs_character_models();
     tst_nseq_epsilon_intersection_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
