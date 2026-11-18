@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T12:18:19-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T12:27:23-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -70,6 +70,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring `arith/farkas` steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
 | Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five `arith/farkas` steps accepted | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
 | Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
@@ -79,7 +80,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
 | Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
 | Nov 16 09:52 | Guarded Int quotient, fstar-build, UInt128, 1 proof | Root `th-lemma` +63 / 136 PENDING | `int-quotient-uint128-01.json` |
-| Nov 16 05:27 | Multi-zero products, extended, 1 proof | `arith/farkas` +2 / 3 PENDING; `th-lemma` +2 / 5 PENDING | `multiple-zero-extended-02.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -192,6 +192,18 @@ faulty Farkas generation. Evidence: session
 `files\periodic-smtlib-20261118T170450Z`,
 `files\ite-add-sample-02.json`, `files\extended-farkas-capture-2671-05.json`,
 `files\extended-farkas-capture-2671-06.json`,
+`files\ring-definitions-trace-2671-03.json`.
+
+The QF_LIA slice of that SMT-LIB sample capture contains 25 selected inputs:
+17 ACCEPT, one PARTIAL, two TIMEOUT and five UNKNOWN. The only PARTIAL is the
+ring proof above, with four `intro-def` PENDING; its five Farkas steps are
+accepted. The extended capture contains no selected QF_LIA inputs, so it
+provides no QF_LIA comparison. Two definitions have cross-entry dependencies,
+including `z3name!3` referring to `z3name!2` before the latter's definition
+entry. A sound replay therefore needs freshness checks and dependency-aware
+interpretation of all four constants; recognizing one paired-ITE formula in
+isolation would not close the proof. Evidence: session
+`files\periodic-smtlib-20261118T170450Z`,
 `files\ring-definitions-trace-2671-03.json`.
 
 An experimental integer-input binding bridge passed LP unit tests, but on the
