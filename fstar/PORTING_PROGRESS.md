@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T10:12:19-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T11:07:35-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -167,6 +167,18 @@ exports propagation coefficients but attempts structured LP proof export for
 conflicts; the captured binary's exact source provenance is unverified.
 Evidence: session `files\farkas-bound-producer-analysis-01.json`,
 `files\extended-farkas-capture-02.json`.
+
+On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
+PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively). Their
+fingerprints hide operands, so they cannot establish whether each certificate
+is linear or whether its producer evidence is malformed. The sample cohort has
+zero `arith/farkas` PENDING. On the identical frozen QF_LIA ring proof
+`23fedbd874be`, all five Farkas steps are accepted by Legacy and both
+independent-checker arms; the remaining independent PENDING are definitions
+and rewrites. The separate QF_NIA AProVE producer capture uses checker
+`35ef16e3adce`, not `2671dc150931`, and does not establish proof identity.
+Evidence: session `files\periodic-smtlib-20261118T170450Z`,
+`files\ite-add-sample-02.json`, `files\extended-farkas-capture-02.json`.
 
 An experimental integer-input binding bridge passed LP unit tests, but on the
 same QF_LIA ring input it changed the generated proof and increased root
