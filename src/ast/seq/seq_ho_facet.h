@@ -35,6 +35,7 @@ namespace seq {
         add_eq_t m_add_eq;
         find_elaboration_t m_find_elaboration;
         app_ref_vector m_terms;
+        obj_hashtable<expr> m_unfolded;
         unsigned m_num_ho_unfolds = 0;
         unsigned m_num_length_axioms = 0;
 
@@ -94,6 +95,8 @@ namespace seq {
             bool progress = false;
             for (unsigned i = 0; i < num_terms; ++i) {
                 app* term = m_terms.get(i);
+                if (m_unfolded.contains(term))
+                    continue;
                 expr* f = nullptr, *s = nullptr, *b = nullptr, *idx = nullptr;
                 VERIFY(is_ho_term(term, f, idx, b, s));
 
@@ -117,8 +120,11 @@ namespace seq {
                     ho_elaboration->get_num_args(),
                     ho_elaboration->get_args(),
                     rewritten);
-                if (status != BR_FAILED && m_add_eq(ho_elaboration, rewritten)) {
-                    ++m_num_ho_unfolds;
+                if (status != BR_FAILED) {
+                    if (m_add_eq(ho_elaboration, rewritten))
+                        ++m_num_ho_unfolds;
+                    m_unfolded.insert(term);
+                    m_trail.push(insert_obj_trail<expr>(m_unfolded, term));
                     progress = true;
                 }
             }
@@ -151,12 +157,14 @@ namespace seq {
                 m_add_eq,
                 m_find_elaboration);
             f->m_terms.append(m_terms);
+            for (expr* term : m_unfolded)
+                f->m_unfolded.insert(term);
             f->m_num_ho_unfolds = m_num_ho_unfolds;
             f->m_num_length_axioms = m_num_length_axioms;
             return f;
         }
 
-        bool is_satisfied() const override { return true; }
+        bool is_satisfied() const override { return m_unfolded.size() == m_terms.size(); }
 
         std::ostream& display(std::ostream& out) const override {
             out << "ho_facet: " << m_terms.size() << " term(s)\n";

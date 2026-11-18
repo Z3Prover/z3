@@ -1630,6 +1630,74 @@ namespace {
         )");
     }
 
+    static void tst_nseq_array_map_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const f (Array Int Bool))
+            (declare-const s (Seq Int))
+            (assert (= (seq.map f s)
+                       (seq.++ (seq.unit false) (seq.unit true) (seq.unit false))))
+        )", false, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
+            (declare-const f (Array Int Int Bool))
+            (declare-const s (Seq Int))
+            (assert (= (seq.mapi f 0 s)
+                       (seq.++ (seq.unit false) (seq.unit true) (seq.unit false))))
+        )", false, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
+            (declare-const f (Array Int Bool))
+            (declare-const s (Seq Int))
+            (assert (= s (seq.++ (seq.unit 0) (seq.unit 1) (seq.unit 0))))
+            (assert (= (seq.map f s)
+                       (seq.++ (seq.unit false) (seq.unit true) (seq.unit false))))
+        )", true, nullptr, 1000000, "ALL");
+    }
+
+    static void tst_nseq_incremental_array_map_models() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        cmd_context cmd(false, &m);
+        std::istringstream input(R"(
+            (declare-const f (Array Int Bool))
+            (declare-const s (Seq Int))
+            (assert (= (seq.map f s) (seq.unit true)))
+        )");
+        ENSURE(parse_smt2_commands(cmd, input));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("model", true);
+        ref<solver> solver = mk_smt2_solver(m, p, symbol("ALL"));
+        for (expr* assertion : cmd.assertions())
+            solver->assert_expr(assertion);
+        arith_util arith(m);
+        seq_util seq(m);
+        expr_ref sequence(m.mk_const(cmd.find_func_decl(symbol("s"))), m);
+        expr_ref zero(arith.mk_int(0), m);
+        expr_ref unit(seq.str.mk_unit(zero), m);
+        expr_ref elaboration(m.mk_eq(sequence, unit), m);
+        auto check_model = [&](bool elaborated) {
+            lbool result = solver->check_sat(0, nullptr);
+            ENSURE(result == l_true || (!elaborated && result == l_undef));
+            if (result != l_true)
+                return;
+            model_ref model;
+            solver->get_model(model);
+            ENSURE(model);
+            for (expr* assertion : cmd.assertions())
+                ENSURE(model->is_true(assertion));
+            if (elaborated)
+                ENSURE(model->is_true(elaboration));
+        };
+        for (unsigned i = 0; i < 2; ++i) {
+            check_model(false);
+            solver->push();
+            solver->assert_expr(elaboration);
+            check_model(true);
+            solver->pop(1);
+        }
+        check_model(false);
+    }
+
     static void tst_nseq_epsilon_intersection_models() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -2211,6 +2279,8 @@ void tst_seq_eq_facet() {
     tst_nseq_qfs_character_models();
     tst_nseq_large_membership_models();
     tst_nseq_large_witness_models();
+    tst_nseq_array_map_models();
+    tst_nseq_incremental_array_map_models();
     tst_nseq_epsilon_intersection_models();
     tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();

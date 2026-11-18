@@ -1066,10 +1066,11 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
+        auto& hf = m_ambient->ho_facet(*m_root);
 
         // Registration alone must not replay unrelated theories into the
         // arithmetic backend. Later sequence terms can still activate nseq.
-        if (get_num_vars() == 0 && m_num_unhandled == 0)
+        if (get_num_vars() == 0 && m_num_unhandled == 0 && hf.is_satisfied())
             return FC_DONE;
 
         // The facets must see an equality arrangement for terms shared with
@@ -1077,7 +1078,7 @@ namespace smt {
         if (assume_shared_equalities())
             return FC_CONTINUE;
 
-        if (m_ambient->ho_facet(*m_root).propagate())
+        if (hf.propagate())
             return FC_CONTINUE;
 
         if (check_ubv_strings())
@@ -1089,7 +1090,7 @@ namespace smt {
                 if (check_stoi_coherence()) {
                     if (branch_stoi_digit())
                         return FC_CONTINUE;
-                    return m_num_unhandled ? FC_GIVEUP : FC_DONE;
+                    return m_num_unhandled || !hf.is_satisfied() ? FC_GIVEUP : FC_DONE;
                 }
                 m_pending_assumptions.reset();
                 return FC_CONTINUE;
@@ -1240,7 +1241,7 @@ namespace smt {
             // Refute word/regex constraints before unfolding numeric conversions.
             if (!check_stoi_coherence())
                 return FC_CONTINUE;
-            return m_num_unhandled ? FC_GIVEUP : FC_DONE;
+            return m_num_unhandled || !hf.is_satisfied() ? FC_GIVEUP : FC_DONE;
         }
 
         case stx::search_result::unsat: {
@@ -1323,6 +1324,7 @@ namespace smt {
         if (!ctx.b_internalized(eq))
             ctx.internalize(eq, true);
         literal lit = ctx.get_literal(eq);
+        ctx.mark_as_relevant(lit);
         if (ctx.get_assignment(lit) == l_true)
             return false;
         ctx.mk_th_axiom(get_id(), 1, &lit);
