@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-16T17:34:46-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T10:12:19-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,26 +16,26 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-16T17:04:44-08:00`; latest case `2026-11-16T17:04:43-08:00`; checker `2671dc150931`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-18T10:12:19-08:00`; latest case `2026-11-18T10:12:19-08:00`; checker `2671dc150931`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-16T16:33:25-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-16T17:04:43-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-18T09:40:40-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-18T10:12:19-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
-| `arith/farkas` | 0 | 20 |
+| `arith/farkas` | 0 | 15 |
 | `arith/lp-monomial-interval` | 0 | 40 |
-| `assumed:nlsat` | 0 | 146 |
+| `assumed:nlsat` | 0 | 148 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 139 |
+| `intro-def` | 272 | 136 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 133 | 24692 |
-| `th-lemma` | 3499 | 6238 |
+| `rewrite` | 133 | 24678 |
+| `th-lemma` | 3499 | 6237 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261116T235736Z`.
+State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261118T170450Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
@@ -72,6 +72,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
 | Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
@@ -81,7 +82,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 03:12 | Guarded Real division, fstar-build, Math.Exp query 7 | `th-lemma` +1 / 3 PENDING | `real-division-checkout-math-exp-01.json` |
 | Nov 16 00:23 | Real product intervals, fstar-build, Math.Exp query 7 | `arith/lp-monomial-interval` +4 / 0 PENDING | `real-product-checkout-math-exp-01.json` |
 | Nov 15 23:39 | Nonnegative product draft, same Math.Exp proof; superseded by combined product replay | `arith/lp-monomial-interval` +2 / 2 PENDING | `real-nonnegative-math-exp-01.json` |
-| Nov 15 23:29 | Generic-array draft, sample, 11 proofs; **not retained** | Root PENDING: `th-lemma` +681 / 0; `rewrite` +7 / 36; 4 proofs promoted. Paired median time ratio 1.96 | `generic-array-sample-weighted-01.json`, `generic-array-sample-subset-timing-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -202,3 +202,9 @@ Evidence: `files\conditional-downstream-02.json`,
 `files\conditional-checkout-controls-01.json`,
 `files\conditional-checkout-smoke-01.json`,
 `files\conditional-scope-tests-01.json`.
+A matched-proof comparison of pre-conditional baseline `a0ca7df92173` against
+current checker `2671dc150931` passed on 11 identical sample proofs:
+`apply-def` PENDING 80 → 0 and `rewrite` 43 → 36, with zero verdict
+regressions or unobserved proofs. These are combined confirmations of the
+conditional and ITE/add changes, not an additional cohort gain. Evidence:
+session `files\conditional-current-baseline-2671-01.json`.
