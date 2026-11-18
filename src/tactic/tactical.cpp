@@ -102,10 +102,22 @@ struct false_pred {
 
 
 class and_then_tactical : public binary_tactical {
+    bool m_keep_sat_subgoals = false;
+
 public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
 
     char const* name() const override { return "and_then"; }
+
+    void updt_params(params_ref const & p) override {
+        m_keep_sat_subgoals = p.get_bool("keep_sat_subgoals", false);
+        binary_tactical::updt_params(p);
+    }
+
+    void collect_param_descrs(param_descrs & r) override {
+        binary_tactical::collect_param_descrs(r);
+        r.insert("keep_sat_subgoals", CPK_BOOL, "keep all satisfiable and undecided subgoals instead of stopping at the first satisfiable subgoal");
+    }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         m_clean = false;
@@ -131,10 +143,17 @@ public:
             for (unsigned i = 0; i < r1_size; ++i) {                                                        
                 goal_ref g = r1[i];                                                                       
                 r2.reset();
-                m_t2->operator()(g, r2);
+                if (g->is_decided())
+                    r2.push_back(g.get());
+                else
+                    m_t2->operator()(g, r2);
                 if (is_decided(r2)) {
                     SASSERT(r2.size() == 1);
                     if (is_decided_sat(r2)) {                                                          
+                        if (m_keep_sat_subgoals) {
+                            result.push_back(r2[0]);
+                            continue;
+                        }
                         // found solution...                                                           
                         result.reset();
                         result.push_back(r2[0]);
@@ -170,7 +189,9 @@ public:
     }
 
     tactic * translate(ast_manager & m) override {
-        return translate_core<and_then_tactical>(m);
+        auto * t = static_cast<and_then_tactical*>(translate_core<and_then_tactical>(m));
+        t->m_keep_sat_subgoals = m_keep_sat_subgoals;
+        return t;
     }
 
     void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {

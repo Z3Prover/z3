@@ -244,8 +244,11 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         CTRACE(tactic, pr, tout << pr << "\n";);
     }    
 
-    if (is_decided_sat(r)) {
-        model_converter_ref mc = r[0]->mc();            
+    for (goal * subgoal : r) {
+        if (!subgoal->is_decided_sat())
+            continue;
+        pr = nullptr;
+        model_converter_ref mc = subgoal->mc();
         if (mc.get()) {
             (*mc)(labels);
             model_converter2model(m, mc.get(), md);
@@ -260,7 +263,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         }
         return l_true;
     }
-    else if (is_decided_unsat(r)) {
+    if (is_decided_unsat(r)) {
         goal * final = r[0];
         SASSERT(m.is_false(final->form(0)));
         pr = final->pr(0);

@@ -9264,12 +9264,42 @@ def _or_else(t1, t2, ctx=None):
 def AndThen(*ts, **ks):
     """Return a tactic that applies the tactics in `*ts` in sequence.
 
+    By default, composition stops at the first subgoal decided satisfiable.
+    Pass `keep_sat_subgoals=True` when applying the tactic to retain all
+    satisfiable and undecided subgoals.
+
     >>> x, y = Ints('x y')
     >>> t = AndThen(Tactic('simplify'), Tactic('solve-eqs'))
     >>> t(And(x == 0, y > x + 1))
     [[Not(y <= 1)]]
     >>> t(And(x == 0, y > x + 1)).as_expr()
     Not(y <= 1)
+
+    Each empty subgoal can still reconstruct a different model:
+
+    >>> a, b, c = Ints('a b c')
+    >>> g = Goal()
+    >>> g.add(Or([a == i for i in range(4)]), a == b, c >= 0, c <= 6, c == a + b)
+    >>> t = AndThen('split-clause', 'solve-eqs')
+    >>> len(t(g))
+    1
+    >>> r = t(g, keep_sat_subgoals=True)
+    >>> [len(branch) for branch in r]
+    [0, 0, 0, 0]
+    >>> models = [branch.convert_model(Model()) for branch in r]
+    >>> sorted(tuple(m.eval(v).as_long() for v in (a, b, c)) for m in models)
+    [(0, 0, 0), (1, 1, 2), (2, 2, 4), (3, 3, 6)]
+    >>> len(t(g))
+    1
+    >>> keep = With(t, keep_sat_subgoals=True)
+    >>> len(AndThen(keep, 'split-clause')(g))
+    1
+    >>> s = keep.solver()
+    >>> s.add(Or(a > 2, a == 0, a == 1), a > 0)
+    >>> s.check()
+    sat
+    >>> s.model().eval(a)
+    1
     """
     if z3_debug():
         _z3_assert(len(ts) >= 2, "At least two arguments expected")

@@ -6721,7 +6721,9 @@ extern "C" {
 
     /**
        \brief Return a tactic that applies \c t1 to a given goal and \c t2
-       to every subgoal produced by \c t1.
+       to the subgoals produced by \c t1. By default, the tactic stops at the
+       first subgoal decided satisfiable. Set the Boolean tactic parameter
+       \c keep_sat_subgoals to retain all satisfiable and undecided subgoals.
 
        def_API('Z3_tactic_and_then', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
