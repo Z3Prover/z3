@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T14:13:52-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T14:24:02-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -70,6 +70,7 @@ whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
 | Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
 | Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring `arith/farkas` steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
@@ -79,7 +80,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 16 17:34 | Lattice replay draft, experimental QF_LIA ring proof; **not retained** | Same checker and proof, lattice payloads erased → present: `arith/lp-integer-lattice` PENDING 18 → 0; `intro-def` remains 4 | `lattice-same-producer-01.json` |
 | Nov 16 15:46 | Int ITE/add factoring, sample, 11 frozen proofs | Root `rewrite` PENDING 43 → 36; no verdict regressions. Seven-proof paired median ratio 0.982 | `ite-add-weighted-02.json`, `ite-add-sample-timing-02.json` |
 | Nov 16 13:06 | Conditional definition replay, sample, 11 frozen proofs | Root `apply-def` PENDING 80 → 0; no verdict regressions. Seven-proof paired median ratio 1.014 | `conditional-weighted-01.json`, `conditional-sample-timing-01.json` |
-| Nov 16 11:33 | Filtered array draft, sample, 11 proofs; **not retained** | Root `th-lemma` +681 / 0 PENDING; `rewrite` +7 / 36 PENDING; 4 proofs promoted. Two promoted proofs: paired median time ratios 1.66 and 1.94 | `array-prefilter-weighted-01.json`, `array-prefilter-sample-timing-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -172,19 +172,22 @@ products; they are not plain-linear certificates over the visible premises.
 Evidence: `count-farkas-trace-2671-01.json` and
 `count-farkas-trace-2671-01.txt`.
 
-The bridge maps `arith bound` and `arith farkas` to the same checker rule, but
-the producer semantics differ. In `src/smt/theory_lra.cpp`, LP bound
-propagation calls `set_proof_params(m_bound, true)`, which emits explanation
-weights and a unit consequent coefficient. The producer's
-`check_farkas_conflict` validation is gated to `m_farkas`, not
-`m_bound`; moreover, `set_evidence` omits hard definition constraints and
-constraints with no SAT-core source. Thus the `bound` payload is not by itself
-evidence that its listed premises form a complete plain-linear certificate.
-`set_evidence`'s skipped constraints are not yet mapped to these two nodes.
-This narrows the issue to bound-evidence/replay, potentially involving omitted
-nonlinear relations or integer tightening, but does not prove malformed
-generation or a defect in checking well-formed linear certificates. Recover
-the full bound explanation before changing the Farkas checker or producer.
+The native bridge recognizes `farkas` and `bound` as different parameter-1
+hints in `fstar/ocaml_runtime/Z3Native.ml`, but exposes both coefficient lists
+as `proof_view.farkas`; `Z3NativeProof.native_rule` maps either to
+`ArithmeticFarkas`. The hint distinction is lost before checker dispatch, so
+no bound-specific integer-rounding or cut check can be selected there. In
+`src/smt/theory_lra.cpp`, LP bound propagation calls
+`set_proof_params(m_bound, true)`, which emits explanation weights and a unit
+consequent coefficient. The producer's `check_farkas_conflict` validation is
+gated to `m_farkas`, not `m_bound`; moreover, `set_evidence` omits hard
+definition constraints and constraints with no SAT-core source. These facts
+make a bound-evidence/replay gap plausible, but do not show that skipped
+constraints occur in the Count nodes. Their nonlinear residuals mean the
+visible payload is not a complete plain-linear certificate. The QF_LIA
+sample's five Farkas steps all pass; no current QF_LIA failure demonstrates
+an integer-rounding gap. Recover the full bound explanation before changing
+the Farkas checker or producer.
 
 On the identical frozen QF_LIA ring proof `23fedbd874be`, all five Farkas
 steps are accepted by Legacy and both independent-checker arms; the remaining
