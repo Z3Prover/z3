@@ -9,13 +9,19 @@ Abstract:
 
 --*/
 #include "params/context_params.h"
+#include "params/smt_params.h"
 #include "util/debug.h"
+#include "util/params.h"
 #include "util/z3_exception.h"
 #include <climits>
 #include <cstring>
 #include <string>
 
 void tst_context_params() {
+    params_ref smt_p;
+    smt_params smt(smt_p);
+    ENSURE(smt.m_string_solver == symbol("seq"));
+
     for (char const* name : {"timeout", "rlimit"}) {
         context_params params;
         auto value = [&]() {
