@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-19T12:50:21-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-19T13:25:00-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -79,7 +79,7 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
-| Nov 19 12:50 | Cached-root experiment; matched-proof measurement correction, not a gain | Baseline modules `2671dc150931` and candidate `4a4d6e2ac0b9` checked the identical QF_LIA ring proof document (SHA-256 `bb2a48d9f712c4278644ff531c088d17d53a6ae7fb45db64b359e65efe3fb1cc`, 927 nodes). Baseline has 4 `intro-def` PENDING; candidate has 43 (4 `apply-def`, 4 `intro-def`, 20 `rewrite`, 15 `th-lemma`). Five alternating pairs gave median candidate/baseline `check_ms` ratio 1.0061. Not promoted; no burn-down credit | `ring-matched-proof-capture-20261119T1550ET-order2` |
+| Nov 19 13:22 | Cached-root experiment; matched-proof measurement correction, not a gain | Baseline modules `2671dc150931` and candidate `4a4d6e2ac0b9` checked the same 927-node QF_LIA ring proof document (SHA-256 `bb2a48d9f712c4278644ff531c088d17d53a6ae7fb45db64b359e65efe3fb1cc` in the paired timing run). Baseline has 4 `intro-def` PENDING; candidate has 43 (4 `apply-def`, 4 `intro-def`, 20 `rewrite`, 15 `th-lemma`). Five alternating pairs gave median candidate/baseline `check_ms` ratio 1.0061. A separate in-process capture gave both arms the same document hash (`1e9b4745f1c67b6eb8480d652208f946b5564581ac9676b92f25ef8ae80256f7`, 927 nodes); both `check` and `check_definition` returned PARTIAL 4 on baseline and PARTIAL 43 on candidate, so the regression is not confined to the definition entrypoint. No timing claim from this single route capture. Not promoted; no burn-down credit | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
 | Nov 19 12:28 | Farkas provenance triage on the completed `fstar-build` capture; no checker or producer change | Three observed PENDING: two in `Algebra.CommMonoid`, one in `Math.Exp`; pinned input hashes match. Their contexts contain product/division terms and `assumed:nlsat`, but the F* arithmetic linearizer may treat compound terms as opaque variables. Native hint/coefficient payloads and proof hashes are N/M; these are not QF_LIA certificate failures and do not establish a producer defect | `fstar-build-incremental-20261119T193000Z`, `Z3NativeProof.fst`, `Z3Native.ml`, `theory_lra.cpp`, `Z3LinearArithmeticAst.fst` |
 | Nov 19 12:24 | Same-pin interactive `fstar-build` capture; coverage refresh, no checker change | All 583 path/input-hash pairs match the pinned selection. 384 sessions completed, 23 timed out and 176 were not run; completed diagnostics cover 7,190/7,190 proof verdicts with 430 weighted PENDING (139 `assumed:nlsat`, 236 `th-lemma`, 23 `quant-intro`, 10 `nnf-neg`, 10 `sk`, 8 `rewrite`, 3 `arith/farkas`, 1 `arith/lp-monomial-interval`). Observed verdicts include 8,411 ACCEPT / 209 PARTIAL; timeout-prefix rule diagnostics, tails and proof hashes are N/M. Not comparable to the prior capture; no burn-down credit | `fstar-build-incremental-20261119T193000Z` |
 | Nov 19 11:07 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 path/input-hash pairs match the prior capture. Sample: 100 ACCEPT / 86 PARTIAL / 20 UNKNOWN / 19 TIMEOUT; extended: 74 ACCEPT / 134 PARTIAL / 70 UNKNOWN / 7 TIMEOUT. Sample QF_LIA remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; its PARTIAL has four `intro-def` PENDING and no Farkas PENDING. The 14 extended Farkas PENDING are in four QF_NIA/QF_NRA cases whose residual formulas contain nonlinear products. Status and rule-vector drift with proof hashes N/M is not a matched-proof burn-down or evidence of a producer defect | `periodic-smtlib-20261119T173100Z`, prior `periodic-smtlib-20261119T121101Z` |
@@ -202,17 +202,22 @@ an 1800-second timeout and is not included in this candidate. Evidence:
 `files\ring-expanded-def-20261119-more-pairs.txt`,
 `files\qflia-sample-candidate-240329-02`.
 
-The separate cached-root candidate was tested on a captured, identical ring
-proof document, not merely the same SMT input: SHA-256
-`bb2a48d9f712c4278644ff531c088d17d53a6ae7fb45db64b359e65efe3fb1cc`,
-927 proof nodes. Retained modules `2671dc150931` report four `intro-def`
-PENDING; candidate modules `4a4d6e2ac0b9` report 43 (4 `apply-def`, 4
-`intro-def`, 20 `rewrite`, 15 `th-lemma`). Five alternating pairs yielded a
-median candidate/baseline checker-time ratio of 1.0061. This isolates the
-verdict regression to the candidate checker path on this proof, with no
-measurable speedup. It is not promoted, does not alter the cohort pin, and
-receives no burn-down credit. Evidence: session
-`files\ring-matched-proof-capture-20261119T1550ET-order2`.
+The separate cached-root candidate was tested on a captured ring proof
+document, not merely the same SMT input: the paired run had SHA-256
+`bb2a48d9f712c4278644ff531c088d17d53a6ae7fb45db64b359e65efe3fb1cc`, 927
+proof nodes. Retained modules `2671dc150931` report four `intro-def` PENDING;
+candidate modules `4a4d6e2ac0b9` report 43 (4 `apply-def`, 4 `intro-def`, 20
+`rewrite`, 15 `th-lemma`). Five alternating pairs yielded a median
+candidate/baseline checker-time ratio of 1.0061. A second in-process
+route-isolation capture had matching baseline/candidate proof-document hashes
+(`1e9b4745f1c67b6eb8480d652208f946b5564581ac9676b92f25ef8ae80256f7`, 927
+nodes) and showed both `check` and `check_definition` return PARTIAL 4 on the
+baseline and PARTIAL 43 on the candidate. The regression is therefore present
+on both routes; the single route-isolation run is not timing evidence. The
+candidate is not promoted, does not alter the cohort pin, and receives no
+burn-down credit. Evidence: sessions
+`files\ring-matched-proof-capture-20261119T1550ET-order2` and
+`files\ring-inprocess-route-isolation-20261119T1612ET-order2`.
 
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
 PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively); the
