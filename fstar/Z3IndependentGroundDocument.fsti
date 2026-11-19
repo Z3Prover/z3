@@ -29,7 +29,14 @@ val selected (schema:S.schema) (doc:P.document)
                    | None -> None
                  else None)}
 
+val selected_expanded (schema:S.schema) (doc:P.document) : option P.document
+
 val lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (model:TR.interp u schema)
   : Lemma (requires Some? (selected schema doc) /\ TR.root_model u schema model)
+          (ensures not (Root.root_truths u schema model doc.P.assertions))
+
+val lemma_certified_expanded (u:TR.uninterpreted) (schema:S.checked_schema)
+  (doc:P.document) (model:TR.interp u schema)
+  : Lemma (requires Some? (selected_expanded schema doc) /\ TR.root_model u schema model)
           (ensures not (Root.root_truths u schema model doc.P.assertions))

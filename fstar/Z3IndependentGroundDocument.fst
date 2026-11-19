@@ -3,8 +3,9 @@ module Z3IndependentGroundDocument
 open Z3AstTheory
 open FStar.List.Tot
 module S = Z3DatatypeSignature
-module D = Z3DefinitionSyntax
+module D = Z3DefinitionRecognition
 module P = Z3DocumentSyntax
+module Prep = Z3DocumentPreparation
 module U = Z3UnifiedProofSyntax
 module TR = Z3TypedRoot
 module SR = Z3SortedRoot
@@ -67,6 +68,64 @@ let selected (schema:S.schema) (doc:P.document) : option P.document =
     | None -> None
   else None
 
+let rec collect_expansion_definitions (defs:list D.definition) (entries:list P.entry)
+  : Tot (option (list D.definition)) (decreases entries) =
+  match entries with
+  | [] -> if defs = [] then None else Some defs
+  | entry :: rest ->
+    if entry.P.rule <> U.DefinitionIntroduction then
+      collect_expansion_definitions defs rest
+    else if entry.P.premise_ids <> [] || not (D.scoped [] entry.P.formula) then None
+    else
+      match D.definition_of entry.P.formula with
+      | Some d ->
+        if d.D.symbol.domain <> [] || d.D.variables <> [] then None
+        else
+          (match D.add_definition defs d with
+           | Some next -> collect_expansion_definitions next rest
+           | None -> None)
+      | None -> None
+
+let rec expand_definition_entries (defs:list D.definition) (entries:list P.entry)
+  : Tot (option (list P.entry)) (decreases entries) =
+  match entries with
+  | [] -> Some []
+  | entry :: rest ->
+    (match D.expand (length defs) defs entry.P.formula,
+           (if entry.P.rule = U.DefinitionIntroduction then Some U.DefAxiom
+            else Prep.expand_rule_using D.linear_expander defs entry.P.rule),
+           expand_definition_entries defs rest with
+     | Some formula, Some rule, Some expanded ->
+       Some ({ entry with P.formula = formula; P.rule = rule } :: expanded)
+     | _, _, _ -> None)
+
+let expand_definitions (doc:P.document) : option P.document =
+  match collect_expansion_definitions [] doc.P.entries with
+  | Some defs ->
+    if D.acyclic (length defs) defs defs && D.fresh_args defs doc.P.assertions then
+      (match expand_definition_entries defs doc.P.entries with
+       | Some entries -> Some { doc with P.entries = entries }
+       | None -> None)
+    else None
+  | None -> None
+
+let rec entry_formulas (entries:list P.entry) : Tot (list expr) (decreases entries) =
+  match entries with
+  | [] -> []
+  | entry :: rest -> entry.P.formula :: entry_formulas rest
+
+let selected_expanded (schema:S.schema) (doc:P.document) : option P.document =
+  let formulas = entry_formulas doc.P.entries in
+  if S.valid schema && within_budget doc &&
+     Some? (arguments_budget 2000000 formulas) then
+    match expand_definitions doc with
+    | Some expanded ->
+      if Some? (arguments_budget 2000000 (entry_formulas expanded.P.entries)) &&
+         Root.check_root_document_epsilon schema expanded = Root.RootCertified
+      then Some expanded else None
+    | None -> None
+  else None
+
 let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (model:TR.interp u schema)
   : Lemma (requires Some? (selected schema doc) /\ TR.root_model u schema model)
@@ -84,3 +143,13 @@ let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
     Root.lemma_truths_agreement u schema model doc.P.assertions;
     Root.lemma_truths_agreement u schema extended (augment doc entry).P.assertions;
     Root.lemma_root_certified_epsilon u schema (augment doc entry) extended
+
+let lemma_certified_expanded (u:TR.uninterpreted) (schema:S.checked_schema)
+  (doc:P.document) (model:TR.interp u schema)
+  : Lemma (requires Some? (selected_expanded schema doc) /\ TR.root_model u schema model)
+          (ensures not (Root.root_truths u schema model doc.P.assertions)) =
+  match expand_definitions doc with
+  | None -> ()
+  | Some expanded ->
+    Root.lemma_root_certified_epsilon u schema expanded model;
+    assert (expanded.P.assertions == doc.P.assertions)

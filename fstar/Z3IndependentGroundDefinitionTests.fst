@@ -9,6 +9,7 @@ module R = Z3ClauseSyntax
 module A = Z3SortedArray
 module Ground = Z3IndependentGroundDefinition
 module GroundRoot = Z3IndependentGroundDefinitionRoot
+module Recognition = Z3DefinitionRecognition
 
 let schema : S.checked_schema = { S.sorts = []; S.cases = [] }
 let int_s = TR.int_s
@@ -64,3 +65,42 @@ let sound_control (u:TR.uninterpreted) (other:TR.interp u schema)
     [input] formula d other;
   Ground.lemma_definition schema (TR.booleans u) (SR.root_scalars u) other [input] formula d;
   Ground.lemma_inputs schema (TR.booleans u) (SR.root_scalars u) other [input] formula d
+
+let definition_pair (condition name yes no:expr) : expr =
+  let not_condition = R.mk_not_expr condition in
+  let positive_equality = R.mk_eq_expr name yes in
+  let negative_equality = R.mk_eq_expr name no in
+  let positive = App (R.or_decl [not_condition; positive_equality]) [not_condition; positive_equality] in
+  let negative = App (R.or_decl [condition; negative_equality]) [condition; negative_equality] in
+  App (R.and_decl [positive; negative]) [positive; negative]
+
+let probe = constant "ground-definition-probe" bool_sort
+let not_probe = R.mk_not_expr probe
+let first_name = constant "ground-definition-first" bool_sort
+let second_name = constant "ground-definition-second" bool_sort
+let first_definition =
+  definition_pair R.true_expr second_name first_name R.false_expr
+let second_definition =
+  definition_pair probe first_name probe not_probe
+
+let paired_definitions_are_recognized ()
+  : Lemma (Some? (Recognition.definition_of first_definition) /\
+           Some? (Recognition.definition_of second_definition)) =
+  assert_norm (Some? (Recognition.definition_of first_definition) /\
+               Some? (Recognition.definition_of second_definition))
+
+let ground_definition_controls ()
+  : Lemma (D.scoped [] first_definition /\ D.scoped [] second_definition /\
+           (match Recognition.definition_of first_definition with
+            | Some d -> d.D.symbol.domain = [] /\ d.D.variables = []
+            | None -> false) /\
+           (match Recognition.definition_of second_definition with
+            | Some d -> d.D.symbol.domain = [] /\ d.D.variables = []
+            | None -> false)) =
+  assert_norm (D.scoped [] first_definition /\ D.scoped [] second_definition /\
+               (match Recognition.definition_of first_definition with
+                | Some d -> d.D.symbol.domain = [] /\ d.D.variables = []
+                | None -> false) /\
+               (match Recognition.definition_of second_definition with
+                | Some d -> d.D.symbol.domain = [] /\ d.D.variables = []
+                | None -> false))

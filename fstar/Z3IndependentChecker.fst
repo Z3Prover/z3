@@ -246,7 +246,9 @@ let check_definition_from (schema:S.schema) (doc:P.document)
          else has_quant_intro doc.P.entries && Skolem.check_binder_selected schema doc)) ||
        (skolem_without_definitions doc.P.entries false &&
         S.valid schema && Skolem.check schema doc = Root.RootCertified) ||
-       (has_definition doc.P.entries && Some? (GroundDocument.selected schema doc))
+       (has_definition doc.P.entries &&
+        (Some? (GroundDocument.selected schema doc) ||
+         Some? (GroundDocument.selected_expanded schema doc)))
     then Root.RootCertified else base
   | _ -> base
 
@@ -320,7 +322,10 @@ let diagnose_definition (schema:S.schema) (doc:P.document) : P.document_diagnost
                 else
                   (match GroundDocument.selected schema doc with
                    | Some augmented -> diagnose schema augmented
-                   | None -> diagnose schema doc)))))
+                   | None ->
+                     (match GroundDocument.selected_expanded schema doc with
+                      | Some augmented -> diagnose schema augmented
+                      | None -> diagnose schema doc))))))
   | _ -> diagnose schema doc
 
 let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
@@ -416,6 +421,8 @@ let lemma_certified_definition (u:TR.uninterpreted) (schema:S.checked_schema)
       Skolem.lemma_certified_dependent u schema doc model
     else if has_definition doc.P.entries && Some? (GroundDocument.selected schema doc) then
       GroundDocument.lemma_certified u schema doc model
+    else if has_definition doc.P.entries && Some? (GroundDocument.selected_expanded schema doc) then
+      GroundDocument.lemma_certified_expanded u schema doc model
     else Skolem.lemma_certified_binder_selected u schema doc model
   | _ -> lemma_certified u schema doc model
 

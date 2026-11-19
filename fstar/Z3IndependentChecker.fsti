@@ -251,7 +251,9 @@ val check_definition (schema:S.schema) (doc:P.document)
                  Skolem.check_dependent schema doc == Root.RootCertified ||
                  Skolem.check_binder_selected schema doc
                else has_quant_intro doc.P.entries && Skolem.check_binder_selected schema doc)) ||
-             (has_definition doc.P.entries && Some? (GroundDocument.selected schema doc))
+             (has_definition doc.P.entries &&
+              (Some? (GroundDocument.selected schema doc) ||
+               Some? (GroundDocument.selected_expanded schema doc)))
           then Root.RootCertified else check schema doc
         | verdict -> verdict)}
 val check_definition_diagnosed (schema:S.schema) (doc:P.document)
@@ -306,7 +308,10 @@ val diagnose_definition (schema:S.schema) (doc:P.document)
                        else
                          (match GroundDocument.selected schema doc with
                           | Some augmented -> SP.check_document_epsilon schema augmented
-                          | None -> SP.check_document_epsilon schema doc)))))
+                          | None ->
+                            (match GroundDocument.selected_expanded schema doc with
+                             | Some augmented -> SP.check_document_epsilon schema augmented
+                             | None -> SP.check_document_epsilon schema doc))))))
          | _ -> SP.check_document_epsilon schema doc)}
 
 val lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)

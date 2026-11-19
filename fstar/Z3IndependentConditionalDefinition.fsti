@@ -30,3 +30,11 @@ val lemma_check (#base:sort -> Type0) (s:S.checked_schema)
   (premise left right:expr)
   : Lemma (requires T.truth s bc model other premise /\ check premise left right)
           (ensures T.truth s bc model other (R.mk_eq_expr left right))
+
+val ite_definition_axiom (formula:expr) : bool
+
+val lemma_ite_definition_axiom (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (model:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (formula:expr)
+  : Lemma (requires ite_definition_axiom formula)
+          (ensures T.truth s bc model other formula)

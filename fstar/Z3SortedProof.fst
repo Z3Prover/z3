@@ -2013,6 +2013,10 @@ let conditional_definition (node:U.proof_node) : bool =
      CD.check (conditional_premise p) a b
    | _, _ -> false)
 
+let expanded_definition_axiom (node:U.proof_node) : bool =
+  node.kind = U.DefAxiom && node.premises = [] &&
+  CD.ite_definition_axiom (proposition node.conclusion)
+
 let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
   L.map Z3LinearArithmeticAst.positive_literal (propositions node.premises) @
   L.map Z3LinearArithmeticAst.negative_literal (DT.literals (proposition node.conclusion))
@@ -3217,6 +3221,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
       integer_product node || division_order node ||
       nnf = NR.Replayed || conditional_definition node ||
+      expanded_definition_axiom node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
@@ -3516,6 +3521,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | [p], U.Equal a b | [p], U.Observational a b ->
           CD.lemma_check s bc eq other (conditional_premise p) a b
         | _, _ -> ()))
+    else if expanded_definition_axiom node then
+      CD.lemma_ite_definition_axiom s bc eq other conclusion
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
