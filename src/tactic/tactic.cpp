@@ -17,6 +17,8 @@ Notes:
 
 --*/
 #include<iomanip>
+#include<sstream>
+#include<cstring>
 #include "tactic/tactic.h"
 #include "tactic/probe.h"
 #include "util/stopwatch.h"
@@ -88,6 +90,230 @@ statistics_report::~statistics_report() {
 }
 
 
+void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs) {
+    for (unsigned i = 0; i < p.size(); ++i) {
+        symbol k = p.get_key(i);
+        symbol name = k;
+        if (descrs && descrs->get_kind_in_module(name) == CPK_INVALID)
+            continue;
+        out << " :" << k << " ";
+        p.display(out, k);
+        if (p.is_default(k))
+            out << " (default)";
+    }
+}
+
+// Name of a tactic class (tactic::name) -> name it is registered under, for the
+// classes whose name differs from the registered one. nullptr: no registered name
+// builds the class unless its factory sets one (tactic::set_display_name).
+// tactic_unused_params.cpp checks that each registered tactic that is a single
+// step displays as its registered name.
+static char const * const g_registered_names[][2] = {
+    { "add_bounds",          "add-bounds" },
+    { "bit_blaster",         "bit-blast" },
+    { "bv_size",             "reduce-bv-size" },
+    { "collect_statistics",  "collect-statistics" },
+    { "ctx_simplify",        "ctx-simplify" },
+    { "ctx_solver_simplify", "ctx-solver-simplify" },
+    { "diff_neq",            "diff-neq" },
+    { "elim-unconstrained",  "elim-uncnstr2" },
+    { "elim_small_bv",       "elim-small-bv" },
+    { "elim_term_ite",       "elim-term-ite" },
+    { "elim_uncstr",         "elim-uncnstr" },
+    { "fix_dl_var",          "fix-dl-var" },
+    { "fp2bv",               "fpa2bv" },
+    { "macro_finder",        "macro-finder" },
+    { "nnf",                 "snf" },            // "nnf" is (using-params snf :mode full)
+    { "normalize_bounds",    "normalize-bounds" },
+    { "propagate_values",    "propagate-values" },
+    { "purify_arith",        "purify-arith" },
+    { "qe-lite",             "qe-light" },
+    { "qsat",                "qe2" },
+    { "quasi_macros",        "quasi-macros" },
+    { "recover_01",          "recover-01" },
+    { "reduce-args",         "reduce-args2" },
+    { "reduce_args",         "reduce-args" },
+    { "solver_subsumption",  "solver-subsumption" },
+    { "split_clause",        "split-clause" },
+    { "symmetry_reduce",     "symmetry-reduce" },
+    { "tseitin_cnf",         "tseitin-cnf-core" },
+    { "unit_subsumption",    "unit-subsume-simplify" },
+    { "parallel_tactic",     nullptr },          // psmt, pqffd, psat: set by the factory
+    { "solver2tactic",       nullptr },          // qffd, smtfd, smt: set by the factory
+    // registered only inside a pipeline: "fm" is (then simplify fm)
+    { "degree_shift",        nullptr },
+    { "ff-sat",              nullptr },
+    { "fm",                  nullptr },
+    { "qfufbv_ackr",         nullptr },
+    { "sls",                 nullptr },
+    { "sls-smt",             nullptr },
+    { "subpaving",           nullptr },
+};
+
+char const * tactic::display_name() const {
+    if (m_display_name)
+        return m_display_name;
+    char const * n = name();
+    for (auto const & e : g_registered_names)
+        if (strcmp(e[0], n) == 0)
+            return e[1];
+    return n;
+}
+
+std::string tactic_display_string(char const * s) {
+    std::string r = "\"";
+    for (; *s; ++s) {
+        if (*s == '"')
+            r += '"';
+        r += *s;
+    }
+    return r + "\"";
+}
+
+static std::string join_comments(std::string const & a, std::string const & b) {
+    if (a.empty())
+        return b;
+    if (b.empty())
+        return a;
+    return a + "; " + b;
+}
+
+void tactic_display_ctx::leaf(std::string const & text, std::string const & comment) {
+    node n;
+    n.head = text;
+    n.comment = comment;
+    m_stack.back().children.push_back(std::move(n));
+}
+
+void tactic_display_ctx::open(std::string const & head, std::string const & comment) {
+    node n;
+    n.head = head;
+    n.comment = comment;
+    n.is_leaf = false;
+    m_stack.push_back(std::move(n));
+}
+
+void tactic_display_ctx::close(std::string const & tail, std::string const & tail_comment) {
+    SASSERT(m_stack.size() > 1);
+    node n = std::move(m_stack.back());
+    m_stack.pop_back();
+    n.tail = tail;
+    n.tail_comment = tail_comment;
+    // (then a (then b c)) is the tactic (then a b c) builds: display it flat. A nested
+    // sequence can reach here through wrappers that display their child (cleanup, lazy).
+    if ((n.head == "(then" || n.head == "(par-then") && !n.children.empty()) {
+        node & last = n.children.back();
+        if (!last.is_leaf && last.head == n.head && last.tail.empty() && last.comment.empty() && last.tail_comment.empty()) {
+            std::vector<node> cs = std::move(last.children);
+            n.children.pop_back();
+            for (node & c : cs)
+                n.children.push_back(std::move(c));
+        }
+    }
+    m_stack.back().children.push_back(std::move(n));
+}
+
+namespace {
+    typedef tactic_display_ctx::node display_node;
+
+    struct display_line {
+        unsigned    indent;
+        std::string code;
+        std::string comment;
+    };
+
+    // A subtree stays on one line if its code fits and the comment at the end of the
+    // line can only be about one step: the subtree has no comment, or one leaf and
+    // one comment.
+    const unsigned display_width = 80;
+
+    void count(display_node const & n, unsigned & leaves, unsigned & comments) {
+        leaves += n.is_leaf;
+        comments += !n.comment.empty() + !n.tail_comment.empty();
+        for (display_node const & c : n.children)
+            count(c, leaves, comments);
+    }
+
+    void flat(display_node const & n, std::string & code, std::string & comment) {
+        code += n.head;
+        comment = join_comments(comment, n.comment);
+        if (n.is_leaf)
+            return;
+        for (display_node const & c : n.children) {
+            code += " ";
+            flat(c, code, comment);
+        }
+        if (!n.tail.empty())
+            code += " " + n.tail;
+        code += ")";
+        comment = join_comments(comment, n.tail_comment);
+    }
+
+    void layout(display_node const & n, unsigned indent, std::vector<display_line> & lines) {
+        if (n.is_leaf) {
+            lines.push_back({ indent, n.head, n.comment });
+            return;
+        }
+        unsigned leaves = 0, comments = 0;
+        count(n, leaves, comments);
+        if (comments == 0 || (leaves == 1 && comments == 1)) {
+            display_line l = { indent, std::string(), std::string() };
+            flat(n, l.code, l.comment);
+            if (indent + l.code.size() <= display_width) {
+                lines.push_back(l);
+                return;
+            }
+        }
+        lines.push_back({ indent, n.head, n.comment });
+        for (display_node const & c : n.children)
+            layout(c, indent + 2, lines);
+        if (!n.tail.empty())
+            lines.push_back({ indent + 2, n.tail, n.tail_comment });
+        else
+            lines.back().comment = join_comments(lines.back().comment, n.tail_comment);
+        lines.back().code += ")";
+    }
+}
+
+void tactic::display_pipeline(params_ref const & p, tactic_display_ctx & ctx) {
+    param_descrs d;
+    // collect first: some tactics only know their name once their state is created.
+    collect_param_descrs(d);
+    std::ostringstream ps;
+    display_tactic_params(ps, p, &d);
+    std::string comment = ps.str();
+    if (!comment.empty())
+        comment = comment.substr(1);
+    char const * n = display_name();
+    if (n)
+        ctx.leaf(n, comment);
+    else
+        ctx.leaf(std::string("(") + name() + ")",
+                 join_comments(std::string("not parseable: no registered tactic for ") + name(), comment));
+    ctx.descrs.copy(d);
+}
+
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused) {
+    // First walk: collect the descriptors of the whole pipeline.
+    // lazy_tactic builds its tactic when displayed, so the walk cannot be replaced
+    // by collect_param_descrs.
+    tactic_display_ctx all;
+    t.display_pipeline(p, all);
+    tactic_display_ctx ctx;
+    ctx.pipeline = &all.descrs;
+    ctx.unused = unused;
+    t.display_pipeline(p, ctx);
+    std::vector<display_line> lines;
+    for (display_node const & n : ctx.roots())
+        layout(n, 0, lines);
+    for (display_line const & l : lines) {
+        out << std::string(l.indent, ' ') << l.code;
+        if (!l.comment.empty())
+            out << " ; " << l.comment;
+        out << "\n";
+    }
+}
+
 void skip_tactic::operator()(goal_ref const & in, goal_ref_buffer& result) {
     result.push_back(in.get());
 }
@@ -126,6 +352,18 @@ public:
     }
     void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
     char const* name() const override { return "lazy tactic"; }
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        // display the tactic that ensure_tactic would build after updt_params(p)
+        params_ref new_p = this->p;
+        new_p.append(p);
+        if (m_tactic) {
+            m_tactic->display_pipeline(new_p, ctx);
+            return;
+        }
+        tactic_ref t = m_mk_tactic(m, new_p);
+        t->updt_params(new_p);
+        t->display_pipeline(new_p, ctx);
+    }
     void collect_statistics(statistics& st) const override { if (m_tactic) m_tactic->collect_statistics(st); }
     void user_propagate_initialize_value(expr* var, expr* value) override { if (m_tactic) m_tactic->user_propagate_initialize_value(var, value); }
     tactic* translate(ast_manager& m) override { ensure_tactic(); return m_tactic->translate(m); }
@@ -165,6 +403,12 @@ class report_verbose_tactic : public skip_tactic {
 public:
     report_verbose_tactic(char const * msg, unsigned lvl) : m_msg(msg), m_lvl(lvl) {}
 
+    char const* name() const override { return "report-verbose"; }
+
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        ctx.leaf("(" + std::string(name()) + " " + tactic_display_string(m_msg) + ")", "not parseable: report-verbose");
+    }
+
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         IF_VERBOSE(m_lvl, verbose_stream() << m_msg << "\n";);
         skip_tactic::operator()(in, result);
@@ -179,6 +423,12 @@ class trace_tactic : public skip_tactic {
     char const * m_tag;
 public:
     trace_tactic(char const * tag): m_tag(tag) {}
+
+    char const* name() const override { return "trace"; }
+
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        ctx.leaf("(" + std::string(name()) + " " + tactic_display_string(m_tag) + ")", "not parseable: trace");
+    }
     
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         TRACE(m_tag, in->display(tout););
@@ -193,6 +443,8 @@ tactic * mk_trace_tactic(char const * tag) {
 
 class fail_if_undecided_tactic : public skip_tactic {
 public:
+    char const* name() const override { return "fail-if-undecided"; }
+
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");

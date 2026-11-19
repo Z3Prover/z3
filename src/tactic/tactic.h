@@ -20,6 +20,8 @@ Notes:
 --*/
 #pragma once
 
+#include <string>
+#include <vector>
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/statistics.h"
@@ -29,17 +31,77 @@ Notes:
 
 class progress_callback;
 
+/**
+   \brief State of a tactic::display walk.
+
+   A walk builds a tree of nodes that display_tactic prints as an s-expression in the
+   syntax of the tactic language (the syntax check-sat-using parses). A node is a leaf
+   ("simplify", "(fail-if produce-proofs)") or a combinator opened with open("(then")
+   and closed with close(), whose children are the nodes added in between.
+   Comments hold what has no syntax: the effective parameters of a leaf, and the
+   constructs marked "not parseable:".
+*/
+struct tactic_display_ctx {
+    struct node {
+        std::string       head;      // leaf text, or the opening of a combinator: "(then", "(if is-qfbv"
+        std::string       tail;      // arguments after the children: ":som true", "5"
+        std::string       comment;   // comment on the head line (the only line of a leaf)
+        std::string       tail_comment; // comment on the last line
+        std::vector<node> children;
+        bool              is_leaf = true;
+    };
+    // out: descriptors of the tactics displayed with this context
+    param_descrs           descrs;
+    // in: descriptors of every tactic of the pipeline, collected by a previous walk
+    param_descrs const *   pipeline = nullptr;
+    // out: the parameters marked [unused]
+    svector<symbol> *      unused = nullptr;
+
+    tactic_display_ctx() { m_stack.push_back(node()); }
+    void leaf(std::string const & text, std::string const & comment = std::string());
+    void open(std::string const & head, std::string const & comment = std::string());
+    void close(std::string const & tail = std::string(), std::string const & tail_comment = std::string());
+    // the nodes displayed at the top level
+    std::vector<node> const & roots() const { return m_stack[0].children; }
+private:
+    std::vector<node> m_stack;
+};
+
 typedef ptr_buffer<goal> goal_buffer;
 
 class tactic : public user_propagator::core {
     unsigned m_ref_count = 0;
+    char const * m_display_name = nullptr;
 public:
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
 
     virtual void updt_params(params_ref const & p) {}
     virtual void collect_param_descrs(param_descrs & r) {}
-    
+
+    /**
+       \brief Display the pipeline rooted at this tactic into \c ctx.
+
+       \c p are the parameters the tactic receives from its parent through updt_params.
+       Combinators display their children with the parameters the children receive,
+       so a leaf shows the values in effect for it. The default displays a leaf: the
+       display name, with the entries of \c p declared by collect_param_descrs in a
+       comment, and adds its descriptors to ctx.descrs. Parameters that a tactic only
+       receives through its constructor are not shown. Use display_tactic to display
+       a pipeline.
+    */
+    virtual void display_pipeline(params_ref const & p, tactic_display_ctx & ctx);
+
+    /**
+       \brief Name of the tactic in the tactic language: the name under which the
+       tactic is registered with Z3_ADD_TACTIC, or nullptr if no registered name
+       builds it. It differs from name(), which is kept as is because it appears in
+       verbose output. Factories whose class serves several registered names set it
+       with set_display_name.
+    */
+    char const * display_name() const;
+    void set_display_name(char const * n) { m_display_name = n; }
+
     /**
        \brief Apply tactic to goal \c in.
        
@@ -158,6 +220,27 @@ public:
     void collect_statistics(statistics& st) const override {}
     void user_propagate_initialize_value(expr* var, expr* value) override { }
 };
+
+/**
+   \brief Display the entries of \c p as " :key value", restricted to the keys declared
+   in \c descrs if it is not null. Default values are marked "(default)".
+*/
+void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs = nullptr);
+
+/**
+   \brief Display the pipeline rooted at \c t when it receives the parameters \c p,
+   in the syntax of the tactic language.
+
+   The output parses back with check-sat-using unless it contains a comment
+   "not parseable:". A parameter set by using_params is marked [unused] if no tactic
+   of the pipeline declares it in collect_param_descrs, and it is then added to \c unused.
+*/
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused = nullptr);
+
+/**
+   \brief Quote \c s as a string of the tactic language.
+*/
+std::string tactic_display_string(char const * s);
 
 tactic * mk_skip_tactic();
 tactic * mk_fail_tactic();

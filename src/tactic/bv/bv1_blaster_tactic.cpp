@@ -44,6 +44,7 @@ class is_qfbv_eq_probe : public probe {
     };
 
 public:
+    char const* name() const override { return "is-qfbv-eq"; }
     result operator()(goal const& g) override {
         bv_util util(g.m());
         expr_fast_mark1 visited;

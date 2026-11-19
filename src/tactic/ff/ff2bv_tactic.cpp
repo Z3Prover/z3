@@ -202,6 +202,8 @@ namespace {
     };
     class has_ff_probe : public probe {
     public:
+        char const* name() const override { return "has-ff"; }
+        bool has_syntax() const override { return false; } // not registered
         result operator()(goal const &g) override {
             auto *plugin = static_cast<ff_decl_plugin *>(g.m().get_plugin(g.m().get_family_id("ff")));
             if (!plugin || !plugin->has_sorts()) return false;

@@ -29,6 +29,8 @@ Author:
 namespace {
     class ff_small_field_probe : public probe {
     public:
+        char const* name() const override { return "ff-small-field"; }
+        bool has_syntax() const override { return false; } // not registered
         result operator()(goal const &g) override {
             ast_manager &m = g.m();
             ff_util ff(m);
