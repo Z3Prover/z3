@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-19T02:42:02-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-19T11:10:50-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -16,26 +16,26 @@ not zero.
 <!-- BEGIN CURRENT PENDING -->
 ## Current SMT-LIB diagnostic collection
 
-Updated `2026-11-18T23:10:28-08:00`; latest case `2026-11-18T23:10:28-08:00`; checker `2671dc150931`. Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
+Updated `2026-11-19T11:10:50-08:00`; latest case `2026-11-19T11:07:40-08:00`; checker `2671dc150931` (`2671dc1509317d8d991f5b7a3f3f3ff41d5b19a043db95d7ca3ec27ffdafe0b9`). Counts below cover only successful diagnostic results; UNKNOWN, timeouts, errors and unrun cases may hide additional pending obligations.
 
 | Cohort | Latest case | Observed / selected | Diagnostics / observed | Diagnostic errors | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash / error | NOT_RUN |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| smtlib-sample | `2026-11-18T22:38:23-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
-| smtlib-extended | `2026-11-18T23:10:28-08:00` | 285 / 285 | 209 / 285 | 0 | 74 | 135 | 69 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample | `2026-11-19T10:38:14-08:00` | 225 / 225 | 186 / 225 | 0 | 100 | 86 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | `2026-11-19T11:07:40-08:00` | 285 / 285 | 208 / 285 | 0 | 74 | 134 | 70 | 7 | 0 | 0 | 0 | 0 |
 
 | Rule | Sample observed PENDING | Extended observed PENDING |
 | --- | ---: | ---: |
 | `arith/farkas` | 0 | 14 |
 | `arith/lp-monomial-interval` | 0 | 40 |
-| `assumed:nlsat` | 0 | 149 |
+| `assumed:nlsat` | 0 | 148 |
 | `def-axiom` | 3 | 89 |
 | `der` | 6 | 0 |
-| `intro-def` | 272 | 140 |
+| `intro-def` | 272 | 127 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 133 | 24687 |
-| `th-lemma` | 3499 | 6212 |
+| `rewrite` | 133 | 24654 |
+| `th-lemma` | 3499 | 6197 |
 
-State: **stages complete**. Diagnostic errors are excluded from rule totals. Per-case logs, timestamps and pins: session `files\periodic-smtlib-20261119T060109Z`.
+State: **stages complete**. All 394 ACCEPT/PARTIAL cases have diagnostics; there were no diagnostic errors. Rule totals exclude UNKNOWN/TIMEOUT cases and their unobserved proof tails (N/M). Input manifests: sample `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`, extended `6f6ad04db40a0f49733329ce056d5e599328a4468133f987a56c2172ac08cb34`. Per-case logs and input hashes: session `files\periodic-smtlib-20261119T173100Z`.
 <!-- END CURRENT PENDING -->
 
 <!-- BEGIN CURRENT FSTAR PENDING -->
@@ -71,6 +71,8 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 19 11:07 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 path/input-hash pairs match the prior capture. Sample: 100 ACCEPT / 86 PARTIAL / 20 UNKNOWN / 19 TIMEOUT; extended: 74 ACCEPT / 134 PARTIAL / 70 UNKNOWN / 7 TIMEOUT. Sample QF_LIA remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; its PARTIAL has four `intro-def` PENDING and no Farkas PENDING. The 14 extended Farkas PENDING are in four QF_NIA/QF_NRA cases whose residual formulas contain nonlinear products. Status and rule-vector drift with proof hashes N/M is not a matched-proof burn-down or evidence of a producer defect | `periodic-smtlib-20261119T173100Z`, prior `periodic-smtlib-20261119T121101Z` |
+| Nov 19 05:16 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 input hashes matched. Sample: 100 ACCEPT / 85 PARTIAL / 20 UNKNOWN / 20 TIMEOUT; extended: 74 ACCEPT / 133 PARTIAL / 72 UNKNOWN / 6 TIMEOUT. Sample QF_LIA subset remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN (four `intro-def` PENDING); extended has no selected QF_LIA inputs. Current 14 Farkas PENDING are in QF_NIA/QF_NRA cases with nonlinear products. Diagnostic rule vectors changed, but proof hashes are N/M; no matched-proof burn-down or producer defect is established | `periodic-smtlib-20261119T121101Z`, prior `periodic-smtlib-20261119T060109Z` |
 | Nov 19 02:42 | Expanded-definition candidate; alternating input-paired control on the 25 selected `smtlib-sample` QF_LIA inputs | Baseline `2671dc150931`: 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN, with 4 `intro-def` PENDING; candidate `240329979fbe`: 18 ACCEPT / 0 PARTIAL / 2 TIMEOUT / 5 UNKNOWN. Median candidate/baseline `check_ms` ratio 1.0045 across 18 timed pairs, but the ring was 2.174x slower (4.849s vs 2.231s). All input hashes and checker binaries were pinned; proof hash N/M, so no matched-proof burn-down or full-cohort claim | `files\qflia-sample-candidate-240329-02` |
 | Nov 19 02:07 | Expanded paired-ITE `DefAxiom` replay; one frozen QF_LIA ring | Retained baseline `2671dc150931`: PARTIAL 4 (`intro-def`); candidate `240329979fbe`: ACCEPT 0. Both runs reported 933 proof nodes on the same input (SHA-256 `bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`). Five paired runs: median `check_ms` 2.240s → 5.086s (2.271x slower). Proof hash not captured; no matched-proof or cohort burn-down claim | `ring-expanded-def-20261119-paired.txt`, `ring-expanded-def-20261119-more-pairs.txt`, `ground-def-replay-verify-01`, `ground-def-replay-native-05` |
 | Nov 18 23:10 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 input hashes matched; ACCEPT/PARTIAL counts unchanged, with one sample UNKNOWN → TIMEOUT. Two extended QF_NIA PARTIAL vectors and three proof-node counts changed; Farkas shift is QF_NIA, not QF_LIA. No matched-proof burn-down | `periodic-smtlib-20261119T060109Z`, prior `periodic-smtlib-20261118T235842Z` |
@@ -79,9 +81,6 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 14:37 | Bounded-integers fstar-build diagnostic replay, 10 queries; no checker change | Three `th-lemma` PENDING remain with identical fingerprints; replay reports 9 ACCEPT / 1 PARTIAL. Proof-node counts differ on queries 7-10 and proof hash is N/M, so this is not a matched-proof burn-down | `fstar-build-bounded-integers-2671-03.json` |
 | Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
-| Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
-| Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring arithmetic steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
-
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
 
