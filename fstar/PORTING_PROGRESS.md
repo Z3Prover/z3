@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-19T02:11:18-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-19T02:42:02-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -71,6 +71,7 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 19 02:42 | Expanded-definition candidate; alternating input-paired control on the 25 selected `smtlib-sample` QF_LIA inputs | Baseline `2671dc150931`: 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN, with 4 `intro-def` PENDING; candidate `240329979fbe`: 18 ACCEPT / 0 PARTIAL / 2 TIMEOUT / 5 UNKNOWN. Median candidate/baseline `check_ms` ratio 1.0045 across 18 timed pairs, but the ring was 2.174x slower (4.849s vs 2.231s). All input hashes and checker binaries were pinned; proof hash N/M, so no matched-proof burn-down or full-cohort claim | `files\qflia-sample-candidate-240329-02` |
 | Nov 19 02:07 | Expanded paired-ITE `DefAxiom` replay; one frozen QF_LIA ring | Retained baseline `2671dc150931`: PARTIAL 4 (`intro-def`); candidate `240329979fbe`: ACCEPT 0. Both runs reported 933 proof nodes on the same input (SHA-256 `bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`). Five paired runs: median `check_ms` 2.240s → 5.086s (2.271x slower). Proof hash not captured; no matched-proof or cohort burn-down claim | `ring-expanded-def-20261119-paired.txt`, `ring-expanded-def-20261119-more-pairs.txt`, `ground-def-replay-verify-01`, `ground-def-replay-native-05` |
 | Nov 18 23:10 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 input hashes matched; ACCEPT/PARTIAL counts unchanged, with one sample UNKNOWN → TIMEOUT. Two extended QF_NIA PARTIAL vectors and three proof-node counts changed; Farkas shift is QF_NIA, not QF_LIA. No matched-proof burn-down | `periodic-smtlib-20261119T060109Z`, prior `periodic-smtlib-20261118T235842Z` |
 | Nov 18 17:44 | fstar-build aggregation correction, current pin; no checker change | 359 raw rows → 253 distinct inputs; excluded 106 repeated paths. Duplicate hashes/verdicts match, but proof counts differ in 103 rows and rule vectors in 5; no burn-down credit | `current-fstar-pending-2671-01`, `current-fstar-pending-2671-05`, `current-fstar-pending-2671-06` |
@@ -80,7 +81,6 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
 | Nov 18 14:13 | Current-pin QF_NIA Count `arith bound` provenance trace; no checker change | Same input, different proof: 10-s baseline PARTIAL 74 / Farkas 2409 vs 60-s capture PARTIAL 172 / Farkas 4159,4160. The latter leave 10 and 9 residual monomials over visible premises; not a matched burn-down, omitted-premise provenance unresolved | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `extended-farkas-capture-2671-05.json`, `extended-farkas-capture-2671-06.json` |
 | Nov 18 12:27 | Current-pin QF_LIA subset breakdown; same frozen SMT-LIB capture, no checker change | Sample: 25 selected, 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; the sole PARTIAL has four `intro-def` obligations and all five ring arithmetic steps are accepted. Extended has no selected QF_LIA inputs in this capture | `periodic-smtlib-20261118T170450Z\smtlib-sample\results.jsonl`, `ring-definitions-trace-2671-03.json` |
-| Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
@@ -180,13 +180,20 @@ reports PARTIAL 4 (`intro-def`), while candidate
 with 933 proof nodes. Five paired runs measured median `check_ms` of 2,239.596
 for baseline and 5,086.373 for candidate (2.271x slower). The proof hash was
 not captured by the CLI, so this is not a matched-proof burn-down or a
-cohort-wide result; the cohort tables remain pinned to `2671dc150931`. The
-separate `Z3UnifiedProof.fst` array-lemma experiment remains unverified after
+cohort-wide result; the cohort tables remain pinned to `2671dc150931`. An
+alternating input-paired control over the 25 selected sample QF_LIA cases
+returned baseline 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN and candidate
+18 ACCEPT / 0 PARTIAL / 2 TIMEOUT / 5 UNKNOWN. Median candidate/baseline
+`check_ms` ratio was 1.0045 across 18 timed pairs, while the ring was 2.174x
+slower in that pair; input and checker hashes are recorded, but proof hashes
+are N/M. This is not a matched-proof burn-down or a full-cohort comparison.
+The separate `Z3UnifiedProof.fst` array-lemma experiment remains unverified after
 an 1800-second timeout and is not included in this candidate. Evidence:
 `files\ground-def-replay-verify-01`, `files\ground-def-replay-native-05`,
 `files\current-unified-fstar-verification-05.json`,
 `files\ring-expanded-def-20261119-paired.txt`,
-`files\ring-expanded-def-20261119-more-pairs.txt`.
+`files\ring-expanded-def-20261119-more-pairs.txt`,
+`files\qflia-sample-candidate-240329-02`.
 
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
 PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively); the
