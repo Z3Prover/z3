@@ -323,6 +323,17 @@ rerun the complete fresh-cache build and native tests before rule development.
 If the blocker remains, publish its focused diagnosis rather than another
 overlapping rule patch that cannot reach validation.
 
+Continue from the most advanced prior blocker diagnosis, not only the latest
+issue. In Z3Prover/z3#11774 (repair run 44478687189), the agent reported that
+replacing the i1-i4 `assert_norm` proofs with the existing tactic pattern
+`Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ()` preserved their
+statements and reduced verification to seconds, but the complete module still
+exceeded its measured 6 GiB limit at `integer_zero_product_certified`.
+Treat this as an unverified lead: reproduce and verify the prerequisite edits
+against the trusted base before building on them. Focus on the next failing
+certificate; do not repeat i3-only diagnosis or blindly convert every assertion
+to NBE (that experiment also failed). Preserve all tests and soundness checks.
+
 Bound individual exploratory F* checks to 120 seconds and benchmark replays to
 60 seconds each; allow the native build up to 90 minutes without cancelling it.
 Reserve time to publish evidence. Save complete commands, versions, stdout,
