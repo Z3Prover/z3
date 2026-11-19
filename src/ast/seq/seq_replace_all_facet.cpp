@@ -222,7 +222,7 @@ namespace seq {
         eq_tree::dep_tracker dep = ra.m_dep;
         zstring p;
         VERIFY(u.str.is_string(pattern, p));
-        if (c >= 2 * p.length() + 2)
+        if (uint64_t(c) >= 2ULL * uint64_t(p.length()) + 2ULL)
             return false;
         bool match = c == 2;
         bool ends = c == 1 || (c > 2 && c % 2 == 0);

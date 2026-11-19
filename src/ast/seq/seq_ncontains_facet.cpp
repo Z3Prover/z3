@@ -292,6 +292,15 @@ namespace seq {
             }
             if (has_window && first_undef_pos > 0) {
                 // strip the leading run of determined-mismatch positions.
+                // Token positions are character offsets only when every stripped
+                // token is a unit. Variable-width tokens may contain an interior
+                // occurrence of the needle, so do not shorten across them.
+                bool stripped_units = std::all_of(
+                    nc.m_haystack.begin(),
+                    nc.m_haystack.begin() + first_undef_pos,
+                    [&](expr* token) { return u.str.is_unit(token); });
+                if (!stripped_units)
+                    continue;
                 expr_ref_vector tail(m);
                 tail.append(h_size - first_undef_pos, nc.m_haystack.data() + first_undef_pos);
                 f.replace_with_tail(head, tail);

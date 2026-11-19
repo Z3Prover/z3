@@ -237,6 +237,38 @@ namespace {
         ENSURE(fx.solver.get_scope_level() == 0);
     }
 
+    // Stripping a leading token-aligned mismatch is unsafe when the removed
+    // token denotes a variable-width word: the needle may occur inside that
+    // token or across its character boundary.
+    static void tst_ncontains_variable_prefix_not_pruned() {
+        fixture fx;
+        expr_ref x(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref a(fx.m.mk_fresh_const("a", fx.u.mk_char_sort()), fx.m);
+        expr_ref b(fx.m.mk_fresh_const("b", fx.u.mk_char_sort()), fx.m);
+        expr_ref ua(fx.u.str.mk_unit(a), fx.m);
+        expr_ref ub(fx.u.str.mk_unit(b), fx.m);
+        expr_ref_vector h(fx.m), needle(fx.m);
+        h.push_back(x);
+        h.push_back(ua);
+        h.push_back(y);
+        needle.push_back(x);
+        needle.push_back(ub);
+        expr_ref h_expr(fx.u.str.mk_concat(h.size(), h.data(), fx.s), fx.m);
+        expr_ref needle_expr(fx.u.str.mk_concat(needle.size(), needle.data(), fx.s), fx.m);
+        auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+        nf.add_ncontains(h_expr, needle_expr);
+
+        seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+        propagation.propagate(*fx.root);
+        ENSURE(nf.ncontains().size() == 1);
+        ENSURE(nf.ncontains()[0].active());
+        ENSURE(nf.ncontains()[0].m_haystack.size() == 3);
+        ENSURE(nf.ncontains()[0].m_haystack.get(0) == x);
+        ENSURE(nf.ncontains()[0].m_haystack.get(1) == ua);
+        ENSURE(nf.ncontains()[0].m_haystack.get(2) == y);
+    }
+
     static void tst_ncontains_symbolic_length_split() {
         for (bool integers : { false, true }) {
             fixture fx;
@@ -575,6 +607,7 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_variable_prefix_not_pruned();
     tst_ncontains_symbolic_length_split();
     tst_ncontains_length_split_backtracking();
     tst_ncontains_symbolic_unit_clauses();

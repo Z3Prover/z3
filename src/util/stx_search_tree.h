@@ -696,7 +696,14 @@ namespace stx {
                 if (i == e.watch)
                     continue;
                 auto c = m_constraint_store[e.lits[i]];
-                if (!active.contains(c)) {             
+                bool semantically_active = false;
+                for (constraint_i const* a : active) {
+                    if (a == c || a->equals(*c)) {
+                        semantically_active = true;
+                        break;
+                    }
+                }
+                if (!semantically_active) {
                     unwatch(old_id, core_idx);
                     e.watch = i;
                     watch(e.lits[i], core_idx);
