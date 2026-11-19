@@ -41,7 +41,7 @@ State: **stages complete**. All 394 ACCEPT/PARTIAL cases have diagnostics; there
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-19T12:24:00-08:00`; completed capture checker `2671dc150931` (`2671dc1509317d8d991f5b7a3f3f3ff41d5b19a043db95d7ca3ec27ffdafe0b9`); corpus manifest `151fb3147a773d622252d6db5786802e11b62b19a61a2af83ed0ff6c89826187`.
+Updated `2026-11-19T12:28:50-08:00`; completed capture checker `2671dc150931` (`2671dc1509317d8d991f5b7a3f3f3ff41d5b19a043db95d7ca3ec27ffdafe0b9`); corpus manifest `151fb3147a773d622252d6db5786802e11b62b19a61a2af83ed0ff6c89826187`.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Rule-diagnosed proof verdicts | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -64,6 +64,9 @@ Observed proof verdicts: **8,411 ACCEPT / 209 PARTIAL / 0 UNKNOWN / 0 REJECT**; 
 | `th-lemma` | 236 |
 
 Rule totals sum to 430 across completed diagnostics. The 1,430 timeout-prefix verdicts have no corresponding complete rule-diagnostic stream; their PENDING and unobserved tails are N/M. This is a coverage refresh, not a comparable burn-down from the earlier 253-input capture; proof hashes are N/M. Evidence, per-input hashes and logs: `files\fstar-build-incremental-20261119T193000Z`.
+
+The three observed `arith/farkas` PENDING are two in `queries-FStar.Algebra.CommMonoid.smt2` and one in `queries-FStar.Math.Exp.smt2`; both input hashes match the manifest. Their obligations include product/division-shaped terms, and the same proof sessions contain `assumed:nlsat` PENDING. This excludes them as controlled QF_LIA cases, but does not show that the Farkas steps themselves are nonlinear or malformed: `Z3LinearArithmeticAst.linearize` can treat non-linear applications as opaque variables. The capture lacks those nodes' native hint/coefficient arrays and proof hashes, so exact certificate provenance is N/M and no producer defect is inferred. See `Z3NativeProof.fst`, `Z3Native.ml`, `theory_lra.cpp`, and `Z3LinearArithmeticAst.fst`.
+
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Last 10 incremental improvements and measurement corrections
@@ -76,6 +79,7 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 19 12:28 | Farkas provenance triage on the completed `fstar-build` capture; no checker or producer change | Three observed PENDING: two in `Algebra.CommMonoid`, one in `Math.Exp`; pinned input hashes match. Their contexts contain product/division terms and `assumed:nlsat`, but the F* arithmetic linearizer may treat compound terms as opaque variables. Native hint/coefficient payloads and proof hashes are N/M; these are not QF_LIA certificate failures and do not establish a producer defect | `fstar-build-incremental-20261119T193000Z`, `Z3NativeProof.fst`, `Z3Native.ml`, `theory_lra.cpp`, `Z3LinearArithmeticAst.fst` |
 | Nov 19 12:24 | Same-pin interactive `fstar-build` capture; coverage refresh, no checker change | All 583 path/input-hash pairs match the pinned selection. 384 sessions completed, 23 timed out and 176 were not run; completed diagnostics cover 7,190/7,190 proof verdicts with 430 weighted PENDING (139 `assumed:nlsat`, 236 `th-lemma`, 23 `quant-intro`, 10 `nnf-neg`, 10 `sk`, 8 `rewrite`, 3 `arith/farkas`, 1 `arith/lp-monomial-interval`). Observed verdicts include 8,411 ACCEPT / 209 PARTIAL; timeout-prefix rule diagnostics, tails and proof hashes are N/M. Not comparable to the prior capture; no burn-down credit | `fstar-build-incremental-20261119T193000Z` |
 | Nov 19 11:07 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 path/input-hash pairs match the prior capture. Sample: 100 ACCEPT / 86 PARTIAL / 20 UNKNOWN / 19 TIMEOUT; extended: 74 ACCEPT / 134 PARTIAL / 70 UNKNOWN / 7 TIMEOUT. Sample QF_LIA remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; its PARTIAL has four `intro-def` PENDING and no Farkas PENDING. The 14 extended Farkas PENDING are in four QF_NIA/QF_NRA cases whose residual formulas contain nonlinear products. Status and rule-vector drift with proof hashes N/M is not a matched-proof burn-down or evidence of a producer defect | `periodic-smtlib-20261119T173100Z`, prior `periodic-smtlib-20261119T121101Z` |
 | Nov 19 05:16 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 input hashes matched. Sample: 100 ACCEPT / 85 PARTIAL / 20 UNKNOWN / 20 TIMEOUT; extended: 74 ACCEPT / 133 PARTIAL / 72 UNKNOWN / 6 TIMEOUT. Sample QF_LIA subset remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN (four `intro-def` PENDING); extended has no selected QF_LIA inputs. Current 14 Farkas PENDING are in QF_NIA/QF_NRA cases with nonlinear products. Diagnostic rule vectors changed, but proof hashes are N/M; no matched-proof burn-down or producer defect is established | `periodic-smtlib-20261119T121101Z`, prior `periodic-smtlib-20261119T060109Z` |
@@ -85,7 +89,6 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 17:44 | fstar-build aggregation correction, current pin; no checker change | 359 raw rows → 253 distinct inputs; excluded 106 repeated paths. Duplicate hashes/verdicts match, but proof counts differ in 103 rows and rule vectors in 5; no burn-down credit | `current-fstar-pending-2671-01`, `current-fstar-pending-2671-05`, `current-fstar-pending-2671-06` |
 | Nov 18 15:30 | Current-pin fstar-build prefix extension, five inputs; no checker change | Four inputs completed and one timed out; 88 ACCEPT / 1 PARTIAL / 7 solver UNKNOWN, with one new `th-lemma` PENDING. The timeout's observed 56-proof prefix is included; its tail is N/M. Coverage refresh, not a same-proof burn-down | `current-fstar-pending-2671-05` |
 | Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
-| Nov 18 14:37 | Bounded-integers fstar-build diagnostic replay, 10 queries; no checker change | Three `th-lemma` PENDING remain with identical fingerprints; replay reports 9 ACCEPT / 1 PARTIAL. Proof-node counts differ on queries 7-10 and proof hash is N/M, so this is not a matched-proof burn-down | `fstar-build-bounded-integers-2671-03.json` |
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
 
