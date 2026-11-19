@@ -36,6 +36,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "ast/bv_decl_plugin.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -872,6 +874,63 @@ static void test_solve_eqs_max_occs() {
     ENSURE(has(bounded, "xx") && !has(bounded, "yy"));
 }
 
+// A simplifier-backed tactic (dependent_expr_state_tactic) rebuilds its
+// simplifier after every application. The rebuilt simplifier must use the
+// tactic's parameters: those given to the factory, and those received by
+// updt_params before an earlier application. solve-eqs ignores the params
+// argument of its factory, so it shows the property through max_occs.
+static void test_solve_eqs_tactic_keeps_params() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    bv_util bv(m);
+    sort* s = bv.mk_sort(8);
+    expr_ref a(m.mk_const("a", s), m), b(m.mk_const("b", s), m), xx(m.mk_const("xx", s), m);
+    // xx occurs in its definition and in three other formulas; a and b occur
+    // often enough that xx is the only candidate (as in test_solve_eqs_max_occs).
+    auto mk_goal = [&]() {
+        goal_ref g = alloc(goal, m, false, false, false);
+        g->assert_expr(m.mk_eq(xx, bv.mk_bv_add(a, b)));
+        g->assert_expr(bv.mk_ult(xx, bv.mk_numeral(16, 8)));
+        g->assert_expr(bv.mk_ult(bv.mk_numeral(1, 8), xx));
+        g->assert_expr(m.mk_not(m.mk_eq(xx, b)));
+        g->assert_expr(m.mk_not(m.mk_eq(a, b)));
+        g->assert_expr(bv.mk_ult(a, bv.mk_numeral(5, 8)));
+        return g;
+    };
+    // true iff xx survives one application of t.
+    auto keeps_xx = [&](tactic& t) {
+        goal_ref_buffer result;
+        t(mk_goal(), result);
+        ENSURE(result.size() == 1);
+        goal const& r = *result[0];
+        for (unsigned i = 0; i < r.size(); ++i)
+            if (occurs(xx, r.form(i)))
+                return true;
+        return false;
+    };
+    params_ref p;
+    p.set_uint("solve_eqs_max_occs", 2);
+
+    // Without a bound xx is eliminated.
+    tactic_ref unbounded = mk_solve_eqs_tactic(m);
+    ENSURE(!keeps_xx(*unbounded));
+
+    // Params given to the factory, no updt_params.
+    tactic_ref t1 = mk_solve_eqs_tactic(m, p);
+    ENSURE(keeps_xx(*t1));
+    ENSURE(keeps_xx(*t1));
+
+    // Params given through updt_params, then two applications.
+    tactic_ref t2 = mk_solve_eqs_tactic(m);
+    t2->updt_params(p);
+    ENSURE(keeps_xx(*t2));
+    ENSURE(keeps_xx(*t2));
+
+    // A translated copy keeps the params.
+    tactic_ref t3 = t2->translate(m);
+    ENSURE(keeps_xx(*t3));
+}
+
 static void test_solve_eqs_proof_scope() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -1275,6 +1334,7 @@ void tst_simplifier() {
     test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
     test_solve_eqs_max_occs();
+    test_solve_eqs_tactic_keeps_params();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
     test_lambda_simplifier_proofs();
