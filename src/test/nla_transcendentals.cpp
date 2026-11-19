@@ -370,24 +370,65 @@ void test_atan2_unsat_regression() {
 }
 
 void test_ignore_int_div_mod_sat() {
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    char const* spec =
-        "(set-option :smt.arith.ignore_int true)\n"
-        "(set-logic QF_NIA)\n"
-        "(declare-const x Int)\n"
-        "(declare-const y Int)\n"
-        "(assert (and (<= (- 4) x) (<= x 4)))\n"
-        "(assert (and (<= (- 4) y) (<= y 4)))\n"
-        "(assert (distinct y (mod y 2)))\n"
-        "(assert (< (mod (div 0 (ite (= y 0) 1 y)) (- (* 5 x) 1)) y))\n"
-        "(check-sat)\n";
-    std::string response = Z3_eval_smtlib2_string(ctx, spec);
-    if (response != "sat\n")
-        std::cout << response << "\n";
-    VERIFY(response == "sat\n");
-    Z3_del_context(ctx);
+    for (char const* fixed : {"", "(assert (= x 0))\n(assert (= y 2))\n"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec =
+            "(set-option :timeout 10000)\n"
+            "(set-option :smt.arith.ignore_int true)\n"
+            "(set-logic QF_NIA)\n"
+            "(declare-const x Int)\n"
+            "(declare-const y Int)\n"
+            "(assert (and (<= (- 4) x) (<= x 4)))\n"
+            "(assert (and (<= (- 4) y) (<= y 4)))\n"
+            "(assert (distinct y (mod y 2)))\n"
+            "(assert (< (mod (div 0 (ite (= y 0) 1 y)) (- (* 5 x) 1)) y))\n";
+        spec += fixed;
+        spec += "(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != "sat\n")
+            std::cout << response << "\n";
+        VERIFY(response == "sat\n");
+        Z3_del_context(ctx);
+    }
+}
+
+void test_ignore_int_models() {
+    struct {
+        char const* assertions;
+        char const* expected;
+    } const cases[] = {
+        {"(assert (> x 0))(assert (< x 2))", "sat\n"},
+        {"(assert (> x 0))(assert (= (* x x) 4))", "sat\n"},
+        {"(assert (= (* x x) 2))", nullptr},
+        {"(assert (= (+ (* 2 x) (* 3 y)) 1))", "unknown\n"}
+    };
+    for (auto const& [assertions, expected] : cases) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec =
+            "(set-option :timeout 10000)\n"
+            "(set-option :smt.arith.ignore_int true)\n"
+            "(declare-const x Int)\n"
+            "(declare-const y Int)\n";
+        spec += assertions;
+        spec += "(check-sat-using smt)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (expected) {
+            VERIFY(response == expected);
+        }
+        else {
+            VERIFY(response == "unsat\n" || response == "unknown\n");
+        }
+        if (response == "unknown\n") {
+            std::string reason = Z3_eval_smtlib2_string(ctx, "(get-info :reason-unknown)");
+            VERIFY(reason.find("timeout") == std::string::npos);
+            VERIFY(reason.find("canceled") == std::string::npos);
+        }
+        Z3_del_context(ctx);
+    }
 }
 
 void test_nla_transcendentals() {
@@ -405,6 +446,7 @@ void test_nla_transcendentals() {
     test_pi_positive_sat();
     test_atan2_unsat_regression();
     test_ignore_int_div_mod_sat();
+    test_ignore_int_models();
 }
 
 } // namespace nla

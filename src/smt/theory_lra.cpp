@@ -1971,7 +1971,6 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
-        bool int_undef = false;
         switch (is_sat) {
         case l_true:
             TRACE(arith, display(tout));            
@@ -1982,18 +1981,15 @@ public:
             case FC_CONTINUE:
                 return FC_CONTINUE;
             case FC_GIVEUP:
-                int_undef = true;
                 TRACE(arith, tout << "check-lia giveup\n";);
-                if (ctx().get_fparams().m_arith_ignore_int)
-                    st = FC_CONTINUE;
-                break;
+                return FC_GIVEUP;
             }
 
             switch (check_nla(level)) {
             case FC_DONE:
                 // Nonlinear bound optimization may invalidate integer feasibility.
                 if (!use_nra_model() && lp().has_inf_int())
-                    return FC_CONTINUE;
+                    return ctx().get_fparams().m_arith_ignore_int ? FC_GIVEUP : FC_CONTINUE;
                 break;
             case FC_CONTINUE:
                 return FC_CONTINUE;
@@ -2008,7 +2004,7 @@ public:
                 return FC_CONTINUE;
             }
 
-            if (!int_undef && !check_bv_terms())
+            if (!check_bv_terms())
                 return FC_CONTINUE;
             
             if (!m_not_handled.empty())
@@ -2254,7 +2250,7 @@ public:
             TRACE(arith, tout << "canceled\n";);
             return FC_CONTINUE;
         }
-        if (ctx().get_fparams().m_arith_ignore_int)
+        if (ctx().get_fparams().m_arith_ignore_int && lp().has_inf_int())
             return FC_GIVEUP;
         auto cr = m_lia->check(&m_explanation);
 
