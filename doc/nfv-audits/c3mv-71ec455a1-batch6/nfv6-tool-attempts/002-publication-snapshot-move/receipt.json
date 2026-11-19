@@ -1,0 +1,15 @@
+{
+  "kind": "publication-export tooling correction; NOT source/model finding",
+  "shell_id": "242",
+  "shell_exit_code": 0,
+  "observed_nonterminating_powershell_error": "Cannot create a file when that file already exists.",
+  "cause": "Bare Move-Item destination resolved relative to C:\\z3seq, not relative to the source file; first snapshot temporarily moved to repository root, second move was rejected.",
+  "correction": "Verified the exact owned snapshot SHA256 against the tested manifest; restored it to the session archive and renamed the bundle snapshot using absolute resolved paths.",
+  "snapshot_sha256": "e4baf1b835d5799aabf38697298f6beded7a9bcb9546106b2e2ca8a981837247",
+  "owned_stray_removed_by_restoration": true,
+  "existing_repository_readme_untouched": true,
+  "source_changes": 0,
+  "new_verifier_invocations": 0,
+  "historical_evidence_bytes_changed": 0,
+  "corrected_before_final_validation": true
+}

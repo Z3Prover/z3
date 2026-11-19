@@ -1,0 +1,14 @@
+{
+  "kind": "publication-finalizer tooling correction; NOT source/model finding",
+  "shell_id": "244",
+  "shell_exit_code": 1,
+  "observed_error": "AssertionError at stdin line25, after the portable validator had passed",
+  "comparison_that_failed": "assert sha(bundle_fresh_tool) == sha(session_fresh_tool)",
+  "cause": "The export policy intentionally normalizes NEW tools from session CRLF to LF; a post-validation wrapper incorrectly required their raw hashes to match. All111 historical raw-hash comparisons had already passed.",
+  "corrected_comparison": "bundle_tool.read_bytes() == session_tool.read_bytes().replace(CRLF, LF)",
+  "normalized_equal_verified_for_all_four_fresh_tools": true,
+  "raw_historical_bytes_changed": 0,
+  "source_changes": 0,
+  "new_verifier_invocations": 0,
+  "successful_portable_validation_sha256": "84e392fe5a8923c9601254354266f68593e05a529238fddb7a8da3dba5ccc5cc"
+}

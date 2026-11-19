@@ -1,0 +1,8 @@
+test_failed_gate_returns_nonzero_after_recording_real_exit (test_nfv6_runner.ValidityDerivativeTests.test_failed_gate_returns_nonzero_after_recording_real_exit) ... ok
+test_rejects_weakened_goal_metadata (test_nfv6_runner.ValidityDerivativeTests.test_rejects_weakened_goal_metadata) ... ok
+test_removes_only_complete_entry_ensures (test_nfv6_runner.ValidityDerivativeTests.test_removes_only_complete_entry_ensures) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.152s
+
+OK

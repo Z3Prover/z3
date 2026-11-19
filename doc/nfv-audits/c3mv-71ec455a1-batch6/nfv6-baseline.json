@@ -1,0 +1,622 @@
+{
+  "stage": "nfv6-reconcile",
+  "status": "source-only capture complete",
+  "recorded_utc": "2026-11-19T19:16:43.006470+00:00",
+  "production_source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "publication_head": "4be813a75bdc59574df23da8ce5805a262171ba9",
+  "old_master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+  "stash": "7af7fad70e9cea38601c67ff00d89f6b5576c2d6",
+  "branch": "c3mv",
+  "worktree_clean": true,
+  "commits": [
+    {
+      "commit": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+      "subject": "Prevent wrong sat for lambda arguments to uninterpreted functions (#11744)"
+    },
+    {
+      "commit": "b360da09571e53e10e40d8e925701ef6e035113d",
+      "subject": "QFBV default params (#11781)"
+    }
+  ],
+  "master_drift": [
+    {
+      "path": "src/ast/simplifiers/solve_eqs.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "09c6806fbad0204036c946f37112024a3daf81b6",
+      "new_master_blob": "088f5209f579cddb27fa6d77ac992724e7f1133b",
+      "source_blob": "09c6806fbad0204036c946f37112024a3daf81b6",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/cmd_context/tactic_cmds.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "d21f0d3741bc2f7961a47b028038ada90b445db1",
+      "new_master_blob": "e6772990d5b87cdf23394add8746d378f64f2dd0",
+      "source_blob": "d21f0d3741bc2f7961a47b028038ada90b445db1",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/smt/theory_array_full.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "f71272cd64a408e835b3fb6e05c3f2b5396df605",
+      "new_master_blob": "72bea6c899aeb2b34bcd940e455ed8686bf0c11b",
+      "source_blob": "f71272cd64a408e835b3fb6e05c3f2b5396df605",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/tactic/smtlogics/qfbv_tactic.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "5fe94e1f16cb24bd1d55bc00e79b4dda9749f514",
+      "new_master_blob": "6118180d47395f9d5c2fb9f20f877b95598a1f18",
+      "source_blob": "5fe94e1f16cb24bd1d55bc00e79b4dda9749f514",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/tactic/tactic.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "1bc847fadd1add59472360ce8ede9a9aa86c11ea",
+      "new_master_blob": "0a0835d70fdc8f8c07ba27dafd9452bdf99b4a0c",
+      "source_blob": "1bc847fadd1add59472360ce8ede9a9aa86c11ea",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/tactic/tactic.h",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "788ff97768007846b78a70edf6c96c7dd236f803",
+      "new_master_blob": "cf7596306693707a3ddbe485509847fd1658f594",
+      "source_blob": "788ff97768007846b78a70edf6c96c7dd236f803",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/tactic/tactical.cpp",
+      "kind": "production",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "dd57331c9fed50ad4e0ee2907677c6820957be9e",
+      "new_master_blob": "4aff95117725a38e120900ea20c4349ef0ed41b0",
+      "source_blob": "dd57331c9fed50ad4e0ee2907677c6820957be9e",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/test/CMakeLists.txt",
+      "kind": "build",
+      "overlaps_branch_delta": true,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "af8a5f12100e5a335931f6a1621b98a575993e73",
+      "new_master_blob": "b4c29e18e499f679b6e78fda7ac1ab70f0cc27c6",
+      "source_blob": "0b9a93f4dc0037ea7337236d44a4614ec32157f0",
+      "source_equals_old_master": false
+    },
+    {
+      "path": "src/test/fpa.cpp",
+      "kind": "test",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "5f2a8f8132532ec0ab212e8d214e636003cd2d96",
+      "new_master_blob": "26f2b212c0fef90c06116c8361bd1daf15044c22",
+      "source_blob": "5f2a8f8132532ec0ab212e8d214e636003cd2d96",
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/test/main.cpp",
+      "kind": "test",
+      "overlaps_branch_delta": true,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "d4438342ca11845c5f4250b6a698b720bc3d44e0",
+      "new_master_blob": "29cc0e51e118361381dc4dd79f499fdb268eb6f3",
+      "source_blob": "96a502390076e6be71b549f44f63906db3df8ad1",
+      "source_equals_old_master": false
+    },
+    {
+      "path": "src/test/qfbv_default_params.cpp",
+      "kind": "test",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": null,
+      "new_master_blob": "efc097ffc51d6e4849ca081eeec2ea2a62df4883",
+      "source_blob": null,
+      "source_equals_old_master": true
+    },
+    {
+      "path": "src/test/smt_context.cpp",
+      "kind": "test",
+      "overlaps_branch_delta": true,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "0afb1d6f923778547740e3387e3268285e4545ad",
+      "new_master_blob": "6461a433343d36dadfebe92cb52d03ec6132347f",
+      "source_blob": "6b8b8ebac75887e13a4bde716d84989f1bcdbe3c",
+      "source_equals_old_master": false
+    },
+    {
+      "path": "src/test/tactic_unused_params.cpp",
+      "kind": "test",
+      "overlaps_branch_delta": false,
+      "overlaps_selected_entry_path": false,
+      "old_master_blob": "3b576756a6476520fc34035b2a0249a4007ded8a",
+      "new_master_blob": "70710e7edaae0abfb42196966d24d722c66a7430",
+      "source_blob": "3b576756a6476520fc34035b2a0249a4007ded8a",
+      "source_equals_old_master": true
+    }
+  ],
+  "master_drift_patch_sha256": "0d07bdb626e73f6f847f6b5e45adb1c18cae13d76f3df506691299703733ad44",
+  "counts": {
+    "branch_files": 104,
+    "branch_src": 89,
+    "direct_files": 120,
+    "direct_src": 103,
+    "drift_files": 13,
+    "drift_production": 7
+  },
+  "branch_changed_paths": [
+    "STRING-BENCHMARKS.md",
+    "c3mv-issue-comparison.md",
+    "doc/nseq-qf-slia-gap-plan.md",
+    "fstar/FORMALIZATION.md",
+    "fstar/Z3PredicateAlgebra.fst",
+    "fstar/Z3RegexCertificate.fst",
+    "fstar/Z3RegexCertificateTests.fst",
+    "fstar/Z3TransitionTerm.fst",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/REPORT.md",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/Z3ElimUncnstrSeqConcat.fst",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/manifest.json",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/verification.log",
+    "fstar/tools/checker_modules.json",
+    "perf.md",
+    "src/ast/rewriter/CMakeLists.txt",
+    "src/ast/rewriter/guard_set.cpp",
+    "src/ast/rewriter/guard_set.h",
+    "src/ast/rewriter/seq_derive.cpp",
+    "src/ast/rewriter/seq_derive.h",
+    "src/ast/rewriter/seq_regex_witness.cpp",
+    "src/ast/rewriter/seq_regex_witness.h",
+    "src/ast/rewriter/seq_rewriter.cpp",
+    "src/ast/rewriter/seq_rewriter.h",
+    "src/ast/rewriter/th_rewriter.cpp",
+    "src/ast/seq/CMakeLists.txt",
+    "src/ast/seq/seq_ambient_context.h",
+    "src/ast/seq/seq_assumption_facet.h",
+    "src/ast/seq/seq_axioms.cpp",
+    "src/ast/seq/seq_eq_facet.cpp",
+    "src/ast/seq/seq_eq_facet.h",
+    "src/ast/seq/seq_ho_facet.h",
+    "src/ast/seq/seq_lex_facet.cpp",
+    "src/ast/seq/seq_lex_facet.h",
+    "src/ast/seq/seq_mem_facet.cpp",
+    "src/ast/seq/seq_mem_facet.h",
+    "src/ast/seq/seq_monadic.cpp",
+    "src/ast/seq/seq_monadic.h",
+    "src/ast/seq/seq_ncontains_facet.cpp",
+    "src/ast/seq/seq_ncontains_facet.h",
+    "src/ast/seq/seq_parikh.cpp",
+    "src/ast/seq/seq_parikh.h",
+    "src/ast/seq/seq_power_facet.cpp",
+    "src/ast/seq/seq_power_facet.h",
+    "src/ast/seq/seq_regex_live.cpp",
+    "src/ast/seq/seq_regex_live.h",
+    "src/ast/seq/seq_replace_all_facet.cpp",
+    "src/ast/seq/seq_replace_all_facet.h",
+    "src/ast/seq/seq_req_facet.cpp",
+    "src/ast/seq/seq_req_facet.h",
+    "src/ast/seq/seq_solver_facet_i.h",
+    "src/ast/seq/seq_stoi_facet.h",
+    "src/ast/seq/seq_sub_solver.h",
+    "src/ast/seq/seq_view.h",
+    "src/ast/seq/seq_view_witness.cpp",
+    "src/ast/seq/seq_view_witness.h",
+    "src/ast/seq_decl_plugin.cpp",
+    "src/ast/simplifiers/CMakeLists.txt",
+    "src/ast/simplifiers/seq_regular_simplifier.cpp",
+    "src/ast/simplifiers/seq_regular_simplifier.h",
+    "src/ast/sls/sls_seq_plugin.cpp",
+    "src/model/model_evaluator.cpp",
+    "src/params/smt_params.cpp",
+    "src/params/smt_params_helper.hpp",
+    "src/params/theory_seq_params.cpp",
+    "src/params/theory_seq_params.h",
+    "src/smt/CMakeLists.txt",
+    "src/smt/seq_ambient_context.h",
+    "src/smt/seq_axioms.h",
+    "src/smt/seq_nseq_ambient_context.h",
+    "src/smt/seq_solver_facet.cpp",
+    "src/smt/seq_solver_facet.h",
+    "src/smt/smt_setup.cpp",
+    "src/smt/smt_setup.h",
+    "src/smt/theory_nseq.cpp",
+    "src/smt/theory_nseq.h",
+    "src/smt/theory_seq.h",
+    "src/solver/assertions/CMakeLists.txt",
+    "src/solver/assertions/asserted_formulas.cpp",
+    "src/solver/assertions/asserted_formulas.h",
+    "src/tactic/core/elim_uncnstr_tactic.cpp",
+    "src/tactic/core/elim_uncnstr_tactic.h",
+    "src/tactic/portfolio/default_tactic.cpp",
+    "src/test/CMakeLists.txt",
+    "src/test/elim_uncnstr.cpp",
+    "src/test/main.cpp",
+    "src/test/parametric_datatype.cpp",
+    "src/test/seq_eq_facet.cpp",
+    "src/test/seq_ho_facet.cpp",
+    "src/test/seq_lex_facet.cpp",
+    "src/test/seq_limits.cpp",
+    "src/test/seq_mem_facet.cpp",
+    "src/test/seq_monadic.cpp",
+    "src/test/seq_ncontains_facet.cpp",
+    "src/test/seq_parikh.cpp",
+    "src/test/seq_power.cpp",
+    "src/test/seq_power_facet.cpp",
+    "src/test/seq_regex_witness.cpp",
+    "src/test/seq_rewriter.cpp",
+    "src/test/seq_solver_facet.cpp",
+    "src/test/simplifier.cpp",
+    "src/test/smt_context.cpp",
+    "src/test/stx_search_tree.cpp",
+    "src/util/stx_search_tree.h",
+    "str-at-unsound.smt2"
+  ],
+  "direct_master_to_source_paths": [
+    ".github/workflows/pulse-checker-repair.lock.yml",
+    ".github/workflows/pulse-checker-repair.md",
+    "STRING-BENCHMARKS.md",
+    "c3mv-issue-comparison.md",
+    "doc/nseq-qf-slia-gap-plan.md",
+    "fstar/FORMALIZATION.md",
+    "fstar/Z3PredicateAlgebra.fst",
+    "fstar/Z3RegexCertificate.fst",
+    "fstar/Z3RegexCertificateTests.fst",
+    "fstar/Z3TransitionTerm.fst",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/REPORT.md",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/Z3ElimUncnstrSeqConcat.fst",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/manifest.json",
+    "fstar/audits/pr-11706/8036432ff8e309f859a4f933b5b4971bd0e679a8/verification.log",
+    "fstar/tools/checker_modules.json",
+    "perf.md",
+    "src/ast/rewriter/CMakeLists.txt",
+    "src/ast/rewriter/guard_set.cpp",
+    "src/ast/rewriter/guard_set.h",
+    "src/ast/rewriter/seq_derive.cpp",
+    "src/ast/rewriter/seq_derive.h",
+    "src/ast/rewriter/seq_regex_witness.cpp",
+    "src/ast/rewriter/seq_regex_witness.h",
+    "src/ast/rewriter/seq_rewriter.cpp",
+    "src/ast/rewriter/seq_rewriter.h",
+    "src/ast/rewriter/th_rewriter.cpp",
+    "src/ast/seq/CMakeLists.txt",
+    "src/ast/seq/seq_ambient_context.h",
+    "src/ast/seq/seq_assumption_facet.h",
+    "src/ast/seq/seq_axioms.cpp",
+    "src/ast/seq/seq_eq_facet.cpp",
+    "src/ast/seq/seq_eq_facet.h",
+    "src/ast/seq/seq_ho_facet.h",
+    "src/ast/seq/seq_lex_facet.cpp",
+    "src/ast/seq/seq_lex_facet.h",
+    "src/ast/seq/seq_mem_facet.cpp",
+    "src/ast/seq/seq_mem_facet.h",
+    "src/ast/seq/seq_monadic.cpp",
+    "src/ast/seq/seq_monadic.h",
+    "src/ast/seq/seq_ncontains_facet.cpp",
+    "src/ast/seq/seq_ncontains_facet.h",
+    "src/ast/seq/seq_parikh.cpp",
+    "src/ast/seq/seq_parikh.h",
+    "src/ast/seq/seq_power_facet.cpp",
+    "src/ast/seq/seq_power_facet.h",
+    "src/ast/seq/seq_regex_live.cpp",
+    "src/ast/seq/seq_regex_live.h",
+    "src/ast/seq/seq_replace_all_facet.cpp",
+    "src/ast/seq/seq_replace_all_facet.h",
+    "src/ast/seq/seq_req_facet.cpp",
+    "src/ast/seq/seq_req_facet.h",
+    "src/ast/seq/seq_solver_facet_i.h",
+    "src/ast/seq/seq_stoi_facet.h",
+    "src/ast/seq/seq_sub_solver.h",
+    "src/ast/seq/seq_view.h",
+    "src/ast/seq/seq_view_witness.cpp",
+    "src/ast/seq/seq_view_witness.h",
+    "src/ast/seq_decl_plugin.cpp",
+    "src/ast/simplifiers/CMakeLists.txt",
+    "src/ast/simplifiers/bound_simplifier.cpp",
+    "src/ast/simplifiers/seq_regular_simplifier.cpp",
+    "src/ast/simplifiers/seq_regular_simplifier.h",
+    "src/ast/simplifiers/solve_eqs.cpp",
+    "src/ast/sls/sls_seq_plugin.cpp",
+    "src/cmd_context/tactic_cmds.cpp",
+    "src/model/model_evaluator.cpp",
+    "src/params/smt_params.cpp",
+    "src/params/smt_params_helper.hpp",
+    "src/params/theory_seq_params.cpp",
+    "src/params/theory_seq_params.h",
+    "src/smt/CMakeLists.txt",
+    "src/smt/seq_ambient_context.h",
+    "src/smt/seq_axioms.h",
+    "src/smt/seq_nseq_ambient_context.h",
+    "src/smt/seq_solver_facet.cpp",
+    "src/smt/seq_solver_facet.h",
+    "src/smt/smt_setup.cpp",
+    "src/smt/smt_setup.h",
+    "src/smt/theory_array_full.cpp",
+    "src/smt/theory_finite_set_size.cpp",
+    "src/smt/theory_nseq.cpp",
+    "src/smt/theory_nseq.h",
+    "src/smt/theory_seq.h",
+    "src/solver/assertions/CMakeLists.txt",
+    "src/solver/assertions/asserted_formulas.cpp",
+    "src/solver/assertions/asserted_formulas.h",
+    "src/tactic/core/elim_uncnstr_tactic.cpp",
+    "src/tactic/core/elim_uncnstr_tactic.h",
+    "src/tactic/dependent_expr_state_tactic.h",
+    "src/tactic/portfolio/default_tactic.cpp",
+    "src/tactic/smtlogics/qfbv_tactic.cpp",
+    "src/tactic/tactic.cpp",
+    "src/tactic/tactic.h",
+    "src/tactic/tactical.cpp",
+    "src/test/CMakeLists.txt",
+    "src/test/elim_uncnstr.cpp",
+    "src/test/finite_set.cpp",
+    "src/test/fpa.cpp",
+    "src/test/main.cpp",
+    "src/test/parametric_datatype.cpp",
+    "src/test/qfbv_default_params.cpp",
+    "src/test/seq_eq_facet.cpp",
+    "src/test/seq_ho_facet.cpp",
+    "src/test/seq_lex_facet.cpp",
+    "src/test/seq_limits.cpp",
+    "src/test/seq_mem_facet.cpp",
+    "src/test/seq_monadic.cpp",
+    "src/test/seq_ncontains_facet.cpp",
+    "src/test/seq_parikh.cpp",
+    "src/test/seq_power.cpp",
+    "src/test/seq_power_facet.cpp",
+    "src/test/seq_regex_witness.cpp",
+    "src/test/seq_rewriter.cpp",
+    "src/test/seq_solver_facet.cpp",
+    "src/test/simplifier.cpp",
+    "src/test/smt_context.cpp",
+    "src/test/stx_search_tree.cpp",
+    "src/test/tactic_unused_params.cpp",
+    "src/util/stx_search_tree.h",
+    "str-at-unsound.smt2"
+  ],
+  "master_drift_overlap_branch": [
+    "src/test/CMakeLists.txt",
+    "src/test/main.cpp",
+    "src/test/smt_context.cpp"
+  ],
+  "master_drift_overlap_selected_entry_paths": [],
+  "primary_entries": [
+    {
+      "id": "P1",
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "entry": "PruningEntry",
+      "span": [
+        264,
+        301
+      ]
+    },
+    {
+      "id": "P2",
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "entry": "CancellationEntry",
+      "span": [
+        1017,
+        1038
+      ]
+    },
+    {
+      "id": "P3",
+      "path": "src/ast/seq/seq_lex_facet.cpp",
+      "entry": "LexEntry",
+      "span": [
+        114,
+        185
+      ]
+    },
+    {
+      "id": "P4",
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "entry": "MatchEntry",
+      "span": [
+        120,
+        130
+      ]
+    },
+    {
+      "id": "P5",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "PrimitiveEntry",
+      "span": [
+        291,
+        296
+      ]
+    },
+    {
+      "id": "P6",
+      "path": "src/ast/rewriter/guard_set.cpp",
+      "entry": "FreshLengthEntry",
+      "span": [
+        127,
+        134
+      ]
+    },
+    {
+      "id": "P7",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "AggregationEntry",
+      "span": [
+        1118,
+        1154
+      ]
+    },
+    {
+      "id": "P8",
+      "path": "src/smt/theory_nseq.cpp",
+      "entry": "PendingEntry",
+      "span": [
+        1088,
+        1104
+      ]
+    },
+    {
+      "id": "P9",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "DecimalEntry",
+      "span": [
+        325,
+        334
+      ]
+    },
+    {
+      "id": "P10",
+      "path": "src/ast/rewriter/seq_rewriter.cpp",
+      "entry": "PlusEntry",
+      "span": [
+        4505,
+        4524
+      ]
+    },
+    {
+      "id": "P11",
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "entry": "DischargeEntry",
+      "span": [
+        264,
+        291
+      ]
+    },
+    {
+      "id": "P12",
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "entry": "AdmissionEntry",
+      "span": [
+        215,
+        229
+      ]
+    },
+    {
+      "id": "P13",
+      "path": "src/ast/seq/seq_req_facet.cpp",
+      "entry": "RequestEntry",
+      "span": [
+        61,
+        118
+      ]
+    },
+    {
+      "id": "P14",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "PreimageEntry",
+      "span": [
+        774,
+        791
+      ]
+    },
+    {
+      "id": "P15",
+      "path": "src/solver/assertions/asserted_formulas.cpp",
+      "entry": "ObservationEntry",
+      "span": [
+        355,
+        400
+      ]
+    },
+    {
+      "id": "P16",
+      "path": "src/ast/seq/seq_eq_facet.h",
+      "entry": "RestorationEntry",
+      "span": [
+        78,
+        91
+      ]
+    },
+    {
+      "id": "P17",
+      "path": "src/ast/rewriter/seq_regex_witness.cpp",
+      "entry": "BooleanEntry",
+      "span": [
+        154,
+        166
+      ]
+    },
+    {
+      "id": "P18",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "PowerRewriteEntry",
+      "span": [
+        455,
+        579
+      ]
+    },
+    {
+      "id": "P19",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "RewatchEntry",
+      "span": [
+        681,
+        708
+      ]
+    },
+    {
+      "id": "P20",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "PowerSubstitutionEntry",
+      "span": [
+        43,
+        61
+      ]
+    },
+    {
+      "id": "P21",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "CacheInsertEntry",
+      "span": [
+        824,
+        846
+      ]
+    },
+    {
+      "id": "P22",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "CanonicalInternEntry",
+      "span": [
+        601,
+        611
+      ]
+    }
+  ],
+  "previous_report_trees": {
+    "c3mv-71ec455a1": "c6870166d2d538f383f7b6d86be938770f19f15f",
+    "c3mv-71ec455a1-batch2": "baaef9f8b2712c9d494114d3aca7b979a2530652",
+    "c3mv-71ec455a1-batch3": "bc39eafa46f7d69f6844257a41ced6d0834c90f2",
+    "c3mv-71ec455a1-batch4": "1843748b6e857eeba4c570f2659402c65d602a4b",
+    "c3mv-71ec455a1-batch5": "3e73287985a5be5779168ac8cd248020365c44c0"
+  },
+  "reviewed_production_patch_paths": [
+    "src/ast/simplifiers/solve_eqs.cpp",
+    "src/cmd_context/tactic_cmds.cpp",
+    "src/smt/theory_array_full.cpp",
+    "src/tactic/smtlogics/qfbv_tactic.cpp",
+    "src/tactic/tactic.cpp",
+    "src/tactic/tactic.h",
+    "src/tactic/tactical.cpp"
+  ],
+  "semantics": "Master-only new changes are not c3mv-introduced regressions. Path nonoverlap does not establish semantic independence or verify native integration.",
+  "next_stage": "nfv6-coverage",
+  "native_executions": 0,
+  "verifier_invocations": 0,
+  "new_selected_properties": 0,
+  "schedule_id": 2,
+  "stop_schedule": false
+}

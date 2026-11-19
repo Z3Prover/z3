@@ -1,0 +1,15 @@
+{
+  "stage": "nfv6-select",
+  "attempt": 1,
+  "command": "python -B freeze_nfv6_selection.py",
+  "exit_code": 1,
+  "exception": "AssertionError",
+  "location": "freeze_nfv6_selection.py:63",
+  "failed_assertion": "assert \"Shared suffixes\" in lines[295]",
+  "diagnosis": "Zero-based295 is source line296, the for loop; actual source comment is line295. Inspection also corrected planned direct-helper anchors to257-286 before selection freeze.",
+  "retained_tool": "freeze_nfv6_selection.py",
+  "outputs_written_by_failed_tool": [],
+  "verifier_invocations": 0,
+  "production_executions": 0,
+  "classification": "pre-freeze source-provenance assertion/tooling failure, NOT a model refutation or production bug"
+}

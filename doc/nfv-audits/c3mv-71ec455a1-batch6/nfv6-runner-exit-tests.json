@@ -1,0 +1,8 @@
+{
+  "status": "pass",
+  "tests_run": 3,
+  "failures": 0,
+  "errors": 0,
+  "scope": "failure-exit regression plus2exact derivative checks; mocked subprocess,0additionalDafnycalls",
+  "native_executions": 0
+}

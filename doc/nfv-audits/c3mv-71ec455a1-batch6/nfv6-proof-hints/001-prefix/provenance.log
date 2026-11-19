@@ -1,0 +1,13 @@
+{
+  "status": "pass",
+  "scope": "exact tags, metadata, forbidden constructs; NOT source equivalence or full upstream validation",
+  "properties": [
+    {
+      "id": "P23",
+      "source_tags": 377,
+      "requires": 4,
+      "helpers": 29,
+      "sha256": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074"
+    }
+  ]
+}

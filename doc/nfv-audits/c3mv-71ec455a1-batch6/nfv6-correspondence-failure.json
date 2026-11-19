@@ -1,0 +1,44 @@
+{
+  "classification": "confirmed model translation/source-correspondence failure; NOT a C++ bug",
+  "source_pin": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "source_file": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+  "source_line": 285,
+  "source_text": "        return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));",
+  "canonical_model_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "model_source": "nfv6-models/P23.dfy",
+  "model_lines": {
+    "RangeAt": 272,
+    "MRange": 340
+  },
+  "model_text": [
+    "  0 <= i < |word| && j == i + 1 && lo <= word[i] <= hi",
+    "  seq(Width(word) * Width(word), k => RangeAt(word, lo, hi, k / Width(word), k % Width(word)))"
+  ],
+  "arithmetic_contrasts": [
+    {
+      "lo": 0,
+      "hi": 9,
+      "character_code": 48,
+      "frozen_helper_predicate": false,
+      "source_declared_ascii_predicate": true
+    },
+    {
+      "lo": 0,
+      "hi": 9,
+      "character_code": 0,
+      "frozen_helper_predicate": true,
+      "source_declared_ascii_predicate": false
+    },
+    {
+      "lo": 1,
+      "hi": 9,
+      "character_code": 49,
+      "frozen_helper_predicate": false,
+      "source_declared_ascii_predicate": true
+    }
+  ],
+  "contrasts_scope": "closed-form helper predicate comparison only; not native execution or formal whole-property counterexamples",
+  "sealed_model_changed": false,
+  "source_correctness_admitted": false,
+  "next_action": "Publish preserved batch6 audit failure; separately pre-freeze same-intent corrected retranslation with fresh gates and zero new source coverage"
+}

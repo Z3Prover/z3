@@ -1,0 +1,18 @@
+{
+  "recorded_utc": "2026-11-19T20:28:37.114894+00:00",
+  "branch": "c3mv",
+  "previous_publication": "4be813a75bdc59574df23da8ce5805a262171ba9",
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+  "stash": "7af7fad70e9cea38601c67ff00d89f6b5576c2d6",
+  "previous_report_trees": {
+    "c3mv-71ec455a1": "c6870166d2d538f383f7b6d86be938770f19f15f",
+    "c3mv-71ec455a1-batch2": "baaef9f8b2712c9d494114d3aca7b979a2530652",
+    "c3mv-71ec455a1-batch3": "bc39eafa46f7d69f6844257a41ced6d0834c90f2",
+    "c3mv-71ec455a1-batch4": "1843748b6e857eeba4c570f2659402c65d602a4b",
+    "c3mv-71ec455a1-batch5": "3e73287985a5be5779168ac8cd248020365c44c0"
+  },
+  "remote_poll_performed": false
+}

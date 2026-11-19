@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "files": 131,
+  "historical_verifier_attempts": 4,
+  "new_verifier_invocations": 0,
+  "source_files": 12,
+  "source_tags": 377,
+  "pinned_git_sources_checked": true,
+  "whole_verified": 0,
+  "whole_refuted": 0,
+  "model_audit_failures": 1,
+  "source_correspondence_admitted": false,
+  "native_executions": 0
+}

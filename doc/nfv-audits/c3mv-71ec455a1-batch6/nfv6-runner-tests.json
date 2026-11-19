@@ -1,0 +1,9 @@
+{
+  "status": "pass",
+  "tests_run": 5,
+  "failures": 0,
+  "errors": 0,
+  "watchdog_AST_identical_to_tested_prior_harness": true,
+  "native_executions": 0,
+  "scope": "2validity-derivative tests and3trusted-process watchdog tests; NOT Dafny model verification"
+}

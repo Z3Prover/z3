@@ -1,0 +1,50 @@
+{
+  "runner_pid": 88176,
+  "sequence": 4,
+  "kind": "proof",
+  "started_utc": "2026-11-19T20:14:38.534198+00:00",
+  "wall_deadline_utc": "2026-11-19T20:24:38.534198+00:00",
+  "input": "004-P23-proof.dfy",
+  "command": [
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+    "verify",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv6-checks\\004-P23-proof.dfy",
+    "--solver-path",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+    "--verification-time-limit",
+    "30",
+    "--cores",
+    "2",
+    "--allow-warnings",
+    "--show-snippets",
+    "false",
+    "--progress",
+    "Symbol"
+  ],
+  "canonical_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "input_sha256": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074",
+  "removed_ensures": [],
+  "retained_entry_requires": [
+    "bound >= 0",
+    "0 <= initialSteps < 4294967296",
+    "0 <= maxSteps < 4294967296",
+    "|incResults| >= TickCapacity(bound)"
+  ],
+  "retained_helpers": 29,
+  "wall_seconds": 600,
+  "mbqi_override": false,
+  "isolate_assertions": false,
+  "full_goal_candidate": "nfv6-proof-hints/001-prefix/P23.dfy",
+  "full_goal_candidate_sha256": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074",
+  "gate_validity_sequence": 2,
+  "gate_domain_sequence": 3,
+  "checked_original_ensures": [
+    "status == ExpectedStatus(bound, incResults, initialSteps, maxSteps)",
+    "finalSteps == ExpectedSteps(bound, incResults, initialSteps, maxSteps) && used == ExpectedUsed(bound, incResults, initialSteps, maxSteps)",
+    "status != 0 ==> language == []",
+    "status == 0 ==> |language| == (|word| + 1) * (|word| + 1)",
+    "status == 0 ==> forall i: int, j: int :: 0 <= i <= |word| && 0 <= j <= |word| ==> language[i * (|word| + 1) + j] == (i <= j && Stoi(word[i..j]) > bound)"
+  ],
+  "domain_example_ids": [],
+  "runner_sha256": "c79553069ae09d3fbadf63b72f4a65f7eb972af2655a074e455ebdba596267fd"
+}

@@ -1,0 +1,32 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "tests",
+      "command": [
+        "C:\\Users\\nbjorner\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_nfv6_runner",
+        "test_nfv6_publication"
+      ],
+      "exit_code": 0,
+      "tests_run": 18
+    },
+    {
+      "name": "validation",
+      "command": [
+        "C:\\Users\\nbjorner\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+        "-B",
+        "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch6\\validate_nfv6_publication.py",
+        "--repo",
+        "C:\\z3seq"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "new_verifier_invocations": 0,
+  "native_executions": 0
+}

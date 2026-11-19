@@ -1,0 +1,91 @@
+# c3mv NFV/Dafny audit: batch 6
+
+**Result: one confirmed audit-model translation failure, not a C++ bug.** P23's complete original property was not proved or refuted. Property-free validity and all 16 concrete input domains passed, but the frozen regex-range helper omits the native ASCII-zero offset. Those successful gates establish facts about the model, not faithful source correspondence. No further proof search was performed after discovering the mismatch.
+
+This is a manual local audit following [the pinned NFV methodology](nfv-methodology.md), not an official hosted NFV driver report. Production source was read as immutable text: no audited-source build, execution, import, native test, sanitizer or patch. No external inference service, hosted workflow dispatch or subagent was used.
+
+## Revisions and scope
+
+| Input | Pin |
+| --- | --- |
+| Audited source | `71ec455a18702fe695d0c924a535ff9f385bd58d` |
+| Comparison master | `bcad05a7bf7dd9b82bd7a665018e0480e737264b` |
+| Merge base | `437536cd64a544a1c329fc57d83e56e294fdf47c` |
+| Previous audit publication | `4be813a75bdc59574df23da8ce5805a262171ba9` |
+| Unchanged audited source tree | `caa5a9922f074f9f4adc8f7c98e1685be9626503` |
+| NFV methodology | `microsoft/neuro-formal-verification@599726579274cfeb1c0915414b911371527a9870` |
+
+[Baseline reconciliation](nfv6-baseline.md) distinguishes the branch-introduced delta (104 files, 89 under src) from the current direct master comparison (120 files, 103 under src). Master advanced through two upstream commits affecting 13 paths, including seven production files. c3mv retains the old-master blobs for all seven: these are missing upstream changes, not branch-introduced regressions. The exact [baseline](nfv6-baseline.json) and [master-side patch](nfv6-master-drift.patch) are retained. Earlier reports retain their original baselines and conclusions.
+
+[Coverage refinement](nfv6-coverage.md) examined 12 source/helper/caller files and captured 1,692 exact numbered source lines. Four candidate scopes were considered: stoi callback coherence, nested model slots, saturated length inference, and nonnegative decimal languages. Only one whole entry was selected: `regular_compiler::decimal_greater`, `src\ast\simplifiers\seq_regular_simplifier.cpp:287-315`. This is not the six-operator wrapper/cache theorem and does not duplicate P9's negative-threshold scope. There is no new verified source-entry coverage.
+
+## Finding: authored decimal ranges use the wrong alphabet
+
+Native helper line 285 is:
+
+```cpp
+return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));
+```
+
+In [the frozen model](nfv6-models/P23.dfy), `MRange` line 340 instead forwards raw lo/hi to `RangeAt`; line 272 compares those values directly with word character codes. `MakeRange` forwards the endpoints unchanged. Meanwhile `Digits` emits `48+n`, and `Stoi` recognizes codes 48..57. There is no consistent shifted-alphabet interpretation that makes these helpers correspond.
+
+For example, the model's range 0..9 excludes ASCII 48 (`0`) and includes code 0; the source-declared range 48..57 does the opposite. The nonzero range 1..9 similarly excludes ASCII 49 (`1`). These are direct helper-body/arithmetic comparisons, recorded in [the finding](nfv6-correspondence-failure.json). They are **not executed native traces, Dafny-checked full-property counterexamples, or a C++ defect**. The C++ source already has the offset.
+
+Provenance checking matched 377 exact source tags and all 25 significant entry lines. It did not establish semantic equivalence, and therefore did not catch the missing offset. The initial construction report's claimed range denotation must be read with this later correction; historical artifacts remain unchanged so the failure is auditable.
+
+## Whole property and retained evidence
+
+P23 has five inputs (`bound`, `word`, `incResults`, `initialSteps`, `maxSteps`) and four outputs (`language`, `status`, `finalSteps`, `used`). Four required, source-inferred preconditions specify a nonnegative integral bound, unsigned-32 step/budget snapshots, and enough manager observations for the complete direct-tick trace. No optional restriction excludes wraparound, budget failure, leading zeros or invalid words. See the [frozen intent](nfv6-selection.json), [selection rationale](nfv6-selection.md), and [complete helper/contracts/examples metadata](nfv6-models/properties.json).
+
+The original FIVE postconditions are ONE property: exact status, exact final steps and consumed observations, absent-expression transport on failure, square table shape on success, and membership on EVERY substring iff SMT decimal conversion exceeds the bound. The arbitrary integer-symbol word overapproximates the native alphabet. All 29 helpers have bodies; 18 local helper preconditions and 46 postconditions are checked obligations, not assumed oracles. Regex empty/epsilon/literal/range/concat/union/star operations use body-defined table denotations, not the desired numeric comparison.
+
+Resource modeling retains cancellation before increment, unsigned-32 wrap before the budget test, the 4,096-digit guard, and all direct ticks, including three initializer-list concatenations. `language=[]` on failure transports an absent returned expression, not a successful empty regex. These design details are not proofs of native AST/rewriter/allocator/global-manager correspondence.
+
+| Attempt | Check | Seconds | Dafny exit | Internal verified / errors | Disposition |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Property-free validity, original annotations | 3.093 | 4 | 31 / 2 | Two proof annotations unproved |
+| 2 | Property-free validity, ten added checked assertions | 4.804 | 0 | 32 / 0 | Model-only validity admitted |
+| 3 | All 16 independent concrete domains | 2.942 | 0 | 48 / 0 | Every input pinned; four requires checked per caller |
+| 4 | Complete original five-ensures positive | 32.779 | 4 | 32 / 3 | Not proved; not refuted |
+
+No timeout diagnostic or wall-watchdog intervention occurred in these four attempts. Duration alone is not a timeout classification. Two earlier draft `resolve` invocations checked syntax/types only and are not SMT attempts. Internal obligations, individual conjuncts and passing domain examples are not whole-property proofs. **Final counts: 1 selected property; 0 verified; 0 refuted; 1 model/source-correspondence audit failure; 0 native executions.**
+
+Attempt 1's annotation failures were discharged by ten checked assertions in a new full-goal candidate. Its computation/contracts/goals did not change. Candidate SHA256 is `417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074`; canonical model SHA256 is `e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe`; non-proof computation/contract hash is `05cf33b25d98c30083ff8e039b458357ed166235ed83d5284f47346a554d0741`.
+
+Attempt 3 appended 16 independent callers to the exact admitted property-free prefix. Every caller bound all five original inputs, asserted all four requires and called the four-output entry. No original-positive ensures or expected outputs were borrowed. The caller proof admits the domain, not the expected example outputs. Attempt 4 retained the entire full-goal candidate byte-for-byte, removed zero ensures and required matching validity and whole-domain gates first.
+
+Its three diagnostics concern status/step/consumption postconditions on a post-loop resource-failure return. They do not prove the numeric membership conjunct or establish a real resource-computation counterexample. A proposed assertion-isolated repeat was cancelled before execution once the separate range-translation defect was confirmed. No full-negation/pinned-witness refutation was attempted.
+
+The [positive-stage report](nfv6-positive-initial.md), [validity report](nfv6-validity-initial.md), [annotation follow-up](nfv6-validity-hints.md), [domain report](nfv6-domain.md) and [append-only history](nfv6-checks/checks.json) retain exact diagnostics and chronology. Every attempt includes its exact input, command, raw log, start/result receipts and runner snapshot. Immutable stage-prefix snapshots retain all earlier history. Historical tooling failures (the pre-selection anchor assertion and pre-output domain-finalizer parser error) and the original wrapper-exit propagation correction are preserved, not reclassified as source findings.
+
+## Validation and optional historical replay
+
+This directory is a self-contained evidence bundle; the official Dafny binaries are not vendored. Normal validation is offline and never invokes Dafny, audited Z3 code or a native build:
+
+```powershell
+python -B .\validate_nfv6_publication.py
+python -B .\validate_nfv6_publication.py --repo C:\z3seq
+python -B -m unittest -v test_nfv6_runner test_nfv6_publication
+```
+
+The optional `--repo` check reads pinned Git blobs as text and verifies source excerpts, hashes, source tags and comparison pins. Validation covers the exact manifest/file set, CRLF exceptions, transitive stage seals, checked goals/derivatives/domains, gate ordering, recorded admission versus raw summaries, provenance, source-offset finding, Python syntax and local links. Tests exercise trusted audit tooling only. The original stage scripts are historical snapshots, some with original absolute session paths; use the portable validator/replayer rather than rerunning authoring/finalization scripts.
+
+The [preparation receipt](tool-validation/001/results.json) records **18 passing tooling tests** and successful source-aware offline validation, with zero new verifier/native invocations. Its raw logs and exact tool/input snapshots are retained in the same directory; they are not additional proof results.
+
+Publication-only bookkeeping corrections are retained separately: [snapshot-destination restoration](nfv6-tool-attempts/002-publication-snapshot-move/receipt.json) and [a normalization-aware fresh-tool comparison](nfv6-tool-attempts/003-publication-finalizer/receipt.json). Neither changed source or historical evidence bytes; all 111 historical files still match their original raw hashes. Final bundle validation followed these corrections.
+
+Historical replay is deliberately opt-in because this model FAILED correspondence review. It does not repair the model, modify this bundle, append to historical results, or constitute source validation. Supply official Dafny 4.11.0 and explicitly its bundled Z3 4.12.1, not 4.14.1. The original archive SHA256 was `3653f05a111ca21e234709ea7b25ce96083fd6c6f10484256ba54110dbc0654d`.
+
+```powershell
+python -B .\replay_nfv6_checks.py --sequence 4 --dafny C:\tools\dafny\Dafny.exe --solver C:\tools\dafny\z3\bin\z3-4.12.1.exe --out C:\temp\nfv6-replay-4 --acknowledge-audit-failure
+```
+
+Use a fresh output directory OUTSIDE this bundle and one replay at a time. Replay keeps the exact historical input/goals and options (two cores, 30 seconds per obligation, 600 seconds whole-file watchdog, streamed log, exact-owned-descendant cleanup). It records actual replay results separately; solver/platform variation need not match historical outcomes. No live replay was performed during this report-preparation stage, since more proof search against the known unfaithful helper is unjustified.
+
+## Deferred work and continuous continuation
+
+Publish this failure evidence without altering any sealed helper or relabeling it an entry-only repair. The next revision must FIRST freeze a same-intent retranslation plan: add the missing endpoint offset in a new model workspace, retain original inputs/contracts/all five goals/all 16 examples, count zero new source coverage, and rerun property-free validity, independent domains and the complete original positive. Do not silently patch this historical bundle. A future corrected translation still requires proofs; no success is predicted.
+
+C05's callback growth/reentrancy/frame/termination, C13's recursive producer termination/native stack safety, C14a's full saturated-bound/cache/fallback property, and C14b's complete six-operator wrapper/cache family remain deferred. P13/P18/P20/P21/P22 and prior conditional refutations retain their existing unresolved native applicability. No whole-branch correctness, exhaustive crash audit, native reachability, performance or memory-safety theorem is claimed.
+
+The five prior published bundles and user stash remain unchanged. Continuous schedule 2 stays active across publication; the original methodology note about stopping schedule 1 is historical and superseded by the user's indefinite-continuation request. [Results metadata](nfv6-results.json), [publication preflight](publication-preflight.json), [export notes](export-notes.json) and [raw manifest](manifest.json) support the separate publication stage.

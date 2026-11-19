@@ -1,0 +1,8 @@
+{
+  "status": "pass",
+  "tests_run": 10,
+  "failures": 0,
+  "errors": 0,
+  "Dafny_calls": 0,
+  "native_executions": 0
+}

@@ -1,0 +1,29 @@
+{
+  "status": "pass: construction/provenance checks ONLY",
+  "whole_properties": 1,
+  "entry": "DecimalGreater",
+  "inputs": 5,
+  "outputs": 4,
+  "requires": 4,
+  "ensures_counted_together": 5,
+  "helpers_with_exact_contract_metadata": 29,
+  "frozen_examples_unchanged": 16,
+  "significant_selected_source_lines_tagged": 25,
+  "no_result_or_resource_spec_oracle_reachable_from_computation": true,
+  "explicit_direct_tick_order_wraparound_and_three_initializer_cats": "pass",
+  "provenance": {
+    "status": "pass",
+    "scope": "exact tags, metadata, forbidden constructs; NOT source equivalence or full upstream validation",
+    "properties": [
+      {
+        "id": "P23",
+        "source_tags": 377,
+        "requires": 4,
+        "helpers": 29,
+        "sha256": "8efdcf8c8bfb7049144956b50ff95b12591e7737088a3e8e3c94954dd3635f59"
+      }
+    ]
+  },
+  "model_sha256": "8efdcf8c8bfb7049144956b50ff95b12591e7737088a3e8e3c94954dd3635f59",
+  "not_claimed": "No property-free validity, concrete-domain, original-positive, refutation or native correctness check has run"
+}

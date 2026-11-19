@@ -1,0 +1,19 @@
+# P23 independent concrete-domain group
+
+Outcome: **all sixteen frozen concrete callers admitted**, not the original semantic property. Attempt3 completed in2.942seconds with Dafny exit0,48 internal obligations verified,0errors and no timeout/intervention. The complete original property and any refutation remain unchecked; internal obligations and individual callers are not extra whole properties.
+
+The checked input `nfv6-checks\003-P23-domain.dfy` has SHA256 `a7c88489a5e4052259d91abf279c430e5c8465683d23ce58fd2e3a51f7643dbc`. Its prefix is byte-identical to admitted property-free validity input2, SHA256 `d914726bb2fd68db28ff90c1e369d122638d82cea738902c6f27be063b3e9b72`. It retains the proven prefix/count annotations, all computation, four entry requires and twenty-nine helper bodies/contracts. The entry's entire original five-ensures conjunction is absent, preventing callers from borrowing an unproved semantic result.
+
+Sixteen separate methods bind all five inputs to the exact literals frozen before modeling, assert all four entry requires, and call the property-free entry with four result slots. No expected-output matrix or original postcondition is an input/domain assumption. Cases include zero, leading zeros, equality, invalid symbols, digit/length transitions, cancellation, budget and uint32 counter wrap. Out-of-native-character integers are explicitly part of the mathematical alphabet overapproximation, not claimed native-call witnesses.
+
+Ten current runner tests pass. They check exact all-input caller bindings, rejection of missing inputs, independence from expected outputs, matching prior-validity admission, annotation-only computation preservation, trust/statement-smuggling rejection, exact full-goal removal, changed-goal rejection and failed-gate exit propagation. The successful validity and both failed/successful earlier attempts remain byte- and history-prefix-identical. This stage seals an immutable three-record history prefix and exact runner/test snapshots; it does not freeze the mutable global history or future working tools.
+
+No native source was executed, built, imported or patched. No model domain, input, computation, helper contract, original goal or example changed. Source, stash, five published report trees and worktree remain unchanged. These are local Dafny model gates, not source equivalence, native reachability, crash-freedom or official hosted NFV admission.
+
+The first evidence finalizer failed before writing its snapshot/handoff because its output-list regex did not permit repeated `out` prefixes. Its exact failed tool and diagnostic are retained under `nfv6-tool-attempts\001-domain-finalizer`. The corrected parser validates the real four-output call. No model or verifier input changed and no additional Dafny check was run.
+
+## Separate next stage: the complete original positive
+
+Check the full-goal candidate `nfv6-proof-hints\001-prefix\P23.dfy`, SHA256 `417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074`, with ALL five frozen entry ensures together. Use the same four requires and unchanged helper/input/example contracts. Do not retain the property-free derivative or replace the conjunction by a shorter/easier target. The non-proof computation/contract hash stays `05cf33b25d98c30083ff8e039b458357ed166235ed83d5284f47346a554d0741`.
+
+Run only that stage's one bounded attempt, with explicit Dafny4.11.0/bundledZ3-4.12.1, two cores total,30seconds per obligation and a600second whole-file wall watchdog. Preserve every diagnostic, raw log and input. A failed positive is NOT refutation, and proved individual conjuncts do not constitute a whole-property proof. Only checked proof annotations may change later. Schedule2 remains active through proof attempts, publication and later batches.

@@ -1,0 +1,327 @@
+{
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+  "blob": "8c182d0e93e238e39c4e74669b73d567aa7cb948",
+  "sha256": "94cc217020573a3db0e15e6b482ce984027546070f6a6fbc8d41fe271feeeb7f",
+  "spans": [
+    [
+      90,
+      95
+    ],
+    [
+      257,
+      286
+    ],
+    [
+      287,
+      315
+    ],
+    [
+      1492,
+      1501
+    ]
+  ],
+  "excerpts": [
+    {
+      "line": 90,
+      "text": "    void tick() {"
+    },
+    {
+      "line": 91,
+      "text": "        if (!m.inc()) throw failure::canceled;"
+    },
+    {
+      "line": 92,
+      "text": "        if (++steps > max_steps) throw failure::budget;"
+    },
+    {
+      "line": 93,
+      "text": "    }"
+    },
+    {
+      "line": 94,
+      "text": "    expr* keep(expr* e) { pin.push_back(e); return e; }"
+    },
+    {
+      "line": 95,
+      "text": "    expr* keep(expr_ref const& e) { return keep(e.get()); }"
+    },
+    {
+      "line": 257,
+      "text": "    expr* lit(zstring const& s) {"
+    },
+    {
+      "line": 258,
+      "text": "        tick();"
+    },
+    {
+      "line": 259,
+      "text": "        expr_ref str(u.str.mk_string(s), m);"
+    },
+    {
+      "line": 260,
+      "text": "        return keep(rw.mk_to_re(str));"
+    },
+    {
+      "line": 261,
+      "text": "    }"
+    },
+    {
+      "line": 262,
+      "text": "    expr* cat(expr* x, expr* y) { tick(); return keep(rw.mk_re_append(x, y)); }"
+    },
+    {
+      "line": 263,
+      "text": "    expr* cat(std::initializer_list<expr*> xs) {"
+    },
+    {
+      "line": 264,
+      "text": "        expr* result = epsilon;"
+    },
+    {
+      "line": 265,
+      "text": "        for (expr* x : xs) result = cat(result, x);"
+    },
+    {
+      "line": 266,
+      "text": "        return result;"
+    },
+    {
+      "line": 267,
+      "text": "    }"
+    },
+    {
+      "line": 268,
+      "text": "    expr* join(expr* x, expr* y) { tick(); return keep(rw.mk_union(x, y)); }"
+    },
+    {
+      "line": 269,
+      "text": "    expr* star(expr* x) { tick(); return keep(rw.mk_star(x)); }"
+    },
+    {
+      "line": 270,
+      "text": "    expr* meet(expr* x, expr* y) {"
+    },
+    {
+      "line": 271,
+      "text": "        tick();"
+    },
+    {
+      "line": 272,
+      "text": "        return keep(rw.mk_inter(x, y));"
+    },
+    {
+      "line": 273,
+      "text": "    }"
+    },
+    {
+      "line": 274,
+      "text": "    expr* complement(expr* x) {"
+    },
+    {
+      "line": 275,
+      "text": "        tick();"
+    },
+    {
+      "line": 276,
+      "text": "        // Avoid expanding De Morgan's law; keep Boolean languages shared."
+    },
+    {
+      "line": 277,
+      "text": "        expr* child;"
+    },
+    {
+      "line": 278,
+      "text": "        if (u.re.is_complement(x, child)) return child;"
+    },
+    {
+      "line": 279,
+      "text": "        if (u.re.is_empty(x)) return all;"
+    },
+    {
+      "line": 280,
+      "text": "        if (u.re.is_full_seq(x)) return empty;"
+    },
+    {
+      "line": 281,
+      "text": "        return keep(u.re.mk_complement(x));"
+    },
+    {
+      "line": 282,
+      "text": "    }"
+    },
+    {
+      "line": 283,
+      "text": "    expr* decimal_range(unsigned lo, unsigned hi) {"
+    },
+    {
+      "line": 284,
+      "text": "        tick();"
+    },
+    {
+      "line": 285,
+      "text": "        return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));"
+    },
+    {
+      "line": 286,
+      "text": "    }"
+    },
+    {
+      "line": 287,
+      "text": "    expr* decimal_greater(rational const& bound) {"
+    },
+    {
+      "line": 288,
+      "text": "        SASSERT(bound.is_int() && bound >= 0);"
+    },
+    {
+      "line": 289,
+      "text": "        std::string text = bound.to_string();"
+    },
+    {
+      "line": 290,
+      "text": "        if (text.size() > 4096) throw failure::budget;"
+    },
+    {
+      "line": 291,
+      "text": "        unsigned size = static_cast<unsigned>(text.size());"
+    },
+    {
+      "line": 292,
+      "text": "        expr* digits = decimal_range(0, 9);"
+    },
+    {
+      "line": 293,
+      "text": "        expr* suffix = epsilon;"
+    },
+    {
+      "line": 294,
+      "text": "        expr* greater = empty;"
+    },
+    {
+      "line": 295,
+      "text": "        // Shared suffixes keep the lexicographic comparison linear in the numeral's size."
+    },
+    {
+      "line": 296,
+      "text": "        for (unsigned i = size; i-- > 0;) {"
+    },
+    {
+      "line": 297,
+      "text": "            tick();"
+    },
+    {
+      "line": 298,
+      "text": "            unsigned digit = text[i] - '0';"
+    },
+    {
+      "line": 299,
+      "text": "            expr* exact = lit(zstring(static_cast<unsigned>(text[i])));"
+    },
+    {
+      "line": 300,
+      "text": "            greater = cat(exact, greater);"
+    },
+    {
+      "line": 301,
+      "text": "            if (digit < 9) {"
+    },
+    {
+      "line": 302,
+      "text": "                expr* higher = decimal_range(digit + 1, 9);"
+    },
+    {
+      "line": 303,
+      "text": "                expr* alternative = cat(higher, suffix);"
+    },
+    {
+      "line": 304,
+      "text": "                greater = join(greater, alternative);"
+    },
+    {
+      "line": 305,
+      "text": "            }"
+    },
+    {
+      "line": 306,
+      "text": "            suffix = cat(digits, suffix);"
+    },
+    {
+      "line": 307,
+      "text": "        }"
+    },
+    {
+      "line": 308,
+      "text": "        expr* nonzero = decimal_range(1, 9);"
+    },
+    {
+      "line": 309,
+      "text": "        expr* arbitrary = star(digits);"
+    },
+    {
+      "line": 310,
+      "text": "        expr* longer = cat({nonzero, suffix, arbitrary});"
+    },
+    {
+      "line": 311,
+      "text": "        greater = join(greater, longer);"
+    },
+    {
+      "line": 312,
+      "text": "        expr* zeros = lit(zstring(\"0\"));"
+    },
+    {
+      "line": 313,
+      "text": "        zeros = star(zeros);"
+    },
+    {
+      "line": 314,
+      "text": "        return cat(zeros, greater);"
+    },
+    {
+      "line": 315,
+      "text": "    }"
+    },
+    {
+      "line": 1492,
+      "text": "    regular_compiler(ast_manager& m, unsigned limit, unsigned& steps, unsigned& preimages):"
+    },
+    {
+      "line": 1493,
+      "text": "        m(m), u(m), a(m), rw(m), br(m), pin(m), empty(m), epsilon(m), character(m), all(m),"
+    },
+    {
+      "line": 1494,
+      "text": "        max_steps(limit), steps(steps), preimages(preimages) {"
+    },
+    {
+      "line": 1495,
+      "text": "        sort* s = u.str.mk_string_sort();"
+    },
+    {
+      "line": 1496,
+      "text": "        sort* re = u.re.mk_re(s);"
+    },
+    {
+      "line": 1497,
+      "text": "        empty = u.re.mk_empty(re);"
+    },
+    {
+      "line": 1498,
+      "text": "        epsilon = u.re.mk_epsilon(s);"
+    },
+    {
+      "line": 1499,
+      "text": "        character = u.re.mk_full_char(re);"
+    },
+    {
+      "line": 1500,
+      "text": "        all = u.re.mk_full_seq(re);"
+    },
+    {
+      "line": 1501,
+      "text": "    }"
+    }
+  ],
+  "purpose": "Selected whole entry, direct helper/tick behavior and empty/epsilon constructor values; no source execution"
+}

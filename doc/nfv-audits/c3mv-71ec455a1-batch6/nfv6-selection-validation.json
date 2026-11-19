@@ -1,0 +1,32 @@
+{
+  "stage": "nfv6-select",
+  "validation": "independent post-seal checks completed successfully",
+  "handoff": "nfv6-selection-handoff.json",
+  "handoff_sha256": "e0b67c6eb0ca54fc80f15ae00b2bd1633f2077d93f96227b5b37b507b5b48d01",
+  "whole_properties": 1,
+  "property": "P23",
+  "requires": 4,
+  "ensures_counted_together": 5,
+  "literal_examples_checked": 16,
+  "exact_source_addendum_lines": 75,
+  "checks": [
+    "selection handoff and every referenced raw artifact hash match",
+    "entry names/types, whole-property count and required-contract metadata match",
+    "every example pins all five inputs and has unsigned resource snapshots",
+    "twelve completed examples agree with separately fixed whole-word truth expectations",
+    "all completed tables have expected dimensions, false lower triangle/diagonal, exact successful observation count and wrapped steps",
+    "four cancellation/budget cases have separately fixed exact status/counter/prefix outcomes",
+    "every source addendum row matches local text, itself checked against pinned raw Git source",
+    "all planned helper source anchors occur in the addendum",
+    "successful and archived failed selection tools parse as Python",
+    "all report Markdown links resolve",
+    "repository worktree remains clean"
+  ],
+  "not_claimed": "No Dafny model exists or has passed validity/domain/positive checks. No native correctness, reachability, crash or constructor-equivalence finding.",
+  "verifier_invocations": 0,
+  "production_executions": 0,
+  "retained_preseal_failure": "nfv6-selection-attempts/001-anchor-assertion/failure.json",
+  "next_stage": "nfv6-model",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

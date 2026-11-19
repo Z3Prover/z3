@@ -1,0 +1,56 @@
+{
+  "stage": "nfv6-verify",
+  "status": "initial validity attempt complete; gate NOT admitted",
+  "files": {
+    "nfv6-validity-initial.md": "677c7cc0f7b07234df9abdba8ef8f78ae9f0319cc65af4432d69329cf9b0ed62",
+    "finalize_nfv6_validity_initial.py": "8f6f9df906a0784cc985b035d00b448c2ef11db5f2140a299c2582c9e50ca053",
+    "nfv6-runner-tests.log": "0bc288f12dfdaf0b6d19f6fb888c32db7c29c5ee604511be96c786be9da765d5",
+    "nfv6-runner-tests.json": "723bf634b71e3b1bd23546c669d34ae7d7d9569552fe6272d3f7dbf94764d3e8",
+    "nfv6-runner-exit-tests.log": "e54e83c6c8eb0a0cf4e6f80386e322630df121c78d5e072c76db4fc25f3b809f",
+    "nfv6-runner-exit-tests.json": "fcf83a66965f6fa94c792413c9b737bd0e34319bd72f5120d23d3b8c3af0e632",
+    "nfv6-model-handoff.json": "bb7d679168d5196f1306adaa524023f3feb3d42eee2b5cea3616453ce35a2262",
+    "nfv6-checks/001-P23-validity.dfy": "4d5f1c1b186a8fa5222593978b209edf37d51d7e508ec05a052435c2280f5135",
+    "nfv6-checks/001-P23-validity.log": "fa3c8cd58bf840c0b95eea8b1b966cea7bb20cb7ec929fa6be3d0ed4a4505068",
+    "nfv6-checks/001-P23-validity.result.json": "39bed7200b4d6fdc627cc3950f71440f25195ce87f9d728794b36f6c33bde8f2",
+    "nfv6-checks/001-P23-validity.runner.py": "6acdda1e5b4eba60d15ec7347b640ac5d8ef89d37713ed11d0a92acbfacc4073",
+    "nfv6-checks/001-P23-validity.start.json": "218dd12abcc268cf1eba22a5f4f711e80f9c9be187a8868b0f0ce70444958f74",
+    "nfv6-checks/stage-initial/checks-prefix.json": "f1d556f66274224d1d8609717e79645277c18118e0228fb4ca4a55d61d3411bb",
+    "nfv6-checks/stage-initial/test_nfv5_watchdog.py": "750e1d01e9f68ff9b8337aebfceee0aff24fa39d5523d2e4b3e30bed854e3b91",
+    "nfv6-checks/stage-initial/test_nfv6_runner.py": "fcfe132ce066b7a8799394635471adc41a0d047f816227449ebbd1223c882361",
+    "nfv6-checks/stage-initial/verify_nfv5.py": "a36b17a201150102a2fec50477ba9ffaa348632fd291e17776de3bcd115a60a5",
+    "nfv6-checks/stage-initial/verify_nfv6.py": "8d006b0f186ff117cb4ed98786716d8d9178ae1f8f4d94c7e3d02869181934a4"
+  },
+  "checked_input_sha256": "4d5f1c1b186a8fa5222593978b209edf37d51d7e508ec05a052435c2280f5135",
+  "verifier_attempts": 1,
+  "verifier_exit": 4,
+  "seconds": 3.093,
+  "internal_obligations_verified": 31,
+  "unproved_annotations": [
+    {
+      "line": 669,
+      "column": 19,
+      "message": "this loop invariant could not be proved on entry",
+      "checked_annotation": "invariant used == 1 + 4 * (size - i) + 3 * (CountLowDigits(text) - CountLowDigits(text[..i]))"
+    },
+    {
+      "line": 679,
+      "column": 41,
+      "message": "assertion might not hold",
+      "checked_annotation": "assert CountLowDigits(text[..i + 1]) == CountLowDigits(text[..i]) + (if text[i] < 57 then 1 else 0);"
+    }
+  ],
+  "wall_timed_out": false,
+  "resource_intervention": false,
+  "whole_properties_verified": 0,
+  "whole_properties_refuted": 0,
+  "domain_attempts": 0,
+  "original_positive_attempts": 0,
+  "native_executions": 0,
+  "first_wrapper_exit": 0,
+  "first_wrapper_exit_note": "Historical wrapper process succeeded in recording Dafny exit4/admittedfalse; corrected current wrapper now returns1 on gate failure. Exact old runner retained, correction tested without another SMT invocation.",
+  "history_policy": "Mutable nfv6-checks/checks.json excluded from this seal. Immutable checks-prefix.json captures exactly the first record; later attempts may ONLY append, preserving this prefix and every first-attempt byte.",
+  "tool_policy": "Current runner/test files may be extended later; this stage seals exact immutable snapshots, not their future mutable working paths.",
+  "next_stage": "nfv6-validity-hints",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

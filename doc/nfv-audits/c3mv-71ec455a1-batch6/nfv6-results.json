@@ -1,0 +1,27 @@
+{
+  "kind": "manual local NFV-methodology audit; not hosted output",
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "property_id": "P23",
+  "disposition": "audit failure: confirmed model/source correspondence mismatch",
+  "summary": {
+    "selected": 1,
+    "verified": 0,
+    "refuted": 0,
+    "audit_failures": 1,
+    "resources_exhausted": 0,
+    "verifier_attempts": 4,
+    "native_executions": 0,
+    "new_verified_source_entries": 0,
+    "admitted_model_domains": 16
+  },
+  "source_correspondence_admitted": false,
+  "checks_sha256": "91dbca371a9f3124c5a2b792913ffcf8494f6b760b8ec8888ff541347a7afbb8",
+  "positive_handoff_sha256": "0c0a247024dc87b5dd8e896405973b2e945941ca4ac1e7e3a759e21382a3eda6",
+  "isolated_repeat_cancelled": true,
+  "new_verifier_invocations_for_report": 0,
+  "followup": "After publication pre-freeze same-intent corrected retranslation, unchanged inputs/contracts/goals/all16examples, zero new source coverage and fresh validity/domain/whole-positive gates",
+  "continuous_schedule_id": 2,
+  "stop_schedule": false
+}

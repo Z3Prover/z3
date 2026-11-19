@@ -1,0 +1,14 @@
+{
+  "stage": "nfv6-domain",
+  "command": "python -B finalize_nfv6_domain.py",
+  "exit_code": 1,
+  "exception": "IndexError: list index out of range",
+  "location": "finalize_nfv6_domain.py:59",
+  "diagnosis": "Output-list parser allowed digits/commas/spaces after the first out prefix but not repeated out prefixes in out0, out1, out2, out3. The actual generated caller is correct; independent caller validation had already passed other checks.",
+  "retained_failed_tool": "finalize_nfv6_domain.py",
+  "outputs_written_by_failed_finalizer": [],
+  "domain_check_status_unchanged": "attempt3 exit0,48internalverified,0errors,all16callers admitted",
+  "additional_Dafny_calls": 0,
+  "native_executions": 0,
+  "classification": "evidence-parser tooling failure, NOT a translation refutation or native bug"
+}

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+    "resolve",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv6-drafts\\002\\P23.dfy",
+    "--cores",
+    "2",
+    "--show-snippets",
+    "false",
+    "--allow-warnings"
+  ],
+  "exit_code": 0,
+  "seconds": 0.8181812999537215,
+  "model_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "raw_log_sha256": "c22141815445cda8195b91bfca8c4c76103d624d8ac4c2b6d5da29b31bf84037",
+  "operation": "parse/type resolution ONLY,not validity/domain/positive verification",
+  "solver_invocations": 0
+}

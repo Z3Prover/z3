@@ -1,0 +1,10 @@
+test_rejects_weakened_goal_metadata (test_nfv6_runner.ValidityDerivativeTests.test_rejects_weakened_goal_metadata) ... ok
+test_removes_only_complete_entry_ensures (test_nfv6_runner.ValidityDerivativeTests.test_removes_only_complete_entry_ensures) ... ok
+test_completed_success (watchdog_tests.WatchdogTests.test_completed_success) ... ok
+test_nonzero_exit_does_not_clean_up (watchdog_tests.WatchdogTests.test_nonzero_exit_does_not_clean_up) ... ok
+test_timeout_removes_owned_child (watchdog_tests.WatchdogTests.test_timeout_removes_owned_child) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 4.846s
+
+OK

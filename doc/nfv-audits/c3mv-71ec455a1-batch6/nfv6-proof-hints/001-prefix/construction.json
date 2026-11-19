@@ -1,0 +1,21 @@
+{
+  "status": "unproved annotation candidate",
+  "parent_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "candidate_sha256": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074",
+  "non_proof_computation_contract_hash": "05cf33b25d98c30083ff8e039b458357ed166235ed83d5284f47346a554d0741",
+  "added_assertions": [
+    "used == 1",
+    "size == |text|",
+    "i == size",
+    "text[..size] == text",
+    "CountLowDigits(text[..i]) == CountLowDigits(text)",
+    "0 <= i < |text|",
+    "|text[..i + 1]| == i + 1",
+    "(text[..i + 1])[..i] == text[..i]",
+    "(text[..i + 1])[i] == text[i]",
+    "CountLowDigits(text[..i + 1]) == CountLowDigits((text[..i + 1])[..i]) + (if (text[..i + 1])[i] < 57 then 1 else 0)"
+  ],
+  "changed_computation": false,
+  "changed_contracts_or_goals_or_examples": false,
+  "verifier_attempts": 0
+}

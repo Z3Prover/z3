@@ -1,0 +1,100 @@
+{
+  "stage": "nfv6-positive",
+  "status": "complete original positive NOT proved/NOT refuted; confirmed source-correspondence audit failure",
+  "files": {
+    "nfv6-positive-initial.md": "7784a80aa2e0b6a48ea0ca974c03b7eef49a74e89ee3d0c80e5edca13deea38e",
+    "finalize_nfv6_positive_initial.py": "4f476f97bb55a16e1a09cd28ad78500e7a41272b56a79a5f3575a28ab258436b",
+    "nfv6-positive-runner-tests.log": "55c0907761edfed7736c2da105b3d9198f8b16a36cc86b48e408f48fa3b569cf",
+    "nfv6-positive-runner-tests.json": "e5ad3779ccc6b1d459f32923f156c164f40174112cb61a832bc3932acbfa7588",
+    "nfv6-domain-handoff.json": "55c9bb9327cbd9ca46f3a440ab5b7668e91498a3f56052965f0d26f052584fcc",
+    "nfv6-model-handoff.json": "bb7d679168d5196f1306adaa524023f3feb3d42eee2b5cea3616453ce35a2262",
+    "nfv6-checks/stage-positive-initial/checks-prefix.json": "91dbca371a9f3124c5a2b792913ffcf8494f6b760b8ec8888ff541347a7afbb8",
+    "nfv6-checks/stage-positive-initial/test_nfv6_runner.py": "2ff9c738f9397779ce1494e3dc2a012fa1527ca5cc6effe8f1eec63b83300fe7",
+    "nfv6-checks/stage-positive-initial/verify_nfv6.py": "c79553069ae09d3fbadf63b72f4a65f7eb972af2655a074e455ebdba596267fd",
+    "nfv6-checks/004-P23-proof.dfy": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074",
+    "nfv6-checks/004-P23-proof.log": "c14f7fa79d3418be5b6f450cccf68fbd1bc57fe75867f1a8cf08cdf45f05700a",
+    "nfv6-checks/004-P23-proof.result.json": "70e47c4c7255654626d3e4b749c45a15668d62a4cba8bced44889b68d3f52a3d",
+    "nfv6-checks/004-P23-proof.runner.py": "c79553069ae09d3fbadf63b72f4a65f7eb972af2655a074e455ebdba596267fd",
+    "nfv6-checks/004-P23-proof.start.json": "f79bf0b59ea0d171b558fbda605ea3818e599db8e0a2d41a4e8fde617e07ea71",
+    "nfv6-correspondence-failure.json": "9e13cd92e37eda7233cf209ebd4784340a2f49334e5d6682388c31392d1b78d7"
+  },
+  "total_verifier_attempts": 4,
+  "this_stage_verifier_attempts": 1,
+  "positive_sequence": 4,
+  "positive_input_sha256": "417aabd6217094188bd7d02d3aa43e3372e35ee587a52ebbb5f3460409bdc074",
+  "validity_sequence": 2,
+  "domain_sequence": 3,
+  "literal_domains_admitted": 16,
+  "original_ensures_checked_together": [
+    "status == ExpectedStatus(bound, incResults, initialSteps, maxSteps)",
+    "finalSteps == ExpectedSteps(bound, incResults, initialSteps, maxSteps) && used == ExpectedUsed(bound, incResults, initialSteps, maxSteps)",
+    "status != 0 ==> language == []",
+    "status == 0 ==> |language| == (|word| + 1) * (|word| + 1)",
+    "status == 0 ==> forall i: int, j: int :: 0 <= i <= |word| && 0 <= j <= |word| ==> language[i * (|word| + 1) + j] == (i <= j && Stoi(word[i..j]) > bound)"
+  ],
+  "canonical_model_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "non_proof_computation_contract_hash": "05cf33b25d98c30083ff8e039b458357ed166235ed83d5284f47346a554d0741",
+  "seconds": 32.779,
+  "verifier_exit": 4,
+  "internal_obligations_verified": 32,
+  "diagnostic_errors": 3,
+  "diagnostics": [
+    {
+      "line": 777,
+      "column": 19,
+      "kind": "Error",
+      "message": "a postcondition could not be proved on this return path",
+      "checked_text": "if status != 0 { return; }"
+    },
+    {
+      "line": 611,
+      "column": 17,
+      "kind": "Related location",
+      "message": "this is the postcondition that could not be proved",
+      "checked_text": "ensures status == ExpectedStatus(bound, incResults, initialSteps, maxSteps)"
+    },
+    {
+      "line": 777,
+      "column": 19,
+      "kind": "Error",
+      "message": "a postcondition could not be proved on this return path",
+      "checked_text": "if status != 0 { return; }"
+    },
+    {
+      "line": 613,
+      "column": 21,
+      "kind": "Related location",
+      "message": "this is the postcondition that could not be proved",
+      "checked_text": "ensures finalSteps == ExpectedSteps(bound, incResults, initialSteps, maxSteps) && used == ExpectedUsed(bound, incResults, initialSteps, maxSteps)"
+    },
+    {
+      "line": 777,
+      "column": 19,
+      "kind": "Error",
+      "message": "a postcondition could not be proved on this return path",
+      "checked_text": "if status != 0 { return; }"
+    },
+    {
+      "line": 613,
+      "column": 89,
+      "kind": "Related location",
+      "message": "this is the postcondition that could not be proved",
+      "checked_text": "ensures finalSteps == ExpectedSteps(bound, incResults, initialSteps, maxSteps) && used == ExpectedUsed(bound, incResults, initialSteps, maxSteps)"
+    }
+  ],
+  "reported_timeouts": 0,
+  "watchdog_interventions": 0,
+  "tooling_tests": 13,
+  "refutation_attempts": 0,
+  "whole_properties_verified": 0,
+  "whole_properties_refuted": 0,
+  "native_executions": 0,
+  "history_policy": "Only append to global checks.json preserving this sealed four-record prefix; every earlier checked byte stays immutable",
+  "source_correspondence_admitted": false,
+  "model_translation_failures": 1,
+  "assertion_isolated_followup_cancelled_before_execution": true,
+  "new_source_coverage_claims": 0,
+  "next_stage": "nfv6-results",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

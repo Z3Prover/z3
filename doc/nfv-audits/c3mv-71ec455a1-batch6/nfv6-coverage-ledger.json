@@ -1,0 +1,150 @@
+{
+  "stage": "nfv6-coverage",
+  "recorded_utc": "2026-11-19T19:24:17.891669+00:00",
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "source_inventory_sha256": "2e725f42a5e9271226d248dc74e33dd30b1c32d9942960bb94cfbdad68a76b58",
+  "candidates": [
+    {
+      "id": "C05-coherence-callbacks",
+      "path": "src/ast/seq/seq_stoi_facet.h",
+      "entry": "stoi_facet::check_stoi_coherence",
+      "span": [
+        95,
+        164
+      ],
+      "status": "defer unconditional termination/native-safety claim; conditional full-state property possible only with disclosed callback frame and finite append trace",
+      "whole_property": "Complete guard selection, saved term/depth identity, instantiation and guarded upper-bound event log, indexed/trail depth update, live-size iteration and progress return agree with actual processing order.",
+      "guards": [
+        "Early mode bounds>1 require bound<=2 and equal available arithmetic bounds.",
+        "Current conversion=-1 skips; lengths use syntactic bound<=1 or early bound2,otherwise current unsigned length.",
+        "Zero length and prev_k>=k skip; update occurs after BOTH callback/axiom events."
+      ],
+      "environment": [
+        "Constructor binds callback to real positional axioms; ambient add_axiom reuses clause path.",
+        "Callbacks may internalize/enqueue terms. Only explicit add_term is append-only,with pop trail; set_depth uses indexed value trail.",
+        "No proved uniform bound on callback append growth/reentrancy/backtracking during this call; do not assume safety as the theorem."
+      ],
+      "limitations": [
+        "No native crash or infinite-loop witness. Copied pair avoids one stale-reference pattern only.",
+        "Finite callback script must be body-defined and explicitly conditional,not arbitrary fuel masking a loop."
+      ],
+      "changed_hunks": [
+        [
+          1,
+          181
+        ]
+      ],
+      "eligibility": "Entry span intersects branch-introduced change; not a new upstream-master entry"
+    },
+    {
+      "id": "C13-nested-model-slots",
+      "path": "src/smt/theory_nseq.cpp",
+      "entry": "theory_nseq::seq_model_value_proc::mk_value",
+      "span": [
+        89,
+        151
+      ],
+      "status": "conditional full consumer/producer-normal-return property candidate; no selection yet",
+      "whole_property": "Given slots justified by the actual finite normally returning producer,consume each dependency once in order,maintain matched saved-prefix/exponent frames,and return the complete interpreted concatenation with nested powers and constant-run flushing preserved.",
+      "producer_span": [
+        869,
+        1002
+      ],
+      "evidence": [
+        "Positive integral powers emit begin,recursive base tokens,end; nonpositive powers emit empty.",
+        "Every dependency append emits one slot and one enode; get_dependencies preserves order; model generator supplies one value per dependency.",
+        "Begin/end flush character runs; end extracts suffix,shrinks to saved prefix,pops both stacks and re-adds rewritten power."
+      ],
+      "limitations": [
+        "Paired control-flow is a normal-return structural observation,not proof that substitution recursion always terminates.",
+        "Do not assume arbitrary slot balance and call it a native stack-safety proof; model finite producer structure or disclose the conditional grammar.",
+        "Body-define word powers/token concatenation; abstract rewriter observations are not an assumed equivalence oracle.",
+        "Exclude no native sort/alias/lifetime concern silently; a string-only scope must be explicit."
+      ],
+      "changed_hunks": [
+        [
+          1,
+          1479
+        ]
+      ],
+      "eligibility": "Entry span intersects branch-introduced change; not a new upstream-master entry"
+    },
+    {
+      "id": "C14-saturated-length",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "regular_compiler::bounded_length",
+      "span": [
+        138,
+        169
+      ],
+      "status": "ready for later whole-intent consideration,not selected",
+      "whole_property": "On successful complete evaluation,the returned unsigned bound is UINT_MAX (unknown/saturated) or bounds actual interpreted string length for every admissible valuation; preserve exact extract/concat/ite/cache behavior.",
+      "requirements": [
+        "UINT_MAX is a sentinel,not an asserted numerical bound on unbounded mathematical lengths.",
+        "add_truncate uses uint64 addition then saturates; no wraparound or blanket no-overflow precondition.",
+        "Constant nonpositive extract count yields0; finite positive count intersects source bound; symbolic or out-of-unsigned count does not invent a finite cap.",
+        "Ite uses max over both alternatives. Fallback max_length body must preserve empty/unit/at/literal/extract/concat/unknown cases.",
+        "AST identity/cache/affine evaluation and depth>256,budget/cancellation behavior must be represented or explicitly scoped to normal return."
+      ],
+      "limitations": [
+        "Not exact length inference,finite-bound completeness,all scalar arithmetic correctness,or proof of compiler/native integration."
+      ],
+      "changed_hunks": [
+        [
+          1,
+          1873
+        ]
+      ],
+      "eligibility": "Entry span intersects branch-introduced change; not a new upstream-master entry"
+    },
+    {
+      "id": "C14-nonnegative-decimal-language",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "regular_compiler::decimal_language with decimal_greater helper",
+      "span": [
+        316,
+        358
+      ],
+      "helper_span": [
+        287,
+        315
+      ],
+      "status": "ready for later whole-intent consideration,not selected; distinct from P9 negative-threshold scope",
+      "whole_property": "For nonnegative integral threshold and every word,membership in the complete constructed language agrees with its SMT stoi comparison for all6operators,including arbitrary leading zeros and invalid/empty words.",
+      "requirements": [
+        "Use canonical body-defined decimal rendering of integer bound; preserve 4096-digit budget and all tick failures as appropriate.",
+        "decimal_greater builds right-to-left exact-prefix and higher-digit alternatives with shared arbitrary-digit suffixes,plus longer canonical positive words,then leading zero star.",
+        "Equality/inequality use zero-star concatenated with canonical numeral,including one-or-more zeros for bound0.",
+        "GE0 uses valid digit-plus; LT0 its complement; positive GE/LT use bound-1; LE/LT complement the constructed greater language.",
+        "Complement ranges over all strings; invalid conversion=-1 is not an arbitrary negative input value.",
+        "Regex constructors,membership and numeric word interpretation need bodies,not a convenient direct-comparison oracle."
+      ],
+      "limitations": [
+        "One full semantic family,not six counted operator properties or a separate helper property to pad coverage.",
+        "No proof of native regex AST correspondence or transactional compiler correctness."
+      ],
+      "changed_hunks": [
+        [
+          1,
+          1873
+        ]
+      ],
+      "eligibility": "Entry span intersects branch-introduced change; not a new upstream-master entry"
+    }
+  ],
+  "selected_properties": 0,
+  "verifier_invocations": 0,
+  "native_executions": 0,
+  "preserved_open_intents": [
+    "P13",
+    "P18",
+    "P20",
+    "P21",
+    "P22"
+  ],
+  "next_stage": "nfv6-select",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

@@ -1,0 +1,27 @@
+{
+  "stage": "nfv6-reconcile",
+  "status": "done",
+  "recorded_utc": "2026-11-19T19:17:41.597995+00:00",
+  "files": {
+    "capture_nfv6_baseline.py": "f0203dfa36aeec185600540b84fe479c38a94361232e096e867aa80b3834de6d",
+    "nfv6-baseline.json": "dd6b8f5c3f68c3ebdc6b67d5643957456f51b1024c652109d58071d6b550ab2e",
+    "nfv6-baseline.md": "ea917401e9ce89372d06b4b7819b2d0ff0627270708a80a9f8302a082fb457df",
+    "nfv6-master-drift.patch": "0d07bdb626e73f6f847f6b5e45adb1c18cae13d76f3df506691299703733ad44"
+  },
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "counts": {
+    "branch_files": 104,
+    "branch_src": 89,
+    "direct_files": 120,
+    "direct_src": 103,
+    "drift_files": 13,
+    "drift_production": 7
+  },
+  "next_stage": "nfv6-coverage",
+  "verifier_invocations": 0,
+  "native_executions": 0,
+  "schedule_id": 2,
+  "stop_schedule": false
+}

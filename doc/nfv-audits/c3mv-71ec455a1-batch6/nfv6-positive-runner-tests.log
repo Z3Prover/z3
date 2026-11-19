@@ -1,0 +1,18 @@
+test_accepts_single_annotation_without_computation_change (test_nfv6_runner.ValidityDerivativeTests.test_accepts_single_annotation_without_computation_change) ... ok
+test_domain_gate_requires_admitted_matching_validity (test_nfv6_runner.ValidityDerivativeTests.test_domain_gate_requires_admitted_matching_validity) ... ok
+test_domain_generation_ignores_expected_outputs (test_nfv6_runner.ValidityDerivativeTests.test_domain_generation_ignores_expected_outputs) ... ok
+test_domains_bind_all_inputs_without_positive_contracts (test_nfv6_runner.ValidityDerivativeTests.test_domains_bind_all_inputs_without_positive_contracts) ... ok
+test_domains_reject_unbound_input (test_nfv6_runner.ValidityDerivativeTests.test_domains_reject_unbound_input) ... ok
+test_failed_gate_returns_nonzero_after_recording_real_exit (test_nfv6_runner.ValidityDerivativeTests.test_failed_gate_returns_nonzero_after_recording_real_exit) ... ok
+test_positive_preserves_every_original_byte_and_rejects_validity_derivative (test_nfv6_runner.ValidityDerivativeTests.test_positive_preserves_every_original_byte_and_rejects_validity_derivative) ... ok
+test_positive_rejects_each_replaced_conjunct (test_nfv6_runner.ValidityDerivativeTests.test_positive_rejects_each_replaced_conjunct) ... ok
+test_positive_requires_complete_matching_admitted_domain_group (test_nfv6_runner.ValidityDerivativeTests.test_positive_requires_complete_matching_admitted_domain_group) ... ok
+test_rejects_changed_computation (test_nfv6_runner.ValidityDerivativeTests.test_rejects_changed_computation) ... ok
+test_rejects_code_hidden_on_proof_line (test_nfv6_runner.ValidityDerivativeTests.test_rejects_code_hidden_on_proof_line) ... ok
+test_rejects_weakened_goal_metadata (test_nfv6_runner.ValidityDerivativeTests.test_rejects_weakened_goal_metadata) ... ok
+test_removes_only_complete_entry_ensures (test_nfv6_runner.ValidityDerivativeTests.test_removes_only_complete_entry_ensures) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.389s
+
+OK

@@ -1,0 +1,42 @@
+{
+  "stage": "nfv6-model",
+  "status": "done",
+  "files": {
+    "nfv6-model-freeze.json": "3e8c6a03a23e3fb42418478107c6a8a49711c6fb43492bf5f6aea6f391f2b857",
+    "build_nfv6_model.py": "8cef2c21ba18ce726d32b1b67ba0939e2ac7467b96362ac404263a1d349cb677",
+    "validate_nfv6_model.py": "e0e73ef42cf1a2125c6f43232d37e06dcfa57de75cf68d1dfe0238a3c831d349",
+    "seal_nfv6_model.py": "969e18a87b4cf3101d3c7c9343524a2f2618f0f3a13cb32f45eccfd60be91910",
+    "check_nfv_provenance.py": "3b9ec3b2f9508fd649e303697f3ef8136b4ad5fc2775e9a09fb4140b74efdeb0",
+    "nfv6-selection-handoff.json": "e0b67c6eb0ca54fc80f15ae00b2bd1633f2077d93f96227b5b37b507b5b48d01",
+    "nfv6-selection-validation.json": "8f76f932382e0d25560befecba498c2c4b8c9ec258b60883cf23c4668b871c95",
+    "nfv6-model.md": "5a99a83edcfbefcc8054a68a6dc78945b0e69b43f5526573fe8cdb3c58db2dd6",
+    "nfv6-models/P23.dfy": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+    "nfv6-models/properties.json": "bdaf2a73485b14c9f5e62c9f958665f4e4b9d8d3fd4dac303800cacc82a4f49f",
+    "nfv6-drafts/001/build_nfv6_model.py": "735f3b58800f48e9329f4c48609a362b2f9d4811e8789a5ec8a2a7589da2182a",
+    "nfv6-drafts/001/construction-validation.json": "6cf34b9c8af6edeca67b07a5fba3e698b12c55a437610deb4d63f3f2261ba207",
+    "nfv6-drafts/001/construction-validation.log": "6cf34b9c8af6edeca67b07a5fba3e698b12c55a437610deb4d63f3f2261ba207",
+    "nfv6-drafts/001/construction.json": "c2262d0163147872f2d3bc8d935c57b0a06752e9f148bebb34b571edce692695",
+    "nfv6-drafts/001/P23.dfy": "8efdcf8c8bfb7049144956b50ff95b12591e7737088a3e8e3c94954dd3635f59",
+    "nfv6-drafts/001/properties.json": "fbe81f14cede6fef25878e7687cb5a47e24a4e6d5672380efd28cd3585129a2c",
+    "nfv6-drafts/001/resolve.json": "9bd41abdde0b95adc9c7309e8aded13c24b36587ab02848d5b17c7d6b30a7c4f",
+    "nfv6-drafts/001/resolve.log": "c22141815445cda8195b91bfca8c4c76103d624d8ac4c2b6d5da29b31bf84037",
+    "nfv6-drafts/002/build_nfv6_model.py": "8cef2c21ba18ce726d32b1b67ba0939e2ac7467b96362ac404263a1d349cb677",
+    "nfv6-drafts/002/construction-validation.json": "4f302a10340f8637440e3ceb6e37cc3cc1848ab97f2ebe19a6de13092bd3d6df",
+    "nfv6-drafts/002/construction-validation.log": "4f302a10340f8637440e3ceb6e37cc3cc1848ab97f2ebe19a6de13092bd3d6df",
+    "nfv6-drafts/002/construction.json": "76b9035d9e139b772c03492117002933fb15c370d69a1226672f10be35e6c4df",
+    "nfv6-drafts/002/P23.dfy": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+    "nfv6-drafts/002/properties.json": "bdaf2a73485b14c9f5e62c9f958665f4e4b9d8d3fd4dac303800cacc82a4f49f",
+    "nfv6-drafts/002/resolve.json": "f700c74e7c98ed891739838cb4380d609025f9c68e326fbeee258ca38b74c9be",
+    "nfv6-drafts/002/resolve.log": "c22141815445cda8195b91bfca8c4c76103d624d8ac4c2b6d5da29b31bf84037"
+  },
+  "model_sha256": "e881b914e70e17a7887c6b8d991755cdec6e54e178ad313e9a8565f817a2bcbe",
+  "property_ids": [
+    "P23"
+  ],
+  "syntax_resolution_only": true,
+  "verification_attempts": 0,
+  "native_executions": 0,
+  "next_stage": "nfv6-verify",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

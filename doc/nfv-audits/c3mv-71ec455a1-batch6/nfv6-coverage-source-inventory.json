@@ -1,0 +1,6996 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "files": [
+    {
+      "path": "src/ast/rewriter/seq_rewriter.cpp",
+      "blob": "08417e31754fca8c292dd08622eb57186a8d1d14",
+      "sha256": "6f8ccb6fa459915cfc691a8e04f4d62a1eb967191b5709f3356310c8313ac7eb",
+      "spans": [
+        [
+          879,
+          925
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 879,
+          "text": "/**"
+        },
+        {
+          "line": 880,
+          "text": "   s^n = \"\" if n <= 0"
+        },
+        {
+          "line": 881,
+          "text": "   s^n = s ++ ... ++ s (n copies) if n > 0"
+        },
+        {
+          "line": 882,
+          "text": ""
+        },
+        {
+          "line": 883,
+          "text": "   Exponents above rewriter.max_power_expansion are left to the theory solver."
+        },
+        {
+          "line": 884,
+          "text": "*/"
+        },
+        {
+          "line": 885,
+          "text": "br_status seq_rewriter::mk_seq_power(expr* a, expr* b, expr_ref& result) {"
+        },
+        {
+          "line": 886,
+          "text": "    expr* s = nullptr, *k = nullptr;"
+        },
+        {
+          "line": 887,
+          "text": "    rational n, kv;"
+        },
+        {
+          "line": 888,
+          "text": "    if (str().is_empty(a)) {"
+        },
+        {
+          "line": 889,
+          "text": "        result = a;"
+        },
+        {
+          "line": 890,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 891,
+          "text": "    }"
+        },
+        {
+          "line": 892,
+          "text": "    bool is_num = m_autil.is_numeral(b, n);"
+        },
+        {
+          "line": 893,
+          "text": "    if (is_num && !n.is_pos()) {"
+        },
+        {
+          "line": 894,
+          "text": "        result = str().mk_empty(a->get_sort());"
+        },
+        {
+          "line": 895,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 896,
+          "text": "    }"
+        },
+        {
+          "line": 897,
+          "text": "    if (is_num && n.is_one()) {"
+        },
+        {
+          "line": 898,
+          "text": "        result = a;"
+        },
+        {
+          "line": 899,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 900,
+          "text": "    }"
+        },
+        {
+          "line": 901,
+          "text": "    // (s^k)^n = s^(k*n) whenever k or n is a positive numeral"
+        },
+        {
+          "line": 902,
+          "text": "    if (str().is_power(a, s, k) &&"
+        },
+        {
+          "line": 903,
+          "text": "        (is_num || (m_autil.is_numeral(k, kv) && kv.is_pos()))) {"
+        },
+        {
+          "line": 904,
+          "text": "        result = str().mk_power(s, m_autil.mk_mul(k, b));"
+        },
+        {
+          "line": 905,
+          "text": "        return BR_REWRITE_FULL;"
+        },
+        {
+          "line": 906,
+          "text": "    }"
+        },
+        {
+          "line": 907,
+          "text": "    if (!is_num || n > rational(m_max_power_expansion))"
+        },
+        {
+          "line": 908,
+          "text": "        return BR_FAILED;"
+        },
+        {
+          "line": 909,
+          "text": "    unsigned v = n.get_unsigned();"
+        },
+        {
+          "line": 910,
+          "text": "    zstring t;"
+        },
+        {
+          "line": 911,
+          "text": "    if (str().is_string(a, t)) {"
+        },
+        {
+          "line": 912,
+          "text": "        if (!(n * rational(t.length())).is_unsigned())"
+        },
+        {
+          "line": 913,
+          "text": "            return BR_FAILED;"
+        },
+        {
+          "line": 914,
+          "text": "        zstring r = t;"
+        },
+        {
+          "line": 915,
+          "text": "        for (unsigned i = 1; i < v; ++i)"
+        },
+        {
+          "line": 916,
+          "text": "            r += t;"
+        },
+        {
+          "line": 917,
+          "text": "        result = str().mk_string(r);"
+        },
+        {
+          "line": 918,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 919,
+          "text": "    }"
+        },
+        {
+          "line": 920,
+          "text": "    expr_ref_vector es(m());"
+        },
+        {
+          "line": 921,
+          "text": "    for (unsigned i = 0; i < v; ++i)"
+        },
+        {
+          "line": 922,
+          "text": "        es.push_back(a);"
+        },
+        {
+          "line": 923,
+          "text": "    result = str().mk_concat(es, a->get_sort());"
+        },
+        {
+          "line": 924,
+          "text": "    return BR_REWRITE_FULL;"
+        },
+        {
+          "line": 925,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_axioms.cpp",
+      "blob": "f1864f8b23fc97f5a1acac0022a1b51c937b4087",
+      "sha256": "40734395a2a0ce92d15273f7f1f6f24d4a0053acec028117540e777fad1a23cf",
+      "spans": [
+        [
+          835,
+          988
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 835,
+          "text": "    void axioms::stoi_axiom_re(expr* e) {"
+        },
+        {
+          "line": 836,
+          "text": "        TRACE(seq, tout << mk_pp(e, m) << \"\\n\";);"
+        },
+        {
+          "line": 837,
+          "text": "        expr* s = nullptr;"
+        },
+        {
+          "line": 838,
+          "text": "        VERIFY (seq.str.is_stoi(e, s));"
+        },
+        {
+          "line": 839,
+          "text": ""
+        },
+        {
+          "line": 840,
+          "text": "        // stoi(s) >= -1"
+        },
+        {
+          "line": 841,
+          "text": "        add_clause(mk_ge(e, -1));"
+        },
+        {
+          "line": 842,
+          "text": ""
+        },
+        {
+          "line": 843,
+          "text": "        // Bound short conversions before a concrete argument length is chosen."
+        },
+        {
+          "line": 844,
+          "text": "        unsigned max_length = seq.str.max_length(s);"
+        },
+        {
+          "line": 845,
+          "text": "        if (max_length <= 1)"
+        },
+        {
+          "line": 846,
+          "text": "            add_clause(mk_le(e, max_length == 0 ? -1 : 9));"
+        },
+        {
+          "line": 847,
+          "text": ""
+        },
+        {
+          "line": 848,
+          "text": "        // stoi(\"\") = -1"
+        },
+        {
+          "line": 849,
+          "text": "        {"
+        },
+        {
+          "line": 850,
+          "text": "            expr_ref empty_s(seq.str.mk_empty(s->get_sort()), m);"
+        },
+        {
+          "line": 851,
+          "text": "            expr_ref stoi_empty(seq.str.mk_stoi(empty_s), m);"
+        },
+        {
+          "line": 852,
+          "text": "            add_clause(mk_eq(stoi_empty, a.mk_int(-1)));"
+        },
+        {
+          "line": 853,
+          "text": "        }"
+        },
+        {
+          "line": 854,
+          "text": ""
+        },
+        {
+          "line": 855,
+          "text": "        // stoi(s) >= 0 <=> s in [0-9]+"
+        },
+        {
+          "line": 856,
+          "text": "        {"
+        },
+        {
+          "line": 857,
+          "text": "            expr_ref zero(seq.str.mk_string(\"0\"), m);"
+        },
+        {
+          "line": 858,
+          "text": "            expr_ref nine(seq.str.mk_string(\"9\"), m);"
+        },
+        {
+          "line": 859,
+          "text": "            expr_ref re_digit(seq.re.mk_range(zero, nine), m);"
+        },
+        {
+          "line": 860,
+          "text": "            expr_ref re_plus(seq.re.mk_plus(re_digit), m);"
+        },
+        {
+          "line": 861,
+          "text": "            expr_ref in_re(seq.re.mk_in_re(s, re_plus), m);"
+        },
+        {
+          "line": 862,
+          "text": "            expr_ref ge0 = mk_ge(e, 0);"
+        },
+        {
+          "line": 863,
+          "text": ""
+        },
+        {
+          "line": 864,
+          "text": "            add_clause(~ge0, in_re);    // stoi(s) >= 0 => s in [0-9]+"
+        },
+        {
+          "line": 865,
+          "text": "            add_clause(~in_re, ge0);    // s in [0-9]+ => stoi(s) >= 0"
+        },
+        {
+          "line": 866,
+          "text": "        }"
+        },
+        {
+          "line": 867,
+          "text": "    }"
+        },
+        {
+          "line": 868,
+          "text": ""
+        },
+        {
+          "line": 869,
+          "text": ""
+        },
+        {
+          "line": 870,
+          "text": "    /**"
+        },
+        {
+          "line": 871,
+          "text": ""
+        },
+        {
+          "line": 872,
+          "text": "       len(s) <= k => stoi(s) = stoi(s, k)"
+        },
+        {
+          "line": 873,
+          "text": "       len(s) > 0,  is_digit(nth(s,0)) => stoi(s, 0) = digit(nth_i(s, 0))"
+        },
+        {
+          "line": 874,
+          "text": "       len(s) > 0, ~is_digit(nth(s,0)) => stoi(s, 0) = -1"
+        },
+        {
+          "line": 875,
+          "text": ""
+        },
+        {
+          "line": 876,
+          "text": "       0 < i, len(s) <= i =>        stoi(s, i) = stoi(s, i - 1)"
+        },
+        {
+          "line": 877,
+          "text": "       0 < i, len(s) > i, stoi(s, i - 1) >= 0, is_digit(nth(s, i - 1)) => stoi(s, i) = 10*stoi(s, i - 1) + digit(nth_i(s, i - 1))   "
+        },
+        {
+          "line": 878,
+          "text": "       0 < i, len(s) > i, stoi(s, i - 1) < 0       => stoi(s, i) = -1"
+        },
+        {
+          "line": 879,
+          "text": "       0 < i, len(s) > i, ~is_digit(nth(s, i - 1)) => stoi(s, i) = -1"
+        },
+        {
+          "line": 880,
+          "text": ""
+        },
+        {
+          "line": 881,
+          "text": "                                "
+        },
+        {
+          "line": 882,
+          "text": ""
+        },
+        {
+          "line": 883,
+          "text": "       Define auxiliary function with the property:"
+        },
+        {
+          "line": 884,
+          "text": "       for 0 <= i < k"
+        },
+        {
+          "line": 885,
+          "text": "       stoi(s, i) := stoi(extract(s, 0, i+1)) "
+        },
+        {
+          "line": 886,
+          "text": ""
+        },
+        {
+          "line": 887,
+          "text": "       for 0 < i < k:"
+        },
+        {
+          "line": 888,
+          "text": "       len(s) > i  => stoi(s, i) := stoi(extract(s, 0, i))*10 + stoi(extract(s, i, 1))"
+        },
+        {
+          "line": 889,
+          "text": "       len(s) <= i => stoi(s, i) := stoi(extract(s, 0, i-1), i-1)"
+        },
+        {
+          "line": 890,
+          "text": ""
+        },
+        {
+          "line": 891,
+          "text": "       for i <= i < k:"
+        },
+        {
+          "line": 892,
+          "text": "       stoi(s) > = 0, len(s) > i => is_digit(nth(s, i))     "
+        },
+        {
+          "line": 893,
+          "text": ""
+        },
+        {
+          "line": 894,
+          "text": "    */"
+        },
+        {
+          "line": 895,
+          "text": "    void axioms::stoi_axiom(expr* e, unsigned k) {"
+        },
+        {
+          "line": 896,
+          "text": "        SASSERT(k > 0);"
+        },
+        {
+          "line": 897,
+          "text": "        expr* _s = nullptr;"
+        },
+        {
+          "line": 898,
+          "text": "        VERIFY (seq.str.is_stoi(e, _s));"
+        },
+        {
+          "line": 899,
+          "text": "        expr_ref s(_s, m);"
+        },
+        {
+          "line": 900,
+          "text": "        m_rewrite(s);"
+        },
+        {
+          "line": 901,
+          "text": "        auto stoi2 = [&](unsigned j) {"
+        },
+        {
+          "line": 902,
+          "text": "            expr_ref index(a.mk_int(j), m);"
+        },
+        {
+          "line": 903,
+          "text": "            return m_sk.mk(\"seq.stoi\", s, index, a.mk_int());"
+        },
+        {
+          "line": 904,
+          "text": "        };"
+        },
+        {
+          "line": 905,
+          "text": "        auto digit = [&](unsigned j) { return mk_digit2int(mk_nth(s, j)); };"
+        },
+        {
+          "line": 906,
+          "text": "        auto is_digit_ = [&](unsigned j) { return is_digit(mk_nth(s, j)); };"
+        },
+        {
+          "line": 907,
+          "text": "        expr_ref len = mk_len(s);"
+        },
+        {
+          "line": 908,
+          "text": "        expr_ref ge0 = mk_ge(e, 0);"
+        },
+        {
+          "line": 909,
+          "text": "        expr_ref lek = mk_le(len, k);"
+        },
+        {
+          "line": 910,
+          "text": "        // len(s) <= k => stoi(s) = stoi(s, k-1)"
+        },
+        {
+          "line": 911,
+          "text": "        {"
+        },
+        {
+          "line": 912,
+          "text": "            expr_ref longer = ~lek;"
+        },
+        {
+          "line": 913,
+          "text": "            add_clause(longer, mk_eq(e, stoi2(k-1)));"
+        },
+        {
+          "line": 914,
+          "text": "        }"
+        },
+        {
+          "line": 915,
+          "text": "        // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)"
+        },
+        {
+          "line": 916,
+          "text": "        {"
+        },
+        {
+          "line": 917,
+          "text": "            expr_ref empty = mk_le(len, 0);"
+        },
+        {
+          "line": 918,
+          "text": "            expr_ref not_digit = ~is_digit_(0);"
+        },
+        {
+          "line": 919,
+          "text": "            expr_ref value = stoi2(0);"
+        },
+        {
+          "line": 920,
+          "text": "            add_clause(empty, not_digit, mk_eq(value, digit(0)));"
+        },
+        {
+          "line": 921,
+          "text": "        }"
+        },
+        {
+          "line": 922,
+          "text": "        // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1"
+        },
+        {
+          "line": 923,
+          "text": "        {"
+        },
+        {
+          "line": 924,
+          "text": "            expr_ref empty = mk_le(len, 0);"
+        },
+        {
+          "line": 925,
+          "text": "            expr_ref d = is_digit_(0);"
+        },
+        {
+          "line": 926,
+          "text": "            expr_ref value = stoi2(0);"
+        },
+        {
+          "line": 927,
+          "text": "            add_clause(empty, d, mk_eq(value, a.mk_int(-1)));"
+        },
+        {
+          "line": 928,
+          "text": "        }"
+        },
+        {
+          "line": 929,
+          "text": "        for (unsigned i = 1; i < k; ++i) {"
+        },
+        {
+          "line": 930,
+          "text": ""
+        },
+        {
+          "line": 931,
+          "text": "            // len(s) <= i => stoi(s, i) = stoi(s, i - 1)"
+        },
+        {
+          "line": 932,
+          "text": ""
+        },
+        {
+          "line": 933,
+          "text": "            {"
+        },
+        {
+          "line": 934,
+          "text": "                expr_ref longer = ~mk_le(len, i);"
+        },
+        {
+          "line": 935,
+          "text": "                expr_ref value = stoi2(i);"
+        },
+        {
+          "line": 936,
+          "text": "                add_clause(longer, mk_eq(value, stoi2(i-1)));"
+        },
+        {
+          "line": 937,
+          "text": "            }"
+        },
+        {
+          "line": 938,
+          "text": ""
+        },
+        {
+          "line": 939,
+          "text": "            // len(s) > i, stoi(s, i - 1) >= 0, is_digit(nth(s, i)) => stoi(s, i) = 10*stoi(s, i - 1) + digit(i)"
+        },
+        {
+          "line": 940,
+          "text": "            // len(s) > i, stoi(s, i - 1) < 0 => stoi(s, i) = -1"
+        },
+        {
+          "line": 941,
+          "text": "            // len(s) > i, ~is_digit(nth(s, i)) => stoi(s, i) = -1"
+        },
+        {
+          "line": 942,
+          "text": ""
+        },
+        {
+          "line": 943,
+          "text": "            {"
+        },
+        {
+          "line": 944,
+          "text": "                expr_ref short_enough = mk_le(len, i);"
+        },
+        {
+          "line": 945,
+          "text": "                expr_ref previous_negative = ~mk_ge(stoi2(i-1), 0);"
+        },
+        {
+          "line": 946,
+          "text": "                expr_ref not_digit = ~is_digit_(i);"
+        },
+        {
+          "line": 947,
+          "text": "                expr_ref value = stoi2(i);"
+        },
+        {
+          "line": 948,
+          "text": "                expr_ref lhs(a.mk_int(10), m);"
+        },
+        {
+          "line": 949,
+          "text": "                auto rhs = stoi2(i - 1);"
+        },
+        {
+          "line": 950,
+          "text": "                expr_ref scaled(a.mk_mul(lhs, rhs), m);"
+        },
+        {
+          "line": 951,
+          "text": "                add_clause(short_enough, previous_negative, not_digit, mk_eq(value, a.mk_add(scaled, digit(i))));"
+        },
+        {
+          "line": 952,
+          "text": "            }"
+        },
+        {
+          "line": 953,
+          "text": "            {"
+        },
+        {
+          "line": 954,
+          "text": "                expr_ref short_enough = mk_le(len, i);"
+        },
+        {
+          "line": 955,
+          "text": "                expr_ref d = is_digit_(i);"
+        },
+        {
+          "line": 956,
+          "text": "                expr_ref value = stoi2(i);"
+        },
+        {
+          "line": 957,
+          "text": "                add_clause(short_enough, d, mk_eq(value, a.mk_int(-1)));"
+        },
+        {
+          "line": 958,
+          "text": "            }"
+        },
+        {
+          "line": 959,
+          "text": "            {"
+        },
+        {
+          "line": 960,
+          "text": "                expr_ref short_enough = mk_le(len, i);"
+        },
+        {
+          "line": 961,
+          "text": "                expr_ref previous_nonnegative = mk_ge(stoi2(i-1), 0);"
+        },
+        {
+          "line": 962,
+          "text": "                {"
+        },
+        {
+          "line": 963,
+          "text": "                    auto lhs = stoi2(i);"
+        },
+        {
+          "line": 964,
+          "text": "                    expr_ref rhs(a.mk_int(-1), m);"
+        },
+        {
+          "line": 965,
+          "text": "                    add_clause(short_enough, previous_nonnegative, mk_eq(lhs, rhs));"
+        },
+        {
+          "line": 966,
+          "text": "                }"
+        },
+        {
+          "line": 967,
+          "text": "            }"
+        },
+        {
+          "line": 968,
+          "text": ""
+        },
+        {
+          "line": 969,
+          "text": "            // stoi(s) >= 0, i < len(s) => is_digit(nth(s, i))"
+        },
+        {
+          "line": 970,
+          "text": ""
+        },
+        {
+          "line": 971,
+          "text": "            {"
+        },
+        {
+          "line": 972,
+          "text": "                expr_ref negative = ~ge0;"
+        },
+        {
+          "line": 973,
+          "text": "                expr_ref short_enough = mk_le(len, i);"
+        },
+        {
+          "line": 974,
+          "text": "                add_clause(negative, short_enough, is_digit_(i));"
+        },
+        {
+          "line": 975,
+          "text": "            }"
+        },
+        {
+          "line": 976,
+          "text": "        }"
+        },
+        {
+          "line": 977,
+          "text": "        // Keep interpreted conversions on their existing axiom path."
+        },
+        {
+          "line": 978,
+          "text": "        if (is_uninterp_const(_s)) {"
+        },
+        {
+          "line": 979,
+          "text": "            for (unsigned i = 0; i < k; ++i) {"
+        },
+        {
+          "line": 980,
+          "text": "                expr_ref negative = ~ge0;"
+        },
+        {
+          "line": 981,
+          "text": "                expr_ref short_enough = mk_le(len, i);"
+        },
+        {
+          "line": 982,
+          "text": "                expr_ref d = digit(i);"
+        },
+        {
+          "line": 983,
+          "text": "                add_clause(negative, short_enough, mk_ge(d, 0));"
+        },
+        {
+          "line": 984,
+          "text": "                add_clause(negative, short_enough, mk_le(d, 9));"
+        },
+        {
+          "line": 985,
+          "text": "            }"
+        },
+        {
+          "line": 986,
+          "text": "        }"
+        },
+        {
+          "line": 987,
+          "text": "    }"
+        },
+        {
+          "line": 988,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_stoi_facet.h",
+      "blob": "ef1c234e9fa5fc84055f8171a4fc7cc5de39c51e",
+      "sha256": "272e81b316ca19ba8cb5b04cca9b9edc86831f362ac7e839a28695cc8f70bf92",
+      "spans": [
+        [
+          1,
+          181
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 1,
+          "text": "/*++"
+        },
+        {
+          "line": 2,
+          "text": "Copyright (c) 2026 Microsoft Corporation"
+        },
+        {
+          "line": 3,
+          "text": ""
+        },
+        {
+          "line": 4,
+          "text": "Module Name:"
+        },
+        {
+          "line": 5,
+          "text": ""
+        },
+        {
+          "line": 6,
+          "text": "    seq_stoi_facet.h"
+        },
+        {
+          "line": 7,
+          "text": ""
+        },
+        {
+          "line": 8,
+          "text": "Abstract:"
+        },
+        {
+          "line": 9,
+          "text": ""
+        },
+        {
+          "line": 10,
+          "text": "    Facet tracking every `str.to_int` (stoi) term seen so far, together"
+        },
+        {
+          "line": 11,
+          "text": "    with the greatest string length `k` for which the inductive"
+        },
+        {
+          "line": 12,
+          "text": "    positional-unfolding axiom (`seq::axioms::stoi_axiom(e, k)`, see"
+        },
+        {
+          "line": 13,
+          "text": "    smt/seq_axioms.h) has already been instantiated for it."
+        },
+        {
+          "line": 14,
+          "text": ""
+        },
+        {
+          "line": 15,
+          "text": "    Unlike a purely passive accumulator (e.g. `assumption_facet`), this"
+        },
+        {
+          "line": 16,
+          "text": "    facet also owns the coherence check used before final search. It"
+        },
+        {
+          "line": 17,
+          "text": "    never itself simplifies, propagates, or splits the search tree"
+        },
+        {
+          "line": 18,
+          "text": "    (`is_satisfied()` is always true). Axiom injection back into the"
+        },
+        {
+          "line": 19,
+          "text": "    ambient SMT context happens only through callbacks supplied at"
+        },
+        {
+          "line": 20,
+          "text": "    construction time:"
+        },
+        {
+          "line": 21,
+          "text": "      - `m_instantiate`: instantiates the inductive positional-unfolding"
+        },
+        {
+          "line": 22,
+          "text": "        axiom for a given (term, depth) pair - i.e."
+        },
+        {
+          "line": 23,
+          "text": "        `seq_axioms_util::add_stoi_axiom(e, k)`."
+        },
+        {
+          "line": 24,
+          "text": "      - the ambient context's `add_axiom`, used for the explicit upper"
+        },
+        {
+          "line": 25,
+          "text": "        bound clause added by `check_stoi_coherence`."
+        },
+        {
+          "line": 26,
+          "text": ""
+        },
+        {
+          "line": 27,
+          "text": "Author:"
+        },
+        {
+          "line": 28,
+          "text": ""
+        },
+        {
+          "line": 29,
+          "text": "    Nikolaj Bjorner (nbjorner) 2026"
+        },
+        {
+          "line": 30,
+          "text": ""
+        },
+        {
+          "line": 31,
+          "text": "--*/"
+        },
+        {
+          "line": 32,
+          "text": "#pragma once"
+        },
+        {
+          "line": 33,
+          "text": ""
+        },
+        {
+          "line": 34,
+          "text": "#include \"ast/ast.h\""
+        },
+        {
+          "line": 35,
+          "text": "#include \"ast/ast_pp.h\""
+        },
+        {
+          "line": 36,
+          "text": "#include \"ast/seq_decl_plugin.h\""
+        },
+        {
+          "line": 37,
+          "text": "#include \"ast/arith_decl_plugin.h\""
+        },
+        {
+          "line": 38,
+          "text": "#include \"ast/seq/seq_ambient_context.h\""
+        },
+        {
+          "line": 39,
+          "text": "#include \"util/stx_search_tree.h\""
+        },
+        {
+          "line": 40,
+          "text": "#include \"util/trail.h\""
+        },
+        {
+          "line": 41,
+          "text": "#include <functional>"
+        },
+        {
+          "line": 42,
+          "text": ""
+        },
+        {
+          "line": 43,
+          "text": "namespace seq {"
+        },
+        {
+          "line": 44,
+          "text": ""
+        },
+        {
+          "line": 45,
+          "text": "    class stoi_facet : public stx::facet_i {"
+        },
+        {
+          "line": 46,
+          "text": "        ast_manager& m;"
+        },
+        {
+          "line": 47,
+          "text": "        seq_util&    u;"
+        },
+        {
+          "line": 48,
+          "text": "        arith_util&  a;"
+        },
+        {
+          "line": 49,
+          "text": "        // (stoi(s) term, max k for which stoi_axiom(term, k) was"
+        },
+        {
+          "line": 50,
+          "text": "        // instantiated). Append-only: a term is only ever added once"
+        },
+        {
+          "line": 51,
+          "text": "        // (dequeue_axiom's own m_axiom_set already dedups), and its"
+        },
+        {
+          "line": 52,
+          "text": "        // depth only ever grows (see set_depth)."
+        },
+        {
+          "line": 53,
+          "text": "        vector<std::pair<expr*, unsigned>> m_terms;"
+        },
+        {
+          "line": 54,
+          "text": ""
+        },
+        {
+          "line": 55,
+          "text": "        // Instantiates the inductive positional-unfolding axiom for"
+        },
+        {
+          "line": 56,
+          "text": "        // (term, depth) - set by theory_nseq to"
+        },
+        {
+          "line": 57,
+          "text": "        // `m_ax.add_stoi_axiom(e, k)`."
+        },
+        {
+          "line": 58,
+          "text": "        std::function<void(expr*, unsigned)> m_instantiate;"
+        },
+        {
+          "line": 59,
+          "text": ""
+        },
+        {
+          "line": 60,
+          "text": "    public:"
+        },
+        {
+          "line": 61,
+          "text": "        stoi_facet(trail_stack& trail, ast_manager& m, seq_util& u, arith_util& a) : facet_i(trail), m(m), u(u), a(a) {}"
+        },
+        {
+          "line": 62,
+          "text": ""
+        },
+        {
+          "line": 63,
+          "text": "        ast_manager& get_manager() const { return m; }"
+        },
+        {
+          "line": 64,
+          "text": ""
+        },
+        {
+          "line": 65,
+          "text": "        // Supplies the (term, depth) -> positional-unfolding-axiom"
+        },
+        {
+          "line": 66,
+          "text": "        // callback; must be set before `check_stoi_coherence` is called."
+        },
+        {
+          "line": 67,
+          "text": "        void set_instantiate(std::function<void(expr*, unsigned)> f) { m_instantiate = f; }"
+        },
+        {
+          "line": 68,
+          "text": ""
+        },
+        {
+          "line": 69,
+          "text": "        // Register `e` (a `str.to_int` application) for coherence"
+        },
+        {
+          "line": 70,
+          "text": "        // tracking, at depth 0. Trailed: on backtrack past the scope"
+        },
+        {
+          "line": 71,
+          "text": "        // where `e` was first seen, it drops back out of tracking."
+        },
+        {
+          "line": 72,
+          "text": "        void add_term(expr* e) {"
+        },
+        {
+          "line": 73,
+          "text": "            m_terms.push_back({e, 0u});"
+        },
+        {
+          "line": 74,
+          "text": "            m_trail.push(push_back_vector(m_terms));"
+        },
+        {
+          "line": 75,
+          "text": "        }"
+        },
+        {
+          "line": 76,
+          "text": ""
+        },
+        {
+          "line": 77,
+          "text": "        vector<std::pair<expr*, unsigned>> const& terms() const { return m_terms; }"
+        },
+        {
+          "line": 78,
+          "text": ""
+        },
+        {
+          "line": 79,
+          "text": "        // Record that `stoi_axiom(term, k)` has now been instantiated"
+        },
+        {
+          "line": 80,
+          "text": "        // for `m_terms[idx]`. Trailed via vector_value_trail."
+        },
+        {
+          "line": 81,
+          "text": "        void set_depth(unsigned idx, unsigned k) {"
+        },
+        {
+          "line": 82,
+          "text": "            m_trail.push(vector_value_trail<std::pair<expr*, unsigned>>(m_terms, idx));"
+        },
+        {
+          "line": 83,
+          "text": "            m_terms[idx].second = k;"
+        },
+        {
+          "line": 84,
+          "text": "        }"
+        },
+        {
+          "line": 85,
+          "text": ""
+        },
+        {
+          "line": 86,
+          "text": "        // For each tracked `str.to_int` term, instantiate the positional"
+        },
+        {
+          "line": 87,
+          "text": "        // unfolding axiom once `ac.current_value` fixes its argument"
+        },
+        {
+          "line": 88,
+          "text": "        // length to a larger concrete `k` than seen before. Also assert"
+        },
+        {
+          "line": 89,
+          "text": "        // the upper bound `len(s)=k && stoi(s)>=0 => stoi(s)<=10^k-1`,"
+        },
+        {
+          "line": 90,
+          "text": "        // which positional unfolding alone does not provide for symbolic"
+        },
+        {
+          "line": 91,
+          "text": "        // digits. Returns true if no new axioms were added."
+        },
+        {
+          "line": 92,
+          "text": "        // Early checks cover arguments with at most one character and fixed values"
+        },
+        {
+          "line": 93,
+          "text": "        // with at most two; other conversions wait for word refutation or a provisional SAT leaf."
+        },
+        {
+          "line": 94,
+          "text": "        template <typename dep_tracker_t>"
+        },
+        {
+          "line": 95,
+          "text": "        bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac, bool early_only = false) {"
+        },
+        {
+          "line": 96,
+          "text": "            if (m_terms.empty())"
+        },
+        {
+          "line": 97,
+          "text": "                return true;"
+        },
+        {
+          "line": 98,
+          "text": ""
+        },
+        {
+          "line": 99,
+          "text": "            bool progress = false;"
+        },
+        {
+          "line": 100,
+          "text": ""
+        },
+        {
+          "line": 101,
+          "text": "            for (unsigned idx = 0; idx < m_terms.size(); ++idx) {"
+        },
+        {
+          "line": 102,
+          "text": "                // Axiom callbacks may register more terms and reallocate m_terms."
+        },
+        {
+          "line": 103,
+          "text": "                auto const [stoi_e, prev_k] = m_terms[idx];"
+        },
+        {
+          "line": 104,
+          "text": "                expr* s = nullptr;"
+        },
+        {
+          "line": 105,
+          "text": "                VERIFY(u.str.is_stoi(stoi_e, s));"
+        },
+        {
+          "line": 106,
+          "text": "                unsigned bound = u.str.max_length(s);"
+        },
+        {
+          "line": 107,
+          "text": "                if (early_only && bound > 1) {"
+        },
+        {
+          "line": 108,
+          "text": "                    rational lo, hi;"
+        },
+        {
+          "line": 109,
+          "text": "                    dep_tracker_t dep = nullptr;"
+        },
+        {
+          "line": 110,
+          "text": "                    if (bound > 2 || !ac.lower_bound(stoi_e, lo, dep) ||"
+        },
+        {
+          "line": 111,
+          "text": "                        !ac.upper_bound(stoi_e, hi, dep) || lo != hi)"
+        },
+        {
+          "line": 112,
+          "text": "                        continue;"
+        },
+        {
+          "line": 113,
+          "text": "                }"
+        },
+        {
+          "line": 114,
+          "text": ""
+        },
+        {
+          "line": 115,
+          "text": "                // Invalid conversions are completely characterized by the basic digit-language axiom."
+        },
+        {
+          "line": 116,
+          "text": "                rational conversion;"
+        },
+        {
+          "line": 117,
+          "text": "                if (ac.current_value(stoi_e, conversion) && conversion.is_minus_one())"
+        },
+        {
+          "line": 118,
+          "text": "                    continue;"
+        },
+        {
+          "line": 119,
+          "text": ""
+        },
+        {
+          "line": 120,
+          "text": "                expr_ref len_expr(u.str.mk_length(s), m);"
+        },
+        {
+          "line": 121,
+          "text": "                rational val;"
+        },
+        {
+          "line": 122,
+          "text": "                if (bound <= 1 || (early_only && bound == 2))"
+        },
+        {
+          "line": 123,
+          "text": "                    val = rational(bound);"
+        },
+        {
+          "line": 124,
+          "text": "                else if (!ac.current_value(len_expr, val) || !val.is_unsigned())"
+        },
+        {
+          "line": 125,
+          "text": "                    continue;"
+        },
+        {
+          "line": 126,
+          "text": ""
+        },
+        {
+          "line": 127,
+          "text": "                unsigned k = val.get_unsigned();"
+        },
+        {
+          "line": 128,
+          "text": "                if (k == 0)"
+        },
+        {
+          "line": 129,
+          "text": "                    continue;  // empty string: handled by the basic stoi_axiom_re axiom"
+        },
+        {
+          "line": 130,
+          "text": ""
+        },
+        {
+          "line": 131,
+          "text": "                if (prev_k >= k)"
+        },
+        {
+          "line": 132,
+          "text": "                    continue;  // already instantiated at least this deep"
+        },
+        {
+          "line": 133,
+          "text": ""
+        },
+        {
+          "line": 134,
+          "text": "                TRACE(seq, tout << \"nseq stoi coherence: instantiating depth \" << k"
+        },
+        {
+          "line": 135,
+          "text": "                                << \" for \" << mk_pp(stoi_e, m) << \"\\n\");"
+        },
+        {
+          "line": 136,
+          "text": ""
+        },
+        {
+          "line": 137,
+          "text": "                // Positional unfolding: stoi(s, i) = 10*stoi(s, i-1) + digit(s[i])"
+        },
+        {
+          "line": 138,
+          "text": "                m_instantiate(stoi_e, k);"
+        },
+        {
+          "line": 139,
+          "text": ""
+        },
+        {
+          "line": 140,
+          "text": "                // Explicit upper bound: len(s)=k && stoi(s) >= 0 => stoi(s) <= 10^k-1"
+        },
+        {
+          "line": 141,
+          "text": "                // (digit2int for symbolic characters has no arith bounds, so the"
+        },
+        {
+          "line": 142,
+          "text": "                //  positional unfolding alone does not constrain stoi(s) sufficiently)"
+        },
+        {
+          "line": 143,
+          "text": "                {"
+        },
+        {
+          "line": 144,
+          "text": "                    rational max_val(1);"
+        },
+        {
+          "line": 145,
+          "text": "                    for (unsigned i = 0; i < k; ++i)"
+        },
+        {
+          "line": 146,
+          "text": "                        max_val *= 10;"
+        },
+        {
+          "line": 147,
+          "text": "                    --max_val;  // 10^k - 1"
+        },
+        {
+          "line": 148,
+          "text": "                    expr_ref le_max(a.mk_le(stoi_e, a.mk_int(max_val)), m);"
+        },
+        {
+          "line": 149,
+          "text": "                    expr_ref ge0(a.mk_ge(stoi_e, a.mk_int(0)), m);"
+        },
+        {
+          "line": 150,
+          "text": "                    expr_ref len_eq_k(m.mk_eq(len_expr, a.mk_int(k)), m);"
+        },
+        {
+          "line": 151,
+          "text": ""
+        },
+        {
+          "line": 152,
+          "text": "                    expr_ref_vector clause(m);"
+        },
+        {
+          "line": 153,
+          "text": "                    clause.push_back(m.mk_not(len_eq_k));"
+        },
+        {
+          "line": 154,
+          "text": "                    clause.push_back(m.mk_not(ge0));"
+        },
+        {
+          "line": 155,
+          "text": "                    clause.push_back(le_max);"
+        },
+        {
+          "line": 156,
+          "text": "                    ac.add_axiom(clause);"
+        },
+        {
+          "line": 157,
+          "text": "                }"
+        },
+        {
+          "line": 158,
+          "text": ""
+        },
+        {
+          "line": 159,
+          "text": "                set_depth(idx, k);"
+        },
+        {
+          "line": 160,
+          "text": "                progress = true;"
+        },
+        {
+          "line": 161,
+          "text": "            }"
+        },
+        {
+          "line": 162,
+          "text": "            return !progress;"
+        },
+        {
+          "line": 163,
+          "text": "        }"
+        },
+        {
+          "line": 164,
+          "text": ""
+        },
+        {
+          "line": 165,
+          "text": "        // -- stx::facet_i --"
+        },
+        {
+          "line": 166,
+          "text": "        facet_i* clone(trail_stack& trail) const override {"
+        },
+        {
+          "line": 167,
+          "text": "            stoi_facet* f = alloc(stoi_facet, trail, m, u, a);"
+        },
+        {
+          "line": 168,
+          "text": "            f->m_terms = m_terms;"
+        },
+        {
+          "line": 169,
+          "text": "            f->m_instantiate = m_instantiate;"
+        },
+        {
+          "line": 170,
+          "text": "            return f;"
+        },
+        {
+          "line": 171,
+          "text": "        }"
+        },
+        {
+          "line": 172,
+          "text": "        bool is_satisfied() const override { return true; } // never blocks satisfiability on its own"
+        },
+        {
+          "line": 173,
+          "text": "        std::ostream& display(std::ostream& out) const override {"
+        },
+        {
+          "line": 174,
+          "text": "            out << \"stoi_facet: \" << m_terms.size() << \" term(s)\\n\";"
+        },
+        {
+          "line": 175,
+          "text": "            for (auto const& [e, k] : m_terms)"
+        },
+        {
+          "line": 176,
+          "text": "                out << \"  \" << mk_pp(e, m) << \" (depth \" << k << \")\\n\";"
+        },
+        {
+          "line": 177,
+          "text": "            return out;"
+        },
+        {
+          "line": 178,
+          "text": "        }"
+        },
+        {
+          "line": 179,
+          "text": "    };"
+        },
+        {
+          "line": 180,
+          "text": ""
+        },
+        {
+          "line": 181,
+          "text": "} // namespace seq"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq_decl_plugin.cpp",
+      "blob": "4d21b159b97af09bb31c78766e22803f899a2948",
+      "sha256": "51b6b11e2624db41100c860eeb417ff9def4ea9ebca366e4ecb4921b3c3216c5",
+      "spans": [
+        [
+          1040,
+          1056
+        ],
+        [
+          1086,
+          1116
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 1040,
+          "text": "void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {"
+        },
+        {
+          "line": 1041,
+          "text": "    expr* e1, *e2;"
+        },
+        {
+          "line": 1042,
+          "text": "    while (is_concat(e, e1, e2)) {"
+        },
+        {
+          "line": 1043,
+          "text": "        get_concat_units(e1, es);"
+        },
+        {
+          "line": 1044,
+          "text": "        e = e2;"
+        },
+        {
+          "line": 1045,
+          "text": "    }"
+        },
+        {
+          "line": 1046,
+          "text": "    zstring s;"
+        },
+        {
+          "line": 1047,
+          "text": "    if (is_string(e, s)) {"
+        },
+        {
+          "line": 1048,
+          "text": "        unsigned sz = s.length();"
+        },
+        {
+          "line": 1049,
+          "text": "        for (unsigned j = 0; j < sz; ++j) {"
+        },
+        {
+          "line": 1050,
+          "text": "            es.push_back(mk_unit(mk_char(s, j)));"
+        },
+        {
+          "line": 1051,
+          "text": "        }        "
+        },
+        {
+          "line": 1052,
+          "text": "    }"
+        },
+        {
+          "line": 1053,
+          "text": "    else if (!is_empty(e)) {"
+        },
+        {
+          "line": 1054,
+          "text": "        es.push_back(e);"
+        },
+        {
+          "line": 1055,
+          "text": "    }"
+        },
+        {
+          "line": 1056,
+          "text": "}"
+        },
+        {
+          "line": 1086,
+          "text": "unsigned seq_util::str::max_length(expr *s) const {"
+        },
+        {
+          "line": 1087,
+          "text": "    SASSERT(u.is_seq(s));"
+        },
+        {
+          "line": 1088,
+          "text": "    unsigned result = 0;"
+        },
+        {
+          "line": 1089,
+          "text": "    expr *s1 = nullptr, *s2 = nullptr, *s3 = nullptr;"
+        },
+        {
+          "line": 1090,
+          "text": "    unsigned n = 0;"
+        },
+        {
+          "line": 1091,
+          "text": "    zstring st;"
+        },
+        {
+          "line": 1092,
+          "text": "    auto get_length = [&](expr *s1) {"
+        },
+        {
+          "line": 1093,
+          "text": "        if (is_empty(s1))"
+        },
+        {
+          "line": 1094,
+          "text": "            return 0u;"
+        },
+        {
+          "line": 1095,
+          "text": "        else if (is_unit(s1))"
+        },
+        {
+          "line": 1096,
+          "text": "            return 1u;"
+        },
+        {
+          "line": 1097,
+          "text": "        else if (is_at(s1))"
+        },
+        {
+          "line": 1098,
+          "text": "            return 1u;"
+        },
+        {
+          "line": 1099,
+          "text": "        else if (is_extract(s1, s1, s2, s3))"
+        },
+        {
+          "line": 1100,
+          "text": "            return (arith_util(m).is_unsigned(s3, n)) ? n : UINT_MAX;"
+        },
+        {
+          "line": 1101,
+          "text": "        else if (is_string(s1, st))"
+        },
+        {
+          "line": 1102,
+          "text": "            return st.length();"
+        },
+        {
+          "line": 1103,
+          "text": "        else"
+        },
+        {
+          "line": 1104,
+          "text": "            return UINT_MAX;"
+        },
+        {
+          "line": 1105,
+          "text": "    };"
+        },
+        {
+          "line": 1106,
+          "text": "    while (is_concat(s, s1, s2)) {"
+        },
+        {
+          "line": 1107,
+          "text": "        if (is_concat(s1))"
+        },
+        {
+          "line": 1108,
+          "text": "            result = add_truncate(max_length(s1), result);"
+        },
+        {
+          "line": 1109,
+          "text": "        else"
+        },
+        {
+          "line": 1110,
+          "text": "            result = add_truncate(get_length(s1), result);"
+        },
+        {
+          "line": 1111,
+          "text": "        s = s2;"
+        },
+        {
+          "line": 1112,
+          "text": "    }"
+        },
+        {
+          "line": 1113,
+          "text": "    result = add_truncate(get_length(s), result);"
+        },
+        {
+          "line": 1114,
+          "text": "    return result;"
+        },
+        {
+          "line": 1115,
+          "text": "}"
+        },
+        {
+          "line": 1116,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "blob": "8c182d0e93e238e39c4e74669b73d567aa7cb948",
+      "sha256": "94cc217020573a3db0e15e6b482ce984027546070f6a6fbc8d41fe271feeeb7f",
+      "spans": [
+        [
+          84,
+          169
+        ],
+        [
+          245,
+          358
+        ],
+        [
+          397,
+          438
+        ],
+        [
+          518,
+          540
+        ],
+        [
+          1149,
+          1170
+        ],
+        [
+          1750,
+          1838
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 84,
+          "text": "    struct cut {"
+        },
+        {
+          "line": 85,
+          "text": "        enum kind { prefix, prefix_including, tail, tail_including } type;"
+        },
+        {
+          "line": 86,
+          "text": "        expr* source;"
+        },
+        {
+          "line": 87,
+          "text": "        zstring delimiter;"
+        },
+        {
+          "line": 88,
+          "text": "    };"
+        },
+        {
+          "line": 89,
+          "text": ""
+        },
+        {
+          "line": 90,
+          "text": "    void tick() {"
+        },
+        {
+          "line": 91,
+          "text": "        if (!m.inc()) throw failure::canceled;"
+        },
+        {
+          "line": 92,
+          "text": "        if (++steps > max_steps) throw failure::budget;"
+        },
+        {
+          "line": 93,
+          "text": "    }"
+        },
+        {
+          "line": 94,
+          "text": "    expr* keep(expr* e) { pin.push_back(e); return e; }"
+        },
+        {
+          "line": 95,
+          "text": "    expr* keep(expr_ref const& e) { return keep(e.get()); }"
+        },
+        {
+          "line": 96,
+          "text": "    bool numeral(expr* e, rational const& n) { rational v; return a.is_numeral(e, v) && v == n; }"
+        },
+        {
+          "line": 97,
+          "text": "    bool is_literal_binding(expr* e) {"
+        },
+        {
+          "line": 98,
+          "text": "        expr* x;"
+        },
+        {
+          "line": 99,
+          "text": "        expr* y;"
+        },
+        {
+          "line": 100,
+          "text": "        if (!m.is_eq(e, x, y))"
+        },
+        {
+          "line": 101,
+          "text": "            return false;"
+        },
+        {
+          "line": 102,
+          "text": "        if (u.str.is_string(x))"
+        },
+        {
+          "line": 103,
+          "text": "            std::swap(x, y);"
+        },
+        {
+          "line": 104,
+          "text": "        return is_uninterp_const(x) && u.is_string(x->get_sort()) && u.str.is_string(y);"
+        },
+        {
+          "line": 105,
+          "text": "    }"
+        },
+        {
+          "line": 106,
+          "text": "    linear const& affine(expr* e, unsigned depth = 0) {"
+        },
+        {
+          "line": 107,
+          "text": "        tick();"
+        },
+        {
+          "line": 108,
+          "text": "        auto it = linears.find(e);"
+        },
+        {
+          "line": 109,
+          "text": "        if (it != linears.end()) return it->second;"
+        },
+        {
+          "line": 110,
+          "text": "        if (depth > 256) throw failure::budget;"
+        },
+        {
+          "line": 111,
+          "text": "        linear result;"
+        },
+        {
+          "line": 112,
+          "text": "        rational value;"
+        },
+        {
+          "line": 113,
+          "text": "        if (a.is_numeral(e, value))"
+        },
+        {
+          "line": 114,
+          "text": "            result.constant = value;"
+        },
+        {
+          "line": 115,
+          "text": "        else if (a.is_add(e) || a.is_sub(e) || a.is_uminus(e)) {"
+        },
+        {
+          "line": 116,
+          "text": "            app* t = to_app(e);"
+        },
+        {
+          "line": 117,
+          "text": "            for (unsigned i = 0; i < t->get_num_args(); ++i) {"
+        },
+        {
+          "line": 118,
+          "text": "                rational sign((a.is_uminus(e) || (a.is_sub(e) && i > 0)) ? -1 : 1);"
+        },
+        {
+          "line": 119,
+          "text": "                result.add(affine(t->get_arg(i), depth + 1), sign);"
+        },
+        {
+          "line": 120,
+          "text": "            }"
+        },
+        {
+          "line": 121,
+          "text": "        }"
+        },
+        {
+          "line": 122,
+          "text": "        else if (a.is_mul(e) && to_app(e)->get_num_args() == 2 &&"
+        },
+        {
+          "line": 123,
+          "text": "                 (a.is_numeral(to_app(e)->get_arg(0), value) ||"
+        },
+        {
+          "line": 124,
+          "text": "                  a.is_numeral(to_app(e)->get_arg(1), value))) {"
+        },
+        {
+          "line": 125,
+          "text": "            app* t = to_app(e);"
+        },
+        {
+          "line": 126,
+          "text": "            expr* other = a.is_numeral(t->get_arg(0)) ? t->get_arg(1) : t->get_arg(0);"
+        },
+        {
+          "line": 127,
+          "text": "            result.add(affine(other, depth + 1), value);"
+        },
+        {
+          "line": 128,
+          "text": "        }"
+        },
+        {
+          "line": 129,
+          "text": "        else"
+        },
+        {
+          "line": 130,
+          "text": "            result.terms[e] = rational(1);"
+        },
+        {
+          "line": 131,
+          "text": "        keep(e);"
+        },
+        {
+          "line": 132,
+          "text": "        return linears.emplace(e, std::move(result)).first->second;"
+        },
+        {
+          "line": 133,
+          "text": "    }"
+        },
+        {
+          "line": 134,
+          "text": "    bool same(expr* e, expr* f) { return affine(e) == affine(f); }"
+        },
+        {
+          "line": 135,
+          "text": "    bool single(linear const& l, expr* e, rational const& coefficient = rational(1)) {"
+        },
+        {
+          "line": 136,
+          "text": "        return l.terms.size() == 1 && l.terms.begin()->first == e && l.terms.begin()->second == coefficient;"
+        },
+        {
+          "line": 137,
+          "text": "    }"
+        },
+        {
+          "line": 138,
+          "text": "    unsigned bounded_length(expr* e, unsigned depth = 0) {"
+        },
+        {
+          "line": 139,
+          "text": "        tick();"
+        },
+        {
+          "line": 140,
+          "text": "        if (depth > 256) throw failure::budget;"
+        },
+        {
+          "line": 141,
+          "text": "        auto it = length_bounds.find(e);"
+        },
+        {
+          "line": 142,
+          "text": "        if (it != length_bounds.end()) return it->second;"
+        },
+        {
+          "line": 143,
+          "text": "        unsigned result = UINT_MAX;"
+        },
+        {
+          "line": 144,
+          "text": "        expr *source, *offset, *count, *condition, *yes, *no;"
+        },
+        {
+          "line": 145,
+          "text": "        if (u.str.is_extract(e, source, offset, count)) {"
+        },
+        {
+          "line": 146,
+          "text": "            linear const& size = affine(count);"
+        },
+        {
+          "line": 147,
+          "text": "            if (size.terms.empty()) {"
+        },
+        {
+          "line": 148,
+          "text": "                if (size.constant <= 0) result = 0;"
+        },
+        {
+          "line": 149,
+          "text": "                else if (size.constant.is_unsigned())"
+        },
+        {
+          "line": 150,
+          "text": "                    result = std::min(result, size.constant.get_unsigned());"
+        },
+        {
+          "line": 151,
+          "text": "            }"
+        },
+        {
+          "line": 152,
+          "text": "            if (result != 0)"
+        },
+        {
+          "line": 153,
+          "text": "                result = std::min(result, bounded_length(source, depth + 1));"
+        },
+        {
+          "line": 154,
+          "text": "        }"
+        },
+        {
+          "line": 155,
+          "text": "        else if (u.str.is_concat(e)) {"
+        },
+        {
+          "line": 156,
+          "text": "            result = 0;"
+        },
+        {
+          "line": 157,
+          "text": "            for (expr* arg : *to_app(e))"
+        },
+        {
+          "line": 158,
+          "text": "                result = add_truncate(result, bounded_length(arg, depth + 1));"
+        },
+        {
+          "line": 159,
+          "text": "        }"
+        },
+        {
+          "line": 160,
+          "text": "        else if (m.is_ite(e, condition, yes, no)) {"
+        },
+        {
+          "line": 161,
+          "text": "            unsigned left = bounded_length(yes, depth + 1);"
+        },
+        {
+          "line": 162,
+          "text": "            unsigned right = bounded_length(no, depth + 1);"
+        },
+        {
+          "line": 163,
+          "text": "            result = std::max(left, right);"
+        },
+        {
+          "line": 164,
+          "text": "        }"
+        },
+        {
+          "line": 165,
+          "text": "        else"
+        },
+        {
+          "line": 166,
+          "text": "            result = u.str.max_length(e);"
+        },
+        {
+          "line": 167,
+          "text": "        length_bounds.emplace(e, result);"
+        },
+        {
+          "line": 168,
+          "text": "        return result;"
+        },
+        {
+          "line": 169,
+          "text": "    }"
+        },
+        {
+          "line": 245,
+          "text": "                    l.type == cut::prefix_including && r.type == cut::tail &&"
+        },
+        {
+          "line": 246,
+          "text": "                    l.source == r.source && l.delimiter == r.delimiter &&"
+        },
+        {
+          "line": 247,
+          "text": "                    u.str.is_string(needle, n) && n == l.delimiter) {"
+        },
+        {
+          "line": 248,
+          "text": "                    expr* once = keep(u.str.mk_replace(l.source, needle, replacement));"
+        },
+        {
+          "line": 249,
+          "text": "                    if (!twice) return once;"
+        },
+        {
+          "line": 250,
+          "text": "                    if (rn == needle && rr == replacement && u.str.is_string(replacement, repl) && !repl.contains(n))"
+        },
+        {
+          "line": 251,
+          "text": "                        return keep(u.str.mk_replace(once, needle, replacement));"
+        },
+        {
+          "line": 252,
+          "text": "                }"
+        },
+        {
+          "line": 253,
+          "text": "            }"
+        },
+        {
+          "line": 254,
+          "text": "        }"
+        },
+        {
+          "line": 255,
+          "text": "        return e;"
+        },
+        {
+          "line": 256,
+          "text": "    }"
+        },
+        {
+          "line": 257,
+          "text": "    expr* lit(zstring const& s) {"
+        },
+        {
+          "line": 258,
+          "text": "        tick();"
+        },
+        {
+          "line": 259,
+          "text": "        expr_ref str(u.str.mk_string(s), m);"
+        },
+        {
+          "line": 260,
+          "text": "        return keep(rw.mk_to_re(str));"
+        },
+        {
+          "line": 261,
+          "text": "    }"
+        },
+        {
+          "line": 262,
+          "text": "    expr* cat(expr* x, expr* y) { tick(); return keep(rw.mk_re_append(x, y)); }"
+        },
+        {
+          "line": 263,
+          "text": "    expr* cat(std::initializer_list<expr*> xs) {"
+        },
+        {
+          "line": 264,
+          "text": "        expr* result = epsilon;"
+        },
+        {
+          "line": 265,
+          "text": "        for (expr* x : xs) result = cat(result, x);"
+        },
+        {
+          "line": 266,
+          "text": "        return result;"
+        },
+        {
+          "line": 267,
+          "text": "    }"
+        },
+        {
+          "line": 268,
+          "text": "    expr* join(expr* x, expr* y) { tick(); return keep(rw.mk_union(x, y)); }"
+        },
+        {
+          "line": 269,
+          "text": "    expr* star(expr* x) { tick(); return keep(rw.mk_star(x)); }"
+        },
+        {
+          "line": 270,
+          "text": "    expr* meet(expr* x, expr* y) {"
+        },
+        {
+          "line": 271,
+          "text": "        tick();"
+        },
+        {
+          "line": 272,
+          "text": "        return keep(rw.mk_inter(x, y));"
+        },
+        {
+          "line": 273,
+          "text": "    }"
+        },
+        {
+          "line": 274,
+          "text": "    expr* complement(expr* x) {"
+        },
+        {
+          "line": 275,
+          "text": "        tick();"
+        },
+        {
+          "line": 276,
+          "text": "        // Avoid expanding De Morgan's law; keep Boolean languages shared."
+        },
+        {
+          "line": 277,
+          "text": "        expr* child;"
+        },
+        {
+          "line": 278,
+          "text": "        if (u.re.is_complement(x, child)) return child;"
+        },
+        {
+          "line": 279,
+          "text": "        if (u.re.is_empty(x)) return all;"
+        },
+        {
+          "line": 280,
+          "text": "        if (u.re.is_full_seq(x)) return empty;"
+        },
+        {
+          "line": 281,
+          "text": "        return keep(u.re.mk_complement(x));"
+        },
+        {
+          "line": 282,
+          "text": "    }"
+        },
+        {
+          "line": 283,
+          "text": "    expr* decimal_range(unsigned lo, unsigned hi) {"
+        },
+        {
+          "line": 284,
+          "text": "        tick();"
+        },
+        {
+          "line": 285,
+          "text": "        return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));"
+        },
+        {
+          "line": 286,
+          "text": "    }"
+        },
+        {
+          "line": 287,
+          "text": "    expr* decimal_greater(rational const& bound) {"
+        },
+        {
+          "line": 288,
+          "text": "        SASSERT(bound.is_int() && bound >= 0);"
+        },
+        {
+          "line": 289,
+          "text": "        std::string text = bound.to_string();"
+        },
+        {
+          "line": 290,
+          "text": "        if (text.size() > 4096) throw failure::budget;"
+        },
+        {
+          "line": 291,
+          "text": "        unsigned size = static_cast<unsigned>(text.size());"
+        },
+        {
+          "line": 292,
+          "text": "        expr* digits = decimal_range(0, 9);"
+        },
+        {
+          "line": 293,
+          "text": "        expr* suffix = epsilon;"
+        },
+        {
+          "line": 294,
+          "text": "        expr* greater = empty;"
+        },
+        {
+          "line": 295,
+          "text": "        // Shared suffixes keep the lexicographic comparison linear in the numeral's size."
+        },
+        {
+          "line": 296,
+          "text": "        for (unsigned i = size; i-- > 0;) {"
+        },
+        {
+          "line": 297,
+          "text": "            tick();"
+        },
+        {
+          "line": 298,
+          "text": "            unsigned digit = text[i] - '0';"
+        },
+        {
+          "line": 299,
+          "text": "            expr* exact = lit(zstring(static_cast<unsigned>(text[i])));"
+        },
+        {
+          "line": 300,
+          "text": "            greater = cat(exact, greater);"
+        },
+        {
+          "line": 301,
+          "text": "            if (digit < 9) {"
+        },
+        {
+          "line": 302,
+          "text": "                expr* higher = decimal_range(digit + 1, 9);"
+        },
+        {
+          "line": 303,
+          "text": "                expr* alternative = cat(higher, suffix);"
+        },
+        {
+          "line": 304,
+          "text": "                greater = join(greater, alternative);"
+        },
+        {
+          "line": 305,
+          "text": "            }"
+        },
+        {
+          "line": 306,
+          "text": "            suffix = cat(digits, suffix);"
+        },
+        {
+          "line": 307,
+          "text": "        }"
+        },
+        {
+          "line": 308,
+          "text": "        expr* nonzero = decimal_range(1, 9);"
+        },
+        {
+          "line": 309,
+          "text": "        expr* arbitrary = star(digits);"
+        },
+        {
+          "line": 310,
+          "text": "        expr* longer = cat({nonzero, suffix, arbitrary});"
+        },
+        {
+          "line": 311,
+          "text": "        greater = join(greater, longer);"
+        },
+        {
+          "line": 312,
+          "text": "        expr* zeros = lit(zstring(\"0\"));"
+        },
+        {
+          "line": 313,
+          "text": "        zeros = star(zeros);"
+        },
+        {
+          "line": 314,
+          "text": "        return cat(zeros, greater);"
+        },
+        {
+          "line": 315,
+          "text": "    }"
+        },
+        {
+          "line": 316,
+          "text": "    expr* decimal_language(comparison_kind op, rational const& bound) {"
+        },
+        {
+          "line": 317,
+          "text": "        tick();"
+        },
+        {
+          "line": 318,
+          "text": "        auto key = std::make_pair(op, bound);"
+        },
+        {
+          "line": 319,
+          "text": "        auto found = decimal_languages.find(key);"
+        },
+        {
+          "line": 320,
+          "text": "        if (found != decimal_languages.end()) return found->second;"
+        },
+        {
+          "line": 321,
+          "text": "        expr* digits = decimal_range(0, 9);"
+        },
+        {
+          "line": 322,
+          "text": "        expr* repeated = star(digits);"
+        },
+        {
+          "line": 323,
+          "text": "        expr* valid = cat(digits, repeated);"
+        },
+        {
+          "line": 324,
+          "text": "        expr* language = nullptr;"
+        },
+        {
+          "line": 325,
+          "text": "        if (bound < 0) {"
+        },
+        {
+          "line": 326,
+          "text": "            switch (op) {"
+        },
+        {
+          "line": 327,
+          "text": "            case comparison_kind::eq: language = bound.is_minus_one() ? complement(valid) : empty.get(); break;"
+        },
+        {
+          "line": 328,
+          "text": "            case comparison_kind::ne: language = bound.is_minus_one() ? valid : all.get(); break;"
+        },
+        {
+          "line": 329,
+          "text": "            case comparison_kind::le: language = bound.is_minus_one() ? complement(valid) : empty.get(); break;"
+        },
+        {
+          "line": 330,
+          "text": "            case comparison_kind::lt: language = empty; break;"
+        },
+        {
+          "line": 331,
+          "text": "            case comparison_kind::ge: language = all; break;"
+        },
+        {
+          "line": 332,
+          "text": "            case comparison_kind::gt: language = bound.is_minus_one() ? valid : all.get(); break;"
+        },
+        {
+          "line": 333,
+          "text": "            default: UNREACHABLE(); break;"
+        },
+        {
+          "line": 334,
+          "text": "            }"
+        },
+        {
+          "line": 335,
+          "text": "        }"
+        },
+        {
+          "line": 336,
+          "text": "        else if (op == comparison_kind::eq || op == comparison_kind::ne) {"
+        },
+        {
+          "line": 337,
+          "text": "            std::string text = bound.to_string();"
+        },
+        {
+          "line": 338,
+          "text": "            if (text.size() > 4096) throw failure::budget;"
+        },
+        {
+          "line": 339,
+          "text": "            expr* zeros = lit(zstring(\"0\"));"
+        },
+        {
+          "line": 340,
+          "text": "            zeros = star(zeros);"
+        },
+        {
+          "line": 341,
+          "text": "            expr* number = lit(zstring(text.c_str()));"
+        },
+        {
+          "line": 342,
+          "text": "            language = cat(zeros, number);"
+        },
+        {
+          "line": 343,
+          "text": "            if (op == comparison_kind::ne) language = complement(language);"
+        },
+        {
+          "line": 344,
+          "text": "        }"
+        },
+        {
+          "line": 345,
+          "text": "        else {"
+        },
+        {
+          "line": 346,
+          "text": "            if ((op == comparison_kind::ge || op == comparison_kind::lt) && bound.is_zero())"
+        },
+        {
+          "line": 347,
+          "text": "                language = valid;"
+        },
+        {
+          "line": 348,
+          "text": "            else {"
+        },
+        {
+          "line": 349,
+          "text": "                rational threshold = bound;"
+        },
+        {
+          "line": 350,
+          "text": "                if (op == comparison_kind::ge || op == comparison_kind::lt) --threshold;"
+        },
+        {
+          "line": 351,
+          "text": "                language = decimal_greater(threshold);"
+        },
+        {
+          "line": 352,
+          "text": "            }"
+        },
+        {
+          "line": 353,
+          "text": "            if (op == comparison_kind::le || op == comparison_kind::lt) language = complement(language);"
+        },
+        {
+          "line": 354,
+          "text": "        }"
+        },
+        {
+          "line": 355,
+          "text": "        decimal_languages.emplace(std::move(key), language);"
+        },
+        {
+          "line": 356,
+          "text": "        return language;"
+        },
+        {
+          "line": 357,
+          "text": "    }"
+        },
+        {
+          "line": 358,
+          "text": "    static comparison_kind reverse_comparison(comparison_kind op) {"
+        },
+        {
+          "line": 397,
+          "text": "            if (coefficient.is_neg()) std::swap(r.lo, r.hi);"
+        },
+        {
+          "line": 398,
+          "text": "            if (result.lo && r.lo) *result.lo += coefficient * *r.lo;"
+        },
+        {
+          "line": 399,
+          "text": "            else result.lo.reset();"
+        },
+        {
+          "line": 400,
+          "text": "            if (result.hi && r.hi) *result.hi += coefficient * *r.hi;"
+        },
+        {
+          "line": 401,
+          "text": "            else result.hi.reset();"
+        },
+        {
+          "line": 402,
+          "text": "        }"
+        },
+        {
+          "line": 403,
+          "text": "        return result;"
+        },
+        {
+          "line": 404,
+          "text": "    }"
+        },
+        {
+          "line": 405,
+          "text": "    scalar_range range(expr* e, unsigned depth = 0, range_map* context = nullptr) {"
+        },
+        {
+          "line": 406,
+          "text": "        tick();"
+        },
+        {
+          "line": 407,
+          "text": "        if (depth > 256) throw failure::budget;"
+        },
+        {
+          "line": 408,
+          "text": "        auto& cache = context ? *context : scalar_ranges;"
+        },
+        {
+          "line": 409,
+          "text": "        auto it = cache.find(e);"
+        },
+        {
+          "line": 410,
+          "text": "        if (it != cache.end()) return it->second;"
+        },
+        {
+          "line": 411,
+          "text": "        scalar_range result;"
+        },
+        {
+          "line": 412,
+          "text": "        expr *s, *condition, *yes, *no;"
+        },
+        {
+          "line": 413,
+          "text": "        if (u.str.is_stoi(e, s)) {"
+        },
+        {
+          "line": 414,
+          "text": "            result.lo = rational(-1);"
+        },
+        {
+          "line": 415,
+          "text": "            unsigned size = bounded_length(s);"
+        },
+        {
+          "line": 416,
+          "text": "            if (size <= 4096) {"
+        },
+        {
+          "line": 417,
+          "text": "                rational limit(1);"
+        },
+        {
+          "line": 418,
+          "text": "                for (unsigned i = 0; i < size; ++i) {"
+        },
+        {
+          "line": 419,
+          "text": "                    tick();"
+        },
+        {
+          "line": 420,
+          "text": "                    limit *= rational(10);"
+        },
+        {
+          "line": 421,
+          "text": "                }"
+        },
+        {
+          "line": 422,
+          "text": "                result.hi = size ? limit - rational(1) : rational(-1);"
+        },
+        {
+          "line": 423,
+          "text": "            }"
+        },
+        {
+          "line": 424,
+          "text": "        }"
+        },
+        {
+          "line": 425,
+          "text": "        else if (u.str.is_length(e, s)) {"
+        },
+        {
+          "line": 426,
+          "text": "            result.lo = rational(0);"
+        },
+        {
+          "line": 427,
+          "text": "            unsigned size = bounded_length(s);"
+        },
+        {
+          "line": 428,
+          "text": "            if (size != UINT_MAX) result.hi = rational(size);"
+        },
+        {
+          "line": 429,
+          "text": "        }"
+        },
+        {
+          "line": 430,
+          "text": "        else if (m.is_ite(e, condition, yes, no)) {"
+        },
+        {
+          "line": 431,
+          "text": "            scalar_range y = range(affine(yes), depth + 1, context);"
+        },
+        {
+          "line": 432,
+          "text": "            scalar_range n = range(affine(no), depth + 1, context);"
+        },
+        {
+          "line": 433,
+          "text": "            if (y.lo && n.lo) result.lo = std::min(*y.lo, *n.lo);"
+        },
+        {
+          "line": 434,
+          "text": "            if (y.hi && n.hi) result.hi = std::max(*y.hi, *n.hi);"
+        },
+        {
+          "line": 435,
+          "text": "        }"
+        },
+        {
+          "line": 436,
+          "text": "        cache.emplace(e, result);"
+        },
+        {
+          "line": 437,
+          "text": "        return result;"
+        },
+        {
+          "line": 438,
+          "text": "    }"
+        },
+        {
+          "line": 518,
+          "text": "        expr* result = scalar_comparison(op, value);"
+        },
+        {
+          "line": 519,
+          "text": "        return result ? result : e;"
+        },
+        {
+          "line": 520,
+          "text": "    }"
+        },
+        {
+          "line": 521,
+          "text": "    expr* decimal_comparison(comparison_kind op, linear const& l, bool& changed,"
+        },
+        {
+          "line": 522,
+          "text": "                             bool& magnitude, unsigned depth = 0) {"
+        },
+        {
+          "line": 523,
+          "text": "        tick();"
+        },
+        {
+          "line": 524,
+          "text": "        if (depth > 256) throw failure::budget;"
+        },
+        {
+          "line": 525,
+          "text": "        if (l.terms.size() != 1) return nullptr;"
+        },
+        {
+          "line": 526,
+          "text": "        auto [term, coefficient] = *l.terms.begin();"
+        },
+        {
+          "line": 527,
+          "text": "        if (coefficient == rational(-1))"
+        },
+        {
+          "line": 528,
+          "text": "            op = reverse_comparison(op);"
+        },
+        {
+          "line": 529,
+          "text": "        else if (!coefficient.is_one())"
+        },
+        {
+          "line": 530,
+          "text": "            return nullptr;"
+        },
+        {
+          "line": 531,
+          "text": "        rational bound = -l.constant * coefficient;"
+        },
+        {
+          "line": 532,
+          "text": "        if (!bound.is_int()) return nullptr;"
+        },
+        {
+          "line": 533,
+          "text": "        expr *source, *condition, *yes, *no;"
+        },
+        {
+          "line": 534,
+          "text": "        if (u.str.is_stoi(term, source)) {"
+        },
+        {
+          "line": 535,
+          "text": "            changed = true;"
+        },
+        {
+          "line": 536,
+          "text": "            magnitude |= bound >= 0 &&"
+        },
+        {
+          "line": 537,
+          "text": "                !(bound.is_zero() && (op == comparison_kind::ge || op == comparison_kind::lt));"
+        },
+        {
+          "line": 538,
+          "text": "            return membership(source, decimal_language(op, bound));"
+        },
+        {
+          "line": 539,
+          "text": "        }"
+        },
+        {
+          "line": 540,
+          "text": "        if (!m.is_ite(term, condition, yes, no)) return nullptr;"
+        },
+        {
+          "line": 1149,
+          "text": "public:"
+        },
+        {
+          "line": 1150,
+          "text": "    void prepare_conversions(expr_ref_vector const& inputs, expr_ref_vector& outputs,"
+        },
+        {
+          "line": 1151,
+          "text": "                             bool& contextual, unsigned& finite) {"
+        },
+        {
+          "line": 1152,
+          "text": "        obj_hashtable<expr> seen;"
+        },
+        {
+          "line": 1153,
+          "text": "        ptr_vector<expr> todo;"
+        },
+        {
+          "line": 1154,
+          "text": "        todo.append(inputs.size(), inputs.data());"
+        },
+        {
+          "line": 1155,
+          "text": "        bool bounded = false;"
+        },
+        {
+          "line": 1156,
+          "text": "        while (!todo.empty()) {"
+        },
+        {
+          "line": 1157,
+          "text": "            tick();"
+        },
+        {
+          "line": 1158,
+          "text": "            expr* e = todo.back();"
+        },
+        {
+          "line": 1159,
+          "text": "            todo.pop_back();"
+        },
+        {
+          "line": 1160,
+          "text": "            if (seen.contains(e)) continue;"
+        },
+        {
+          "line": 1161,
+          "text": "            seen.insert(e);"
+        },
+        {
+          "line": 1162,
+          "text": "            expr* s;"
+        },
+        {
+          "line": 1163,
+          "text": "            bounded |= u.str.is_stoi(e, s) && !u.str.is_string(s) && bounded_length(s) <= 4096;"
+        },
+        {
+          "line": 1164,
+          "text": "            if (is_app(e)) for (expr* arg : *to_app(e)) todo.push_back(arg);"
+        },
+        {
+          "line": 1165,
+          "text": "        }"
+        },
+        {
+          "line": 1166,
+          "text": "        if (!bounded) {"
+        },
+        {
+          "line": 1167,
+          "text": "            outputs.append(inputs);"
+        },
+        {
+          "line": 1168,
+          "text": "            return;"
+        },
+        {
+          "line": 1169,
+          "text": "        }"
+        },
+        {
+          "line": 1170,
+          "text": ""
+        },
+        {
+          "line": 1750,
+          "text": "    scoped_watch watch(m_watch);"
+        },
+        {
+          "line": 1751,
+          "text": "    if (proofs_enabled() || m_fmls.has_quantifiers()) { ++m_skipped; return; }"
+        },
+        {
+          "line": 1752,
+          "text": "    unsigned preimages_before = m_preimages;"
+        },
+        {
+          "line": 1753,
+          "text": "    unsigned steps = 0;"
+        },
+        {
+          "line": 1754,
+          "text": "    regular_compiler compiler(m, m_max_steps, steps, m_preimages);"
+        },
+        {
+          "line": 1755,
+          "text": "    expr_ref_vector originals(m), prepared(m), decimals(m), results(m);"
+        },
+        {
+          "line": 1756,
+          "text": "    expr_dependency_ref context_dep(m);"
+        },
+        {
+          "line": 1757,
+          "text": "    bool labeled = false;"
+        },
+        {
+          "line": 1758,
+          "text": "    for (unsigned i = qhead(); i < qtail(); ++i) {"
+        },
+        {
+          "line": 1759,
+          "text": "        labeled |= m_fmls[i].dep() != nullptr;"
+        },
+        {
+          "line": 1760,
+          "text": "        context_dep = m.mk_join(context_dep, m_fmls[i].dep());"
+        },
+        {
+          "line": 1761,
+          "text": "        originals.push_back(m_fmls[i].fml());"
+        },
+        {
+          "line": 1762,
+          "text": "    }"
+        },
+        {
+          "line": 1763,
+          "text": "    bool decimal_changed = false;"
+        },
+        {
+          "line": 1764,
+          "text": "    bool contextual = false;"
+        },
+        {
+          "line": 1765,
+          "text": "    unsigned finite = 0;"
+        },
+        {
+          "line": 1766,
+          "text": "    try {"
+        },
+        {
+          "line": 1767,
+          "text": "        if (compiler.arithmetic_conflict(originals)) {"
+        },
+        {
+          "line": 1768,
+          "text": "            expr_dependency_ref dep(m);"
+        },
+        {
+          "line": 1769,
+          "text": "            for (unsigned i = qhead(); i < qtail(); ++i)"
+        },
+        {
+          "line": 1770,
+          "text": "                dep = m.mk_join(dep, m_fmls[i].dep());"
+        },
+        {
+          "line": 1771,
+          "text": "            m_fmls.update(qhead(), dependent_expr(m, m.mk_false(), nullptr, dep));"
+        },
+        {
+          "line": 1772,
+          "text": "            m_steps += steps;"
+        },
+        {
+          "line": 1773,
+          "text": "            ++m_arith_refuted;"
+        },
+        {
+          "line": 1774,
+          "text": "            ++m_rewritten;"
+        },
+        {
+          "line": 1775,
+          "text": "            return;"
+        },
+        {
+          "line": 1776,
+          "text": "        }"
+        },
+        {
+          "line": 1777,
+          "text": "        compiler.prepare_conversions(originals, prepared, contextual, finite);"
+        },
+        {
+          "line": 1778,
+          "text": "        for (expr* input : prepared) {"
+        },
+        {
+          "line": 1779,
+          "text": "            expr* result = compiler.normalize(input, normalization_kind::decimal);"
+        },
+        {
+          "line": 1780,
+          "text": "            decimals.push_back(result);"
+        },
+        {
+          "line": 1781,
+          "text": "        }"
+        },
+        {
+          "line": 1782,
+          "text": "        if (!compiler.retain_shared_conversions(decimals)) {"
+        },
+        {
+          "line": 1783,
+          "text": "            decimals.reset();"
+        },
+        {
+          "line": 1784,
+          "text": "            decimals.append(prepared);"
+        },
+        {
+          "line": 1785,
+          "text": "        }"
+        },
+        {
+          "line": 1786,
+          "text": "        for (unsigned i = qhead(); i < qtail(); ++i)"
+        },
+        {
+          "line": 1787,
+          "text": "            decimal_changed |= decimals.get(i - qhead()) != m_fmls[i].fml();"
+        },
+        {
+          "line": 1788,
+          "text": "    }"
+        },
+        {
+          "line": 1789,
+          "text": "    catch (failure why) {"
+        },
+        {
+          "line": 1790,
+          "text": "        m_steps += steps;"
+        },
+        {
+          "line": 1791,
+          "text": "        if (why == failure::unsupported) ++m_unsupported;"
+        },
+        {
+          "line": 1792,
+          "text": "        else if (why == failure::budget) ++m_budget;"
+        },
+        {
+          "line": 1793,
+          "text": "        return;"
+        },
+        {
+          "line": 1794,
+          "text": "    }"
+        },
+        {
+          "line": 1795,
+          "text": "    try {"
+        },
+        {
+          "line": 1796,
+          "text": "        if (labeled) {"
+        },
+        {
+          "line": 1797,
+          "text": "            for (expr* input : decimals)"
+        },
+        {
+          "line": 1798,
+          "text": "                results.push_back(compiler.compile(input));"
+        },
+        {
+          "line": 1799,
+          "text": "        }"
+        },
+        {
+          "line": 1800,
+          "text": "        else {"
+        },
+        {
+          "line": 1801,
+          "text": "            expr_ref input(mk_and(decimals), m);"
+        },
+        {
+          "line": 1802,
+          "text": "            results.push_back(compiler.compile(input));"
+        },
+        {
+          "line": 1803,
+          "text": "            if (results.back() == input && !decimal_changed) {"
+        },
+        {
+          "line": 1804,
+          "text": "                m_steps += steps;"
+        },
+        {
+          "line": 1805,
+          "text": "                return;"
+        },
+        {
+          "line": 1806,
+          "text": "            }"
+        },
+        {
+          "line": 1807,
+          "text": "            for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());"
+        },
+        {
+          "line": 1808,
+          "text": "        }"
+        },
+        {
+          "line": 1809,
+          "text": "    }"
+        },
+        {
+          "line": 1810,
+          "text": "    catch (failure why) {"
+        },
+        {
+          "line": 1811,
+          "text": "        bool recovered = false;"
+        },
+        {
+          "line": 1812,
+          "text": "        if (why == failure::unsupported) {"
+        },
+        {
+          "line": 1813,
+          "text": "            try {"
+        },
+        {
+          "line": 1814,
+          "text": "                unsigned definitions = 0;"
+        },
+        {
+          "line": 1815,
+          "text": "                expr_ref input(mk_and(decimals), m);"
+        },
+        {
+          "line": 1816,
+          "text": "                expr_ref result(compiler.compile_definitions(input, definitions), m);"
+        },
+        {
+          "line": 1817,
+          "text": "                results.reset();"
+        },
+        {
+          "line": 1818,
+          "text": "                results.push_back(result);"
+        },
+        {
+          "line": 1819,
+          "text": "                for (unsigned i = qhead() + 1; i < qtail(); ++i) results.push_back(m.mk_true());"
+        },
+        {
+          "line": 1820,
+          "text": "                m_definitions += definitions;"
+        },
+        {
+          "line": 1821,
+          "text": "                contextual = true;"
+        },
+        {
+          "line": 1822,
+          "text": "                recovered = true;"
+        },
+        {
+          "line": 1823,
+          "text": "            }"
+        },
+        {
+          "line": 1824,
+          "text": "            catch (failure reason) {"
+        },
+        {
+          "line": 1825,
+          "text": "                why = reason;"
+        },
+        {
+          "line": 1826,
+          "text": "            }"
+        },
+        {
+          "line": 1827,
+          "text": "        }"
+        },
+        {
+          "line": 1828,
+          "text": "        if (!recovered) {"
+        },
+        {
+          "line": 1829,
+          "text": "            if (why == failure::unsupported) ++m_unsupported;"
+        },
+        {
+          "line": 1830,
+          "text": "            else if (why == failure::budget) ++m_budget;"
+        },
+        {
+          "line": 1831,
+          "text": "            if (!decimal_changed || why == failure::canceled) {"
+        },
+        {
+          "line": 1832,
+          "text": "                m_steps += steps;"
+        },
+        {
+          "line": 1833,
+          "text": "                return;"
+        },
+        {
+          "line": 1834,
+          "text": "            }"
+        },
+        {
+          "line": 1835,
+          "text": "            results.reset();"
+        },
+        {
+          "line": 1836,
+          "text": "            results.append(decimals);"
+        },
+        {
+          "line": 1837,
+          "text": "        }"
+        },
+        {
+          "line": 1838,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/smt/seq_axioms.cpp",
+      "blob": "5fb0c1fa88b682e2126d4a26b703bbc77983f151",
+      "sha256": "bf329de10616e7515de2bae294d4d134f5b3bc0990c79834d4bef0fcc3a230a2",
+      "spans": [
+        [
+          29,
+          104
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 29,
+          "text": "seq_axioms::seq_axioms(theory& th, th_rewriter& r):"
+        },
+        {
+          "line": 30,
+          "text": "    th(th),"
+        },
+        {
+          "line": 31,
+          "text": "    m_rewrite(r),"
+        },
+        {
+          "line": 32,
+          "text": "    m(r.m()),"
+        },
+        {
+          "line": 33,
+          "text": "    a(m),"
+        },
+        {
+          "line": 34,
+          "text": "    seq(m),"
+        },
+        {
+          "line": 35,
+          "text": "    m_sk(m, r),"
+        },
+        {
+          "line": 36,
+          "text": "    m_ax(r),"
+        },
+        {
+          "line": 37,
+          "text": "    m_digits_initialized(false)"
+        },
+        {
+          "line": 38,
+          "text": "{"
+        },
+        {
+          "line": 39,
+          "text": "    std::function<void(expr_ref_vector const&)> _add_clause = [&](expr_ref_vector const& c) { add_clause(c); };"
+        },
+        {
+          "line": 40,
+          "text": "    std::function<void(expr*)> _set_phase = [&](expr* e) { set_phase(e); };"
+        },
+        {
+          "line": 41,
+          "text": "    std::function<void(void)> _ensure_digits = [&]() { ensure_digit_axiom(); };"
+        },
+        {
+          "line": 42,
+          "text": "    m_ax.set_add_clause(_add_clause);"
+        },
+        {
+          "line": 43,
+          "text": "    m_ax.set_phase(_set_phase);"
+        },
+        {
+          "line": 44,
+          "text": "    m_ax.set_ensure_digits(_ensure_digits);"
+        },
+        {
+          "line": 45,
+          "text": "}"
+        },
+        {
+          "line": 46,
+          "text": ""
+        },
+        {
+          "line": 47,
+          "text": "literal seq_axioms::mk_eq(expr* a, expr* b) {"
+        },
+        {
+          "line": 48,
+          "text": "    return th.mk_eq(a, b, false);"
+        },
+        {
+          "line": 49,
+          "text": "}"
+        },
+        {
+          "line": 50,
+          "text": ""
+        },
+        {
+          "line": 51,
+          "text": "expr_ref seq_axioms::mk_sub(expr* x, expr* y) {"
+        },
+        {
+          "line": 52,
+          "text": "    expr_ref result(a.mk_sub(x, y), m);"
+        },
+        {
+          "line": 53,
+          "text": "    m_rewrite(result);"
+        },
+        {
+          "line": 54,
+          "text": "    return result;"
+        },
+        {
+          "line": 55,
+          "text": "}"
+        },
+        {
+          "line": 56,
+          "text": ""
+        },
+        {
+          "line": 57,
+          "text": "expr_ref seq_axioms::mk_len(expr* s) {"
+        },
+        {
+          "line": 58,
+          "text": "    expr_ref result(seq.str.mk_length(s), m); "
+        },
+        {
+          "line": 59,
+          "text": "    m_rewrite(result);"
+        },
+        {
+          "line": 60,
+          "text": "    return result;"
+        },
+        {
+          "line": 61,
+          "text": "}"
+        },
+        {
+          "line": 62,
+          "text": ""
+        },
+        {
+          "line": 63,
+          "text": "literal seq_axioms::mk_literal(expr* _e) {"
+        },
+        {
+          "line": 64,
+          "text": "    expr_ref e(_e, m);"
+        },
+        {
+          "line": 65,
+          "text": "    if (m.is_not(_e, _e)) "
+        },
+        {
+          "line": 66,
+          "text": "        return ~mk_literal(_e);"
+        },
+        {
+          "line": 67,
+          "text": "    if (m.is_eq(e))"
+        },
+        {
+          "line": 68,
+          "text": "        return mk_eq(to_app(e)->get_arg(0), to_app(e)->get_arg(1));"
+        },
+        {
+          "line": 69,
+          "text": "    if (a.is_arith_expr(e)) "
+        },
+        {
+          "line": 70,
+          "text": "        m_rewrite(e);"
+        },
+        {
+          "line": 71,
+          "text": "    th.ensure_enode(e);"
+        },
+        {
+          "line": 72,
+          "text": "    return ctx().get_literal(e);"
+        },
+        {
+          "line": 73,
+          "text": "}"
+        },
+        {
+          "line": 74,
+          "text": ""
+        },
+        {
+          "line": 75,
+          "text": "void seq_axioms::set_phase(expr* e) {"
+        },
+        {
+          "line": 76,
+          "text": "    literal lit = mk_literal(e);"
+        },
+        {
+          "line": 77,
+          "text": "    ctx().force_phase(lit);"
+        },
+        {
+          "line": 78,
+          "text": "}"
+        },
+        {
+          "line": 79,
+          "text": ""
+        },
+        {
+          "line": 80,
+          "text": ""
+        },
+        {
+          "line": 81,
+          "text": "void seq_axioms::add_clause(expr_ref_vector const& clause) {"
+        },
+        {
+          "line": 82,
+          "text": "    expr* a = nullptr, *b = nullptr;"
+        },
+        {
+          "line": 83,
+          "text": "    if (false && clause.size() == 1 && m.is_eq(clause[0], a, b)) {"
+        },
+        {
+          "line": 84,
+          "text": "        enode* n1 = th.ensure_enode(a);"
+        },
+        {
+          "line": 85,
+          "text": "        enode* n2 = th.ensure_enode(b);"
+        },
+        {
+          "line": 86,
+          "text": "        justification* js ="
+        },
+        {
+          "line": 87,
+          "text": "            ctx().mk_justification("
+        },
+        {
+          "line": 88,
+          "text": "                ext_theory_eq_propagation_justification("
+        },
+        {
+          "line": 89,
+          "text": "                    th.get_id(), ctx(), 0, nullptr, 0, nullptr, n1, n2));"
+        },
+        {
+          "line": 90,
+          "text": "        ctx().assign_eq(n1, n2, eq_justification(js));"
+        },
+        {
+          "line": 91,
+          "text": "        return;"
+        },
+        {
+          "line": 92,
+          "text": "    }"
+        },
+        {
+          "line": 93,
+          "text": "    literal lits[5] = { null_literal, null_literal, null_literal, null_literal, null_literal };"
+        },
+        {
+          "line": 94,
+          "text": "    unsigned idx = 0;"
+        },
+        {
+          "line": 95,
+          "text": "    for (expr* e : clause) {"
+        },
+        {
+          "line": 96,
+          "text": "        literal lit = mk_literal(e);"
+        },
+        {
+          "line": 97,
+          "text": "        if (lit == true_literal)"
+        },
+        {
+          "line": 98,
+          "text": "            return;"
+        },
+        {
+          "line": 99,
+          "text": "        if (lit != false_literal)"
+        },
+        {
+          "line": 100,
+          "text": "            lits[idx++] = mk_literal(e);"
+        },
+        {
+          "line": 101,
+          "text": "        SASSERT(idx <= 5);"
+        },
+        {
+          "line": 102,
+          "text": "    }"
+        },
+        {
+          "line": 103,
+          "text": "    add_axiom(lits[0], lits[1], lits[2], lits[3], lits[4]);"
+        },
+        {
+          "line": 104,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/smt/seq_axioms.h",
+      "blob": "594fa5cc8491940f895d8d79efc1a2d6a1f52d96",
+      "sha256": "6146c7fa250d0d6b661057ccdfe20dc0f5d02a0a36be0e871b99bd0d8140ad23",
+      "spans": [
+        [
+          30,
+          103
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 30,
+          "text": ""
+        },
+        {
+          "line": 31,
+          "text": "    class seq_axioms {"
+        },
+        {
+          "line": 32,
+          "text": "        theory&        th;"
+        },
+        {
+          "line": 33,
+          "text": "        th_rewriter&   m_rewrite;"
+        },
+        {
+          "line": 34,
+          "text": "        ast_manager&   m;"
+        },
+        {
+          "line": 35,
+          "text": "        arith_util     a;"
+        },
+        {
+          "line": 36,
+          "text": "        seq_util       seq;"
+        },
+        {
+          "line": 37,
+          "text": "        seq::skolem    m_sk;"
+        },
+        {
+          "line": 38,
+          "text": "        seq::axioms    m_ax;"
+        },
+        {
+          "line": 39,
+          "text": "        bool           m_digits_initialized;"
+        },
+        {
+          "line": 40,
+          "text": ""
+        },
+        {
+          "line": 41,
+          "text": "        literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }"
+        },
+        {
+          "line": 42,
+          "text": "        context& ctx() { return th.get_context(); }"
+        },
+        {
+          "line": 43,
+          "text": "        literal mk_eq(expr* a, expr* b);"
+        },
+        {
+          "line": 44,
+          "text": "        literal mk_literal(expr* e);"
+        },
+        {
+          "line": 45,
+          "text": "        literal mk_seq_eq(expr* a, expr* b) { SASSERT(seq.is_seq(a) && seq.is_seq(b)); return mk_literal(m_sk.mk_eq(a, b)); }"
+        },
+        {
+          "line": 46,
+          "text": ""
+        },
+        {
+          "line": 47,
+          "text": "        expr_ref mk_len(expr* s);"
+        },
+        {
+          "line": 48,
+          "text": "        expr_ref mk_sub(expr* x, expr* y);"
+        },
+        {
+          "line": 49,
+          "text": "        expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(seq.str.mk_concat(e1, e2, e3), m); }"
+        },
+        {
+          "line": 50,
+          "text": "        expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }"
+        },
+        {
+          "line": 51,
+          "text": "        expr_ref mk_nth(expr* e, unsigned i) { return expr_ref(seq.str.mk_nth_i(e, a.mk_int(i)), m); }"
+        },
+        {
+          "line": 52,
+          "text": "        literal mk_ge_e(expr* x, expr* y) { return mk_literal(a.mk_ge(x, y)); }"
+        },
+        {
+          "line": 53,
+          "text": "        literal mk_le_e(expr* x, expr* y) { return mk_literal(a.mk_le(x, y)); }"
+        },
+        {
+          "line": 54,
+          "text": "        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, "
+        },
+        {
+          "line": 55,
+          "text": "                       literal l4 = null_literal, literal l5 = null_literal) { add_axiom5(l1, l2, l3, l4, l5); }"
+        },
+        {
+          "line": 56,
+          "text": ""
+        },
+        {
+          "line": 57,
+          "text": "        void ensure_digit_axiom();"
+        },
+        {
+          "line": 58,
+          "text": "        void add_clause(expr_ref_vector const& lits);"
+        },
+        {
+          "line": 59,
+          "text": "        void set_phase(expr* e);"
+        },
+        {
+          "line": 60,
+          "text": ""
+        },
+        {
+          "line": 61,
+          "text": ""
+        },
+        {
+          "line": 62,
+          "text": "    public:"
+        },
+        {
+          "line": 63,
+          "text": ""
+        },
+        {
+          "line": 64,
+          "text": "        seq_axioms(theory& th, th_rewriter& r);"
+        },
+        {
+          "line": 65,
+          "text": ""
+        },
+        {
+          "line": 66,
+          "text": "        // we rely on client to supply the following functions:"
+        },
+        {
+          "line": 67,
+          "text": "        std::function<void(literal l1, literal l2, literal l3, literal l4, literal l5)> add_axiom5;"
+        },
+        {
+          "line": 68,
+          "text": "        std::function<literal(expr*,bool)> mk_eq_empty2;"
+        },
+        {
+          "line": 69,
+          "text": ""
+        },
+        {
+          "line": 70,
+          "text": "        void add_suffix_axiom(expr* n) { m_ax.suffix_axiom(n); }"
+        },
+        {
+          "line": 71,
+          "text": "        void add_prefix_axiom(expr* n) { m_ax.prefix_axiom(n); }"
+        },
+        {
+          "line": 72,
+          "text": "        void add_extract_axiom(expr* n) { m_ax.extract_axiom(n); }"
+        },
+        {
+          "line": 73,
+          "text": "        void add_indexof_axiom(expr* n) { m_ax.indexof_axiom(n); }"
+        },
+        {
+          "line": 74,
+          "text": "        void add_last_indexof_axiom(expr* n) { m_ax.last_indexof_axiom(n); }"
+        },
+        {
+          "line": 75,
+          "text": "        void add_replace_axiom(expr* n) { m_ax.replace_axiom(n); }"
+        },
+        {
+          "line": 76,
+          "text": "        void add_replace_all_axiom(expr* n) { m_ax.replace_all_axiom(n); }"
+        },
+        {
+          "line": 77,
+          "text": "        void add_at_axiom(expr* n) { m_ax.at_axiom(n); }"
+        },
+        {
+          "line": 78,
+          "text": "        void add_nth_axiom(expr* n) { m_ax.nth_axiom(n); }"
+        },
+        {
+          "line": 79,
+          "text": "        void add_itos_axiom(expr* n) { m_ax.itos_axiom(n); }"
+        },
+        {
+          "line": 80,
+          "text": "        void add_stoi_axiom(expr* n) { m_ax.stoi_axiom(n); }"
+        },
+        {
+          "line": 81,
+          "text": "        void add_stoi_axiom_re(expr* n) { m_ax.stoi_axiom_re(n); }"
+        },
+        {
+          "line": 82,
+          "text": "        void add_stoi_axiom(expr* e, unsigned k) { m_ax.stoi_axiom(e, k); }"
+        },
+        {
+          "line": 83,
+          "text": "        void add_itos_axiom(expr* s, unsigned k) { m_ax.itos_axiom(s, k); }"
+        },
+        {
+          "line": 84,
+          "text": "        void add_ubv2s_axiom(expr* b, unsigned k) { m_ax.ubv2s_axiom(b, k); }"
+        },
+        {
+          "line": 85,
+          "text": "        void add_ubv2s_len_axiom(expr* b, unsigned k) { m_ax.ubv2s_len_axiom(b, k); }"
+        },
+        {
+          "line": 86,
+          "text": "        void add_ubv2s_len_axiom(expr* b) { m_ax.ubv2s_len_axiom(b); }"
+        },
+        {
+          "line": 87,
+          "text": "        void add_ubv2ch_axioms(sort* s) { m_ax.ubv2ch_axiom(s); }"
+        },
+        {
+          "line": 88,
+          "text": "        void add_lt_axiom(expr* n) { m_ax.lt_axiom(n); }"
+        },
+        {
+          "line": 89,
+          "text": "        void add_le_axiom(expr* n) { m_ax.le_axiom(n); }"
+        },
+        {
+          "line": 90,
+          "text": "        void add_is_digit_axiom(expr* n) { m_ax.is_digit_axiom(n); }"
+        },
+        {
+          "line": 91,
+          "text": "        void add_str_to_code_axiom(expr* n) { m_ax.str_to_code_axiom(n); }"
+        },
+        {
+          "line": 92,
+          "text": "        void add_str_from_code_axiom(expr* n) { m_ax.str_from_code_axiom(n); }"
+        },
+        {
+          "line": 93,
+          "text": "        void add_unit_axiom(expr* n) { m_ax.unit_axiom(n); }"
+        },
+        {
+          "line": 94,
+          "text": "        void add_power_axiom(expr* n) { m_ax.power_axiom(n); }"
+        },
+        {
+          "line": 95,
+          "text": "        void add_power_unfold_axiom(expr* n, unsigned k) { m_ax.power_unfold_axiom(n, k); }"
+        },
+        {
+          "line": 96,
+          "text": "        void add_length_axiom(expr* n) { m_ax.length_axiom(n); }"
+        },
+        {
+          "line": 97,
+          "text": "        void unroll_not_contains(expr* n) { m_ax.unroll_not_contains(n); }"
+        },
+        {
+          "line": 98,
+          "text": ""
+        },
+        {
+          "line": 99,
+          "text": "        // Expose the ordinary clause-to-theory-axiom path to external callers."
+        },
+        {
+          "line": 100,
+          "text": "        void add_axiom_clause(expr_ref_vector const& clause) { add_clause(clause); }"
+        },
+        {
+          "line": 101,
+          "text": ""
+        },
+        {
+          "line": 102,
+          "text": "        literal is_digit(expr* ch) { return mk_literal(m_ax.is_digit(ch)); }"
+        },
+        {
+          "line": 103,
+          "text": "        expr_ref add_length_limit(expr* s, unsigned k) { return m_ax.length_limit(s, k); }"
+        }
+      ]
+    },
+    {
+      "path": "src/smt/seq_nseq_ambient_context.h",
+      "blob": "fe5658d455256a70ba60ff692e8a0e56b75e1ff0",
+      "sha256": "2cdb0b476654f05dd5ca9858107a2d1e443cf65eae812530a5105075e136b63c",
+      "spans": [
+        [
+          24,
+          73
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 24,
+          "text": ""
+        },
+        {
+          "line": 25,
+          "text": "    class theory_nseq_ambient_context : public ambient_context_i<eq_tree::dep_tracker> {"
+        },
+        {
+          "line": 26,
+          "text": "        smt::theory_nseq& m_th;"
+        },
+        {
+          "line": 27,
+          "text": "    public:"
+        },
+        {
+          "line": 28,
+          "text": "        explicit theory_nseq_ambient_context(smt::theory_nseq& th)"
+        },
+        {
+          "line": 29,
+          "text": "            : ambient_context_i<eq_tree::dep_tracker>(th.get_manager(), th.m_seq), m_th(th) {}"
+        },
+        {
+          "line": 30,
+          "text": ""
+        },
+        {
+          "line": 31,
+          "text": "        bool lower_bound(expr* e, rational& lo, eq_tree::dep_tracker& dep) override {"
+        },
+        {
+          "line": 32,
+          "text": "            dep = nullptr;"
+        },
+        {
+          "line": 33,
+          "text": "            if (!m_th.lower_bound(e, lo))"
+        },
+        {
+          "line": 34,
+          "text": "                return false;"
+        },
+        {
+          "line": 35,
+          "text": "            dep = add_conditional_dep(m_th.m_autil.mk_ge(e, m_th.m_autil.mk_int(lo)));"
+        },
+        {
+          "line": 36,
+          "text": "            return true;"
+        },
+        {
+          "line": 37,
+          "text": "        }"
+        },
+        {
+          "line": 38,
+          "text": ""
+        },
+        {
+          "line": 39,
+          "text": "        bool upper_bound(expr* e, rational& hi, eq_tree::dep_tracker& dep) override {"
+        },
+        {
+          "line": 40,
+          "text": "            dep = nullptr;"
+        },
+        {
+          "line": 41,
+          "text": "            if (!m_th.upper_bound(e, hi))"
+        },
+        {
+          "line": 42,
+          "text": "                return false;"
+        },
+        {
+          "line": 43,
+          "text": "            dep = add_conditional_dep(m_th.m_autil.mk_le(e, m_th.m_autil.mk_int(hi)));"
+        },
+        {
+          "line": 44,
+          "text": "            return true;"
+        },
+        {
+          "line": 45,
+          "text": "        }"
+        },
+        {
+          "line": 46,
+          "text": ""
+        },
+        {
+          "line": 47,
+          "text": "        bool current_value(expr* e, rational& v) override {"
+        },
+        {
+          "line": 48,
+          "text": "            return m_th.get_num_value(e, v);"
+        },
+        {
+          "line": 49,
+          "text": "        }"
+        },
+        {
+          "line": 50,
+          "text": ""
+        },
+        {
+          "line": 51,
+          "text": "        theory_seq_params const& fparams() const override { return m_th.ctx.get_fparams(); }"
+        },
+        {
+          "line": 52,
+          "text": ""
+        },
+        {
+          "line": 53,
+          "text": "        eq_tree::dep_tracker literal_if_false(expr* e) override {"
+        },
+        {
+          "line": 54,
+          "text": "            if (!m_th.ctx.b_internalized(e))"
+        },
+        {
+          "line": 55,
+          "text": "                return nullptr;"
+        },
+        {
+          "line": 56,
+          "text": "            smt::literal lit = m_th.ctx.get_literal(e);"
+        },
+        {
+          "line": 57,
+          "text": "            if (m_th.ctx.get_assignment(lit) != l_false)"
+        },
+        {
+          "line": 58,
+          "text": "                return nullptr;"
+        },
+        {
+          "line": 59,
+          "text": "            return add_conditional_dep(m.mk_not(e));"
+        },
+        {
+          "line": 60,
+          "text": "        }"
+        },
+        {
+          "line": 61,
+          "text": ""
+        },
+        {
+          "line": 62,
+          "text": "        void add_diseq_axiom(expr*, expr*) override {"
+        },
+        {
+          "line": 63,
+          "text": "            // No-op: no standalone axiom-injection entry point distinct from"
+        },
+        {
+          "line": 64,
+          "text": "            // theory_nseq's ordinary disequality propagation."
+        },
+        {
+          "line": 65,
+          "text": "        }"
+        },
+        {
+          "line": 66,
+          "text": ""
+        },
+        {
+          "line": 67,
+          "text": "        // Reuse seq_axioms' ordinary clause-to-theory-axiom path."
+        },
+        {
+          "line": 68,
+          "text": "        void add_axiom(expr_ref_vector const& clause) override {"
+        },
+        {
+          "line": 69,
+          "text": "            m_th.m_ax.add_axiom_clause(clause);"
+        },
+        {
+          "line": 70,
+          "text": "        }"
+        },
+        {
+          "line": 71,
+          "text": ""
+        },
+        {
+          "line": 72,
+          "text": "        trail_stack& trail() override { return m_th.m_tree.trail(); }"
+        },
+        {
+          "line": 73,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/smt/smt_model_generator.cpp",
+      "blob": "7ecbaca6c7d6b4657ed10022d4a55c16c7a041cb",
+      "sha256": "e01511f7766841bd9de9dac51b02a3975eee61c7defe1a5933bc65c7884f6394",
+      "spans": [
+        [
+          300,
+          382
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 300,
+          "text": "        obj_map<enode, model_value_proc *> root2proc;"
+        },
+        {
+          "line": 301,
+          "text": "        ptr_vector<enode> roots;"
+        },
+        {
+          "line": 302,
+          "text": "        ptr_vector<model_value_proc> procs;"
+        },
+        {
+          "line": 303,
+          "text": "        scoped_reset _scoped_reset(*this, procs);"
+        },
+        {
+          "line": 304,
+          "text": "        svector<source> sources;"
+        },
+        {
+          "line": 305,
+          "text": "        buffer<model_value_dependency> dependencies;"
+        },
+        {
+          "line": 306,
+          "text": "        expr_ref_vector dependency_values(m);"
+        },
+        {
+          "line": 307,
+          "text": "        mk_value_procs(root2proc, roots, procs);"
+        },
+        {
+          "line": 308,
+          "text": "        top_sort_sources(roots, root2proc, sources);"
+        },
+        {
+          "line": 309,
+          "text": "        TRACE(sorted_sources,"
+        },
+        {
+          "line": 310,
+          "text": "              for (source const& curr : sources) {"
+        },
+        {
+          "line": 311,
+          "text": "                  if (curr.is_fresh_value()) {"
+        },
+        {
+          "line": 312,
+          "text": "                      tout << curr << \" \" << mk_pp(curr.get_value()->get_sort(), m) << \"\\n\";"
+        },
+        {
+          "line": 313,
+          "text": "                  }"
+        },
+        {
+          "line": 314,
+          "text": "                  else {"
+        },
+        {
+          "line": 315,
+          "text": "                      enode * n = curr.get_enode();"
+        },
+        {
+          "line": 316,
+          "text": "                      sort* s = n->get_sort();"
+        },
+        {
+          "line": 317,
+          "text": "                      SASSERT(n->get_root() == n);"
+        },
+        {
+          "line": 318,
+          "text": "                      tout << curr << \" \" << mk_pp(s, m);"
+        },
+        {
+          "line": 319,
+          "text": "                      tout << mk_bounded_pp(n->get_expr(), m) << \" \";"
+        },
+        {
+          "line": 320,
+          "text": "                      tout << \" is_fresh: \" << root2proc[n]->is_fresh() << \" - deps: \";"
+        },
+        {
+          "line": 321,
+          "text": "                      dependencies.reset();"
+        },
+        {
+          "line": 322,
+          "text": "                      model_value_proc* proc = root2proc[n];"
+        },
+        {
+          "line": 323,
+          "text": "                      SASSERT(proc);"
+        },
+        {
+          "line": 324,
+          "text": "                      proc->get_dependencies(dependencies);"
+        },
+        {
+          "line": 325,
+          "text": "                      for (auto const& d : dependencies)"
+        },
+        {
+          "line": 326,
+          "text": "                          tout << d << \" \";"
+        },
+        {
+          "line": 327,
+          "text": "                      tout << \"\\n\";"
+        },
+        {
+          "line": 328,
+          "text": "                  }"
+        },
+        {
+          "line": 329,
+          "text": "              }"
+        },
+        {
+          "line": 330,
+          "text": "              // m_context->display(tout);"
+        },
+        {
+          "line": 331,
+          "text": "              );"
+        },
+        {
+          "line": 332,
+          "text": ""
+        },
+        {
+          "line": 333,
+          "text": ""
+        },
+        {
+          "line": 334,
+          "text": "        for (source const& curr : sources) {"
+        },
+        {
+          "line": 335,
+          "text": "            if (curr.is_fresh_value()) {"
+        },
+        {
+          "line": 336,
+          "text": "                sort * s = curr.get_value()->get_sort();"
+        },
+        {
+          "line": 337,
+          "text": "                TRACE(model_fresh_bug, tout << curr << \" : \" << mk_pp(s, m) << \" \" << curr.get_value()->get_value() << \"\\n\";);"
+        },
+        {
+          "line": 338,
+          "text": "                expr * val = m_model->get_fresh_value(s);"
+        },
+        {
+          "line": 339,
+          "text": "                TRACE(model_fresh_bug, tout << curr << \" := #\" << (val == nullptr ? UINT_MAX : val->get_id()) << \"\\n\";);"
+        },
+        {
+          "line": 340,
+          "text": "                m_asts.push_back(val);"
+        },
+        {
+          "line": 341,
+          "text": "                curr.get_value()->set_value(val);"
+        },
+        {
+          "line": 342,
+          "text": "            }"
+        },
+        {
+          "line": 343,
+          "text": "            else {"
+        },
+        {
+          "line": 344,
+          "text": "                enode * n = curr.get_enode();"
+        },
+        {
+          "line": 345,
+          "text": "                SASSERT(n->get_root() == n);"
+        },
+        {
+          "line": 346,
+          "text": "                TRACE(mg_top_sort, tout << curr << \"\\n\";);"
+        },
+        {
+          "line": 347,
+          "text": "                app* val = nullptr;"
+        },
+        {
+          "line": 348,
+          "text": "                if (m.is_value(n->get_expr()))"
+        },
+        {
+          "line": 349,
+          "text": "                    val = to_app(n->get_expr());"
+        },
+        {
+          "line": 350,
+          "text": "                else {"
+        },
+        {
+          "line": 351,
+          "text": "                    dependencies.reset();"
+        },
+        {
+          "line": 352,
+          "text": "                    dependency_values.reset();"
+        },
+        {
+          "line": 353,
+          "text": "                    model_value_proc * proc = root2proc[n];"
+        },
+        {
+          "line": 354,
+          "text": "                    SASSERT(proc);"
+        },
+        {
+          "line": 355,
+          "text": "                    proc->get_dependencies(dependencies);"
+        },
+        {
+          "line": 356,
+          "text": "                    for (model_value_dependency const& d : dependencies) {"
+        },
+        {
+          "line": 357,
+          "text": "                        if (d.is_fresh_value()) {"
+        },
+        {
+          "line": 358,
+          "text": "                            expr* val = d.get_value()->get_value();"
+        },
+        {
+          "line": 359,
+          "text": "                            CTRACE(mg_top_sort, !val,"
+        },
+        {
+          "line": 360,
+          "text": "                                tout << \"#\" << n->get_owner_id() << \" \" <<"
+        },
+        {
+          "line": 361,
+          "text": "                                mk_pp(n->get_expr(), m) << \" -> \" << d << \"\\n\";);"
+        },
+        {
+          "line": 362,
+          "text": "                            // there is a cyclic dependency for default(A), where A"
+        },
+        {
+          "line": 363,
+          "text": "                            // is an array of a datatype with the datatype using A."
+        },
+        {
+          "line": 364,
+          "text": "                            if (!val)"
+        },
+        {
+          "line": 365,
+          "text": "                                val = m_model->get_some_value(d.get_value()->get_sort());"
+        },
+        {
+          "line": 366,
+          "text": "                            SASSERT(val);"
+        },
+        {
+          "line": 367,
+          "text": "                            dependency_values.push_back(val);"
+        },
+        {
+          "line": 368,
+          "text": "                        }"
+        },
+        {
+          "line": 369,
+          "text": "                        else {"
+        },
+        {
+          "line": 370,
+          "text": "                            enode * child = d.get_enode();"
+        },
+        {
+          "line": 371,
+          "text": "                            TRACE(mg_top_sort, tout << \"#\" << n->get_owner_id() << \" (\" << mk_pp(n->get_expr(), m) << \"): \" "
+        },
+        {
+          "line": 372,
+          "text": "                                  << mk_pp(child->get_expr(), m) << \" \" << mk_pp(child->get_root()->get_expr(), m) << \"\\n\";);"
+        },
+        {
+          "line": 373,
+          "text": "                            child = child->get_root();"
+        },
+        {
+          "line": 374,
+          "text": "                            dependency_values.push_back(m_root2value[child]);"
+        },
+        {
+          "line": 375,
+          "text": "                        }"
+        },
+        {
+          "line": 376,
+          "text": "                    }"
+        },
+        {
+          "line": 377,
+          "text": "                    val = proc->mk_value(*this, dependency_values);"
+        },
+        {
+          "line": 378,
+          "text": "                }"
+        },
+        {
+          "line": 379,
+          "text": "                register_value(val);"
+        },
+        {
+          "line": 380,
+          "text": "                m_asts.push_back(val);"
+        },
+        {
+          "line": 381,
+          "text": "                m_root2value.insert(n, val);"
+        },
+        {
+          "line": 382,
+          "text": "            }"
+        }
+      ]
+    },
+    {
+      "path": "src/smt/theory_nseq.cpp",
+      "blob": "0b527dc3204d6cc9797d35fc986615a987c7fbcd",
+      "sha256": "d3692a82168873e26e230d25ad13c7ffda47e6eff3c940fccc1f36826bcf0d0d",
+      "spans": [
+        [
+          33,
+          151
+        ],
+        [
+          172,
+          195
+        ],
+        [
+          249,
+          278
+        ],
+        [
+          310,
+          338
+        ],
+        [
+          570,
+          654
+        ],
+        [
+          727,
+          738
+        ],
+        [
+          846,
+          1002
+        ],
+        [
+          1067,
+          1154
+        ],
+        [
+          1176,
+          1185
+        ],
+        [
+          1428,
+          1434
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 33,
+          "text": "    // Model-value builder for a seq-sorted enode. Non-literal tokens are"
+        },
+        {
+          "line": 34,
+          "text": "    // recorded as dependencies and spliced back in once their values are"
+        },
+        {
+          "line": 35,
+          "text": "    // available, so shared subterms keep their actual model values."
+        },
+        {
+          "line": 36,
+          "text": "    class theory_nseq::seq_model_value_proc : public model_value_proc {"
+        },
+        {
+          "line": 37,
+          "text": "        theory_nseq&       th;"
+        },
+        {
+          "line": 38,
+          "text": "        sort*              m_sort;"
+        },
+        {
+          "line": 39,
+          "text": "        // Each slot is either a final literal token or a dependency slot."
+        },
+        {
+          "line": 40,
+          "text": "        struct slot {"
+        },
+        {
+          "line": 41,
+          "text": "            expr* m_literal = nullptr; // non-null: use this token as-is"
+        },
+        {
+          "line": 42,
+          "text": "            bool  m_is_unit = false;   // true: dependency's value must be wrapped via str.mk_unit"
+        },
+        {
+          "line": 43,
+          "text": "            expr* m_exponent = nullptr;"
+        },
+        {
+          "line": 44,
+          "text": "            bool  m_end_power = false;"
+        },
+        {
+          "line": 45,
+          "text": "        };"
+        },
+        {
+          "line": 46,
+          "text": "        vector<slot>                      m_slots;"
+        },
+        {
+          "line": 47,
+          "text": "        ptr_vector<enode>                 m_dep_enodes;"
+        },
+        {
+          "line": 48,
+          "text": "        svector<bool>                     m_dep_is_unit;"
+        },
+        {
+          "line": 49,
+          "text": "        // Keeps literal tokens alive until mk_value() runs."
+        },
+        {
+          "line": 50,
+          "text": "        expr_ref_vector                   m_pin;"
+        },
+        {
+          "line": 51,
+          "text": "    public:"
+        },
+        {
+          "line": 52,
+          "text": "        seq_model_value_proc(theory_nseq& th, sort* s) : th(th), m_sort(s), m_pin(th.m) {}"
+        },
+        {
+          "line": 53,
+          "text": ""
+        },
+        {
+          "line": 54,
+          "text": "        // Append a token already known to be final."
+        },
+        {
+          "line": 55,
+          "text": "        void add_literal(expr* t) {"
+        },
+        {
+          "line": 56,
+          "text": "            slot sl;"
+        },
+        {
+          "line": 57,
+          "text": "            sl.m_literal = t;"
+        },
+        {
+          "line": 58,
+          "text": "            m_slots.push_back(sl);"
+        },
+        {
+          "line": 59,
+          "text": "            m_pin.push_back(t);"
+        },
+        {
+          "line": 60,
+          "text": "        }"
+        },
+        {
+          "line": 61,
+          "text": ""
+        },
+        {
+          "line": 62,
+          "text": "        // Append a token whose value will be provided later."
+        },
+        {
+          "line": 63,
+          "text": "        void add_dependency(enode* n, bool is_unit) {"
+        },
+        {
+          "line": 64,
+          "text": "            slot sl;"
+        },
+        {
+          "line": 65,
+          "text": "            sl.m_is_unit = is_unit;"
+        },
+        {
+          "line": 66,
+          "text": "            m_slots.push_back(sl);"
+        },
+        {
+          "line": 67,
+          "text": "            m_dep_enodes.push_back(n);"
+        },
+        {
+          "line": 68,
+          "text": "            m_dep_is_unit.push_back(is_unit);"
+        },
+        {
+          "line": 69,
+          "text": "        }"
+        },
+        {
+          "line": 70,
+          "text": ""
+        },
+        {
+          "line": 71,
+          "text": "        void begin_power(expr* exponent) {"
+        },
+        {
+          "line": 72,
+          "text": "            slot sl;"
+        },
+        {
+          "line": 73,
+          "text": "            sl.m_exponent = exponent;"
+        },
+        {
+          "line": 74,
+          "text": "            m_slots.push_back(sl);"
+        },
+        {
+          "line": 75,
+          "text": "            m_pin.push_back(exponent);"
+        },
+        {
+          "line": 76,
+          "text": "        }"
+        },
+        {
+          "line": 77,
+          "text": ""
+        },
+        {
+          "line": 78,
+          "text": "        void end_power() {"
+        },
+        {
+          "line": 79,
+          "text": "            slot sl;"
+        },
+        {
+          "line": 80,
+          "text": "            sl.m_end_power = true;"
+        },
+        {
+          "line": 81,
+          "text": "            m_slots.push_back(sl);"
+        },
+        {
+          "line": 82,
+          "text": "        }"
+        },
+        {
+          "line": 83,
+          "text": ""
+        },
+        {
+          "line": 84,
+          "text": "        void get_dependencies(buffer<model_value_dependency>& result) override {"
+        },
+        {
+          "line": 85,
+          "text": "            for (enode* n : m_dep_enodes)"
+        },
+        {
+          "line": 86,
+          "text": "                result.push_back(model_value_dependency(n));"
+        },
+        {
+          "line": 87,
+          "text": "        }"
+        },
+        {
+          "line": 88,
+          "text": ""
+        },
+        {
+          "line": 89,
+          "text": "        app* mk_value(model_generator& mg, expr_ref_vector const& values) override {"
+        },
+        {
+          "line": 90,
+          "text": "            SASSERT(values.size() == m_dep_enodes.size());"
+        },
+        {
+          "line": 91,
+          "text": "            ast_manager& m = th.m;"
+        },
+        {
+          "line": 92,
+          "text": "            expr_ref_vector final_toks(m);"
+        },
+        {
+          "line": 93,
+          "text": "            // Merge runs of constant tokens into one string literal."
+        },
+        {
+          "line": 94,
+          "text": "            svector<unsigned> chars;"
+        },
+        {
+          "line": 95,
+          "text": "            auto flush = [&]() {"
+        },
+        {
+          "line": 96,
+          "text": "                if (!chars.empty())"
+        },
+        {
+          "line": 97,
+          "text": "                    final_toks.push_back(th.m_seq.str.mk_string(zstring(chars.size(), chars.data())));"
+        },
+        {
+          "line": 98,
+          "text": "                chars.reset();"
+        },
+        {
+          "line": 99,
+          "text": "            };"
+        },
+        {
+          "line": 100,
+          "text": "            auto add = [&](expr* t) {"
+        },
+        {
+          "line": 101,
+          "text": "                expr_ref_vector units(m);"
+        },
+        {
+          "line": 102,
+          "text": "                th.m_seq.str.get_concat_units(t, units); // flattens concats, splits string literals into units"
+        },
+        {
+          "line": 103,
+          "text": "                for (expr* u : units) {"
+        },
+        {
+          "line": 104,
+          "text": "                    expr* ch = nullptr;"
+        },
+        {
+          "line": 105,
+          "text": "                    unsigned code;"
+        },
+        {
+          "line": 106,
+          "text": "                    if (th.m_seq.str.is_unit(u, ch) && th.m_seq.is_const_char(ch, code))"
+        },
+        {
+          "line": 107,
+          "text": "                        chars.push_back(code);"
+        },
+        {
+          "line": 108,
+          "text": "                    else {"
+        },
+        {
+          "line": 109,
+          "text": "                        flush();"
+        },
+        {
+          "line": 110,
+          "text": "                        final_toks.push_back(u);"
+        },
+        {
+          "line": 111,
+          "text": "                    }"
+        },
+        {
+          "line": 112,
+          "text": "                }"
+        },
+        {
+          "line": 113,
+          "text": "            };"
+        },
+        {
+          "line": 114,
+          "text": "            unsigned j = 0;"
+        },
+        {
+          "line": 115,
+          "text": "            unsigned_vector starts;"
+        },
+        {
+          "line": 116,
+          "text": "            expr_ref_vector exponents(m);"
+        },
+        {
+          "line": 117,
+          "text": "            for (slot const& sl : m_slots) {"
+        },
+        {
+          "line": 118,
+          "text": "                if (sl.m_exponent) {"
+        },
+        {
+          "line": 119,
+          "text": "                    flush();"
+        },
+        {
+          "line": 120,
+          "text": "                    starts.push_back(final_toks.size());"
+        },
+        {
+          "line": 121,
+          "text": "                    exponents.push_back(sl.m_exponent);"
+        },
+        {
+          "line": 122,
+          "text": "                    continue;"
+        },
+        {
+          "line": 123,
+          "text": "                }"
+        },
+        {
+          "line": 124,
+          "text": "                if (sl.m_end_power) {"
+        },
+        {
+          "line": 125,
+          "text": "                    flush();"
+        },
+        {
+          "line": 126,
+          "text": "                    unsigned start = starts.back();"
+        },
+        {
+          "line": 127,
+          "text": "                    expr_ref base(th.m_seq.str.mk_concat(final_toks.size() - start,"
+        },
+        {
+          "line": 128,
+          "text": "                                                        final_toks.data() + start, m_sort), m);"
+        },
+        {
+          "line": 129,
+          "text": "                    expr_ref power(th.m_seq.str.mk_power(base, exponents.back()), m);"
+        },
+        {
+          "line": 130,
+          "text": "                    th.m_th_rewriter(power);"
+        },
+        {
+          "line": 131,
+          "text": "                    final_toks.shrink(start);"
+        },
+        {
+          "line": 132,
+          "text": "                    starts.pop_back();"
+        },
+        {
+          "line": 133,
+          "text": "                    exponents.pop_back();"
+        },
+        {
+          "line": 134,
+          "text": "                    add(power);"
+        },
+        {
+          "line": 135,
+          "text": "                    continue;"
+        },
+        {
+          "line": 136,
+          "text": "                }"
+        },
+        {
+          "line": 137,
+          "text": "                if (sl.m_literal) {"
+        },
+        {
+          "line": 138,
+          "text": "                    add(sl.m_literal);"
+        },
+        {
+          "line": 139,
+          "text": "                    continue;"
+        },
+        {
+          "line": 140,
+          "text": "                }"
+        },
+        {
+          "line": 141,
+          "text": "                expr* v = values.get(j++);"
+        },
+        {
+          "line": 142,
+          "text": "                add(sl.m_is_unit ? th.m_seq.str.mk_unit(v) : v);"
+        },
+        {
+          "line": 143,
+          "text": "            }"
+        },
+        {
+          "line": 144,
+          "text": "            flush();"
+        },
+        {
+          "line": 145,
+          "text": "            expr_ref result(m);"
+        },
+        {
+          "line": 146,
+          "text": "            result = final_toks.empty() ? th.m_seq.str.mk_empty(m_sort)"
+        },
+        {
+          "line": 147,
+          "text": "                                        : th.m_seq.str.mk_concat(final_toks.size(), final_toks.data(), m_sort);"
+        },
+        {
+          "line": 148,
+          "text": "            th.m_factory->add_trail(result);"
+        },
+        {
+          "line": 149,
+          "text": "            return to_app(result);"
+        },
+        {
+          "line": 150,
+          "text": "        }"
+        },
+        {
+          "line": 151,
+          "text": "    };"
+        },
+        {
+          "line": 172,
+          "text": ""
+        },
+        {
+          "line": 173,
+          "text": "        m_tree.register_facet_bound<seq::eq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_eq_id(id); }, m, m_seq, m_tree.dep_mgr());"
+        },
+        {
+          "line": 174,
+          "text": "        m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());"
+        },
+        {
+          "line": 175,
+          "text": "        m_tree.register_facet_bound<seq::solver_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_arith_id(id); }, m, m_seq, m_solver);"
+        },
+        {
+          "line": 176,
+          "text": "        m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());"
+        },
+        {
+          "line": 177,
+          "text": "        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter, *m_ambient);"
+        },
+        {
+          "line": 178,
+          "text": "        m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());"
+        },
+        {
+          "line": 179,
+          "text": "        m_tree.register_facet_bound<seq::replace_all_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_replace_all_id(id); }, m, m_tree.dep_mgr());"
+        },
+        {
+          "line": 180,
+          "text": "        m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);"
+        },
+        {
+          "line": 181,
+          "text": "        m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());"
+        },
+        {
+          "line": 182,
+          "text": "        m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());"
+        },
+        {
+          "line": 183,
+          "text": "        m_tree.register_facet_bound<seq::stoi_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_stoi_id(id); }, m, m_seq, m_autil);"
+        },
+        {
+          "line": 184,
+          "text": "        m_tree.register_facet_bound<seq::ho_facet>("
+        },
+        {
+          "line": 185,
+          "text": "            *m_root,"
+        },
+        {
+          "line": 186,
+          "text": "            [&](stx::facet_id id) { m_ambient->set_ho_id(id); },"
+        },
+        {
+          "line": 187,
+          "text": "            m,"
+        },
+        {
+          "line": 188,
+          "text": "            m_seq,"
+        },
+        {
+          "line": 189,
+          "text": "            m_rewriter,"
+        },
+        {
+          "line": 190,
+          "text": "            [this](expr* lhs, expr* rhs) { return add_ho_eq(lhs, rhs); },"
+        },
+        {
+          "line": 191,
+          "text": "            [this](expr* term, expr*& elaboration) { return find_ho_elaboration(term, elaboration); });"
+        },
+        {
+          "line": 192,
+          "text": "        m_ambient->stoi_facet(*m_root).set_instantiate([this](expr* e, unsigned k) { m_ax.add_stoi_axiom(e, k); });"
+        },
+        {
+          "line": 193,
+          "text": ""
+        },
+        {
+          "line": 194,
+          "text": "        // Propagation plugins are owned by m_tree."
+        },
+        {
+          "line": 195,
+          "text": "        m_tree.add_propagation_plugin(alloc(seq::eq_propagation, m, m_seq));"
+        },
+        {
+          "line": 249,
+          "text": "    void theory_nseq::init() {"
+        },
+        {
+          "line": 250,
+          "text": "        m_arith_value.init(&get_context());"
+        },
+        {
+          "line": 251,
+          "text": "        std::function<void(literal, literal, literal, literal, literal)> add_ax ="
+        },
+        {
+          "line": 252,
+          "text": "            [&](literal l1, literal l2, literal l3, literal l4, literal l5) {"
+        },
+        {
+          "line": 253,
+          "text": "                literal_vector lits;"
+        },
+        {
+          "line": 254,
+          "text": "                if (l1 == true_literal || l2 == true_literal || l3 == true_literal ||"
+        },
+        {
+          "line": 255,
+          "text": "                    l4 == true_literal || l5 == true_literal)"
+        },
+        {
+          "line": 256,
+          "text": "                    return;"
+        },
+        {
+          "line": 257,
+          "text": "                if (l1 != null_literal && l1 != false_literal) lits.push_back(l1);"
+        },
+        {
+          "line": 258,
+          "text": "                if (l2 != null_literal && l2 != false_literal) lits.push_back(l2);"
+        },
+        {
+          "line": 259,
+          "text": "                if (l3 != null_literal && l3 != false_literal) lits.push_back(l3);"
+        },
+        {
+          "line": 260,
+          "text": "                if (l4 != null_literal && l4 != false_literal) lits.push_back(l4);"
+        },
+        {
+          "line": 261,
+          "text": "                if (l5 != null_literal && l5 != false_literal) lits.push_back(l5);"
+        },
+        {
+          "line": 262,
+          "text": "                for (literal lit : lits)"
+        },
+        {
+          "line": 263,
+          "text": "                    if (ctx.get_assignment(lit) == l_true && ctx.get_assign_level(lit) == 0)"
+        },
+        {
+          "line": 264,
+          "text": "                        return;"
+        },
+        {
+          "line": 265,
+          "text": "                for (literal lit : lits)"
+        },
+        {
+          "line": 266,
+          "text": "                    ctx.mark_as_relevant(lit);"
+        },
+        {
+          "line": 267,
+          "text": "                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());"
+        },
+        {
+          "line": 268,
+          "text": "            };"
+        },
+        {
+          "line": 269,
+          "text": "        std::function<literal(expr*, bool)> mk_eq_emp = [&](expr* e, bool phase) {"
+        },
+        {
+          "line": 270,
+          "text": "            expr_ref emp(m_seq.str.mk_empty(e->get_sort()), m);"
+        },
+        {
+          "line": 271,
+          "text": "            literal lit = mk_eq(e, emp, false);"
+        },
+        {
+          "line": 272,
+          "text": "            ctx.force_phase(phase ? lit : ~lit);"
+        },
+        {
+          "line": 273,
+          "text": "            ctx.mark_as_relevant(lit);"
+        },
+        {
+          "line": 274,
+          "text": "            return lit;"
+        },
+        {
+          "line": 275,
+          "text": "        };"
+        },
+        {
+          "line": 276,
+          "text": "        m_ax.add_axiom5 = add_ax;"
+        },
+        {
+          "line": 277,
+          "text": "        m_ax.mk_eq_empty2 = mk_eq_emp;"
+        },
+        {
+          "line": 278,
+          "text": "    }"
+        },
+        {
+          "line": 310,
+          "text": "    bool theory_nseq::internalize_term(app* term) {"
+        },
+        {
+          "line": 311,
+          "text": "        for (auto arg : *term)"
+        },
+        {
+          "line": 312,
+          "text": "            mk_var(ensure_enode(arg));"
+        },
+        {
+          "line": 313,
+          "text": ""
+        },
+        {
+          "line": 314,
+          "text": "        if (ctx.e_internalized(term)) {"
+        },
+        {
+          "line": 315,
+          "text": "            mk_var(ctx.get_enode(term));"
+        },
+        {
+          "line": 316,
+          "text": "            return true;"
+        },
+        {
+          "line": 317,
+          "text": "        }"
+        },
+        {
+          "line": 318,
+          "text": ""
+        },
+        {
+          "line": 319,
+          "text": "        if (m.is_bool(term)) {"
+        },
+        {
+          "line": 320,
+          "text": "            bool_var bv = ctx.mk_bool_var(term);"
+        },
+        {
+          "line": 321,
+          "text": "            ctx.set_var_theory(bv, get_id());"
+        },
+        {
+          "line": 322,
+          "text": "            ctx.mark_as_relevant(bv);"
+        },
+        {
+          "line": 323,
+          "text": "        }"
+        },
+        {
+          "line": 324,
+          "text": ""
+        },
+        {
+          "line": 325,
+          "text": "        enode* en = ctx.e_internalized(term) ? ctx.get_enode(term) : ctx.mk_enode(term, false, m.is_bool(term), true);"
+        },
+        {
+          "line": 326,
+          "text": "        mk_var(en);"
+        },
+        {
+          "line": 327,
+          "text": "        // If we disable relevancy propagation we do not axoimatize anything since we miss the callback"
+        },
+        {
+          "line": 328,
+          "text": "        if (!ctx.relevancy())"
+        },
+        {
+          "line": 329,
+          "text": "            relevant_eh(term);"
+        },
+        {
+          "line": 330,
+          "text": "        return true;"
+        },
+        {
+          "line": 331,
+          "text": "    }"
+        },
+        {
+          "line": 332,
+          "text": ""
+        },
+        {
+          "line": 333,
+          "text": "    void theory_nseq::apply_sort_cnstr(enode* n, sort* /*s*/) {"
+        },
+        {
+          "line": 334,
+          "text": "        mk_var(n);"
+        },
+        {
+          "line": 335,
+          "text": "    }"
+        },
+        {
+          "line": 336,
+          "text": ""
+        },
+        {
+          "line": 337,
+          "text": "    // -----------------------------------------------------------------------"
+        },
+        {
+          "line": 338,
+          "text": "    // Equality / disequality notifications"
+        },
+        {
+          "line": 570,
+          "text": "        // Register the power obligation with exponent clamped at 0."
+        },
+        {
+          "line": 571,
+          "text": "        expr* pow_base = nullptr, *k = nullptr;"
+        },
+        {
+          "line": 572,
+          "text": "        if (m_seq.str.is_power(n, pow_base, k)) {"
+        },
+        {
+          "line": 573,
+          "text": "            expr* k0 = m_autil.is_numeral(k) ? k : m.mk_ite(m_autil.mk_ge(k, m_autil.mk_int(0)), k, m_autil.mk_int(0));"
+        },
+        {
+          "line": 574,
+          "text": "            m_ambient->power_facet(*m_root).add_power(n, pow_base, k0);"
+        },
+        {
+          "line": 575,
+          "text": "        }"
+        },
+        {
+          "line": 576,
+          "text": "        if (m_seq.str.is_length(n)      ||"
+        },
+        {
+          "line": 577,
+          "text": "            m_seq.str.is_index(n)       ||"
+        },
+        {
+          "line": 578,
+          "text": "            m_seq.str.is_last_index(n)  ||"
+        },
+        {
+          "line": 579,
+          "text": "            m_seq.str.is_replace(n)     ||"
+        },
+        {
+          "line": 580,
+          "text": "            m_seq.str.is_extract(n)     ||"
+        },
+        {
+          "line": 581,
+          "text": "            m_seq.str.is_at(n)          ||"
+        },
+        {
+          "line": 582,
+          "text": "            m_seq.str.is_nth_i(n)       ||"
+        },
+        {
+          "line": 583,
+          "text": "            m_seq.str.is_itos(n)        ||"
+        },
+        {
+          "line": 584,
+          "text": "            m_seq.str.is_stoi(n)        ||"
+        },
+        {
+          "line": 585,
+          "text": "            m_seq.str.is_unit(n)        ||"
+        },
+        {
+          "line": 586,
+          "text": "            m_seq.str.is_is_digit(n)    ||"
+        },
+        {
+          "line": 587,
+          "text": "            m_seq.str.is_from_code(n)   ||"
+        },
+        {
+          "line": 588,
+          "text": "            m_seq.str.is_to_code(n))"
+        },
+        {
+          "line": 589,
+          "text": "            enqueue_axiom(n);"
+        },
+        {
+          "line": 590,
+          "text": "        if (m_seq.str.is_ubv2s(n))"
+        },
+        {
+          "line": 591,
+          "text": "            add_ubv_string(n);"
+        },
+        {
+          "line": 592,
+          "text": "        expr* ra_in = nullptr, *ra_pat = nullptr, *ra_repl = nullptr;"
+        },
+        {
+          "line": 593,
+          "text": "        zstring ra_str;"
+        },
+        {
+          "line": 594,
+          "text": "        if (m_seq.str.is_replace_all(n, ra_in, ra_pat, ra_repl) && m_seq.str.is_string(ra_pat, ra_str) && ra_str.length() > 0) {"
+        },
+        {
+          "line": 595,
+          "text": "            seq::eq_tree::dep_tracker dep = nullptr;"
+        },
+        {
+          "line": 596,
+          "text": "            expr_ref_vector result = tokenize(dep, n);"
+        },
+        {
+          "line": 597,
+          "text": "            expr_ref_vector input = tokenize(dep, ra_in);"
+        },
+        {
+          "line": 598,
+          "text": "            expr_ref_vector repl = tokenize(dep, ra_repl);"
+        },
+        {
+          "line": 599,
+          "text": "            m_ambient->replace_all_facet(*m_root).add(result, input, ra_pat, repl, dep);"
+        },
+        {
+          "line": 600,
+          "text": "            // Untokenized: the root substitution would make the axiom conditional."
+        },
+        {
+          "line": 601,
+          "text": "            expr_ref_vector units(m);"
+        },
+        {
+          "line": 602,
+          "text": "            m_seq.str.get_concat_units(ra_repl, units);"
+        },
+        {
+          "line": 603,
+          "text": "            expr_ref rel = seq::replace_all_length_relation(m_seq, m_autil, n, ra_in, ra_pat, units);"
+        },
+        {
+          "line": 604,
+          "text": "            if (rel) {"
+        },
+        {
+          "line": 605,
+          "text": "                expr_ref_vector clause(m);"
+        },
+        {
+          "line": 606,
+          "text": "                clause.push_back(rel);"
+        },
+        {
+          "line": 607,
+          "text": "                m_ax.add_axiom_clause(clause);"
+        },
+        {
+          "line": 608,
+          "text": "            }"
+        },
+        {
+          "line": 609,
+          "text": "        }"
+        },
+        {
+          "line": 610,
+          "text": "        else if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {"
+        },
+        {
+          "line": 611,
+          "text": "            ctx.push_trail(value_trail<unsigned>(m_num_unhandled));"
+        },
+        {
+          "line": 612,
+          "text": "            ++m_num_unhandled;"
+        },
+        {
+          "line": 613,
+          "text": "        }"
+        },
+        {
+          "line": 614,
+          "text": "    }"
+        },
+        {
+          "line": 615,
+          "text": ""
+        },
+        {
+          "line": 616,
+          "text": "    void theory_nseq::enqueue_axiom(expr* e) {"
+        },
+        {
+          "line": 617,
+          "text": "        if (!m_axiom_set.contains(e)) {"
+        },
+        {
+          "line": 618,
+          "text": "            m_axioms.push_back(e);"
+        },
+        {
+          "line": 619,
+          "text": "            m_axiom_set.insert(e);"
+        },
+        {
+          "line": 620,
+          "text": "            ctx.push_trail(push_back_vector(m_axioms));"
+        },
+        {
+          "line": 621,
+          "text": "            ctx.push_trail(insert_obj_trail<expr>(m_axiom_set, e));"
+        },
+        {
+          "line": 622,
+          "text": "        }"
+        },
+        {
+          "line": 623,
+          "text": "    }"
+        },
+        {
+          "line": 624,
+          "text": ""
+        },
+        {
+          "line": 625,
+          "text": "    void theory_nseq::dequeue_axiom(expr* n) {"
+        },
+        {
+          "line": 626,
+          "text": "        if (m_seq.str.is_length(n))"
+        },
+        {
+          "line": 627,
+          "text": "            m_ax.add_length_axiom(n);"
+        },
+        {
+          "line": 628,
+          "text": "        else if (m_seq.str.is_index(n))"
+        },
+        {
+          "line": 629,
+          "text": "            m_ax.add_indexof_axiom(n);"
+        },
+        {
+          "line": 630,
+          "text": "        else if (m_seq.str.is_last_index(n))"
+        },
+        {
+          "line": 631,
+          "text": "            m_ax.add_last_indexof_axiom(n);"
+        },
+        {
+          "line": 632,
+          "text": "        else if (m_seq.str.is_replace(n))"
+        },
+        {
+          "line": 633,
+          "text": "            m_ax.add_replace_axiom(n);"
+        },
+        {
+          "line": 634,
+          "text": "        else if (m_seq.str.is_extract(n)) {"
+        },
+        {
+          "line": 635,
+          "text": "            if (!add_index_suffix_axiom(n))"
+        },
+        {
+          "line": 636,
+          "text": "                m_ax.add_extract_axiom(n);"
+        },
+        {
+          "line": 637,
+          "text": "        }"
+        },
+        {
+          "line": 638,
+          "text": "        else if (m_seq.str.is_at(n))"
+        },
+        {
+          "line": 639,
+          "text": "            m_ax.add_at_axiom(n);"
+        },
+        {
+          "line": 640,
+          "text": "        else if (m_seq.str.is_nth_i(n))"
+        },
+        {
+          "line": 641,
+          "text": "            m_ax.add_nth_axiom(n);"
+        },
+        {
+          "line": 642,
+          "text": "        else if (m_seq.str.is_itos(n)) {"
+        },
+        {
+          "line": 643,
+          "text": "            m_ax.add_itos_axiom(n);"
+        },
+        {
+          "line": 644,
+          "text": "            m_ax.add_itos_axiom(n, 0);"
+        },
+        {
+          "line": 645,
+          "text": "        }"
+        },
+        {
+          "line": 646,
+          "text": "        else if (m_seq.str.is_stoi(n)) {"
+        },
+        {
+          "line": 647,
+          "text": "            ensure_length_var(to_app(n)->get_arg(0));"
+        },
+        {
+          "line": 648,
+          "text": "            m_ax.add_stoi_axiom_re(n);"
+        },
+        {
+          "line": 649,
+          "text": "            m_ambient->stoi_facet(*m_root).add_term(n);"
+        },
+        {
+          "line": 650,
+          "text": "        }"
+        },
+        {
+          "line": 651,
+          "text": "        else if (m_seq.str.is_unit(n))"
+        },
+        {
+          "line": 652,
+          "text": "            m_ax.add_unit_axiom(n);"
+        },
+        {
+          "line": 653,
+          "text": "        else if (m_seq.str.is_is_digit(n))"
+        },
+        {
+          "line": 654,
+          "text": "            m_ax.add_is_digit_axiom(n);"
+        },
+        {
+          "line": 727,
+          "text": "    bool theory_nseq::can_propagate() {"
+        },
+        {
+          "line": 728,
+          "text": "        return m_axioms_head < m_axioms.size();"
+        },
+        {
+          "line": 729,
+          "text": "    }"
+        },
+        {
+          "line": 730,
+          "text": ""
+        },
+        {
+          "line": 731,
+          "text": "    void theory_nseq::propagate() {"
+        },
+        {
+          "line": 732,
+          "text": "        while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {"
+        },
+        {
+          "line": 733,
+          "text": "            expr* e = m_axioms.get(m_axioms_head);"
+        },
+        {
+          "line": 734,
+          "text": "            dequeue_axiom(e);"
+        },
+        {
+          "line": 735,
+          "text": "            ctx.push_trail(value_trail<unsigned>(m_axioms_head));"
+        },
+        {
+          "line": 736,
+          "text": "            ++m_axioms_head;"
+        },
+        {
+          "line": 737,
+          "text": "        }"
+        },
+        {
+          "line": 738,
+          "text": "    }"
+        },
+        {
+          "line": 846,
+          "text": ""
+        },
+        {
+          "line": 847,
+          "text": "    void theory_nseq::init_model(model_generator& mg) {"
+        },
+        {
+          "line": 848,
+          "text": "        m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());"
+        },
+        {
+          "line": 849,
+          "text": "        mg.register_factory(m_factory);"
+        },
+        {
+          "line": 850,
+          "text": "        for (enode* n : ctx.enodes()) {"
+        },
+        {
+          "line": 851,
+          "text": "            expr* e = n->get_expr();"
+        },
+        {
+          "line": 852,
+          "text": "            if (m_seq.is_seq(e) && m.is_value(e))"
+        },
+        {
+          "line": 853,
+          "text": "                m_factory->register_value(e);"
+        },
+        {
+          "line": 854,
+          "text": "        }"
+        },
+        {
+          "line": 855,
+          "text": "        seq::eq_tree::node const* snap = m_tree.sat_snapshot();"
+        },
+        {
+          "line": 856,
+          "text": "        if (!snap)"
+        },
+        {
+          "line": 857,
+          "text": "            return;"
+        },
+        {
+          "line": 858,
+          "text": "        auto& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));"
+        },
+        {
+          "line": 859,
+          "text": "        mf.get_witness_model(m_model_subst, m_model_pin);"
+        },
+        {
+          "line": 860,
+          "text": "    }"
+        },
+        {
+          "line": 861,
+          "text": ""
+        },
+        {
+          "line": 862,
+          "text": "    void theory_nseq::finalize_model(model_generator&) {"
+        },
+        {
+          "line": 863,
+          "text": "        m_factory = nullptr; // owned by the model's plugin_manager; do not delete here"
+        },
+        {
+          "line": 864,
+          "text": "        m_model_subst.reset();"
+        },
+        {
+          "line": 865,
+          "text": "        m_model_pin.reset();"
+        },
+        {
+          "line": 866,
+          "text": "        m_next_fresh_len_marker = 0;"
+        },
+        {
+          "line": 867,
+          "text": "    }"
+        },
+        {
+          "line": 868,
+          "text": ""
+        },
+        {
+          "line": 869,
+          "text": "    model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {"
+        },
+        {
+          "line": 870,
+          "text": "        // The e-graph root can be an ITE with no entry in the facet's substitutions."
+        },
+        {
+          "line": 871,
+          "text": "        expr* e = get_expr(n->get_th_var(get_id()));"
+        },
+        {
+          "line": 872,
+          "text": "        if (m_seq.is_re(e))"
+        },
+        {
+          "line": 873,
+          "text": "            return alloc(expr_wrapper_proc, to_app(e));"
+        },
+        {
+          "line": 874,
+          "text": "        SASSERT (m_seq.is_seq(e));"
+        },
+        {
+          "line": 875,
+          "text": "        seq::eq_tree::node const* snap = m_tree.sat_snapshot();"
+        },
+        {
+          "line": 876,
+          "text": "        expr_ref_vector resolved(m);"
+        },
+        {
+          "line": 877,
+          "text": "        if (snap)"
+        },
+        {
+          "line": 878,
+          "text": "            m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(e, resolved);"
+        },
+        {
+          "line": 879,
+          "text": "        else"
+        },
+        {
+          "line": 880,
+          "text": "            m_seq.str.get_concat_units(e, resolved);"
+        },
+        {
+          "line": 881,
+          "text": ""
+        },
+        {
+          "line": 882,
+          "text": "        seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());"
+        },
+        {
+          "line": 883,
+          "text": "        seq::solver_facet_i const* sf = snap ? &m_ambient->solver_facet(const_cast<seq::eq_tree::node&>(*snap)) : nullptr;"
+        },
+        {
+          "line": 884,
+          "text": ""
+        },
+        {
+          "line": 885,
+          "text": "        // Respect any arithmetic length fixed for an otherwise"
+        },
+        {
+          "line": 886,
+          "text": "        // unconstrained sequence variable."
+        },
+        {
+          "line": 887,
+          "text": "        auto mk_length_correct_fresh_value = [&](expr* t) -> expr* {"
+        },
+        {
+          "line": 888,
+          "text": "            expr* fallback = m_factory->get_fresh_value(t->get_sort());"
+        },
+        {
+          "line": 889,
+          "text": "            if (!sf)"
+        },
+        {
+          "line": 890,
+          "text": "                return fallback;"
+        },
+        {
+          "line": 891,
+          "text": "            rational len;"
+        },
+        {
+          "line": 892,
+          "text": "            expr_ref len_t(m_seq.str.mk_length(t), m);"
+        },
+        {
+          "line": 893,
+          "text": "            m_th_rewriter(len_t);"
+        },
+        {
+          "line": 894,
+          "text": "            if (!sf->value(len_t, len) || !len.is_int() || len.is_neg())"
+        },
+        {
+          "line": 895,
+          "text": "                return fallback;"
+        },
+        {
+          "line": 896,
+          "text": "            if (len.is_zero())"
+        },
+        {
+          "line": 897,
+          "text": "                return m_seq.str.mk_empty(t->get_sort());"
+        },
+        {
+          "line": 898,
+          "text": "            if (!m_seq.is_string(t->get_sort())) {"
+        },
+        {
+          "line": 899,
+          "text": "                expr_ref_vector units(m);"
+        },
+        {
+          "line": 900,
+          "text": "                m_seq.str.get_concat_units(fallback, units);"
+        },
+        {
+          "line": 901,
+          "text": "                SASSERT(!units.empty());"
+        },
+        {
+          "line": 902,
+          "text": "                if (len <= rational(units.size()))"
+        },
+        {
+          "line": 903,
+          "text": "                    units.shrink(len.get_unsigned());"
+        },
+        {
+          "line": 904,
+          "text": "                else {"
+        },
+        {
+          "line": 905,
+          "text": "                    expr_ref exponent(m_autil.mk_int(len - rational(units.size())), m);"
+        },
+        {
+          "line": 906,
+          "text": "                    units.push_back(m_seq.str.mk_power(units.back(), exponent));"
+        },
+        {
+          "line": 907,
+          "text": "                }"
+        },
+        {
+          "line": 908,
+          "text": "                expr* result = m_seq.str.mk_concat(units, t->get_sort());"
+        },
+        {
+          "line": 909,
+          "text": "                m_factory->add_trail(result);"
+        },
+        {
+          "line": 910,
+          "text": "                return result;"
+        },
+        {
+          "line": 911,
+          "text": "            }"
+        },
+        {
+          "line": 912,
+          "text": "            zstring s;"
+        },
+        {
+          "line": 913,
+          "text": "            if (m_seq.str.is_string(fallback, s) && rational(s.length()) == len)"
+        },
+        {
+          "line": 914,
+          "text": "                return fallback;"
+        },
+        {
+          "line": 915,
+          "text": "            expr_ref marker(m_seq.str.mk_string(zstring(m_seq.max_char() - m_next_fresh_len_marker++)), m);"
+        },
+        {
+          "line": 916,
+          "text": "            expr_ref filler(m_seq.str.mk_string(zstring(\"a\")), m);"
+        },
+        {
+          "line": 917,
+          "text": "            expr_ref exponent(m_autil.mk_int(len - rational(1)), m);"
+        },
+        {
+          "line": 918,
+          "text": "            expr_ref repeated(m_seq.str.mk_power(filler, exponent), m);"
+        },
+        {
+          "line": 919,
+          "text": "            expr* result = m_seq.str.mk_concat(marker, repeated);"
+        },
+        {
+          "line": 920,
+          "text": "            m_factory->add_trail(result);"
+        },
+        {
+          "line": 921,
+          "text": "            return result;"
+        },
+        {
+          "line": 922,
+          "text": "        };"
+        },
+        {
+          "line": 923,
+          "text": ""
+        },
+        {
+          "line": 924,
+          "text": "        // Append token `t`, either as a literal or as a dependency whose"
+        },
+        {
+          "line": 925,
+          "text": "        // model value will be spliced in later."
+        },
+        {
+          "line": 926,
+          "text": "        std::function<void(expr*)> add_token = [&](expr* t) {"
+        },
+        {
+          "line": 927,
+          "text": "            expr* sub = nullptr, *s = nullptr, *k = nullptr;"
+        },
+        {
+          "line": 928,
+          "text": "            rational count;"
+        },
+        {
+          "line": 929,
+          "text": "            if (m_model_subst.find(t, sub)) {"
+        },
+        {
+          "line": 930,
+          "text": "                expr_ref_vector toks(m);"
+        },
+        {
+          "line": 931,
+          "text": "                m_seq.str.get_concat_units(sub, toks);"
+        },
+        {
+          "line": 932,
+          "text": "                for (expr* t2 : toks)"
+        },
+        {
+          "line": 933,
+          "text": "                    add_token(t2);"
+        },
+        {
+          "line": 934,
+          "text": "                return;"
+        },
+        {
+          "line": 935,
+          "text": "            }"
+        },
+        {
+          "line": 936,
+          "text": "            expr* ch = nullptr;"
+        },
+        {
+          "line": 937,
+          "text": "            if (m_seq.str.is_unit(t, ch)) {"
+        },
+        {
+          "line": 938,
+          "text": "                if (m.is_value(ch) || !ctx.e_internalized(ch))"
+        },
+        {
+          "line": 939,
+          "text": "                    proc->add_literal(t);"
+        },
+        {
+          "line": 940,
+          "text": "                else {"
+        },
+        {
+          "line": 941,
+          "text": "                    enode* en = ctx.get_enode(ch);"
+        },
+        {
+          "line": 942,
+          "text": "                    // Non-relevant enodes have no model_value_proc."
+        },
+        {
+          "line": 943,
+          "text": "                    if (ctx.is_relevant(en))"
+        },
+        {
+          "line": 944,
+          "text": "                        proc->add_dependency(en, true);"
+        },
+        {
+          "line": 945,
+          "text": "                    else"
+        },
+        {
+          "line": 946,
+          "text": "                        proc->add_literal(m_seq.str.mk_unit(m_seq.str.mk_char(0)));"
+        },
+        {
+          "line": 947,
+          "text": "                }"
+        },
+        {
+          "line": 948,
+          "text": "            }"
+        },
+        {
+          "line": 949,
+          "text": "            else if (m_seq.str.is_power(t, s, k) &&"
+        },
+        {
+          "line": 950,
+          "text": "                     (m_autil.is_numeral(k, count) || (sf && sf->value(k, count))) && count.is_int()) {"
+        },
+        {
+          "line": 951,
+          "text": "                if (!count.is_pos())"
+        },
+        {
+          "line": 952,
+          "text": "                    proc->add_literal(m_seq.str.mk_empty(t->get_sort()));"
+        },
+        {
+          "line": 953,
+          "text": "                else {"
+        },
+        {
+          "line": 954,
+          "text": "                    expr_ref exponent(m_autil.mk_int(count), m);"
+        },
+        {
+          "line": 955,
+          "text": "                    // The base may be a variable bound by the leaf's substitutions."
+        },
+        {
+          "line": 956,
+          "text": "                    expr_ref_vector base_toks(m);"
+        },
+        {
+          "line": 957,
+          "text": "                    if (snap)"
+        },
+        {
+          "line": 958,
+          "text": "                        m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(s, base_toks);"
+        },
+        {
+          "line": 959,
+          "text": "                    else"
+        },
+        {
+          "line": 960,
+          "text": "                        m_seq.str.get_concat_units(s, base_toks);"
+        },
+        {
+          "line": 961,
+          "text": "                    proc->begin_power(exponent);"
+        },
+        {
+          "line": 962,
+          "text": "                    for (expr* b : base_toks) {"
+        },
+        {
+          "line": 963,
+          "text": "                        add_token(b);"
+        },
+        {
+          "line": 964,
+          "text": "                    }"
+        },
+        {
+          "line": 965,
+          "text": "                    proc->end_power();"
+        },
+        {
+          "line": 966,
+          "text": "                }"
+        },
+        {
+          "line": 967,
+          "text": "            }"
+        },
+        {
+          "line": 968,
+          "text": "            else if (!ctx.e_internalized(t) && is_uninterp_const(t) && m_seq.is_seq(t)) {"
+        },
+        {
+          "line": 969,
+          "text": "                expr* v = mk_length_correct_fresh_value(t);"
+        },
+        {
+          "line": 970,
+          "text": "                m_model_subst.insert(t, v);"
+        },
+        {
+          "line": 971,
+          "text": "                m_model_pin.push_back(v);"
+        },
+        {
+          "line": 972,
+          "text": "                proc->add_literal(v);"
+        },
+        {
+          "line": 973,
+          "text": "            }"
+        },
+        {
+          "line": 974,
+          "text": "            else if (m.is_value(t) || !ctx.e_internalized(t)) {"
+        },
+        {
+          "line": 975,
+          "text": "                proc->add_literal(t);"
+        },
+        {
+          "line": 976,
+          "text": "            }"
+        },
+        {
+          "line": 977,
+          "text": "            else {"
+        },
+        {
+          "line": 978,
+          "text": "                enode* en = ctx.get_enode(t);"
+        },
+        {
+          "line": 979,
+          "text": "                // Avoid a self-dependency on the very enode being built."
+        },
+        {
+          "line": 980,
+          "text": "                if (en->get_root() == n) {"
+        },
+        {
+          "line": 981,
+          "text": "                    proc->add_literal(to_app(mk_length_correct_fresh_value(t)));"
+        },
+        {
+          "line": 982,
+          "text": "                    return;"
+        },
+        {
+          "line": 983,
+          "text": "                }"
+        },
+        {
+          "line": 984,
+          "text": "                // Non-relevant subterms have no model_value_proc."
+        },
+        {
+          "line": 985,
+          "text": "                if (ctx.is_relevant(en))"
+        },
+        {
+          "line": 986,
+          "text": "                    proc->add_dependency(en, false);"
+        },
+        {
+          "line": 987,
+          "text": "                else"
+        },
+        {
+          "line": 988,
+          "text": "                    proc->add_literal(m_seq.str.mk_empty(t->get_sort()));"
+        },
+        {
+          "line": 989,
+          "text": "            }"
+        },
+        {
+          "line": 990,
+          "text": "        };"
+        },
+        {
+          "line": 991,
+          "text": "        for (expr* t : resolved)"
+        },
+        {
+          "line": 992,
+          "text": "            add_token(t);"
+        },
+        {
+          "line": 993,
+          "text": "        return proc;"
+        },
+        {
+          "line": 994,
+          "text": "    }"
+        },
+        {
+          "line": 995,
+          "text": ""
+        },
+        {
+          "line": 996,
+          "text": "    bool theory_nseq::check_fixed_lengths(bool instantiate) {"
+        },
+        {
+          "line": 997,
+          "text": "        for (unsigned v = 0; v < get_num_vars() && m.inc(); ++v) {"
+        },
+        {
+          "line": 998,
+          "text": "            expr* e = get_expr(v);"
+        },
+        {
+          "line": 999,
+          "text": "            if ((!is_uninterp_const(e) && !m_seq.str.is_extract(e) && !m_seq.str.is_at(e)) ||"
+        },
+        {
+          "line": 1000,
+          "text": "                !m_seq.is_string(e->get_sort()) ||"
+        },
+        {
+          "line": 1001,
+          "text": "                !ctx.is_relevant(get_enode(v)))"
+        },
+        {
+          "line": 1002,
+          "text": "                continue;"
+        },
+        {
+          "line": 1067,
+          "text": ""
+        },
+        {
+          "line": 1068,
+          "text": "    final_check_status theory_nseq::final_check_eh(unsigned) {"
+        },
+        {
+          "line": 1069,
+          "text": "        ++m_num_final_checks;"
+        },
+        {
+          "line": 1070,
+          "text": "        auto& hf = m_ambient->ho_facet(*m_root);"
+        },
+        {
+          "line": 1071,
+          "text": ""
+        },
+        {
+          "line": 1072,
+          "text": "        // Registration alone must not replay unrelated theories into the"
+        },
+        {
+          "line": 1073,
+          "text": "        // arithmetic backend. Later sequence terms can still activate nseq."
+        },
+        {
+          "line": 1074,
+          "text": "        if (get_num_vars() == 0 && m_num_unhandled == 0 && hf.is_satisfied())"
+        },
+        {
+          "line": 1075,
+          "text": "            return FC_DONE;"
+        },
+        {
+          "line": 1076,
+          "text": ""
+        },
+        {
+          "line": 1077,
+          "text": "        // The facets must see an equality arrangement for terms shared with"
+        },
+        {
+          "line": 1078,
+          "text": "        // other theories before accepting a sequence model."
+        },
+        {
+          "line": 1079,
+          "text": "        if (assume_shared_equalities())"
+        },
+        {
+          "line": 1080,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1081,
+          "text": ""
+        },
+        {
+          "line": 1082,
+          "text": "        if (hf.propagate())"
+        },
+        {
+          "line": 1083,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1084,
+          "text": ""
+        },
+        {
+          "line": 1085,
+          "text": "        if (check_ubv_strings())"
+        },
+        {
+          "line": 1086,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1087,
+          "text": ""
+        },
+        {
+          "line": 1088,
+          "text": "        if (!m_pending_assumptions.empty()) {"
+        },
+        {
+          "line": 1089,
+          "text": ""
+        },
+        {
+          "line": 1090,
+          "text": "            if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {"
+        },
+        {
+          "line": 1091,
+          "text": "                if (check_stoi_coherence()) {"
+        },
+        {
+          "line": 1092,
+          "text": "                    if (branch_stoi_digit())"
+        },
+        {
+          "line": 1093,
+          "text": "                        return FC_CONTINUE;"
+        },
+        {
+          "line": 1094,
+          "text": "                    return m_num_unhandled || !hf.is_satisfied() ? FC_GIVEUP : FC_DONE;"
+        },
+        {
+          "line": 1095,
+          "text": "                }"
+        },
+        {
+          "line": 1096,
+          "text": "                m_pending_assumptions.reset();"
+        },
+        {
+          "line": 1097,
+          "text": "                return FC_CONTINUE;"
+        },
+        {
+          "line": 1098,
+          "text": "            }"
+        },
+        {
+          "line": 1099,
+          "text": ""
+        },
+        {
+          "line": 1100,
+          "text": "            SASSERT(all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) != l_undef; }));"
+        },
+        {
+          "line": 1101,
+          "text": ""
+        },
+        {
+          "line": 1102,
+          "text": "            // A required hypothesis turned false; discard the snapshot."
+        },
+        {
+          "line": 1103,
+          "text": "            m_pending_assumptions.reset();"
+        },
+        {
+          "line": 1104,
+          "text": "        }"
+        },
+        {
+          "line": 1105,
+          "text": ""
+        },
+        {
+          "line": 1106,
+          "text": "        flush_assigned_literals();"
+        },
+        {
+          "line": 1107,
+          "text": "        seq::eq_tree::dep_tracker letter_dep = nullptr;"
+        },
+        {
+          "line": 1108,
+          "text": "        if (m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {"
+        },
+        {
+          "line": 1109,
+          "text": "            ++m_num_letter_refuted;"
+        },
+        {
+          "line": 1110,
+          "text": "            report_conflict(letter_dep);"
+        },
+        {
+          "line": 1111,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1112,
+          "text": "        }"
+        },
+        {
+          "line": 1113,
+          "text": "        bool root_asked = false;"
+        },
+        {
+          "line": 1114,
+          "text": "        if (m_mem_leaf &&"
+        },
+        {
+          "line": 1115,
+          "text": "            m_ambient->fparams().m_seq_monadic_leaf &&"
+        },
+        {
+          "line": 1116,
+          "text": "            m_ambient->fparams().m_seq_monadic_leaf_root) {"
+        },
+        {
+          "line": 1117,
+          "text": "            seq::eq_tree::dep_tracker dep = nullptr;"
+        },
+        {
+          "line": 1118,
+          "text": "            if (m_mem_leaf->root_refute(m_ambient->mem_facet(*m_root), dep, root_asked) == l_false) {"
+        },
+        {
+          "line": 1119,
+          "text": "                report_conflict(dep);"
+        },
+        {
+          "line": 1120,
+          "text": "                return FC_CONTINUE;"
+        },
+        {
+          "line": 1121,
+          "text": "            }"
+        },
+        {
+          "line": 1122,
+          "text": "        }"
+        },
+        {
+          "line": 1123,
+          "text": "        if (m_mem_leaf)"
+        },
+        {
+          "line": 1124,
+          "text": "            m_mem_leaf->reset_root_ask(root_asked);"
+        },
+        {
+          "line": 1125,
+          "text": "        if (!m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient, true))"
+        },
+        {
+          "line": 1126,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1127,
+          "text": "        bool conversions = !m_ambient->stoi_facet(*m_root).terms().empty();"
+        },
+        {
+          "line": 1128,
+          "text": "        unsigned const fixed_length_head_start = 2048 + 128;"
+        },
+        {
+          "line": 1129,
+          "text": "        // Keep the head start cumulative across final checks; conversion coherence takes precedence."
+        },
+        {
+          "line": 1130,
+          "text": "        if (!conversions && m_tree.get_stats().m_num_dfs_nodes >= fixed_length_head_start && check_fixed_lengths())"
+        },
+        {
+          "line": 1131,
+          "text": "            return FC_CONTINUE;"
+        },
+        {
+          "line": 1132,
+          "text": "        // Skip depth bounds that cannot cover the freshly flushed work."
+        },
+        {
+          "line": 1133,
+          "text": "        m_tree.set_min_search_depth(m_lits_qhead);"
+        },
+        {
+          "line": 1134,
+          "text": "        bool fixed_lengths = !conversions && check_fixed_lengths(false);"
+        },
+        {
+          "line": 1135,
+          "text": "        stx::search_result res;"
+        },
+        {
+          "line": 1136,
+          "text": "        try {"
+        },
+        {
+          "line": 1137,
+          "text": "            if (conversions || fixed_lengths)"
+        },
+        {
+          "line": 1138,
+          "text": "                m_tree.set_max_nodes(conversions || !m_fixed_length_guards.empty() ?"
+        },
+        {
+          "line": 1139,
+          "text": "                                     m_tree.get_stats().m_num_dfs_nodes + 128 : fixed_length_head_start);"
+        },
+        {
+          "line": 1140,
+          "text": "            res = m_tree.solve();"
+        },
+        {
+          "line": 1141,
+          "text": "            m_tree.set_max_nodes(0);"
+        },
+        {
+          "line": 1142,
+          "text": "            if (fixed_lengths &&"
+        },
+        {
+          "line": 1143,
+          "text": "                (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff) &&"
+        },
+        {
+          "line": 1144,
+          "text": "                check_fixed_lengths())"
+        },
+        {
+          "line": 1145,
+          "text": "                return FC_CONTINUE;"
+        },
+        {
+          "line": 1146,
+          "text": "            if (conversions &&"
+        },
+        {
+          "line": 1147,
+          "text": "                (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff)) {"
+        },
+        {
+          "line": 1148,
+          "text": "                // Refute cheap word constraints first, but do not strand numeric conversions behind search."
+        },
+        {
+          "line": 1149,
+          "text": "                if (!check_stoi_coherence())"
+        },
+        {
+          "line": 1150,
+          "text": "                    return FC_CONTINUE;"
+        },
+        {
+          "line": 1151,
+          "text": "                res = m_tree.solve();"
+        },
+        {
+          "line": 1152,
+          "text": "            }"
+        },
+        {
+          "line": 1153,
+          "text": "            else if (fixed_lengths &&"
+        },
+        {
+          "line": 1154,
+          "text": "                     (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff))"
+        },
+        {
+          "line": 1176,
+          "text": "        switch (res) {"
+        },
+        {
+          "line": 1177,
+          "text": "        case stx::search_result::sat: {"
+        },
+        {
+          "line": 1178,
+          "text": "            if (m_tree.get_stats().m_num_sat >= m_stoi_sat_head_start + 64) {"
+        },
+        {
+          "line": 1179,
+          "text": "                if (!check_stoi_coherence() || branch_stoi_digit())"
+        },
+        {
+          "line": 1180,
+          "text": "                    return FC_CONTINUE;"
+        },
+        {
+          "line": 1181,
+          "text": "            }"
+        },
+        {
+          "line": 1182,
+          "text": "            seq::eq_tree::node const* snap = m_tree.sat_snapshot();"
+        },
+        {
+          "line": 1183,
+          "text": "            if (snap) {"
+        },
+        {
+          "line": 1184,
+          "text": "                auto& node = const_cast<seq::eq_tree::node&>(*snap);"
+        },
+        {
+          "line": 1185,
+          "text": "                expr_ref_vector assumptions(m);"
+        },
+        {
+          "line": 1428,
+          "text": ""
+        },
+        {
+          "line": 1429,
+          "text": "    // Forward to stoi_facet, which owns the coherence-checking logic."
+        },
+        {
+          "line": 1430,
+          "text": "    bool theory_nseq::check_stoi_coherence() {"
+        },
+        {
+          "line": 1431,
+          "text": "        return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);"
+        },
+        {
+          "line": 1432,
+          "text": "    }"
+        },
+        {
+          "line": 1433,
+          "text": ""
+        },
+        {
+          "line": 1434,
+          "text": "    bool theory_nseq::branch_stoi_digit(bool stalled) {"
+        }
+      ]
+    },
+    {
+      "path": "src/util/trail.h",
+      "blob": "5b96fdad08bb41ed4ec2e20e7e36217d1d0692f8",
+      "sha256": "68b2faae3d66b40385ed3c4b72fa96c8e171e885bb384f5141c38c2d8da468e0",
+      "spans": [
+        [
+          121,
+          136
+        ],
+        [
+          209,
+          223
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 121,
+          "text": "template<typename T, bool CallDestructors=true>"
+        },
+        {
+          "line": 122,
+          "text": "class vector_value_trail : public trail {"
+        },
+        {
+          "line": 123,
+          "text": "    vector<T, CallDestructors> & m_vector;"
+        },
+        {
+          "line": 124,
+          "text": "    unsigned                     m_idx;"
+        },
+        {
+          "line": 125,
+          "text": "    T                            m_old_value;"
+        },
+        {
+          "line": 126,
+          "text": "public:"
+        },
+        {
+          "line": 127,
+          "text": "    vector_value_trail(vector<T, CallDestructors> & v, unsigned idx):"
+        },
+        {
+          "line": 128,
+          "text": "        m_vector(v),"
+        },
+        {
+          "line": 129,
+          "text": "        m_idx(idx),"
+        },
+        {
+          "line": 130,
+          "text": "        m_old_value(v[idx]) {"
+        },
+        {
+          "line": 131,
+          "text": "    }"
+        },
+        {
+          "line": 132,
+          "text": ""
+        },
+        {
+          "line": 133,
+          "text": "    void undo() override {"
+        },
+        {
+          "line": 134,
+          "text": "        m_vector[m_idx] = m_old_value;"
+        },
+        {
+          "line": 135,
+          "text": "    }"
+        },
+        {
+          "line": 136,
+          "text": "};"
+        },
+        {
+          "line": 209,
+          "text": "template<typename V>"
+        },
+        {
+          "line": 210,
+          "text": "class push_back_vector : public trail {"
+        },
+        {
+          "line": 211,
+          "text": "    V & m_vector;"
+        },
+        {
+          "line": 212,
+          "text": "public:"
+        },
+        {
+          "line": 213,
+          "text": "    push_back_vector(V & v):"
+        },
+        {
+          "line": 214,
+          "text": "        m_vector(v) {"
+        },
+        {
+          "line": 215,
+          "text": "    }"
+        },
+        {
+          "line": 216,
+          "text": ""
+        },
+        {
+          "line": 217,
+          "text": "    void undo() override {"
+        },
+        {
+          "line": 218,
+          "text": "        m_vector.pop_back();"
+        },
+        {
+          "line": 219,
+          "text": "    }"
+        },
+        {
+          "line": 220,
+          "text": "};"
+        },
+        {
+          "line": 221,
+          "text": ""
+        },
+        {
+          "line": 222,
+          "text": "template<typename V>"
+        },
+        {
+          "line": 223,
+          "text": "class set_vector_idx_trail : public trail {"
+        }
+      ]
+    },
+    {
+      "path": "src/util/util.cpp",
+      "blob": "d067b819ee61e1770ec40bb5fd436f397e87dcd8",
+      "sha256": "980d096bce9471324b8e260511e329755e19eb77b6ae08295d9e0941c504e15e",
+      "spans": [
+        [
+          70,
+          80
+        ]
+      ],
+      "excerpts": [
+        {
+          "line": 70,
+          "text": "unsigned mul_truncate(unsigned a, unsigned b) {"
+        },
+        {
+          "line": 71,
+          "text": "    auto r = (uint64_t)a * (uint64_t)b;"
+        },
+        {
+          "line": 72,
+          "text": "    return r > UINT_MAX ? UINT_MAX : (unsigned)r;"
+        },
+        {
+          "line": 73,
+          "text": "}"
+        },
+        {
+          "line": 74,
+          "text": ""
+        },
+        {
+          "line": 75,
+          "text": "unsigned add_truncate(unsigned a, unsigned b) {"
+        },
+        {
+          "line": 76,
+          "text": "    auto r = (uint64_t)a + (uint64_t)b;"
+        },
+        {
+          "line": 77,
+          "text": "    return r > UINT_MAX ? UINT_MAX : (unsigned)r;"
+        },
+        {
+          "line": 78,
+          "text": "}"
+        },
+        {
+          "line": 79,
+          "text": ""
+        },
+        {
+          "line": 80,
+          "text": "bool product_iterator_next(unsigned n, unsigned const * sz, unsigned * it) {"
+        }
+      ]
+    }
+  ],
+  "source_execution": false
+}
