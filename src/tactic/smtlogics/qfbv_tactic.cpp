@@ -34,28 +34,34 @@ Notes:
 
 #define MEMLIMIT 300
 
-static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+// Tuned values are set with set_default_*: a value the user gives, locally or in
+// the global module of the key, replaces them. The other values are kept forced.
+// som requires flat: when the user sets flat=false, the rewriter turns som off
+// (poly_rewriter::updt_params), and with som on it turns hoist_mul off.
+tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
     // conservative gaussian elimination.
-    solve_eq_p.set_uint("solve_eqs_max_occs", 2);
+    solve_eq_p.set_default_uint("solve_eqs.max_occs", 2);
 
     params_ref flat_and_or_p = p;
     flat_and_or_p.set_bool("flat_and_or", false);
 
-    params_ref simp2_p = p;
-    simp2_p.set_bool("som", true);
+    // not a copy of p: user values in it would beat user values set later
+    // (they reach the step through updt_params)
+    params_ref simp2_p;
+    simp2_p.set_default_bool("som", true);
     simp2_p.set_bool("pull_cheap_ite", true);
-    simp2_p.set_bool("push_ite_bv", false);
+    simp2_p.set_default_bool("push_ite_bv", false);
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
-    simp2_p.set_bool("flat", true); // required by som
-    simp2_p.set_bool("hoist_mul", false); // required by som
+    simp2_p.set_default_bool("flat", true); // required by som
+    simp2_p.set_default_bool("hoist_mul", false); // required by som
     simp2_p.set_bool("flat_and_or", false);
 
     params_ref hoist_p;
-    hoist_p.set_bool("hoist_mul", true);
-    hoist_p.set_bool("som", false);
+    hoist_p.set_default_bool("hoist_mul", true);
+    hoist_p.set_default_bool("som", false);
     hoist_p.set_bool("flat_and_or", false);
 
     return
@@ -83,7 +89,7 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 static tactic * main_p(tactic* t) {
     params_ref p;
     p.set_bool("elim_and", true);
-    p.set_bool("push_ite_bv", true);
+    p.set_default_bool("push_ite_bv", true);
     p.set_bool("blast_distinct", true);
     return using_params(t, p);
 }

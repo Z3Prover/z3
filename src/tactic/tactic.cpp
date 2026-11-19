@@ -22,6 +22,7 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/probe.h"
 #include "util/stopwatch.h"
+#include "util/gparams.h"
 #include "model/model_v2_pp.h"
 
 
@@ -90,16 +91,31 @@ statistics_report::~statistics_report() {
 }
 
 
-void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs) {
+void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs, bool annotate) {
     for (unsigned i = 0; i < p.size(); ++i) {
         symbol k = p.get_key(i);
         symbol name = k;
         if (descrs && descrs->get_kind_in_module(name) == CPK_INVALID)
             continue;
         out << " :" << k << " ";
-        p.display(out, k);
-        if (p.is_default(k))
-            out << " (default)";
+        if (!p.is_default(k)) {
+            p.display(out, k);
+            continue;
+        }
+        // A default yields to the value the user set in the global module of k
+        // (the getters with a fallback return it).
+        char const * module = descrs ? descrs->get_module(k) : nullptr;
+        params_ref g = module ? gparams::get_module(module) : params_ref();
+        if (g.contains(k)) {
+            g.display(out, k);
+            if (annotate)
+                out << " (global)";
+        }
+        else {
+            p.display(out, k);
+            if (annotate)
+                out << " (default)";
+        }
     }
 }
 
@@ -280,10 +296,10 @@ void tactic::display_pipeline(params_ref const & p, tactic_display_ctx & ctx) {
     // collect first: some tactics only know their name once their state is created.
     collect_param_descrs(d);
     std::ostringstream ps;
-    display_tactic_params(ps, p, &d);
+    display_tactic_params(ps, p, &d, ctx.annotate);
     std::string comment = ps.str();
     if (!comment.empty())
-        comment = comment.substr(1);
+        comment = "active:" + comment; // ps starts with a space
     char const * n = display_name();
     if (n)
         ctx.leaf(n, comment);
@@ -293,7 +309,7 @@ void tactic::display_pipeline(params_ref const & p, tactic_display_ctx & ctx) {
     ctx.descrs.copy(d);
 }
 
-void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused) {
+void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused, bool annotate) {
     // First walk: collect the descriptors of the whole pipeline.
     // lazy_tactic builds its tactic when displayed, so the walk cannot be replaced
     // by collect_param_descrs.
@@ -302,6 +318,7 @@ void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svecto
     tactic_display_ctx ctx;
     ctx.pipeline = &all.descrs;
     ctx.unused = unused;
+    ctx.annotate = annotate;
     t.display_pipeline(p, ctx);
     std::vector<display_line> lines;
     for (display_node const & n : ctx.roots())

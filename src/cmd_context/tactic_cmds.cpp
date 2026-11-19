@@ -140,25 +140,35 @@ static void display_unused_summary(std::ostream & out, svector<symbol> const & u
 
 // Display a tactic without running it, in the tactic language: the steps, the probes
 // guarding them, and in comments the parameters each step receives (see display_tactic).
-class display_tactic_cmd : public cmd {
+class display_tactic_cmd : public parametric_cmd {
     sexpr * m_tactic = nullptr;
 public:
-    display_tactic_cmd(): cmd("display-tactic") {}
+    display_tactic_cmd(): parametric_cmd("display-tactic") {}
 
-    char const * get_usage() const override { return "<tactic>"; }
-    char const * get_descr(cmd_context & ctx) const override {
-        return "display a tactic in the tactic language, with the parameters each step receives in comments, without running it.";
+    char const * get_usage() const override { return "<tactic> (<keyword> <value>)*"; }
+    char const * get_main_descr() const override {
+        return "display a tactic in the tactic language, with the parameters each step receives in comments, without running it. The output is valid tactic language.";
     }
-    unsigned get_arity() const override { return 1; }
-    void prepare(cmd_context & ctx) override { m_tactic = nullptr; }
-    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_SEXPR; }
-    void set_next_arg(cmd_context & ctx, sexpr * n) override { m_tactic = n; }
+    void prepare(cmd_context & ctx) override {
+        parametric_cmd::prepare(ctx);
+        m_tactic = nullptr;
+    }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_tactic == nullptr) return CPK_SEXPR;
+        return parametric_cmd::next_arg_kind(ctx);
+    }
+    void set_next_arg(cmd_context & ctx, sexpr * arg) override { m_tactic = arg; }
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
+        p.insert("annotate", CPK_BOOL, "(default: false) mark default parameter values \"(default)\" and values taken from the global parameters \"(global)\"; the output then is not valid tactic language.");
+    }
     void execute(cmd_context & ctx) override {
+        if (!m_tactic)
+            throw cmd_exception("display-tactic needs a tactic argument");
         // the parameters check-sat-using passes to its tactic
         params_ref p = ctx.params().merge_default_params(params_ref());
         tactic_ref t = sexpr2tactic(ctx, m_tactic);
         svector<symbol> unused;
-        display_tactic(ctx.regular_stream(), *t, p, &unused);
+        display_tactic(ctx.regular_stream(), *t, p, &unused, ps().get_bool("annotate", false));
         display_unused_summary(ctx.regular_stream(), unused);
     }
 };

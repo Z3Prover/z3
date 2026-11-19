@@ -29,6 +29,7 @@ Abstract:
 #include "tactic/core/simplify_tactic.h"
 #include "parsers/smt2/smt2parser.h"
 #include "util/debug.h"
+#include "util/gparams.h"
 
 // Known flagged parameters, pending a maintainer decision on each.
 // Remove an entry when the setter is fixed; the test fails on stale entries.
@@ -60,12 +61,46 @@ static void tst_display() {
     tactic_ref t = using_params(mk_simplify_tactic(m), p);
     svector<symbol> unused;
     std::ostringstream out;
-    display_tactic(out, *t, params_ref(), &unused);
+    display_tactic(out, *t, params_ref(), &unused, true);
     std::string s = out.str();
     // keys simplify declares are syntax, the others go in the comment
     ENSURE(s.find(":som true :flat false)") != std::string::npos);
     ENSURE(s.find("not parseable: :flat false (default), :no_such_parameter 1 [unused]") != std::string::npos);
     ENSURE(unused.size() == 1);
+    // without annotation the default is plain syntax and has no mark
+    std::ostringstream plain;
+    display_tactic(plain, *t, params_ref());
+    s = plain.str();
+    ENSURE(s.find(":som true :flat false)") != std::string::npos);
+    ENSURE(s.find("(default)") == std::string::npos);
+    ENSURE(s.find("not parseable: :no_such_parameter 1 [unused]") != std::string::npos);
+}
+
+// A step shows the value in effect for a default: the global value of the key's
+// module if the user set one there.
+static void tst_display_global() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    p.set_default_bool("flat", true);
+    p.set_bool("som", true);
+    tactic_ref t = using_params(mk_simplify_tactic(m), p);
+    auto display = [&]() {
+        std::ostringstream out;
+        display_tactic(out, *t, params_ref(), nullptr, true);
+        return out.str();
+    };
+    std::string s = display();
+    ENSURE(s.find(":flat true (default)") != std::string::npos);
+    ENSURE(s.find("(global)") == std::string::npos);
+    gparams::set("rewriter.flat", "false");
+    gparams::set("rewriter.som", "false");
+    s = display();
+    gparams::reset();
+    // the default yields to the global value, the forced som does not
+    ENSURE(s.find(":flat false (global)") != std::string::npos);
+    ENSURE(s.find(":som true") != std::string::npos);
+    ENSURE(s.find(":som false") == std::string::npos);
 }
 
 // Display a tactic with the display-tactic command, the way a user does.
@@ -125,14 +160,6 @@ static void tst_tactics() {
             not_parseable += " " + name;
             continue;
         }
-        // The tactic parser folds n-ary probes (and, or, +, *) with the first
-        // argument counted twice, so such probes do not parse back to
-        // themselves. Remove this skip once that parser bug is fixed.
-        if (s1.find("(and ") != std::string::npos || s1.find("(or ") != std::string::npos ||
-            s1.find("(+ ") != std::string::npos || s1.find("(* ") != std::string::npos) {
-            not_parseable += " " + name;
-            continue;
-        }
         std::string s2 = display_cmd(ctx, s1);
         if (s1 != s2) {
             std::cerr << "tactic " << name << " does not round-trip:\n" << s1 << "--- displays as\n" << s2;
@@ -154,5 +181,6 @@ static void tst_tactics() {
 
 void tst_tactic_unused_params() {
     tst_display();
+    tst_display_global();
     tst_tactics();
 }

@@ -34,6 +34,7 @@ add_executable(test-z3
   context_params.cpp
   params.cpp
   tactic_unused_params.cpp
+  qfbv_default_params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
