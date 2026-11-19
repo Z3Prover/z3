@@ -310,6 +310,19 @@ Run baseline and patched native checker/bridge/CLI tests, then replay the same
 selected inputs with `run_checker_regressions.py` and compare verdicts and
 unresolved obligations. Use fresh F* caches for final validation.
 
+Prior rounds repeatedly stopped at `Z3SortedRootDocumentTests.i3_certified`
+with exit 137 before extraction or replay. If this blocker reproduces, prioritize
+diagnosing it before adding another proof rule. Record the actual memory limit
+and peak usage; exit 137 alone does not establish an out-of-memory failure.
+Within the allowed F* modules and build wiring, factor expensive normalization
+or split test modules into smaller independently verified units while preserving
+every original assertion, certificate and manifest entry. Do not remove tests,
+skip modules, weaken statements or increase proof budgets to get past the build.
+Verify any prerequisite change on the otherwise unmodified trusted base, then
+rerun the complete fresh-cache build and native tests before rule development.
+If the blocker remains, publish its focused diagnosis rather than another
+overlapping rule patch that cannot reach validation.
+
 Bound individual exploratory F* checks to 120 seconds and benchmark replays to
 60 seconds each; allow the native build up to 90 minutes without cancelling it.
 Reserve time to publish evidence. Save complete commands, versions, stdout,
