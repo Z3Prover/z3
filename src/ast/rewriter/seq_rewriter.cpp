@@ -3782,6 +3782,12 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     STRACE(seq_verbose, tout << "mk_str_in_regexp: " << mk_pp(a, m())
                                << ", " << mk_pp(b, m()) << std::endl;);
 
+    expr* loop_body = nullptr;
+    unsigned loop_lo = 0, loop_hi = 0;
+    if (re().is_loop(b, loop_body, loop_lo, loop_hi) && loop_lo > loop_hi) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
     if (!m().is_value(a) && re().is_ground(b)) {
         seq::regex_witness witness(*this);
         lbool accepted = witness.accepts(a, b);

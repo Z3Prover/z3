@@ -575,6 +575,8 @@ static void tst_positive_closure_repetition() {
     expr_ref invalid = loop(ab, 3, 2);
     member(invalid, "", false);
     member(invalid, "ababab", false);
+    expr_ref invalid_large = loop(ab, 189, 0);
+    member(invalid_large, "", false);
     expr_ref epsilon(su.re.mk_epsilon(su.str.mk_string_sort()), m);
     expr_ref nullable(su.re.mk_union(epsilon, ab), m);
     repeated = loop(nullable, 2, 3);

@@ -288,6 +288,11 @@ namespace smt {
                 bool_var bv = ctx.mk_bool_var(atom);
                 ctx.set_var_theory(bv, get_id());
                 ctx.mark_as_relevant(bv);
+                expr* regex = atom->get_arg(1);
+                expr* loop_body = nullptr;
+                unsigned loop_lo = 0, loop_hi = 0;
+                if (m_seq.re.is_loop(regex, loop_body, loop_lo, loop_hi) && loop_lo > loop_hi)
+                    ctx.mk_th_axiom(get_id(), literal(bv, false));
             }
             return true;
         }
