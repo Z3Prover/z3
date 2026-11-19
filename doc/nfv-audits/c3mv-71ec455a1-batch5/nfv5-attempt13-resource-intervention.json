@@ -1,0 +1,24 @@
+{
+  "attempt": 13,
+  "input": "checks\\013-P21-isolated-unfolding-mbqi-domain.dfy",
+  "classification": "External wall-clock resource interruption; not verification or refutation",
+  "deadline": "2026-11-19T13:50:41-05:00",
+  "intervention_time": "2026-11-19T13:50:43.0334278-05:00",
+  "verifier_pid": 72756,
+  "stopped_solver_pid": 78856,
+  "stopped_solver_cpu_seconds": 1611.6875,
+  "ownership_checks": [
+    "Verifier command line contained exact attempt13 input and session identifier",
+    "Solver ParentProcessId was exactly72756",
+    "Solver command line contained exact pinned tool path"
+  ],
+  "action": "Stop-Process -Id 78856 -Force",
+  "final_termination_time": "2026-11-19T13:52:09.8110689-05:00",
+  "final_stopped_child_pids": [89184],
+  "final_stopped_verifier_pid": 72756,
+  "recorded_exit_code": 4294967295,
+  "recorded_seconds": 1887.87,
+  "final_action": "Stop-Process -Id 89184 -Force; Stop-Process -Id 72756 -Force, after revalidating exact owned verifier command and current descendants",
+  "reason": "Total attempt exceeded recorded30-minute wall ceiling despite30-second per-obligation limit",
+  "preservation": "Original verifier input and emitted log bytes retained; separate receipt discloses external intervention. Do not treat subsequent process exit as an unintervened verifier result."
+}

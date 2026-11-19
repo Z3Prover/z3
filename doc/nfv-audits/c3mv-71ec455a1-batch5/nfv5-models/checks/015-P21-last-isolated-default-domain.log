@@ -1,0 +1,30 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/015-P21-last-isolated-default-domain.dfy(1381,28): Warning: unusual indentation in right-hand operand of ==> (which ends at line 1401, column 141); do you perhaps need parentheses?
+Verified 0/31 symbols. Waiting for I to verify.
+Verified 1/31 symbols. Waiting for B to verify.
+Verified 2/31 symbols. Waiting for R to verify.
+Verified 3/31 symbols. Waiting for Index to verify.
+Verified 4/31 symbols. Waiting for Count to verify.
+Verified 5/31 symbols. Waiting for Pick to verify.
+Verified 6/31 symbols. Waiting for Rows to verify.
+Verified 7/31 symbols. Waiting for Widths to verify.
+Verified 8/31 symbols. Waiting for Flat to verify.
+Verified 9/31 symbols. Waiting for Partition to verify.
+Verified 10/31 symbols. Waiting for Unique to verify.
+Verified 11/31 symbols. Waiting for Eligible to verify.
+Verified 12/31 symbols. Waiting for Collect to verify.
+Verified 13/31 symbols. Waiting for Subset to verify.
+Verified 14/31 symbols. Waiting for Filter to verify.
+Verified 15/31 symbols. Waiting for InternList to verify.
+Verified 16/31 symbols. Waiting for WatchAdd to verify.
+Verified 17/31 symbols. Waiting for CacheExpected to verify.
+Verified 18/31 symbols. Waiting for AcceptWord to verify.
+Verified 19/31 symbols. Waiting for BackgroundAllows to verify.
+Verified 20/31 symbols. Waiting for JointSatisfiable to verify.
+Verified 21/31 symbols. Waiting for ClosingCertificate to verify.
+Verified 22/31 symbols. Waiting for CacheStateWellFormed to verify.
+Verified 23/31 symbols. Waiting for AllCoresUnsat to verify.
+Verified 24/31 symbols. Waiting for CacheInsertExact to verify.
+Verified 25/31 symbols. Waiting for CacheInsertEntry to verify.
+Verified 26/31 symbols. Waiting for ConcreteDomain1 to verify.
+
+[audit harness] Wall-clock resource limit reached after 600 seconds; only this attempt process tree was stopped.

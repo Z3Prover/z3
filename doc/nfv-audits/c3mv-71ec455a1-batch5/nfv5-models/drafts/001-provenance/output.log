@@ -1,0 +1,27 @@
+{
+  "status": "pass",
+  "scope": "Local anchor/metadata/forbidden-construct checks, not full upstream parser/admission or translation equivalence",
+  "properties": [
+    {
+      "id": "P20",
+      "source_tags": 1417,
+      "helpers": 22,
+      "requires": 4,
+      "examples": 4
+    },
+    {
+      "id": "P21",
+      "source_tags": 1536,
+      "helpers": 25,
+      "requires": 7,
+      "examples": 5
+    },
+    {
+      "id": "P22",
+      "source_tags": 691,
+      "helpers": 15,
+      "requires": 3,
+      "examples": 4
+    }
+  ]
+}

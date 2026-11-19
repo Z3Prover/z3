@@ -1,0 +1,8 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1381,28): Warning: unusual indentation in right-hand operand of ==> (which ends at line 1401, column 141); do you perhaps need parentheses?
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1706,7): Error: Verification of 'ConcreteDomain1' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1745,7): Error: Verification of 'ConcreteDomain2' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1784,7): Error: Verification of 'ConcreteDomain3' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1823,7): Error: Verification of 'ConcreteDomain4' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/008-P21-mbqi-domain.dfy(1862,7): Error: Verification of 'ConcreteDomain5' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 23 verified, 0 errors, 5 time outs

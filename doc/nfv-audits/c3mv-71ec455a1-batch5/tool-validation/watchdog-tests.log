@@ -1,0 +1,8 @@
+test_completed_success (__main__.WatchdogTests.test_completed_success) ... ok
+test_nonzero_exit_does_not_clean_up (__main__.WatchdogTests.test_nonzero_exit_does_not_clean_up) ... ok
+test_timeout_removes_owned_child (__main__.WatchdogTests.test_timeout_removes_owned_child) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 5.250s
+
+OK

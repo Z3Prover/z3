@@ -1,0 +1,10 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1574,16): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1146,70): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(855,2): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1582,7): Error: Verification of 'ConcreteDomain2' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1606,7): Error: Verification of 'ConcreteDomain3' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1646,16): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(1146,70): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/004-P20-domain.dfy(855,2): Related location: this proposition could not be proved
+
+Dafny program verifier finished with 20 verified, 2 errors, 2 time outs

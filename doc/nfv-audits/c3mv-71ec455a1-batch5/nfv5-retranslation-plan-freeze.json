@@ -1,0 +1,12 @@
+{
+  "plan_sha256": "c39fc8ff35ceffc30a16b50b4fbcea03f9a72b50dcc00a40e26bac179a975ae5",
+  "status": "frozen before new model generation",
+  "properties": [
+    "P20",
+    "P21",
+    "P22"
+  ],
+  "whole_properties": 3,
+  "new_source_entries": 0,
+  "examples": 13
+}

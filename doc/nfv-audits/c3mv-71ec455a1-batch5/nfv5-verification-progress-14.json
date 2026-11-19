@@ -1,0 +1,34 @@
+{
+  "stage": "nfv5-verify",
+  "status": "in_progress",
+  "active_shell": "nfv5-last-default-domains",
+  "active_attempt": 15,
+  "completed_attempts": 14,
+  "successful_attempts": 4,
+  "checks_sha256": "00e9471e156462ad782445038bafdb95597f10e112386bb19c861ea92f1ad902",
+  "frozen_models_unchanged": true,
+  "admitted_domains": ["P22: all four original examples"],
+  "not_admitted": ["P20 grouped four domains", "P21 grouped five domains"],
+  "whole_positive_attempts": ["P22 ordinary full goal: failed proof, not refutation"],
+  "external_resource_intervention": {
+    "attempt": 13,
+    "seconds": 1887.87,
+    "exit_code": 4294967295,
+    "receipt": "nfv5-attempt13-resource-intervention.json",
+    "receipt_sha256": "29054805c0b992f9b9b1e2f4b88fd2719f2a2df09631e57beaeccca2566e497e",
+    "meaning": "Recorded30-minute wall ceiling plus grace; external process termination, not native crash or verifier refutation"
+  },
+  "last_completed": "P20 final isolated default domain attempt14:81.567s,469 internal obligations verified,8 errors,3 timeouts; no domain group admitted",
+  "current": "P21 final hinted isolated domains WITHOUT MBQI; live log,2cores,600s wall watchdog. Latest progress26/31 symbols, waiting for ConcreteDomain1.",
+  "watchdog_tests": "Three retained tests in test_nfv5_watchdog.py pass, including live owned parent/child cleanup; no production execution",
+  "next_actions": [
+    "Await known active shell nfv5-last-default-domains; no overlapping verifier/history writer.",
+    "Then check P22 complete original once with MBQI and isolation,600s wall watchdog.",
+    "If P20/P21 remain unadmitted, stop new strategies in this bounded batch and disclose resource/admission gaps. Their whole positives/refutations remain blocked.",
+    "Run independent evidence finalizer only after every attempt completes. Preserve attempt13 external-intervention receipt and validate its hash.",
+    "Write verification report/handoff,mark verify done,return before publication stage. Schedule2 remains active.",
+    "Portable replay must preserve isolate-assertions and wall resource metadata; never automatically replay expensive interrupted checks."
+  ],
+  "schedule_id": 2,
+  "stop_schedule": false
+}

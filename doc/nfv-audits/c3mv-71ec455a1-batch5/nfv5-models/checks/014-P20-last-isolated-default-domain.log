@@ -1,0 +1,44 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1594,9): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1649,9): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1702,9): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1755,9): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+Verified 0/27 symbols. Waiting for I to verify.
+Verified 1/27 symbols. Waiting for B to verify.
+Verified 2/27 symbols. Waiting for R to verify.
+Verified 3/27 symbols. Waiting for Index to verify.
+Verified 4/27 symbols. Waiting for Count to verify.
+Verified 5/27 symbols. Waiting for Pick to verify.
+Verified 6/27 symbols. Waiting for Rows to verify.
+Verified 7/27 symbols. Waiting for Widths to verify.
+Verified 8/27 symbols. Waiting for Flat to verify.
+Verified 9/27 symbols. Waiting for Partition to verify.
+Verified 10/27 symbols. Waiting for Unique to verify.
+Verified 11/27 symbols. Waiting for FindActive to verify.
+Verified 12/27 symbols. Waiting for Deactivate to verify.
+Verified 13/27 symbols. Waiting for Substitute to verify.
+Verified 14/27 symbols. Waiting for Register to verify.
+Verified 15/27 symbols. Waiting for Rebase to verify.
+Verified 16/27 symbols. Waiting for PowerExpected to verify.
+Verified 17/27 symbols. Waiting for Edge to verify.
+Verified 18/27 symbols. Waiting for CurrentBaseAcyclic to verify.
+Verified 19/27 symbols. Waiting for PowerStateWellFormed to verify.
+Verified 20/27 symbols. Waiting for Catalog to verify.
+Verified 21/27 symbols. Waiting for PowerUpdateExact to verify.
+Verified 22/27 symbols. Waiting for PowerSubstitutionEntry to verify.
+Verified 23/27 symbols. Waiting for ConcreteDomain1 to verify.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1578,23): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1580,27): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1608,100): Error: Verification of 'ConcreteDomain1' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+Verified 24/27 symbols. Waiting for ConcreteDomain2 to verify.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1633,23): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1635,27): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1663,100): Error: Verification of 'ConcreteDomain2' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+Verified 25/27 symbols. Waiting for ConcreteDomain3 to verify.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1688,23): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1690,27): Error: assertion might not hold
+Verified 26/27 symbols. Waiting for ConcreteDomain4 to verify.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1741,23): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1743,27): Error: assertion might not hold
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/014-P20-last-isolated-default-domain.dfy(1769,100): Error: Verification of 'ConcreteDomain4' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 469 verified, 8 errors, 3 time outs

@@ -1,0 +1,12 @@
+test_changed_hash_rejected_before_execution (__main__.ReplayTests.test_changed_hash_rejected_before_execution) ... ok
+test_interrupted_check_requires_opt_in (__main__.ReplayTests.test_interrupted_check_requires_opt_in) ... ok
+test_isolation_mbqi_and_resource_limit_preserved (__main__.ReplayTests.test_isolation_mbqi_and_resource_limit_preserved) ... {"sequence": 16, "expected_exit": 4, "actual_exit": 4, "matched": true}
+ok
+test_later_match_does_not_mask_mismatch (__main__.ReplayTests.test_later_match_does_not_mask_mismatch) ... {"sequence": 1, "expected_exit": 0, "actual_exit": 4, "matched": false}
+{"sequence": 2, "expected_exit": 0, "actual_exit": 0, "matched": true}
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.064s
+
+OK

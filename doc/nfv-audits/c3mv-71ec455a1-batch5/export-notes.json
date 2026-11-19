@@ -1,0 +1,38 @@
+{
+  "policy": "Historical bytes preserved exactly, including CRLF; only fresh publication tools/prose normalized before hashing.",
+  "raw_crlf_exceptions": [
+    "finish_nfv5_verification.py",
+    "freeze_nfv5_models.py",
+    "make_nfv5_models.py",
+    "nfv-methodology.md",
+    "nfv5-attempt13-resource-intervention.json",
+    "nfv5-followups.json",
+    "nfv5-modeling.md",
+    "nfv5-models/frozen/freeze_nfv5_models.py",
+    "nfv5-models/frozen/make_nfv5_models.py",
+    "nfv5-verification-progress-14.json",
+    "nfv5-verification.md",
+    "seal_nfv5_verification.py",
+    "test_nfv5_watchdog.py",
+    "tool-validation/replay/001-P20-validity.log",
+    "tool-validation/replay/002-P21-validity.log",
+    "tool-validation/replay/003-P22-validity.log",
+    "tool-validation/replay/006-P22-domain.log"
+  ],
+  "historical_tools": [
+    "make_nfv5_models.py",
+    "check_nfv5_models.py",
+    "freeze_nfv5_models.py",
+    "verify_nfv5.py",
+    "finish_nfv5_verification.py",
+    "seal_nfv5_verification.py",
+    "test_nfv5_watchdog.py",
+    "nfv-methodology.md"
+  ],
+  "portable_tools": [
+    "validate_nfv5_publication.py",
+    "replay_nfv5_checks.py",
+    "test_nfv5_replay.py"
+  ],
+  "no_historical_bytes_changed": true
+}

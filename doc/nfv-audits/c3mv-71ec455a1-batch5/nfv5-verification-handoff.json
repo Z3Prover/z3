@@ -1,0 +1,93 @@
+{
+  "stage": "nfv5-verify",
+  "status": "done",
+  "recorded_utc": "2026-11-19T19:07:21.009569+00:00",
+  "files": [
+    {
+      "path": "nfv5-verification.md",
+      "sha256": "7118c34cab146b5501b022280e9a8e4d0ae2e3b215aef00a93ea83be1baa9ad7"
+    },
+    {
+      "path": "nfv5-results.json",
+      "sha256": "242ffee63011e56a0347b0694e3f07520cace9e06d0b59d0e93afa2574ce41f4"
+    },
+    {
+      "path": "nfv5-followups.json",
+      "sha256": "192123719927d4736b5f4749d30178cae99ea6b32b18c089842ec3a5a683dda0"
+    },
+    {
+      "path": "nfv5-model-freeze.json",
+      "sha256": "490346f932c91ffce99ff2c30f7ab6f3a64cb43ab7968b88259e290ce8e64aa4"
+    },
+    {
+      "path": "nfv5-retranslation-plan.json",
+      "sha256": "c39fc8ff35ceffc30a16b50b4fbcea03f9a72b50dcc00a40e26bac179a975ae5"
+    },
+    {
+      "path": "nfv5-models/checks.json",
+      "sha256": "cbcf648dd34619b54bca155735775a10e804c1913a128a995ae757bba17b03fb"
+    },
+    {
+      "path": "nfv5-attempt13-resource-intervention.json",
+      "sha256": "29054805c0b992f9b9b1e2f4b88fd2719f2a2df09631e57beaeccca2566e497e"
+    },
+    {
+      "path": "verify_nfv5.py",
+      "sha256": "a36b17a201150102a2fec50477ba9ffaa348632fd291e17776de3bcd115a60a5"
+    },
+    {
+      "path": "finish_nfv5_verification.py",
+      "sha256": "286006661b811756598d63c8826a13d26806f1d56a9b352afac5be9e74b2e86d"
+    },
+    {
+      "path": "seal_nfv5_verification.py",
+      "sha256": "b634fc4534fea3883c75315e3d970ba1fdc00018e3dbcbf4d5eb1fb9d79ae7bf"
+    },
+    {
+      "path": "test_nfv5_watchdog.py",
+      "sha256": "750e1d01e9f68ff9b8337aebfceee0aff24fa39d5523d2e4b3e30bed854e3b91"
+    }
+  ],
+  "summary": {
+    "whole_properties": 3,
+    "new_source_entries": 0,
+    "verified": 0,
+    "refuted": 0,
+    "resources_exhausted": 3,
+    "type_check_or_audit_failure": 0,
+    "verifier_attempts": 16,
+    "successful_attempts": 4,
+    "failed_attempts": 12,
+    "timeout_attempts": 11,
+    "externally_interrupted_attempts": [
+      13
+    ],
+    "property_free_models_valid": 3,
+    "admitted_examples": 4,
+    "construction_checks": 7,
+    "construction_failures": 0,
+    "native_executions": 0
+  },
+  "repository_preservation": {
+    "branch": "c3mv",
+    "head": "f975e94d9830bcca332b309df422b364c6e99191",
+    "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+    "stash": "7af7fad70e9cea38601c67ff00d89f6b5576c2d6"
+  },
+  "watchdog_tests": {
+    "command": "python -B test_nfv5_watchdog.py -v",
+    "passed": 3,
+    "failed": 0,
+    "seconds": 4.806,
+    "execution": "Trusted Python parent/child harness only; no audited source execution"
+  },
+  "next_stage": "nfv5-publish",
+  "schedule_id": 2,
+  "stop_schedule": false,
+  "publication_notes": [
+    "Preserve raw historical bytes and explicit line-ending exceptions.",
+    "Replay retains isolation and wall resource metadata; expensive interrupted checks opt-in only.",
+    "Never count internal obligations or partial domains as whole verified properties.",
+    "Preserve all four prior publications and source/stash; continue audit after publication."
+  ]
+}

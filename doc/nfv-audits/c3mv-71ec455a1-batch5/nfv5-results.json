@@ -1,0 +1,90 @@
+{
+  "batch": 5,
+  "recorded_utc": "2026-11-19T19:05:26.305032+00:00",
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "kind": "Same-intent retranslation; no new source-property coverage.",
+  "freeze_sha256": "490346f932c91ffce99ff2c30f7ab6f3a64cb43ab7968b88259e290ce8e64aa4",
+  "checks_sha256": "cbcf648dd34619b54bca155735775a10e804c1913a128a995ae757bba17b03fb",
+  "resource_intervention_sha256": "29054805c0b992f9b9b1e2f4b88fd2719f2a2df09631e57beaeccca2566e497e",
+  "summary": {
+    "whole_properties": 3,
+    "new_source_entries": 0,
+    "verified": 0,
+    "refuted": 0,
+    "resources_exhausted": 3,
+    "type_check_or_audit_failure": 0,
+    "verifier_attempts": 16,
+    "successful_attempts": 4,
+    "failed_attempts": 12,
+    "timeout_attempts": 11,
+    "externally_interrupted_attempts": [
+      13
+    ],
+    "property_free_models_valid": 3,
+    "admitted_examples": 4,
+    "construction_checks": 7,
+    "construction_failures": 0,
+    "native_executions": 0
+  },
+  "outcomes": [
+    {
+      "id": "P20",
+      "entry": "PowerSubstitutionEntry",
+      "nfv_outcome": "resources_exhausted",
+      "reason": "Model validity passed, but original concrete domains not admitted; whole positive/refutation blocked.",
+      "domain_admitted": false,
+      "admitted_examples": 0,
+      "whole_positive_attempts": [],
+      "attempts": [
+        1,
+        4,
+        7,
+        10,
+        12,
+        14
+      ],
+      "accepted_whole_proof": null,
+      "native_finding": false
+    },
+    {
+      "id": "P21",
+      "entry": "CacheInsertEntry",
+      "nfv_outcome": "resources_exhausted",
+      "reason": "Model validity passed, but original concrete domains not admitted; whole positive/refutation blocked.",
+      "domain_admitted": false,
+      "admitted_examples": 0,
+      "whole_positive_attempts": [],
+      "attempts": [
+        2,
+        5,
+        8,
+        11,
+        13,
+        15
+      ],
+      "accepted_whole_proof": null,
+      "native_finding": false
+    },
+    {
+      "id": "P22",
+      "entry": "CanonicalInternEntry",
+      "nfv_outcome": "resources_exhausted",
+      "reason": "Independent domains passed; complete original positive remains an unresolved proof, NOT a refutation or type-invalid model.",
+      "domain_admitted": true,
+      "admitted_examples": 4,
+      "whole_positive_attempts": [
+        9,
+        16
+      ],
+      "attempts": [
+        3,
+        6,
+        9,
+        16
+      ],
+      "accepted_whole_proof": null,
+      "native_finding": false
+    }
+  ]
+}

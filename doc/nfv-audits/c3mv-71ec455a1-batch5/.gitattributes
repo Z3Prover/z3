@@ -1,0 +1,18 @@
+* text eol=lf
+finish_nfv5_verification.py -text
+freeze_nfv5_models.py -text
+make_nfv5_models.py -text
+nfv-methodology.md -text
+nfv5-attempt13-resource-intervention.json -text
+nfv5-followups.json -text
+nfv5-modeling.md -text
+nfv5-models/frozen/freeze_nfv5_models.py -text
+nfv5-models/frozen/make_nfv5_models.py -text
+nfv5-verification-progress-14.json -text
+nfv5-verification.md -text
+seal_nfv5_verification.py -text
+test_nfv5_watchdog.py -text
+tool-validation/replay/001-P20-validity.log -text
+tool-validation/replay/002-P21-validity.log -text
+tool-validation/replay/003-P22-validity.log -text
+tool-validation/replay/006-P22-domain.log -text

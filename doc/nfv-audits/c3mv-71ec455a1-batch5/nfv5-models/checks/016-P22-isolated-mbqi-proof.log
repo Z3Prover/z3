@@ -1,0 +1,22 @@
+Verified 0/16 symbols. Waiting for I to verify.
+Verified 1/16 symbols. Waiting for B to verify.
+Verified 2/16 symbols. Waiting for R to verify.
+Verified 3/16 symbols. Waiting for Index to verify.
+Verified 4/16 symbols. Waiting for Count to verify.
+Verified 5/16 symbols. Waiting for Pick to verify.
+Verified 6/16 symbols. Waiting for Rows to verify.
+Verified 7/16 symbols. Waiting for Widths to verify.
+Verified 8/16 symbols. Waiting for Flat to verify.
+Verified 9/16 symbols. Waiting for Partition to verify.
+Verified 10/16 symbols. Waiting for Unique to verify.
+Verified 11/16 symbols. Waiting for FindIntern to verify.
+Verified 12/16 symbols. Waiting for CanonicalStoreWellFormed to verify.
+Verified 13/16 symbols. Waiting for InternTransitionExact to verify.
+Verified 14/16 symbols. Waiting for CanonicalClassPreserved to verify.
+Verified 15/16 symbols. Waiting for CanonicalInternEntry to verify.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/016-P22-isolated-mbqi-proof.dfy(701,34): Error: Verification of 'CanonicalInternEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/016-P22-isolated-mbqi-proof.dfy(703,31): Error: Verification of 'CanonicalInternEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/016-P22-isolated-mbqi-proof.dfy(705,33): Error: Verification of 'CanonicalInternEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/016-P22-isolated-mbqi-proof.dfy(705,33): Error: Verification of 'CanonicalInternEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 88 verified, 0 errors, 4 time outs

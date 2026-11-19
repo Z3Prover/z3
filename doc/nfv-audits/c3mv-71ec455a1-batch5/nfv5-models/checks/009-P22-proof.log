@@ -1,0 +1,14 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(707,0): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(701,34): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(587,3): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(707,0): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(703,31): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(639,35): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(719,49): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(705,33): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(667,7): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(719,49): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(705,33): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/009-P22-proof.dfy(667,30): Related location: this proposition could not be proved
+
+Dafny program verifier finished with 14 verified, 4 errors

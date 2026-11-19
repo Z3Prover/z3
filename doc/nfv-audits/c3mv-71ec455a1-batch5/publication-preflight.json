@@ -1,0 +1,19 @@
+{
+  "recorded_utc": "2026-11-19T19:12:00.009706+00:00",
+  "previous_publication": "f975e94d9830bcca332b309df422b364c6e99191",
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+  "stash": "7af7fad70e9cea38601c67ff00d89f6b5576c2d6",
+  "branch": "c3mv",
+  "previous_report_trees": {
+    "c3mv-71ec455a1": "c6870166d2d538f383f7b6d86be938770f19f15f",
+    "c3mv-71ec455a1-batch2": "baaef9f8b2712c9d494114d3aca7b979a2530652",
+    "c3mv-71ec455a1-batch3": "bc39eafa46f7d69f6844257a41ced6d0834c90f2",
+    "c3mv-71ec455a1-batch4": "1843748b6e857eeba4c570f2659402c65d602a4b"
+  },
+  "source_files_independently_raw_hash_checked": 10,
+  "source_excerpt_lines_independently_checked": 373,
+  "observed_remote_master": "bcad05a7bf7dd9b82bd7a665018e0480e737264b",
+  "master_note": "Observed after verification. Not the baseline of this sealed batch; reconcile in next batch."
+}

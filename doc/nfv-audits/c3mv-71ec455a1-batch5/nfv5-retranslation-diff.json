@@ -1,0 +1,65 @@
+[
+  {
+    "id": "P20",
+    "before_sha256": "ee5e6fc5b77fffebccf7db733006df3a1fbdec286596635756437a4fac24e4d5",
+    "after_sha256": "1a6c853388c92356a07ccfeb22fe9ce833fa8cbfc8b59bb4fa1ed6c51ff58438",
+    "changed_helpers": [
+      "Widths",
+      "Deactivate",
+      "Rebase"
+    ],
+    "unified_diff": [
+      "--- batch4/P20.dfy",
+      "+++ batch5/P20.dfy",
+      "@@ -293,3 +293,3 @@",
+      " // src: src/ast/seq_decl_plugin.cpp:1055 | }",
+      "-{ seq(|rows|, i => |rows[i]|) }",
+      "+{ seq(|rows|, i => |R(rows,i)|) }",
+      " // src: src/ast/seq_decl_plugin.cpp:1040 | void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {",
+      "@@ -430,3 +430,3 @@",
+      " // src: src/ast/seq/seq_power_facet.cpp:32 | m_pows[idx].m_active = false;",
+      "-{ seq(|active|, i => active[i] && i!=idx) }",
+      "+{ seq(|active|, i => B(active,i) && i!=idx) }",
+      " // src: src/ast/seq/seq_eq_facet.cpp:37 | void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl) {",
+      "@@ -736,3 +736,3 @@",
+      " // src: src/ast/seq/seq_power_facet.cpp:60 | }",
+      "-{ seq(|rows|, i => if B(active,i) && tok in rows[i] then Substitute(rows[i],tok,repl) else rows[i]) }",
+      "+{ seq(|rows|, i => if B(active,i) && tok in R(rows,i) then Substitute(R(rows,i),tok,repl) else R(rows,i)) }",
+      " // src: src/ast/seq/seq_power_facet.cpp:43 | void power_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker) {"
+    ]
+  },
+  {
+    "id": "P21",
+    "before_sha256": "9367ed338a6fd2617eaa162c212c0b03885891edd4bfe998e2e90d299c6db3ac",
+    "after_sha256": "9fe5c3c479db9660ef055714d4f81b1b3a09434aeeeac46ac573e9c5808813cf",
+    "changed_helpers": [
+      "Widths"
+    ],
+    "unified_diff": [
+      "--- batch4/P21.dfy",
+      "+++ batch5/P21.dfy",
+      "@@ -293,3 +293,3 @@",
+      " // src: src/ast/seq_decl_plugin.cpp:1055 | }",
+      "-{ seq(|rows|, i => |rows[i]|) }",
+      "+{ seq(|rows|, i => |R(rows,i)|) }",
+      " // src: src/ast/seq_decl_plugin.cpp:1040 | void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {"
+    ]
+  },
+  {
+    "id": "P22",
+    "before_sha256": "4ace7c15f5035cfe9033dd3cc72acc6314d5f391ea92cdb6e5a1c8c0823fe1c4",
+    "after_sha256": "d582dc764d9d278d088a10f983c061a6527a4b710b54646db772d8096e712d1f",
+    "changed_helpers": [
+      "Widths"
+    ],
+    "unified_diff": [
+      "--- batch4/P22.dfy",
+      "+++ batch5/P22.dfy",
+      "@@ -293,3 +293,3 @@",
+      " // src: src/ast/seq_decl_plugin.cpp:1055 | }",
+      "-{ seq(|rows|, i => |rows[i]|) }",
+      "+{ seq(|rows|, i => |R(rows,i)|) }",
+      " // src: src/ast/seq_decl_plugin.cpp:1040 | void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {"
+    ]
+  }
+]

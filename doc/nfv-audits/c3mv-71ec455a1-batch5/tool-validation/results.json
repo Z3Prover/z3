@@ -1,0 +1,30 @@
+{
+  "status": "pass",
+  "recorded_utc": "2026-11-19T19:12:18.941674+00:00",
+  "live_verifier_invocations": 4,
+  "audit_verifier_attempts": 16,
+  "dafny_version": "4.11.0+fcb2042d6d043a2634f0854338c08feeaaaf4ae2",
+  "solver_version": "Z3 version 4.12.1 - 64 bit",
+  "replay_command": [
+    "C:\\Users\\nbjorner\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+    "-B",
+    "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch5\\replay_nfv5_checks.py",
+    "--bundle",
+    "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch5",
+    "--dafny",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+    "--solver",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+    "--output",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv5-publication-replay-001"
+  ],
+  "replay_checks": [
+    1,
+    2,
+    3,
+    6
+  ],
+  "mocked_replay_tests": 4,
+  "watchdog_tests": 3,
+  "distinction": "Four live gate replays and seven harness tests validate tooling, not additional properties, source execution or repeated expensive proof strategies."
+}

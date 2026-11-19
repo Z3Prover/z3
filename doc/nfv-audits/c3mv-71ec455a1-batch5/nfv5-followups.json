@@ -1,0 +1,10 @@
+{
+  "status": "unresolved; schedule continues after separate batch5 publication",
+  "new_source_coverage_in_batch5": 0,
+  "items": [
+    {"id":"P20","kind":"source applicability and proof gap","objective":"Establish or rule out native producer-to-gpower self-rebase and later self-binding/elimination, preserving active-equation occurs checks and unit-base guards; separately investigate checked concrete Rows and unsigned-substitution-size proof lemmas without changing sealed helpers/contracts.","accepted_native_finding":false},
+    {"id":"P21","kind":"source applicability and domain resource gap","objective":"Trace a complete actual native conflict/core-to-cache-insertion-to-later-hit chain under changed guessed length, or establish why it cannot happen. Separate fixed background from temporary guess; retain prior P19 watch caveat. Improve concrete admission only through checked proof facts, not new assumptions.","accepted_native_finding":false},
+    {"id":"P22","kind":"whole-original proof gap","objective":"Supply checked FindIntern search-bound/completeness and ownership/sequence-update proof facts with frozen helper contracts and complete original conjunction unchanged; do not label failed postconditions or timeouts a counterexample.","accepted_native_finding":false},
+    {"id":"coverage","kind":"coverage-driven continuation","objective":"After publication review remaining source coverage ledger for genuinely new whole changed entries; do not count retranslations or repeated checks as new coverage. Monitor production/master changes at most once per5minutes when no ready justified obligation remains.","accepted_native_finding":false}
+  ]
+}

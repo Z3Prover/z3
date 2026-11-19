@@ -1,0 +1,30 @@
+{
+  "recorded_utc": "2026-11-19T18:23:33.198968+00:00",
+  "stage": "nfv5-verify",
+  "status": "in_progress",
+  "active_shell": "nfv5-isolated-domains",
+  "completed_attempts": 12,
+  "successful_attempts": 4,
+  "checks_sha256": "63656562bc557ba31921c31508c9d0e3e9c576118b358b2ca796d3ac442e6bc3",
+  "frozen_models_unchanged": true,
+  "admitted_domains": [
+    "P22: all four original examples"
+  ],
+  "not_admitted": [
+    "P20 grouped four domains",
+    "P21 grouped five domains"
+  ],
+  "whole_positive_attempts": [
+    "P22 ordinary full goal: failed proof, not refutation"
+  ],
+  "next_actions": [
+    "Read known active shell nfv5-isolated-domains before launching anything else; keep exactly one history writer/two total verifier cores.",
+    "If that command completes unsuccessfully, retry P20/P21 with checked hints and --isolate-assertions WITHOUT MBQI: prior isolated run forced MBQI and concrete Rows assertions timed out. Use a distinct phase label and retain every result.",
+    "Then attempt P22 entire original with sound isolated/MBQI option once if justified; no helper-contract or computation changes.",
+    "Gate P20/P21 entire originals on independent domain admission. No refutation before original check and all-input checked caller.",
+    "Bound further proof strategies and classify persistent resource/proof gaps honestly; do not weaken goals/contracts or fabricate native findings.",
+    "Portable publication replay must retain --isolate-assertions when present in the recorded command."
+  ],
+  "schedule_id": 2,
+  "stop_schedule": false
+}

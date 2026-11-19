@@ -1,0 +1,4 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/007-P20-mbqi-domain.dfy(1558,7): Error: Verification of 'ConcreteDomain1' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv5-models/checks/007-P20-mbqi-domain.dfy(1582,7): Error: Verification of 'ConcreteDomain2' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 22 verified, 0 errors, 2 time outs

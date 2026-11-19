@@ -1,0 +1,10 @@
+{
+  "status": "failed assembly tool attempt; not a verifier check",
+  "command": "python -B assemble_nfv5_publication.py",
+  "exit_code": 1,
+  "diagnostic": "KeyError: 'master' at preflight master=sources['master']",
+  "cause": "Source inventory has no master field; authoritative model seal does",
+  "live_verifier_invocations": 0,
+  "preservation": "Exact failed assembler archived alongside this receipt; no sealed historical evidence changed",
+  "correction": "Read master from nfv5-model-freeze.json and explicitly resume only this partially assembled new publication directory"
+}

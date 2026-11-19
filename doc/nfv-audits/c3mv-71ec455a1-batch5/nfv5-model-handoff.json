@@ -1,0 +1,35 @@
+{
+  "stage": "nfv5-model",
+  "status": "done",
+  "recorded_utc": "2026-11-19T18:05:08.244473+00:00",
+  "freeze_sha256": "490346f932c91ffce99ff2c30f7ab6f3a64cb43ab7968b88259e290ce8e64aa4",
+  "report_sha256": "e5e40e5f4e0b30b2f1c2a8d4a78b4cb699c58ee68b8810a1eea19ecbd71404c5",
+  "draft_checks_sha256": "0296f558cb4044c30cef3dfb4400212522c4dfde3b1eb8d418aa1b82f6b7c0af",
+  "plan_sha256": "c39fc8ff35ceffc30a16b50b4fbcea03f9a72b50dcc00a40e26bac179a975ae5",
+  "diff_sha256": "132604a47d1bdfa986ffad3adb686aeb7ee02a36af40a3fa165c2268776f0d70",
+  "whole_intents": [
+    "P20",
+    "P21",
+    "P22"
+  ],
+  "new_source_entries": 0,
+  "changed_helper_body_lines": 5,
+  "named_inputs": 45,
+  "outputs": 19,
+  "requires": 14,
+  "body_defined_helpers": 62,
+  "concrete_domains": 13,
+  "construction_checks": 7,
+  "construction_failures": 0,
+  "new_verifier_attempts": 0,
+  "native_executions": 0,
+  "limitations": [
+    "Resolution is not well-definedness or domain admission.",
+    "New translation revision, not an annotation-only alteration of old frozen models or a source-bug repair.",
+    "Input/helper contracts, whole original goals and every entry byte from signature onward remain unchanged.",
+    "No native equivalence/reachability, verified property or refutation is claimed."
+  ],
+  "next_stage": "nfv5-verify",
+  "schedule_id": 2,
+  "stop_schedule": false
+}
