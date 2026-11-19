@@ -1,0 +1,22 @@
+{
+  "pull_request": 11618,
+  "head_sha": "55f02f22b7ef43b7e234a27ce7dc18412f38cee9",
+  "base_sha": "8573212ffea377844c322487224accff54809594",
+  "path_prefix": "fstar/audits/pr-11618/55f02f22b7ef43b7e234a27ce7dc18412f38cee9/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42692269837",
+  "files": [
+    {
+      "name": "AuditPR11618.fst",
+      "sha256": "24c6495137d3bebc2a686503db96fac21b15e75db692a4d01f3522d2168db77e"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "576979177dadd6bd72a1b241d0ce41f04fc2a3c4490b267b804d4b044e51d51d"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "c78df7a594534dab4e7e9ee4d68f5e6b10290fa674ed23fe3364eef4211a0628"
+    }
+  ]
+}

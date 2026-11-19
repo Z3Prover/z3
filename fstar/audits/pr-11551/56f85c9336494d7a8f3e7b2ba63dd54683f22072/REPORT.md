@@ -1,0 +1,8 @@
+# F* audit PR 11551 @ 56f85c9336494d7a8f3e7b2ba63dd54683f22072 (base 814fda3f33f613f2e44a120808a60c2f1876f7c9)
+Scope (partial): src/ast/ast_smt2_pp.cpp `smt2_printer::process_app` n-ary bv concat branch (guard `is_app_of(t,bv_family_id,OP_CONCAT) && num_args>2`, +12 lines; source read via contents API at head SHA, patch lines 775-790 region).
+Changes since previously audited head 3fd6f7f2: removal of the pp_fdecl_name *_I rename in ast_smt2_pp.cpp and its test in src/test/smt2print_parse.cpp. The concat branch is unchanged, so the same model is re-verified (renamed module Pr11551Head56f8, sha256 2f9bbea4b622251ab72da86532f7d128fb7908009e4191a7aa49cef0e3ef75b1).
+Obligations (all proved, model level): O1 binary concat preserves BV well-formedness; O2 left fold of binary concat equals right-nested n-ary concat (value and width); O3 leaf order/multiplicity preserved, and the two initial iterator reads are valid when num_args>2.
+Assumptions: nat values with concat semantics high operand first; children printed by existing code are correct; standard F* library lemmas. No base fstar modules used. No admit/assume.
+Exclusions: pp_fdecl_name (the net PR diff no longer touches it), tests, previously committed fstar/audits artifacts, C++ execution, memory safety, format AST plumbing (mk_compose/format_ref lifetime), and whether other printers handle n-ary concat. Not a mechanized verification of C++.
+Counterexample search: none found.
+Reproduce: F* 2026.09.27, Z3 4.13.3; fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Pr11551Head56f8.fst

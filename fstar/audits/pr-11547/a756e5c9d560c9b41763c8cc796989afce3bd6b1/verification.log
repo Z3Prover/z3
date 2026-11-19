@@ -1,0 +1,6 @@
+$ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --include /home/runner/work/z3/z3/fstar --cache_dir /tmp/gh-aw/agent/fstar-audit/cache --odir /tmp/gh-aw/agent/fstar-audit/out Z3PR11547Audit.fst
+
+Verified module: Z3PR11547Audit
+All verification conditions discharged successfully
+
+exit 0

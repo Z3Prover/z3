@@ -158,9 +158,9 @@ let typed_atom (name:string) (s:sort) : expr =
 
 let lemma_typed_observations_preserve_the_relation ()
   : Lemma (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
-      let z = typed_atom "z" (BaseSort "Int") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
+      let z = typed_atom "z" ((SortApp IntSymbol [])) in
       checked_consequence "refl" (mk_oeq_expr x x) [] /\
       checked_consequence "symm" (mk_oeq_expr y x) [mk_oeq_expr x y] /\
       checked_consequence "trans" (mk_oeq_expr x z) [mk_eq_expr x y; mk_oeq_expr y z] /\
@@ -168,9 +168,9 @@ let lemma_typed_observations_preserve_the_relation ()
       not (checked_consequence "iff~" (mk_oeq_expr x y) [mk_eq_expr x y]) /\
       not (checked_consequence "refl" (mk_oeq_expr x p) []))
   = assert_norm (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
-      let z = typed_atom "z" (BaseSort "Int") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
+      let z = typed_atom "z" ((SortApp IntSymbol [])) in
       checked_consequence "refl" (mk_oeq_expr x x) [] /\
       checked_consequence "symm" (mk_oeq_expr y x) [mk_oeq_expr x y] /\
       checked_consequence "trans" (mk_oeq_expr x z) [mk_eq_expr x y; mk_oeq_expr y z] /\
@@ -180,7 +180,7 @@ let lemma_typed_observations_preserve_the_relation ()
 
 let lemma_typed_observation_congruence ()
   : Lemma (
-      let s = ArraySort [BaseSort "Int"] (BaseSort "Real") in
+      let s = ArraySort [(SortApp IntSymbol [])] ((SortApp RealSymbol [])) in
       let x = typed_atom "a" s in
       let y = typed_atom "b" s in
       let f = { decl_name = "observe"; domain = [s]; range = bool_sort;
@@ -193,7 +193,7 @@ let lemma_typed_observation_congruence ()
         [mk_oeq_expr x y]) /\
       not (checked_consequence "rewrite" (mk_oeq_expr x y) []))
   = assert_norm (
-      let s = ArraySort [BaseSort "Int"] (BaseSort "Real") in
+      let s = ArraySort [(SortApp IntSymbol [])] ((SortApp RealSymbol [])) in
       let x = typed_atom "a" s in
       let y = typed_atom "b" s in
       let f = { decl_name = "observe"; domain = [s]; range = bool_sort;
@@ -211,7 +211,7 @@ let arithmetic_app (name:string) (tag:decl_kind) (s:sort) (args:list expr) : exp
         interp = Some tag; int_params = [] } args
 
 let division_axiom_checks () : bool =
-  let s = BaseSort "Int" in
+  let s = (SortApp IntSymbol []) in
   let x = typed_atom "x" s in
   let b = typed_atom "b" s in
   let n = Z3LpGomory.integer in
@@ -254,8 +254,8 @@ let lemma_division_axiom_checks () : Lemma (division_axiom_checks ()) =
 
 let lemma_arithmetic_comparison_rewrites ()
   : Lemma (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
       let le = arithmetic_app "<=" op_arith_le bool_sort in
       let ge = arithmetic_app ">=" op_arith_ge bool_sort in
       let lt = arithmetic_app "<" op_arith_lt bool_sort in
@@ -264,8 +264,8 @@ let lemma_arithmetic_comparison_rewrites ()
       checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (mk_not_expr (le [y; x]))) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (le [x; y])) []))
   = assert_norm (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
       let le = arithmetic_app "<=" op_arith_le bool_sort in
       let ge = arithmetic_app ">=" op_arith_ge bool_sort in
       let lt = arithmetic_app "<" op_arith_lt bool_sort in
@@ -276,31 +276,31 @@ let lemma_arithmetic_comparison_rewrites ()
 
 let lemma_numeric_normalization_checks_both_sorts ()
   : Lemma (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
-      let add = arithmetic_app "+" op_arith_add (BaseSort "Int") in
-      let rx = typed_atom "rx" (BaseSort "Real") in
-      let ry = typed_atom "ry" (BaseSort "Real") in
-      let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
+      let add = arithmetic_app "+" op_arith_add ((SortApp IntSymbol [])) in
+      let rx = typed_atom "rx" ((SortApp RealSymbol [])) in
+      let ry = typed_atom "ry" ((SortApp RealSymbol [])) in
+      let radd = arithmetic_app "+" op_arith_add ((SortApp RealSymbol [])) in
       checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
       checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [rx; rx])) []))
   = assert_norm (
-      let x = typed_atom "x" (BaseSort "Int") in
-      let y = typed_atom "y" (BaseSort "Int") in
-      let add = arithmetic_app "+" op_arith_add (BaseSort "Int") in
-      let rx = typed_atom "rx" (BaseSort "Real") in
-      let ry = typed_atom "ry" (BaseSort "Real") in
-      let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
+      let x = typed_atom "x" ((SortApp IntSymbol [])) in
+      let y = typed_atom "y" ((SortApp IntSymbol [])) in
+      let add = arithmetic_app "+" op_arith_add ((SortApp IntSymbol [])) in
+      let rx = typed_atom "rx" ((SortApp RealSymbol [])) in
+      let ry = typed_atom "ry" ((SortApp RealSymbol [])) in
+      let radd = arithmetic_app "+" op_arith_add ((SortApp RealSymbol [])) in
       checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
       checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [rx; rx])) []))
 
 let numeric_equality_checks () : bool =
-  let x = typed_atom "x" (BaseSort "Real") in
-  let y = typed_atom "y" (BaseSort "Real") in
+  let x = typed_atom "x" ((SortApp RealSymbol [])) in
+  let y = typed_atom "y" ((SortApp RealSymbol [])) in
   let le = arithmetic_app "<=" op_arith_le bool_sort in
   let ge = arithmetic_app ">=" op_arith_ge bool_sort in
   let lt = arithmetic_app "<" op_arith_lt bool_sort in
@@ -455,7 +455,7 @@ let lemma_boolean_ite_rewrites_require_boolean_branches_and_builtin_decl ()
         (App boolean_ite_decl [p; r; q])) /\
       native_bool_op { boolean_ite_decl with interp = None } [p; q; r] ==
         Z3BoundedBoolEquiv.Opaque /\
-      native_bool_op boolean_ite_decl [p; q; Var 0 (BaseSort "Int")] ==
+      native_bool_op boolean_ite_decl [p; q; Var 0 ((SortApp IntSymbol []))] ==
         Z3BoundedBoolEquiv.Opaque)
   = assert_norm (
       boolean_equiv 8 10 (App boolean_ite_decl [p; q; r])
@@ -464,7 +464,7 @@ let lemma_boolean_ite_rewrites_require_boolean_branches_and_builtin_decl ()
         (App boolean_ite_decl [p; r; q])) /\
       native_bool_op { boolean_ite_decl with interp = None } [p; q; r] ==
         Z3BoundedBoolEquiv.Opaque /\
-      native_bool_op boolean_ite_decl [p; q; Var 0 (BaseSort "Int")] ==
+      native_bool_op boolean_ite_decl [p; q; Var 0 ((SortApp IntSymbol []))] ==
         Z3BoundedBoolEquiv.Opaque)
 
 let lemma_contextual_boolean_reductions ()

@@ -10,10 +10,8 @@
 # and end-to-end checks that need the pinned Lean toolchain.
 ############################################
 import copy
-import hashlib
 from pathlib import Path
 import random
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -23,6 +21,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import _STANDARD_AXIOMS
 
@@ -250,15 +249,8 @@ def _check_in_lean(test, source):
     certificate = proof_certificate.export_certificate(source, timeout=60)
     test.assertEqual(certificate["fragment"], "propositional")
     test.assertIn("th-lemma", certificate["rule_counts"])
-    with tempfile.TemporaryDirectory() as directory:
-        output = Path(directory) / "checked.lean"
-        proof_to_lean.check_and_write(source, certificate, output)
-        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-        output.write_text(output.read_text() + "\n#print axioms %s.unsat\n" % namespace)
-        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
-        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    _, report = lean_test_support.check(test, source, certificate)
+    test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
     return certificate
 
 
@@ -266,6 +258,8 @@ class TestPseudoBooleanLeanIntegration(unittest.TestCase):
     """End-to-end: legacy proof object, certificate, Lean reconstruction, kernel check."""
 
     def test_documented_pb_inputs_verify(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source, timeout=60))
+                                    for source in PB_INPUTS.values())
         for name, source in PB_INPUTS.items():
             with self.subTest(name=name):
                 _check_in_lean(self, source)

@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3 (pinned independent backend)
+cd /tmp/gh-aw/agent/fstar-audit
+timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --cache_dir cache --odir out --z3rlimit 10 Z3NestedArgs.fst
+exit 0
+stdout: Verified module: Z3NestedArgs
+All verification conditions discharged successfully
+stderr: (empty)

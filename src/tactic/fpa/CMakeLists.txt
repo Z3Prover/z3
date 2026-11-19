@@ -4,6 +4,10 @@ z3_add_component(fpa_tactics
     fpa2bv_tactic.cpp
     qffp_tactic.cpp
     qffplra_tactic.cpp
+  REGISTRATION_HEADERS
+    fpa2bv_tactic.h
+    qffp_tactic.h
+    qffplra_tactic.h
   COMPONENT_DEPENDENCIES
     arith_tactics
     bv_tactics

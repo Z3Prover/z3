@@ -107,6 +107,9 @@ let negate (r:fraction) : fraction =
 let negate_value (r:fraction)
   : Lemma (value (negate r) == zero -. value r) = ()
 
+let negation_nonzero (y:real{y =!= zero})
+  : Lemma (zero -. y =!= zero) = ()
+
 (* Constructor exhaustiveness needs one layer of inductive inversion.
    Keep the preceding field/gcd proofs at ifuel 0; this is not an increase
    of the solver resource limit or recursive-definition fuel. *)
@@ -166,6 +169,14 @@ let classify_neg (c:classifier) (y:real)
 let signed (p:int) (a:real) : real =
   if p % 2 = 0 then a else zero -. a
 
+let signed_even (p:int) (a:real)
+  : Lemma (requires p % 2 = 0)
+          (ensures signed p a == a) = ()
+
+let negated_base_positive (x:real)
+  : Lemma (requires ~(x == zero) /\ ~(x >. zero))
+          (ensures zero -. x >. zero) = ()
+
 let power (c:classifier) (x y:real) : GTot real =
   if y == zero then one
   else if x == zero then zero
@@ -174,7 +185,7 @@ let power (c:classifier) (x y:real) : GTot real =
        | Irrational -> zero
        | Rational r ->
          if r.denominator % 2 = 0 then zero
-         else signed r.numerator (A.pow (zero -. x) y)
+         else (negated_base_positive x; signed r.numerator (A.pow (zero -. x) y))
 
 let zero_exponent (c:classifier) (x:real)
   : Lemma (power c x zero == one) = ()
@@ -207,6 +218,7 @@ let negative_rational (c:classifier) (x:real{x <. zero}) (r:fraction)
     assert (power c x (value r) == one);
     A.pow_zero (zero -. x);
     assert (A.pow (zero -. x) (value r) == one);
+    signed_even r.numerator (A.pow (zero -. x) (value r));
     assert (signed r.numerator (A.pow (zero -. x) (value r)) == one)
   end
 
@@ -298,7 +310,7 @@ let reciprocal_at_zero_exponent (c:classifier) (x:real)
 
 let reciprocal_at_zero_base (c:classifier) (y:real{y =!= zero})
   : Lemma (power c zero (zero -. y) == inverse (power c zero y)) =
-  assert (zero -. y =!= zero);
+  negation_nonzero y;
   zero_base c y;
   zero_base c (zero -. y);
   inverse_zero ()

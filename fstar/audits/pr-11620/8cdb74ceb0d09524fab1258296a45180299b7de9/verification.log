@@ -1,0 +1,16 @@
+Versions:
+F* 2026.09.27
+platform=Linux_x86_64
+Z3 version 4.13.3 - 64 bit
+
+Command: /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Pr11620Clamp.fst
+
+stdout:
+Verified module: Pr11620Clamp
+All verification conditions discharged successfully
+
+stderr:
+
+exit=0
+
+Source hashes: Pr11620Clamp.fst sha256 384a49bf742074d46dc4174bf00bb77c20f22c29e6b0300921d0c8bf802e0ef6. Earlier two attempts failed with syntax/type errors (fixed); final fresh-cache run passed.

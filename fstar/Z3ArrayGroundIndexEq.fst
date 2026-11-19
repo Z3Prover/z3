@@ -85,7 +85,7 @@ let rec lemma_chain_off_indices (#idx:eqtype) (#v:Type) (base:v) (ps:list (idx &
 (* the general `expand_store` + extensionality-axiom rewrite.           *)
 (* ----------------------------------------------------------------- *)
 let lemma_ground_chain_eq_iff_finite_check
-      (#idx:eqtype) (#v:eqtype) (base1 base2:v) (ps1 ps2:list (idx & v))
+      (#idx:eqtype) (#v:Type) (base1 base2:v) (ps1 ps2:list (idx & v))
   : Lemma (requires base1 == base2 /\
                     (forall (x:idx). List.Tot.mem x (List.Tot.append (indices ps1) (indices ps2)) ==>
                                  select (chain base1 ps1) x == select (chain base2 ps2) x))
@@ -109,7 +109,7 @@ let lemma_ground_chain_eq_iff_finite_check
    not just the soundness-critical forward direction the rewrite relies
    on. *)
 let lemma_ground_chain_eq_implies_finite_check
-      (#idx:eqtype) (#v:eqtype) (base1 base2:v) (ps1 ps2:list (idx & v))
+      (#idx:eqtype) (#v:Type) (base1 base2:v) (ps1 ps2:list (idx & v))
   : Lemma (requires feq (chain base1 ps1) (chain base2 ps2))
           (ensures (forall (x:idx). select (chain base1 ps1) x == select (chain base2 ps2) x))
   = ()

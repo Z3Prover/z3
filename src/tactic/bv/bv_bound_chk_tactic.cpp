@@ -15,6 +15,7 @@
  Revision History:
 --*/
 #include "tactic/bv/bv_bound_chk_tactic.h"
+#include "tactic/tactical.h"
 #include "ast/ast.h"
 #include "params/rewriter_params.hpp"
 #include "ast/rewriter/rewriter.h"

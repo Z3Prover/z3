@@ -7,10 +7,10 @@
 ############################################
 import copy
 from fractions import Fraction
-import hashlib
 import json
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,7 +23,9 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
+from test_proof_to_lean_uf import regrouped_gates_instance
 
 # Verbatim copies of the QF_LRA inputs documented for Z3Prover/z3test under
 # regressions/proofs/lean/, so the tests need no z3test checkout.
@@ -450,7 +452,10 @@ class TestArithmeticValidation(unittest.TestCase):
             proof_to_lean.reconstruct(self.source, certificate)
         for parameters, message in [
             ([], "unsupported native proof rule"),
-            (["nla"], "unsupported native proof rule"),
+            (["nla-unsupported"], "unsupported native proof rule"),
+            # A lemma of the nonlinear solver is one over products of Int terms.
+            (["nla"], "nla th-lemma must be a clause over Int terms without premises"),
+            (["nla", "1"], "takes no coefficients"),
             (["farkas", "-1", "2", "1"], "nonnegative"),
             (["euf", "1"], "takes no coefficients"),
             ([1, 2], "must be strings"),
@@ -563,6 +568,133 @@ class TestArithmeticValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("have _s", text)  # fractional atoms get scaling helpers
 
+    def test_scaled_gates_and_scaling_facts_are_stated_over_folded_definitions(self):
+        # Like the integral gates, the scaled gates and the scaling facts are
+        # stated over the term and formula definitions, proved with only the
+        # definitions down to their linear atoms unfolded, then reverted,
+        # unfolded with the goal, and introduced again. Written out, they
+        # made 44 MB of Lean text for depth 8 (Lean ran out of memory).
+        source = real_modular_chains_instance(8)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertNotIn("@ite", text.split("theorem unsat", 1)[0].split("private theorem", 1)[1])
+        term = r"\(term_\d+ _atoms _vars\)"
+        scaled = r"(?:\(\(-?\d+ : Rat\)\) \* %s \+ )*\(\(-?\d+ : Rat\)\)" % term
+        gates = re.findall(r"^ *have _g\d+_[01] : .* \* .*$", text, re.M)
+        facts = re.findall(r"^ *have _s\d+ : .*$", text, re.M)
+        # How many there are depends on z3's theory lemmas; the size bound
+        # below is what folding buys.
+        self.assertTrue(gates)
+        self.assertTrue(facts)
+        for gate in gates:
+            self.assertRegex(gate.strip(), r"^have _g\d+_[01] : \(?(Not )?\(formula_\d+ _atoms _vars\)\)? -> "
+                                           r"\(\(\d+ : Rat\)\) \* %s = \(%s\) := fun _h => by "
+                                           r"rw \[show %s = %s from ite_eq_(left|right) _h\]; "
+                                           r"unfold (term_\d+ )+?term_\d+; grind$" % (term, scaled, term, term))
+        for fact in facts:
+            self.assertRegex(fact.strip(), r"^have _s\d+ : \(formula_\d+ _atoms _vars\) -> \(%s (<|<=|=) "
+                                           r"\(\(0 : Rat\)\)\) := by unfold formula_\d+( term_\d+)*; grind$"
+                             % scaled)
+        for block in [block for block in text.split("\n\n") if "have _s" in block or "have _g" in block]:
+            names = re.findall(r"have (_[gs]\d+(?:_[01])?) :", block)
+            self.assertIn("revert " + " ".join(names) + "\n", block)
+            self.assertIn("intro " + " ".join(names) + "\n", block)
+        self.assertLess(len(text), 1500000)
+
+    def test_argument_equalities_are_proved_level_by_level(self):
+        # f's arguments, eight nested steps, are rewritten into the
+        # rewriter's normal form. Proved with both arguments unfolded
+        # entirely, their equality ran grind out of heartbeats (2^16 branch
+        # combinations); now each pair of corresponding steps gets its own
+        # equality, innermost first, over its own level only: the steps
+        # below stay folded.
+        source = real_modular_chains_instance(8, function=True)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        blocks = [block for block in text.split("\n\n") if "have _r" in block]
+        self.assertTrue(blocks)
+        for block in blocks:
+            facts = re.findall(r"^ *have _r(\d+)_(\d+) : \(term_(\d+) _atoms _vars _m\) = \(term_(\d+) _atoms _vars _m\)"
+                               r" := by unfold ([\w ]+); grind \(splits := 64\)$", block, re.M)
+            self.assertEqual(len(facts), block.count("have _r"))
+            proved = set()
+            for first, second, left, right, names in facts:
+                first, second = int(first), int(second)
+                self.assertEqual((first, second), (int(left), int(right)))
+                unfolded = [int(name.split("_")[1]) for name in names.split()]
+                self.assertEqual({node for node in unfolded if graph.kind(node) == z3.Z3_OP_ITE}, {first, second})
+                # The nested ites the level stops at are related by facts
+                # already proved, in the same lemma.
+                stops = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, node)
+                         if graph.kind(atom) == z3.Z3_OP_ITE and atom not in unfolded}
+                self.assertTrue(all(any(atom in pair for pair in proved) for atom in stops), (first, second, stops))
+                proved.add((first, second))
+            outer = re.findall(r"^ *unfold [\w ]+ at _r(\d+)_(\d+)$", block, re.M)
+            cleared = re.findall(r"^ *clear ((?:_r\d+_\d+ ?)+)$", block, re.M)
+            self.assertTrue(outer)
+            self.assertEqual(len(cleared), 1)
+            self.assertEqual({"_r%s_%s" % pair for pair in outer} | set(cleared[0].split()),
+                             {"_r%d_%d" % pair for pair in proved})
+            # Seven levels below each of the two arguments.
+            self.assertGreaterEqual(len(proved), 8)
+
+    def test_argument_equalities_unfold_their_own_terms(self):
+        # (f (abs x)) against the rewriter's (f (ite (<= 0 x) x (* -1 x))):
+        # an abs is an atom of its own linear form, and the level of the
+        # pair still unfolds it (the first version kept it folded, and grind
+        # failed); only x stays folded.
+        source = REAL_ABS_INPUTS["function"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); grind", text, re.M))
+        self.assertEqual({graph.kind(int(first)) for first, _, _ in facts}, {z3.Z3_OP_ABS})
+        for first, second, names in facts:
+            self.assertTrue({"term_" + first, "term_" + second} <= set(names.split()), names)
+            unfolded = [int(name.split("_")[1]) for name in names.split()]
+            self.assertFalse([node for node in unfolded if graph.kind(node) == z3.Z3_OP_UNINTERPRETED], names)
+
+    def test_argument_equalities_unfold_ites_of_mixed_sorts(self):
+        # An Int ite under to_real and a Real ite share a key, but no
+        # equality of their own relates them: the level unfolds both, as it
+        # does an abs, instead of stating a fact over the two folded.
+        source = """
+(set-logic QF_UFLIRA)
+(declare-fun f (Real) Real)
+(declare-fun n () Int)
+(declare-fun y () Real)
+(assert (not (= (f (+ y (to_real (ite (<= n 0) n 0)))) (f (+ y (ite (<= n 0) (to_real n) 0.0))))))
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); ", text, re.M))
+        mixed = 0
+        for first, second, names in facts:
+            unfolded = {int(name.split("_")[1]) for name in names.split() if name.startswith("term_")}
+            below = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, int(node))
+                     if graph.kind(atom) == z3.Z3_OP_ITE}
+            self.assertLessEqual(below, unfolded, (first, second, names))
+            mixed += len({graph.decl(node).range for node in below}) == 2
+        self.assertGreaterEqual(mixed, 1)
+
+    def test_folded_scaled_facts_cast_int_atoms_to_rat(self):
+        # In qf_lira a Real atom reaches Int terms through to_real; folded,
+        # the scaled form casts their definitions, ((term_N ... : Int) : Rat).
+        text = proof_to_lean.reconstruct(LIRA_SCALED_INPUT,
+                                         proof_certificate.export_clause_log_certificate(LIRA_SCALED_INPUT))
+        cast = r"\(\(\(term_\d+ _atoms _vars _ivars\) : Int\) : Rat\)"
+        gates = re.findall(r"^ *have _g\d+_[01] : .* \* .*$", text, re.M)
+        facts = re.findall(r"^ *have _s\d+ : .*$", text, re.M)
+        self.assertTrue(any(re.search(r"= \(.*%s.*\) := fun _h => by rw \[show " % cast, gate) for gate in gates))
+        self.assertTrue(any(re.search(r"^ *have _s\d+ : \(formula_\d+ _atoms _vars _ivars\) -> \(.*%s" % cast, fact)
+                            for fact in facts))
+        for line in gates + facts:
+            self.assertNotIn("@ite", line)
+            self.assertNotIn("_ivars 0", line)  # the Int variable stays inside term_N
+
     def test_unary_minus_negates_variable_coefficients(self):
         source = "(declare-const x Real)(assert (> (- x) (/ 1.0 2.0)))(assert (>= x 0.0))"
         certificate = proof_certificate.export_clause_log_certificate(source)
@@ -598,9 +730,15 @@ class TestArithmeticValidation(unittest.TestCase):
         self.assertIn("(Classical.propDecidable _)", text)
         self.assertIn("(ite_eq_left _hc)", text)
         self.assertIn("(ite_eq_right _hnc)", text)
-        # Every grind lemma over the ite states its branch equalities first.
-        self.assertIn("  have _g%d_0 : (_atoms 0) -> (" % ite, text)
-        self.assertIn("  have _g%d_1 : (Not (_atoms 0)) -> (" % ite, text)
+        # Every grind lemma over the ite states its branch equalities first,
+        # over the folded definitions, and unfolds them with the goal.
+        condition = graph.arguments(ite)[0]
+        self.assertIn("  have _g%d_0 : (formula_%d _atoms _vars) -> (term_%d _atoms _vars) = (" % (ite, condition, ite),
+                      text)
+        self.assertIn("  have _g%d_1 : (Not (formula_%d _atoms _vars)) -> (term_%d _atoms _vars) = (" % (
+            ite, condition, ite), text)
+        self.assertIn("  revert _g%d_0 _g%d_1\n" % (ite, ite), text)
+        self.assertIn("  intro _g%d_0 _g%d_1\n" % (ite, ite), text)
         self.assertNotIn("sorry", text)
         self.assertNotIn("axiom ", text)
 
@@ -611,11 +749,20 @@ class TestArithmeticValidation(unittest.TestCase):
         graph = proof_to_lean._validate_graph(source, certificate)
         ite = next(i for i in range(len(graph.nodes)) if graph.kind(i) == z3.Z3_OP_ITE)
         text = proof_to_lean.reconstruct(source, certificate)
-        # x / 3 scales by 3 and 1 / 7 by 7; both helpers rewrite the ite and let grind close the scaled form.
-        self.assertIn("  have _g%d_0 : (_atoms 0) -> ((3 : Rat)) * (" % ite, text)
-        self.assertIn("= (((1 : Rat)) * _vars 0 + ((0 : Rat))) := fun _h => by rw [ite_eq_left _h]; grind", text)
-        self.assertIn("  have _g%d_1 : (Not (_atoms 0)) -> ((7 : Rat)) * (" % ite, text)
-        self.assertIn("= (((1 : Rat))) := fun _h => by rw [ite_eq_right _h]; grind", text)
+        # x / 3 scales by 3 and 1 / 7 by 7; both helpers rewrite the ite to
+        # its branch and let grind close the scaled form, stated over the
+        # folded definitions with only the branch's own ones unfolded.
+        condition, then_branch, else_branch = graph.arguments(ite)
+        variable = graph.arguments(then_branch)[0]
+        term = "(term_%d _atoms _vars)"
+        self.assertIn("  have _g%d_0 : (formula_%d _atoms _vars) -> ((3 : Rat)) * %s = (((1 : Rat)) * %s + "
+                      "((0 : Rat))) := fun _h => by rw [show %s = %s from ite_eq_left _h]; unfold term_%d " % (
+                          ite, condition, term % ite, term % variable, term % ite, term % then_branch, then_branch),
+                      text)
+        self.assertIn("  have _g%d_1 : (Not (formula_%d _atoms _vars)) -> ((7 : Rat)) * %s = (((1 : Rat))) := "
+                      "fun _h => by rw [show %s = %s from ite_eq_right _h]; unfold term_%d " % (
+                          ite, condition, term % ite, term % ite, term % else_branch, else_branch), text)
+        self.assertIn("  revert _g%d_0 _g%d_1\n" % (ite, ite), text)
 
     def test_tampered_ite_declarations_and_gate_clauses_are_rejected_before_lean(self):
         source = ITE_INPUTS["ite_basic"]
@@ -731,6 +878,44 @@ def clock_shaped_rewrite_instance(clocks=3):
     return "\n".join(lines) + "\n"
 
 
+def startup_shaped_rewrite_instance(nodes=6):
+    """A disjunction with the Boolean skeleton of a tta_startup rewrite over fresh bounds.
+
+    z3test's smtlib-sample QF_LRA tta_startup/simple_startup_15nodes.
+    synchro.base.smt2 asserts, per node, that it is active and not waiting
+    and that some other node is too with one of two flags of the pair off,
+    as left-nested binary conjunctions and disjunctions; Z3's rewriter
+    flattens every one of them, so linking the two sides' structures takes
+    one link per pair of nodes. Every node is inactive by a unit bound, so
+    the input is unsat.
+    """
+    counter = [0]
+
+    def atom():
+        counter[0] += 1
+        return "(<= x%d 5)" % counter[0]
+
+    def left_nested(kind, operands):
+        nested = operands[0]
+        for operand in operands[1:]:
+            nested = "(%s %s %s)" % (kind, nested, operand)
+        return nested
+
+    active, waiting = [atom() for _ in range(nodes)], [atom() for _ in range(nodes)]
+
+    def ready(node, condition):
+        return "(and (and %s (not %s)) %s)" % (active[node], waiting[node], condition)
+
+    groups = [ready(node, left_nested("or", [ready(other, "(or (not %s) (not %s))" % (atom(), atom()))
+                                             for other in range(nodes) if other != node]))
+              for node in range(nodes)]
+    lines = ["(set-logic QF_LRA)"] + ["(declare-const x%d Real)" % i for i in range(1, counter[0] + 1)]
+    lines.append("(assert %s)" % left_nested("or", groups))
+    lines += ["(assert (> x%d 5))" % i for i in range(1, nodes + 1)]
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
 def ite_reshaping_instance(groups=5, condition="and"):
     """A disjunction of conjunctions over Real ite terms that Z3's rewriter reshapes, refuted by unit bounds.
 
@@ -801,6 +986,128 @@ def selector_ite_instance(groups=3):
     return "\n".join(lines) + "\n"
 
 
+def real_modular_chains_instance(depth=6, function=False):
+    """x + 5/2 * depth and x + 5 * (depth / 2) modulo 17/2, each step an ite, said to differ.
+
+    The Real counterpart of test_proof_to_lean_lia.modular_chains_instance:
+    every step (ite (< s 17/2) s (- s 17/2)) over s = previous + 5/2 holds the
+    previous step three times, and its atoms and branches have fractional
+    constants, so the theory lemmas state scaling facts and scaled gates
+    (proof_to_lean._folded_ite_gates) over nested ites.
+    Written out, depth 6 made 5.9 MB of Lean text and depth 8 44 MB. With
+    function, the two results are compared through an uninterpreted f.
+    depth must be even: for odd depth the two chains end at different
+    values, and the instance is satisfiable.
+    """
+    lines = ["(set-logic %s)" % ("QF_UFLRA" if function else "QF_LRA"), "(declare-const x Real)"]
+    if function:
+        lines.append("(declare-fun f (Real) Real)")
+    for name, step, count in (("a", "(/ 5 2)", depth), ("b", "5.0", depth // 2)):
+        previous = "x"
+        for index in range(1, count + 1):
+            lines.append("(define-fun %s%d () Real (let ((s (+ %s %s))) (ite (< s (/ 17 2)) s (- s (/ 17 2)))))"
+                         % (name, index, previous, step))
+            previous = "%s%d" % (name, index)
+    sides = ("(f a%d) (f b%d)" if function else "a%d b%d") % (depth, depth // 2)
+    lines += ["(assert (and (<= 0.0 x) (< x (/ 17 2))))", "(assert (not (= %s)))" % sides, "(check-sat)"]
+    return "\n".join(lines) + "\n"
+
+
+# Int atoms reached through to_real inside fractional Real atoms and ite
+# branches: the scaled gates and scaling facts cast an Int term to Rat.
+LIRA_SCALED_INPUT = """\
+(set-logic QF_LIRA)
+(declare-const i Int)
+(declare-const x Real)
+(define-fun t () Real (ite (< (+ (to_real i) (/ x 2)) (/ 1 3)) (+ (to_real i) (/ 1 2)) (- x (/ 1 3))))
+(assert (> i 2))
+(assert (> x 7.0))
+(assert (< (* 6.0 t) 2.0))
+(check-sat)
+"""
+
+
+# Inputs shaped like QF_LRA tta_startup: Real ites under conjunctions of
+# Boolean atoms. Z3 logs a clause simplified from the assertion, over the
+# rewriter's form of the ites ((ite c 0 0) as 0, (+ 0 z) as z), so the cnf
+# lemma tying it to the assertion follows from what its leaves denote and
+# not from their Boolean structure alone (see proof_to_lean._theory_clauses).
+THEORY_CLAUSE_INPUTS = {
+    "ite_with_equal_branches": """\
+(set-logic QF_LRA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Real)
+(declare-fun n () Real)
+(declare-fun w () Real)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) 0 0))
+             (= c 3)
+             (or b0 (not (= w 0)) (= n 5))
+             (not b0)))
+(check-sat)
+""",
+    "ites_with_rewritten_branches": """\
+(set-logic QF_LRA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Real)
+(declare-fun n () Real)
+(declare-fun w () Real)
+(declare-fun y () Real)
+(declare-fun z () Real)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) 0 0))
+             (= y (ite (and (not b0) (not b1)) (+ 0 z) 0))
+             (or (= c 3) (= c 4))
+             (or b0 (not (= w 0)) (= n 1) (and (not b1) (not (= y z))))
+             (not b0)
+             (not b1)))
+(check-sat)
+""",
+}
+
+
+def bridged_comparisons(count):
+    """One assertion whose cnf lemmas state count + 1 bridges each and need at most one.
+
+    Not b, b or 1 <= x, and x < 1 refute one another; the other count
+    conjuncts, 1 <= yi or yi < 1, are not needed. Z3 logs 1 <= x as a unit
+    (the clause under the asserted not b), which a cnf lemma ties to the
+    assertion, and the lemma's leaves are the comparisons of the whole
+    assertion: every pair 1 <= t and t < 1 is bridged (_leaf_bridges), as
+    the 665 pairs of comparisons Z3 logged the other way round are in the
+    cnf lemma of QF_LRA tta_startup simple_startup_15nodes.
+    """
+    lines = ["(set-logic QF_LRA)", "(declare-const b Bool)", "(declare-const x Real)"]
+    lines += ["(declare-const y%d Real)" % index for index in range(count)]
+    lines.append("(assert (and (not b) (or b (<= 1.0 x)) (< x 1.0)")
+    lines += ["  (or (<= 1.0 y%d) (< y%d 1.0))" % (index, index) for index in range(count)]
+    return "\n".join(lines + ["))", "(check-sat)", ""])
+
+
+def _stated_fact_lemmas(certificate, text):
+    """The cnf lemmas of a text as (name, lemma, binders of the facts, their proofs), see _stated_facts."""
+    found = []
+    for node in _th_lemma_nodes(certificate):
+        if _th_lemma_parameters(certificate, node) != ["cnf"]:
+            continue
+        name = "th_lemma_%d" % node
+        lemma = text.split("private theorem %s " % name, 1)[1].split("\n\n", 1)[0]
+        found.append((name, lemma, re.findall(r"\n {12}\((_f\d+) : ([^\n]*)\)(?=\n)", lemma),
+                      re.findall(r"\n {10}\(((?:by first \| \(\(unfold |eq_comm)[^\n]*)\)(?=\n)", lemma)))
+    return found
+
+
+def _cnf_lemma_attempts(certificate, text):
+    """The single cnf lemma's text, the part before its `first`, and its attempts split at the alternatives."""
+    cnf = [node for node in _th_lemma_nodes(certificate) if _th_lemma_parameters(certificate, node) == ["cnf"]]
+    assert len(cnf) == 1, cnf
+    lemma = text.split("private theorem th_lemma_%d " % cnf[0], 1)[1].split("\n\n", 1)[0]
+    head, _, attempts = lemma.partition("\n  first\n")
+    return lemma, head, attempts.split("\n    | (")
+
+
 class TestNormalizedRewriteLinks(unittest.TestCase):
     """The prover of a normalized rewrite links the sides' structures equal up to flattening."""
 
@@ -859,29 +1166,43 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(source)
         else:
             certificate = proof_certificate.export_certificate(source)
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            if certificate["fragment"] == "qf_lra":
-                self.assertIn("(_vars : Nat -> Rat)", statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            return certificate, " ".join(result.stdout.split())
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
+        if certificate["fragment"] == "qf_lra":
+            self.assertIn("(_vars : Nat -> Rat)", statement)
+        return certificate, report
 
     def test_documented_lra_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in Z3TEST_LRA_INPUTS.values())
         for name, source in Z3TEST_LRA_INPUTS.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)
                 self.assertEqual(certificate["fragment"], "qf_lra")
                 self.assertIn(_STANDARD_AXIOMS, report)
                 self.assertIn("th-lemma", certificate["rule_counts"])
+
+    def test_real_modular_chains_verify_through_folded_scaled_facts(self):
+        # About 17 s at 2.6 GB; written out (44 MB of Lean text), Lean grew
+        # past 12 GB and was killed after 240 s. Depth 6 took 69 s at 4 GB.
+        certificate, report = self.check(real_modular_chains_instance(8))
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_nested_ite_arguments_verify_level_by_level(self):
+        # With f's two arguments (eight nested steps each) unfolded entirely,
+        # the theory tactic of their equality ran out of heartbeats; depth 6
+        # took 31 s at 2.8 GB (see _argument_equality_levels).
+        certificate, report = self.check(real_modular_chains_instance(8, function=True))
+        self.assertEqual(certificate["fragment"], "qf_uflra")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_folded_scaled_facts_over_int_casts_verify(self):
+        certificate, report = self.check(LIRA_SCALED_INPUT)
+        self.assertEqual(certificate["fragment"], "qf_lira")
+        self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_the_real_division_axiom_verifies(self):
         certificate, report = self.check(REAL_DIVISION_AXIOM)
@@ -953,6 +1274,157 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # needs the arithmetic solver.
         self.assertIn("th-lemma", proof_certificate.export_clause_log_certificate(
             CONFIGURED_INPUTS["strategy-par-or-2"])["rule_counts"])
+
+    def test_inputs_with_output_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for simplify, apply, the
+        # :trace or :global-decls false options, or commands after exit:
+        # the commands are dropped, the script ends at exit, and the
+        # executable sees the snapshot of the selected query only.
+        from test_proof_to_lean import OUTPUT_COMMAND_INPUTS
+        fragments = {"abs": "qf_lia", "t119": "qf_uflia", "3570": "qf_lra", "z3.29": "qf_lia",
+                     "output_commands": "qf_lia"}
+        for name, (source, query) in OUTPUT_COMMAND_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), (fragments[name], query))
+                self.assertEqual(certificate["source_smt2"], source)
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_inputs_with_optimization_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for assert-soft, and a
+        # script with every optimization command: soft assertions,
+        # objectives, get-objectives, and the opt.* options are dropped, so
+        # the certified query is the hard assertions in scope. 3524 also
+        # needs its distincts of Booleans stated false (see
+        # test_distincts_of_three_or_more_booleans_are_false).
+        from test_proof_to_lean import OPTIMIZATION_INPUTS
+        for name, (source, query) in OPTIMIZATION_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), ("qf_lia", query))
+                self.assertEqual(certificate["source_smt2"], source)
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                self.assertEqual("_bool_distinct3 _h" in text, name == "3524")
+
+    def test_one_argument_applications_after_a_false_assertion_through_the_clause_log(self):
+        # (+ t), (* t), and (distinct t) in the assertions after one that
+        # folds to false, which the clause log prints unsimplified: the
+        # replay rebuilds the input's terms, and Lean renders them as t and
+        # True. See, in test_proof_certificate.py,
+        # test_one_argument_sums_products_and_distincts_after_a_false_assertion.
+        from test_proof_certificate import ONE_ARGUMENT_INPUTS
+        for name, source in ONE_ARGUMENT_INPUTS.items():
+            with self.subTest(name=name):
+                # self.check also requires one hypothesis per assertion.
+                _, report = self.check(source)
+                # Each refutation is the folded assertion; the axioms it uses
+                # differ by encoding, but stay among the standard ones.
+                axioms = re.search(r"depends on axioms: \[([^\]]*)\]", report)
+                if axioms is None:
+                    self.assertIn("does not depend on any axioms", report)
+                else:
+                    self.assertLessEqual(set(axioms.group(1).split(", ")), {"propext", "Classical.choice", "Quot.sound"})
+
+    def test_divisions_and_decided_ites_after_a_false_assertion_through_the_clause_log(self):
+        # In the assertions Z3 logs unsimplified, those after one that folds
+        # to false: an Int div, mod, or rem by a constant expression, where
+        # the solver's clauses over its division-by-zero functions and over
+        # (mod t 0) and (rem t 0) are left out of the certificate and Lean
+        # proves the axioms guarded by (= d 0) that stay; and an ite whose
+        # condition is the constant true, whose gate Z3 logs with the guard
+        # false. Both were rejected until 2026-11-12, the first by the
+        # replay ("unsupported operator in the clause log: div0"), the
+        # second by the reconstructor ("invalid def-axiom clause"). See
+        # test_proof_certificate.py (ZERO_DIVISION_INPUTS, DECIDED_ITE_INPUTS).
+        from test_proof_certificate import DECIDED_ITE_INPUTS, ZERO_DIVISION_INPUTS, ZERO_DIVISION_NAMESAKE_INPUTS
+        sources = dict(ZERO_DIVISION_INPUTS)
+        # A function or predicate of the input named div0 or mod0 stays, as
+        # a symbol of the interpretation named in the header alone.
+        namesakes = {"namesake_" + name: function for name, (_, function, _) in ZERO_DIVISION_NAMESAKE_INPUTS.items()}
+        sources.update({"namesake_" + name: source for name, (source, _, _) in ZERO_DIVISION_NAMESAKE_INPUTS.items()})
+        sources.update({"ite_" + name: source for name, (source, _) in DECIDED_ITE_INPUTS.items()})
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in sources.values())
+        decided = re.compile(r"private theorem def_axiom_\d+ [^\n]*\n    : [^\n]* :=\n"
+                             r"  \(fun \(_hc : [^\n]*\) => [^\n]*\) True\.intro\n")
+        standard = {"propext", "Classical.choice", "Quot.sound"}
+        for name, source in sources.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                axioms = re.search(r"depends on axioms: \[([^\]]*)\]", report)
+                if axioms is None:
+                    self.assertIn("does not depend on any axioms", report)
+                else:
+                    self.assertLessEqual(set(axioms.group(1).split(", ")), standard)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual(re.findall(r"[^\n]*(?:div0|mod0)[^\n]*", text),
+                                 [line for line in text.splitlines() if name in namesakes
+                                  and re.fullmatch(r'-- (?:Function|Predicate|Int function) \d+: "%s"'
+                                                   % namesakes[name], line)])
+                if name in namesakes:
+                    self.assertTrue(re.search(r"(?:div0|mod0)", text), text)
+                if name in ZERO_DIVISION_INPUTS or name in namesakes:
+                    # The guarded axioms are theorems of the file, proved by
+                    # the Int tactic, though the refutation uses none.
+                    self.assertGreaterEqual(text.count("private theorem th_lemma_"), 3)
+                else:
+                    # The gate of a true condition needs no split and no
+                    # decidability witness.
+                    self.assertEqual(bool(decided.search(text)), DECIDED_ITE_INPUTS[name[4:]][1], text)
+
+    def test_decided_ite_gates_without_a_guard_literal(self):
+        # The gate of an ite whose condition is a constant, as a unit clause
+        # without the false guard (a log Z3 does not write today: its gates
+        # keep the guard, and those of a false condition have the condition
+        # as guard): the equation of the case that holds proves it, from
+        # True.intro for true and from the identity on False for false. The
+        # gate of the other branch is no theorem and stays rejected.
+        source = ("(declare-const x Int)(declare-const y Int)(declare-const c Bool)(assert (= c (not c)))"
+                  "(assert (< (ite %s x y) 0))")
+        log = """\
+(assume (not false))
+(assume)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(define-const $1 Int (ite %s x y))
+(define-const $2 Bool (= %s))
+(declare-fun tseitin (Bool) Proof)
+(define-const $3 Proof (tseitin $2))
+(infer $2 $3)
+(define-const $4 Bool (< $1 0))
+(assume $4)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        cases = [
+            ("true", "$1 x", "(fun (_hc : %s) => (ite_eq_left _hc)) True.intro"),
+            ("true", "x $1", "(fun (_hc : %s) => (Eq.symm (ite_eq_left _hc))) True.intro"),
+            ("false", "$1 y", "(fun (_hnc : Not %s) => (ite_eq_right _hnc)) (fun _false => _false)"),
+            ("(not false)", "$1 x", "(fun (_hnc : Not %s) => (ite_eq_left _hnc)) (fun _false => _false)"),
+            ("(not true)", "$1 y", "(fun (_hc : %s) => (ite_eq_right (fun _n0 => _n0 _hc))) True.intro"),
+            ("true", "$1 y", None), ("false", "$1 x", None), ("(not true)", "x $1", None),
+        ]
+        checked = []
+        for condition, equation, proof in cases:
+            with self.subTest(condition=condition, equation=equation):
+                context = z3.Context()
+                assertions, fragment = proof_certificate.parse_assertions(source % condition, context, integer=True)
+                certificate = proof_clause_log.build_certificate(source % condition, fragment, assertions,
+                                                                 log % (condition, equation), context)
+                if proof is None:
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                        proof_to_lean.reconstruct(source % condition, certificate)
+                    continue
+                text = proof_to_lean.reconstruct(source % condition, certificate)
+                constant = re.search(r"def (formula_\d+) [^\n]* : Prop := (?:True|False)\n", text)
+                self.assertIsNotNone(constant, text)
+                self.assertIn("  " + proof % ("(%s _atoms _vars)" % constant.group(1)) + "\n", text)
+                checked.append((source % condition, certificate))
+        lean_test_support.prefetch(checked)
+        for checked_source, certificate in checked:
+            lean_test_support.check(self, checked_source, certificate)
 
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
@@ -1108,6 +1580,82 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
         certificate, report = self.check(source)
         self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_links_do_not_use_up_the_search_budget(self):
+        # The 481 links of the tta_startup 15-node rewrite took 22,000 steps,
+        # more than the whole budget, so the search over the sides never ran
+        # and the lemma was grind's, which failed (see
+        # startup_shaped_rewrite_instance). Here 6 nodes give 43 links, which
+        # take about 1,300 steps, and the step limit is scaled down to 1,000
+        # to match: the links' own allowance (_LINK_STEPS each, at most the
+        # limit) leaves the search most of its budget, and without it the
+        # lemma falls back to grind alone. Lean checks the lemma with the
+        # grind fallback removed, so the links and the search are what verify.
+        source = startup_shaped_rewrite_instance()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_STEPS", 1000):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertEqual(text.count("private theorem normalized_rewrite_"), 1)
+            lemma = text.split("private theorem normalized_rewrite_", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
+            self.assertGreaterEqual(len(re.findall(r"\n       have _f\d+ : _s\d+ := by\n", lemma)), 30)
+            self.assertEqual(lemma.count("\n    | grind (splits := 64)"), 1)
+            alone = text.replace(lemma, lemma.replace("\n    | grind (splits := 64)", '\n    | fail "no fallback"'), 1)
+            self.assertNotEqual(alone, text)
+            _, report = lean_test_support.check(self, source, certificate, text=alone)
+            self.assertIn(_STANDARD_AXIOMS, report)
+            with patch.object(proof_to_lean, "_LINK_STEPS", 0), patch.object(proof_to_lean, "_LINK_CHARS", 0):
+                lemma = self._normalized_lemma(source)
+                self.assertIn("  by grind (splits := 64)", lemma)
+                self.assertNotIn("Iff.intro", lemma)
+
+    def test_normalized_regrouping_rewrite_verifies_by_its_tautology_facts(self):
+        # The regrouped gates of the QF_UF quasigroup inputs (see
+        # test_proof_to_lean_uf.regrouped_gates_instance) over bounds on
+        # sums of Reals: the rewrite takes the normalized path, whose
+        # propositional lemma is proved with links over `let`-bound names,
+        # and the clauses (or (not A) A) Z3's rewriter drops are facts of it
+        # by excluded middle, where the search split on a leaf for each.
+        # Lean checks the lemma with the grind fallback removed, so the
+        # facts as they are rendered in that mode are what verify.
+        source = regrouped_gates_instance(5, 15, logic="QF_LRA")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+
+        def lemmas_of(text):
+            found = [part.split("\n\n", 1)[0] for part in text.split("private theorem normalized_rewrite_")[1:]]
+            self.assertTrue(found)
+            return found
+
+        text = proof_to_lean.reconstruct(source, certificate)
+        alone, facts = text, 0
+        for lemma in lemmas_of(text):
+            self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
+            self.assertNotIn("refine (Or.elim (Classical.em", lemma)  # no case on a bound
+            self.assertEqual(lemma.count("\n    | grind (splits := 64)"), 1)
+            facts += len(re.findall(r" have _f\d+ : _s\d+ := \(Or\.elim \(Classical\.em _atom\d+\) ", lemma))
+            alone = alone.replace(lemma, lemma.replace("\n    | grind (splits := 64)", '\n    | fail "no fallback"'), 1)
+        self.assertGreaterEqual(facts, 5)
+        self.assertNotIn("\n    | grind (splits := 64)", "".join(lemmas_of(alone)))
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+        # Without the facts the search goes through the cases of the bounds.
+        with patch.object(proof_to_lean._PropositionalProver, "_excluded_middles", lambda self: []):
+            cases = "".join(lemmas_of(proof_to_lean.reconstruct(source, certificate)))
+        self.assertTrue("refine (Or.elim (Classical.em" in cases or "  by first" not in cases)
+
+    def test_link_allowance_is_capped_at_the_budget(self):
+        # The allowance is at most the budget itself, so a rewrite's proof
+        # stays within twice the limits that keep it inside Lean's. 30 nodes
+        # give 931 links, whose proofs exceed that: the lemma is grind alone,
+        # as before the allowance (grind checks the file in 25 s at 3.9 GB).
+        # Uncapped, the links took 93,100 steps of allowance and the lemma
+        # became a 1.8 MB structural proof Lean checked in 116 s at 4.7 GB;
+        # at 40 nodes Lean ran out of memory on it. Python only.
+        lemma = self._normalized_lemma(startup_shaped_rewrite_instance(30))
+        self.assertIn("  by grind (splits := 64)", lemma)
+        self.assertNotIn("Iff.intro", lemma)
+        self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
 
     def test_rewrite_reshaping_ite_terms_verifies(self):
         # Z3's rewriter reshapes the ite terms of an assertion (see
@@ -1381,6 +1929,284 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 proof_to_lean.check_and_write(source, tampered, output)
             self.assertFalse(output.exists())
 
+    def test_cnf_lemmas_over_rewritten_ites_are_refuted_with_theory_clauses(self):
+        # The cnf lemma's propositional abstraction is satisfiable: the
+        # clause speaks of (= w 0) where the assertion has (= w (ite c 0
+        # 0)). z3 finds the theory clause relating the two leaves, a fact
+        # grind proves over their definitions, and the propagation search
+        # then refutes the clause. Lean checks the lemma with the unfolded
+        # fallback removed, so the structural proof itself is what verifies.
+        for name, source in THEORY_CLAUSE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("unfold", head)
+                self.assertRegex(structural, r"\n +\(_f\d+ : \(Or \(Not \(formula_\d+ _atoms _vars\)\) "
+                                             r"\(formula_\d+ _atoms _vars\)\)\)\n")
+                self.assertRegex(structural, r"\n +\(by first \| \(\(unfold [^;\n]*; grind \(splits := 64\)\); done\) \| fail\)\n")
+                self.assertNotRegex(structural, r"have _f\d+ : [^\n]* := by")
+                self.assertIn("refine Classical.byContradiction ?_", structural)
+                self.assertIn("unfold formula_", fallback)
+                alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+                self.assertNotEqual(alone, text)
+                _, report = lean_test_support.check(self, source, certificate, text=alone)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                # Without the theory clauses the search ends in a model of
+                # the abstraction, and the unfolded proof is the only one.
+                with patch.object(proof_to_lean, "_theory_clauses", lambda *arguments: None):
+                    text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, attempts = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("refine Classical.byContradiction", lemma)
+                self.assertIn("unfold formula_", head)
+                self.assertEqual(attempts, [""])
+
+    def test_theory_clause_search_stops_at_a_model_the_leaves_allow(self):
+        # The clause itself, rather than its negation, is consistent with
+        # what its leaves denote: the first model of the abstraction is a
+        # theory model too, and the search returns None (the lemma keeps its
+        # fallback) instead of a clause.
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        terms, tables = proof_to_lean._bind_input(source, graph, certificate["fragment"], certificate["query"])
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if _th_lemma_parameters(certificate, node) == ["cnf"])
+        leaves, memo = {}, {}
+        structure = proof_to_lean._boolean_structure(graph, graph.conclusion(node), atom_indices, memo, leaves)
+        negated = [("not", structure)]
+        order = proof_to_lean._PropositionalProver(*negated, classical=True).order
+        clauses = proof_to_lean._theory_clauses(graph, order, negated, atom_indices)
+        self.assertTrue(clauses)
+        for clause, definitions in clauses:
+            self.assertEqual(clause[0], "or")
+            self.assertTrue(all(name.startswith(("formula_", "term_")) for name in definitions))
+        order = proof_to_lean._PropositionalProver(structure, classical=True).order
+        self.assertIsNone(proof_to_lean._theory_clauses(graph, order, [structure], atom_indices))
+
+    def test_theory_clause_search_stop_rules(self):
+        # The other ways the search ends, over the cnf lemma of
+        # test_theory_clause_search_stops_at_a_model_the_leaves_allow.
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        terms, tables = proof_to_lean._bind_input(source, graph, certificate["fragment"], certificate["query"])
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if _th_lemma_parameters(certificate, node) == ["cnf"])
+        leaves, memo = {}, {}
+        structure = proof_to_lean._boolean_structure(graph, graph.conclusion(node), atom_indices, memo, leaves)
+        negated = [("not", structure)]
+        order = proof_to_lean._PropositionalProver(*negated, classical=True).order
+        # An abstraction that is already unsatisfiable needs no clause.
+        both = [structure, ("not", structure)]
+        self.assertEqual(proof_to_lean._theory_clauses(
+            graph, proof_to_lean._PropositionalProver(*both, classical=True).order, both, atom_indices), [])
+        # A check not decided within the resource limit, and a model left
+        # when the clauses allowed are used up.
+        with patch.object(proof_to_lean, "_THEORY_CLAUSE_RLIMIT", 1):
+            self.assertIsNone(proof_to_lean._theory_clauses(graph, order, negated, atom_indices))
+        with patch.object(proof_to_lean, "_THEORY_CLAUSES", 0):
+            self.assertIsNone(proof_to_lean._theory_clauses(graph, order, negated, atom_indices))
+        # A clause over every leaf of the facts restates them as one theory
+        # fact: the negation of a clause found above has only its leaves.
+        clause, _ = proof_to_lean._theory_clauses(graph, order, negated, atom_indices)[0]
+        refuted = [("not", clause)]
+        self.assertIsNone(proof_to_lean._theory_clauses(
+            graph, proof_to_lean._PropositionalProver(*refuted, classical=True).order, refuted, atom_indices))
+
+    def test_theory_clause_proof_is_kept_within_the_structural_limit(self):
+        # The search over the theory clauses may look further than the first
+        # searches, but a proof longer than they could keep is dropped and
+        # the unfolded fallback stays alone (a long attempt risks the
+        # lemma's heartbeats, which `first` does not catch).
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 1), \
+                patch.object(proof_to_lean, "_THEORY_CLAUSE_BUDGET", 10 ** 7):
+            text = proof_to_lean.reconstruct(source, certificate)
+        lemma, head, attempts = _cnf_lemma_attempts(certificate, text)
+        self.assertNotIn("refine Classical.byContradiction", lemma)
+        self.assertIn("unfold formula_", head)
+        self.assertEqual(attempts, [""])
+
+    def test_facts_of_a_cnf_lemma_are_proved_apart_from_one_another(self):
+        # The bridges of a cnf lemma were a `have` each, and the theory
+        # tactic proving one reads every hypothesis before it: the facts of
+        # a lemma cost their number squared. Each of the two cnf lemmas of
+        # bridged_comparisons(400) states 401 bridges (and needs none, or
+        # one). As the arguments of the function that binds them
+        # (_stated_facts) they are proved in the lemma's own context: each
+        # lemma fits Lean's default of 200,000 thousand heartbeats, a fifth
+        # of what the exporter gives it (measured: within 80,000, not
+        # within 40,000; 3.9 s for the file). As `have`s each lemma needed
+        # more than 400,000 (within 600,000; 19.8 s), and at 800 pairs more
+        # than the 1,000,000 it has.
+        count = 400
+        source = bridged_comparisons(count)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = _stated_fact_lemmas(certificate, text)
+        self.assertEqual(len(lemmas), 2)
+        limited = text
+        for name, lemma, binders, proofs in lemmas:
+            self.assertEqual([fact for fact, _ in binders], ["_f%d" % index for index in range(1, count + 2)])
+            self.assertEqual(len(proofs), count + 1)
+            self.assertTrue(all(proof.endswith("; grind (splits := 64)); done) | fail") for proof in proofs))
+            head, _, attempts = lemma.partition("\n  first\n")
+            structural, fallback = attempts.split("\n    | (")
+            self.assertTrue(structural.startswith("    | (refine (fun\n"))
+            self.assertNotRegex(lemma, r"have _f\d+ : [^\n]* := by")
+            # Every proof is an argument, before the refutation, which names at most one fact.
+            refutation = structural.split("\n       refine Classical.byContradiction ?_\n", 1)[1]
+            self.assertNotIn("grind", refutation)
+            self.assertLessEqual(len(set(re.findall(r"_f\d+", refutation)) & {fact for fact, _ in binders}), 1)
+            self.assertTrue(fallback.startswith("unfold formula_"))
+            option = "\nset_option maxHeartbeats 1000000 in\nprivate theorem %s " % name
+            self.assertEqual(limited.count(option), 1)
+            limited = limited.replace(option, option.replace("1000000", "200000"))
+        proof_to_lean.modules(text, 0, proof_to_lean._MODULE_SIZE)
+        _, report = lean_test_support.check(self, source, certificate, text=limited)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_a_fact_of_a_cnf_lemma_that_fails_is_caught_or_rejected(self):
+        # A fact is proved where it is an argument, against the statement
+        # of its binder. One that Lean cannot prove fails the `refine`,
+        # which `first` catches: the lemma is proved by its unfolded
+        # fallback, as when a `have` failed. Without the fallback Lean
+        # rejects the certificate; so it does when the fact's proof is
+        # dropped, or exchanged with another fact's.
+        source = bridged_comparisons(8)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        ((name, lemma, binders, proofs),) = _stated_fact_lemmas(certificate, text)
+        self.assertEqual(len(binders), 9)
+        head, _, attempts = lemma.partition("\n  first\n")
+        structural, fallback = attempts.split("\n    | (")
+        fact, statement = binders[3]
+        self.assertRegex(statement, r"^\(Iff \(formula_\d+ _atoms _vars\) \(Not \(formula_\d+ _atoms _vars\)\)\)$")
+        binder = "\n            (%s : %s)\n" % (fact, statement)
+        false = binder.replace("(Not (formula_", "((formula_")  # 1 <= y iff y < 1
+        self.assertEqual(lemma.count(binder), 1)
+        mutant = text.replace(lemma, lemma.replace(binder, false), 1)
+        self.assertNotEqual(mutant, text)
+        _, report = lean_test_support.check(self, source, certificate, text=mutant)
+        self.assertIn(_STANDARD_AXIOMS, report)
+        alone = head + "\n  first\n" + structural
+        argument = "\n          (%s)\n" % proofs[3]
+        other = "\n          (%s)\n" % proofs[4]
+        for changed in (alone.replace(binder, false),
+                        alone.replace(argument, "\n"),
+                        alone.replace(argument, "\n          (X)\n").replace(other, argument).replace(
+                            "\n          (X)\n", other)):
+            self.assertNotEqual(changed, alone)
+            with self.assertRaises(self.failureException):
+                lean_test_support.check(self, source, certificate, text=text.replace(lemma, changed, 1))
+        # The attempt alone, unchanged, is what verifies the lemma.
+        _, report = lean_test_support.check(self, source, certificate, text=text.replace(lemma, alone, 1))
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_a_fact_that_fails_under_a_bullet_or_is_left_open_is_caught(self):
+        # A fact's tactics are run by the term elaborator, which recovers
+        # from errors: under a bullet a failing tactic is logged and the
+        # fact admitted, and so is a goal left open; the `refine` succeeds,
+        # the lemma's fallback is not tried, and Lean rejects a certificate
+        # the fallback proves. The exporter's proofs are single lines today
+        # (and the sign split sits in an alternative of a `first`), which
+        # throw; _fact_tactics makes that hold for a proof of any shape. A
+        # false fact proved under a bullet, and a true one whose proof stops
+        # after the unfold: guarded, the lemma verifies through its
+        # fallback; as a bare `by`, Lean rejects the same text.
+        source = bridged_comparisons(8)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        ((name, lemma, binders, proofs),) = _stated_fact_lemmas(certificate, text)
+        fact, statement = binders[3]
+        binder = "\n            (%s : %s)\n" % (fact, statement)
+        false = binder.replace("(Not (formula_", "((formula_")  # 1 <= y iff y < 1
+        self.assertNotEqual(false, binder)
+        tactic = re.fullmatch(r"by first \| \(\((unfold [^\n]*)\); done\) \| fail", proofs[3]).group(1)
+        self.assertEqual(proofs[3], proof_to_lean._fact_tactics([tactic]))
+        argument = "\n          (%s)\n" % proofs[3]
+        self.assertEqual([lemma.count(binder), lemma.count(argument)], [1, 1])
+        unfold, _, theory = tactic.partition("; ")
+        self.assertTrue(unfold.startswith("unfold formula_") and theory.startswith("grind"), tactic)
+        bullet = ["· " + unfold, "  " + theory]
+        for label, stated, lines in (("bullet", false, bullet), ("open goal", binder, [unfold])):
+            with self.subTest(shape=label):
+                guarded = lemma.replace(binder, stated).replace(
+                    argument, "\n          (%s)\n" % proof_to_lean._fact_tactics(lines))
+                self.assertEqual(guarded.count(" | fail)\n"), len(binders))  # every argument, the changed one too
+                _, report = lean_test_support.check(self, source, certificate, text=text.replace(lemma, guarded, 1))
+                self.assertIn(_STANDARD_AXIOMS, report)
+                bare = lemma.replace(binder, stated).replace(
+                    argument, "\n          (by\n%s)\n" % "\n".join(" " * 16 + line for line in lines))
+                with self.assertRaises(self.failureException):
+                    lean_test_support.check(self, source, certificate, text=text.replace(lemma, bare, 1))
+        # The guard does not get in the way of a proof of several lines: the
+        # true fact under the bullet, in the attempt without its fallback.
+        head, _, attempts = lemma.partition("\n  first\n")
+        alone = head + "\n  first\n" + attempts.split("\n    | (")[0]
+        several = alone.replace(argument, "\n          (%s)\n" % proof_to_lean._fact_tactics(bullet))
+        self.assertNotEqual(several, alone)
+        _, report = lean_test_support.check(self, source, certificate, text=text.replace(lemma, several, 1))
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("a cnf lemma of 1,601 facts, about 15 s of Lean at 1.3 GB")
+    def test_sixteen_hundred_facts_of_a_cnf_lemma_stay_within_its_heartbeats(self):
+        # Four times test_facts_of_a_cnf_lemma_are_proved_apart_from_one_another,
+        # under the heartbeats the exporter gives a lemma: linear in the
+        # facts (7.3 s at 800 pairs, 14.4 s here), where the `have`s ran
+        # both lemmas out of them at 800 pairs.
+        source = bridged_comparisons(1600)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = _stated_fact_lemmas(certificate, text)
+        self.assertEqual([len(binders) for _, _, binders, _ in lemmas], [1601, 1601])
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("a 180 KB QF_LRA benchmark, about 20 s of Lean at 3.5 GB")
+    def test_time_triggered_startup_of_fifteen_nodes_verifies(self):
+        # SMT-LIB QF_LRA tta_startup/simple_startup_15nodes.synchro.base
+        # (z3test smtlib-sample, B. Dutertre), the larger sibling of the
+        # file below: its cnf lemma states 694 facts, 665 bridges between
+        # comparisons Z3 logged the other way round and 29 theory clauses,
+        # and its refutation names 32 of them. As `have`s the facts took
+        # 33 s and the lemma's 1,000,000 thousand heartbeats (each tactic
+        # read the facts before it); as arguments (_stated_facts) the
+        # lemma takes under a second and the file verifies.
+        source = (_EXAMPLES / "data" / "QF_LRA_tta_startup_simple_startup_15nodes.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        ((name, lemma, binders, proofs),) = _stated_fact_lemmas(certificate, text)
+        self.assertGreater(len(binders), 500)
+        self.assertEqual(len(proofs), len(binders))
+        self.assertNotRegex(lemma, r"have _f\d+ : [^\n]* := by")
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("a 106 KB QF_LRA benchmark, about 25 s of Lean at 2.6 GB")
+    def test_time_triggered_startup_verifies_through_theory_clauses(self):
+        # SMT-LIB QF_LRA tta_startup/simple_startup_11nodes.synchro.base
+        # (z3test smtlib-sample, B. Dutertre): one assertion of about 8,500
+        # nodes. Its single cnf lemma failed in every scan since iteration
+        # 45: the abstraction is satisfiable without what the leaves denote
+        # (the clause is over the rewriter's form of 11-way conjunction
+        # conditions and modular counters), and grind over the unfolded
+        # clause (227 ites) runs out of heartbeats. 45 theory clauses make
+        # the abstraction unsatisfiable and the search finds the refutation.
+        source = (_EXAMPLES / "data" / "QF_LRA_tta_startup_simple_startup_11nodes.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        _, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
+        self.assertNotIn("unfold", head)
+        self.assertGreater(len(re.findall(r"\n +\(_f\d+ : \(Or \(Not \(formula_", structural)), 20)
+        self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
 
 def _th_lemma_parameters(certificate, node):
     return certificate["declarations"][certificate["nodes"][node]["declaration"]]["parameters"]
@@ -1597,6 +2423,8 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
             self.assertFalse(output.exists())
 
     def test_documented_lra_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source)) for source in
+                                    {**Z3TEST_LRA_INPUTS, **ITE_INPUTS, **ITE_REWRITTEN_INPUTS}.values())
         # Real ite terms included: the smt core reached directly keeps them
         # (no intro-def) and proves their gate clauses as def-axioms.
         inputs = {**Z3TEST_LRA_INPUTS, **ITE_INPUTS, **ITE_REWRITTEN_INPUTS}

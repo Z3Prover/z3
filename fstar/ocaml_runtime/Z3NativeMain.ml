@@ -1,3 +1,15 @@
+let sort_symbol_name ?(integer=Z.to_string) =
+  let module A = Z3AstTheory in
+  function
+  | A.BoolSymbol -> "Bool" | A.IntSymbol -> "Int" | A.RealSymbol -> "Real"
+  | A.CharSymbol -> "Char" | A.SeqSymbol -> "Seq" | A.ReSymbol -> "RegEx"
+  | A.FiniteSetSymbol -> "FiniteSet" | A.RoundingModeSymbol -> "RoundingMode"
+  | A.BvSymbol w -> "BV" ^ integer w
+  | A.FiniteFieldSymbol p -> "FF" ^ integer p
+  | A.FloatSymbol (e, p) -> "Float[" ^ integer e ^ "," ^ integer p ^ "]"
+  | A.DatatypeSymbol id -> "Datatype#" ^ integer id
+  | A.ExtensionSymbol (family, kind) -> "Extension[" ^ integer family ^ "," ^ integer kind ^ "]"
+
 let read_all channel =
   let buffer = Buffer.create 4096 in
   (try while true do Buffer.add_channel buffer channel 4096 done
@@ -66,8 +78,11 @@ let fingerprint judgment =
   let module A = Z3AstTheory in
   let aliases = Hashtbl.create 16 and budget = ref 96 in
   let rec sort depth = function
-    | A.BaseSort ("Bool" | "Int" | "Real" as name) -> name
     | A.BaseSort _ -> "U"
+    | A.SortApp (symbol, args) ->
+        let name = sort_symbol_name symbol in
+        if depth = 0 || args = [] then name
+        else name ^ "[" ^ String.concat "," (List.map (sort (depth - 1)) args) ^ "]"
     | A.ArraySort (domains, range) ->
         if depth = 0 then "Array"
         else "Array[" ^ String.concat "," (List.map (sort (depth - 1)) domains) ^
@@ -150,6 +165,10 @@ let pretty_judgment judgment =
   in
   let rec sort depth = function
     | A.BaseSort name -> symbol (original_name "sort" name)
+    | A.SortApp (key, args) ->
+        let name = sort_symbol_name key in
+        if depth = 0 || args = [] then name
+        else name ^ "[" ^ String.concat ", " (List.map (sort (depth - 1)) args) ^ "]"
     | A.ArraySort (domains, range) ->
         if depth = 0 || List.length domains > 32 then "Array"
         else "Array[" ^ String.concat ", " (List.map (sort (depth - 1)) domains) ^
@@ -361,6 +380,14 @@ module Readable = struct
         add state (match identified "sort" name with
                    | Some (first, id) -> symbol ~first name ^ "#" ^ id
                    | None -> symbol name)
+    | A.SortApp (key, args) ->
+        let name = sort_symbol_name ~integer key in
+        if args = [] then add state name
+        else if depth = 0 then (state.cut <- true; add state "<...depth>")
+        else (
+          add state ("(" ^ name);
+          List.iter (fun arg -> add state " "; sort state (depth - 1) arg) args;
+          add state ")")
     | A.ArraySort (domains, range) ->
         if depth = 0 then (state.cut <- true; add state "<...depth>")
         else (
@@ -403,6 +430,8 @@ module Readable = struct
            String.length x <= max_compared_name_bytes && String.equal x y
        | A.ArraySort (d1, r1), A.ArraySort (d2, r2) ->
            List.compare_lengths d1 d2 = 0 && List.for_all2 (go (depth - 1)) d1 d2 && go (depth - 1) r1 r2
+       | A.SortApp (k1, a1), A.SortApp (k2, a2) ->
+           k1 = k2 && List.compare_lengths a1 a2 = 0 && List.for_all2 (go (depth - 1)) a1 a2
        | _ -> false)
     in
     go max_depth a b
@@ -427,7 +456,7 @@ module Readable = struct
         add state (integer n);
         if not (Z.equal d Z.one) then add state ("/" ^ integer d);
         (match decl.A.range with
-         | A.BaseSort "Int" -> ()
+         | (A.SortApp (A.IntSymbol, [])) -> ()
          | range -> add state ":"; sort state max_depth range)
     | Some k, [width; value] when Z.equal k Z3BvLemma.op_numeral ->
         add state ("(_ bv" ^ integer value ^ " " ^ integer width ^ ")")
@@ -441,7 +470,7 @@ module Readable = struct
                    | Some k -> symbol name ^ datatype_marker k);
         parameters state values;
         (match interp, decl.A.range with
-         | Some k, A.BaseSort "Bool" when datatype_marker k = "" -> ()
+         | Some k, (A.SortApp (A.BoolSymbol, [])) when datatype_marker k = "" -> ()
          | Some k, _ when datatype_marker k = "" && Lazy.force implied -> ()
          | _ -> add state ":"; sort state max_depth decl.A.range)
 

@@ -1,0 +1,16 @@
+Command: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out IdVarListAudit.fst
+
+Versions:
+F* 2026.09.27
+platform=Linux_x86_64
+Z3 version 4.13.3 - 64 bit
+
+stdout:
+Verified module: IdVarListAudit
+All verification conditions discharged successfully
+
+stderr:
+
+exit: 0
+
+Note: first attempt failed on a syntax error (i32 * i32 parsed as multiplication); fixed by tuple2 and re-run from fresh cache.

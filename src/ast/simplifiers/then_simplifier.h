@@ -62,14 +62,17 @@ public:
     }
 
     char const* name() const override { return "and-then"; }
+    bool supports_proofs() const override { return true; }
     
     void add_simplifier(dependent_expr_simplifier* s) {
         m_simplifiers.push_back(s);
     }
-        
+
     void reduce() override {
         TRACE(simplifier, tout << m_fmls);
         for (auto* s : m_simplifiers) {
+            if (proofs_enabled() && !s->supports_proofs())
+                continue;
             if (m_fmls.inconsistent())
                 break;
             if (!m.inc())

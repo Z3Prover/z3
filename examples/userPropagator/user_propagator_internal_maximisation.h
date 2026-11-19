@@ -13,7 +13,7 @@ public:
     user_propagator_internal_maximisation(z3::solver *s, std::unordered_map<z3::expr, unsigned> &idMapping, unsigned board, z3::expr_vector queens)
             : user_propagator_with_theory(s, idMapping, board),
               manhattanSum(s->ctx().bv_val(0, queens[0].get_sort().bv_size())) {
-        for (int i = 1; i < queens.size(); i++) {
+        for (unsigned i = 1; i < queens.size(); i++) {
             manhattanSum = manhattanSum + z3::ite(z3::uge(queens[i], queens[i - 1]), queens[i] - queens[i - 1], queens[i - 1] - queens[i]);
         }
     }

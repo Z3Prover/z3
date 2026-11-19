@@ -5,13 +5,13 @@ module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module L = FStar.List.Tot
 
-let int_s = BaseSort "Int"
-let bool_s = BaseSort "Bool"
+let int_s = (SortApp IntSymbol [])
+let bool_s = (SortApp BoolSymbol [])
 let tree_s = BaseSort "Tree"
 let forest_s = BaseSort "Forest"
 
 let primitive (s:sort) : Type0 =
-  match s with BaseSort "Int" -> int | BaseSort "Bool" -> bool | _ -> unit
+  match s with (SortApp IntSymbol []) -> int | (SortApp BoolSymbol []) -> bool | _ -> unit
 
 let primitive_booleans : S.boolean_carrier primitive =
   S.Mkboolean_carrier #primitive (fun b -> b) (fun b -> b) ()
@@ -77,9 +77,9 @@ let wrong_constructor_selectors ()
 
 let mutually_recursive_inhabitation ()
   : Lemma (ensures Some? (V.inhabit #primitive 4 sigma
-      (fun s -> match s with BaseSort "Int" -> 0 | BaseSort "Bool" -> false | _ -> ()) forest_s)) =
+      (fun s -> match s with (SortApp IntSymbol []) -> 0 | (SortApp BoolSymbol []) -> false | _ -> ()) forest_s)) =
   assert_norm (Some? (V.inhabit #primitive 4 sigma
-    (fun s -> match s with BaseSort "Int" -> 0 | BaseSort "Bool" -> false | _ -> ()) forest_s))
+    (fun s -> match s with (SortApp IntSymbol []) -> 0 | (SortApp BoolSymbol []) -> false | _ -> ()) forest_s))
 
 let bound_values : V.arguments primitive sigma [bool_s; int_s] =
   assert_norm (V.fields_have_sorts #primitive sigma [bool_s; int_s]

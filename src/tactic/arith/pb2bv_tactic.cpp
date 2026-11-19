@@ -1042,6 +1042,7 @@ tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p) {
 }
 
 struct is_pb_probe : public probe {
+    char const* name() const override { return "is-pb"; }
     result operator()(goal const & g) override {
         try {
             ast_manager & m = g.m();

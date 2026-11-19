@@ -23,6 +23,7 @@ Notes:
 #include "ast/ast_translation.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_pp_util.h"
 #include "ast/ast_ll_pp.h"
@@ -1648,7 +1649,7 @@ namespace opt {
         (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
-        m_model_converter = r->mc();
+        m_model_converter = concat(m_model_converter.get(), r->mc());
         CTRACE(opt, r->mc(), r->mc()->display(tout););
         fmls.reset();
         expr_ref tmp(m);
@@ -1703,6 +1704,9 @@ namespace opt {
     }
 
     bool context::simplify_min_max_of_sums(expr_ref_vector& fmls) {
+        // Recursive definitions may contain objective dependencies outside the asserted ASTs.
+        if (recfun::util(m).has_rec_defs())
+            return false;
         bool simplified = false;
         bool progress = true;
         while (progress) {
@@ -1726,7 +1730,8 @@ namespace opt {
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
         if (!is_max && !is_min)
             return false;
-        if (!is_uninterp(term)) // this can be generalized to summations
+        // Other applications may alias terms that do not syntactically contain the objective.
+        if (!is_uninterp_const(term))
             return false;
         ptr_vector<expr> _fmls(fmls.size(), fmls.data());
         expr_mark mark;
@@ -1741,38 +1746,26 @@ namespace opt {
                     (n == 1 || n == 0) && a.is_numeral(el, n) &&
                     (n == 1 || n == 0);
         };
-        auto is_lower_bound = [&](expr *f) {
-            // TODO pattern match against a.is_ge(f, y, x) too or something more general
-            if (!a.is_le(f, x, y))
+        auto is_cardinality = [&](expr *t) {
+            if (mark.is_marked(t))
                 return false;
-            if (x != term)
+            bool is_zo = is_zero_one(t);
+            if (!is_zo && !a.is_add(t))
                 return false;
-            if (mark.is_marked(y))
+            if (!is_zo && !all_of(*to_app(t), is_zero_one))
                 return false;
-            bool is_zo = is_zero_one(y);
-            if (!a.is_add(y) && !is_zo)
-                return false;
-            if (!is_zo && !all_of(*to_app(y), is_zero_one))
-                return false;
-            cardinalities.push_back(y);
-            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
-            min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+            cardinalities.push_back(t);
+            unsigned cardinality = is_zo ? 1 : to_app(t)->get_num_args();
+            max_cardinality = std::max(max_cardinality, cardinality);
+            min_cardinality = std::min(min_cardinality, cardinality);
             return true;
         };
+        auto is_lower_bound = [&](expr *f) {
+            // TODO pattern match against a.is_ge(f, y, x) too or something more general
+            return a.is_le(f, x, y) && x == term && is_cardinality(y);
+        };
         auto is_upper_bound = [&](expr *f) {
-            if (!a.is_ge(f, x, y))
-                return false;
-            if (x != term)
-                return false;
-            bool is_zo = is_zero_one(y);
-            if (!is_zo && !a.is_add(y))
-                return false;
-            if (!is_zo && !all_of(*to_app(y), is_zero_one))
-                return false;
-            cardinalities.push_back(x);
-            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(x)->get_num_args());
-            min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
-            return true;
+            return a.is_ge(f, x, y) && x == term && is_cardinality(y);
         };
 
         for (auto f : fmls) {
@@ -1790,10 +1783,12 @@ namespace opt {
             return false;
         expr_ref_vector new_fmls(m);
         expr_ref_vector soft(m);
-        for (unsigned k = 1; k <= min_cardinality; ++k) {
+        unsigned num_thresholds = is_max ? min_cardinality : max_cardinality;
+        for (unsigned k = 1; k <= num_thresholds; ++k) {
             auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
-            expr_ref one(a.mk_int(1), m);
-            soft.push_back(m.mk_ite(p_k, one, a.mk_int(0)));
+            expr_ref one(a.mk_numeral(rational(1), term->get_sort()), m);
+            expr_ref zero(a.mk_numeral(rational(0), term->get_sort()), m);
+            soft.push_back(m.mk_ite(p_k, one, zero));
             for (auto c : cardinalities)
                 // p_k => c >= k
                 if (is_max)
@@ -1805,6 +1800,7 @@ namespace opt {
         // min x | x >= c_i, min sum p_k : /\_i c_i >= k => p_k
         // max x | x <= c_i, max sum p_k : /\_i p_k => c_i >= k 
         app_ref sum(a.mk_add(soft.size(), soft.data()), m);
+        new_fmls.push_back(m.mk_eq(term, sum));
         if (is_max)
             new_fmls.push_back(mk_maximize(index, sum));
         else
@@ -2327,8 +2323,11 @@ namespace opt {
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: 
-            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_lower()));
+        case O_MAXSMT: {
+            maxsmt const& ms = *m_maxsmts.find(obj.m_id);
+            return objective_value(m, inf_eps(obj.m_adjust_value.get_negate() ?
+                ms.get_upper() : ms.get_lower()));
+        }
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
@@ -2344,8 +2343,11 @@ namespace opt {
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: 
-            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_upper()));
+        case O_MAXSMT: {
+            maxsmt const& ms = *m_maxsmts.find(obj.m_id);
+            return objective_value(m, inf_eps(obj.m_adjust_value.get_negate() ?
+                ms.get_lower() : ms.get_upper()));
+        }
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 

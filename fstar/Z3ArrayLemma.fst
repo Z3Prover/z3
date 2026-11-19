@@ -7,7 +7,7 @@ open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 
 let scalar_sort (s:sort) : bool =
-  match s with BaseSort n -> n <> "Bool" | _ -> false
+  s <> bool_sort && (match s with BaseSort _ | SortApp _ [] -> true | _ -> false)
 
 let select_app (f:func_decl) (a k:expr) : bool =
   match get_sort a with

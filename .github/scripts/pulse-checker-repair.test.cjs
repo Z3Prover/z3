@@ -211,6 +211,42 @@ test("successful builds and already published attempts do not start repair work"
     }
 });
 
+test("full verification runs provide only their own current report and no packages", async t => {
+    const { args, run, reports } = fixture(t);
+    run.path = ".github/workflows/pulse-checker-full.yml@refs/heads/master";
+    reports.length = 0;
+    reports.push(
+        { id: 30, name: "pulse-checker-full-report", expired: false, created_at: "2026-10-24T10:00:00Z" },
+        { id: 31, name: "pulse-checker-full-report", expired: false, created_at: "2026-10-25T10:01:00Z" },
+        { id: 32, name: "pulse-checker-build-report", expired: false, created_at: "2026-10-25T10:01:00Z" },
+        { id: 33, name: "pulse-checker-ocaml-linux-x86_64", expired: false, created_at: "2026-10-25T10:01:00Z" },
+    );
+    assert.deepEqual((await evidence({ ...args, run })).map(item => item.id), [31]);
+    run.path = ".github/workflows/pulse-checker-build.yml";
+    assert.deepEqual((await evidence({ ...args, run })).map(item => item.id), [32]);
+});
+
+test("failed full verification runs start repair work and successful ones do not", async t => {
+    for (const conclusion of ["failure", "success"]) {
+        const { args, run } = fixture(t);
+        run.path = ".github/workflows/pulse-checker-full.yml";
+        run.conclusion = conclusion;
+        await prepare(args);
+        const context = JSON.parse(fs.readFileSync(path.join(args.directory, "context.json")));
+        assert.equal(context.actionable, conclusion === "failure");
+        if (conclusion === "success")
+            await assert.rejects(stageBundle(args), /Successful/);
+    }
+});
+
+test("look-alike workflow paths are not Pulse producers", async t => {
+    for (const workflow of ["pulse-checker-full-copy.yml", "pulse-checker-full.yaml", "pulse-checker-fullyml"]) {
+        const { args, run } = fixture(t);
+        run.path = `.github/workflows/${workflow}`;
+        await assert.rejects(producer(args), /Expected a completed Pulse workflow run/);
+    }
+});
+
 test("missing reports remain explicit and ambiguous or incomplete API results fail", async t => {
     const { args, run, reports } = fixture(t);
     reports.length = 0;
@@ -243,12 +279,20 @@ test("payload validation rejects escaping paths, duplicates and misleading verif
         { commands: [{ command: "verify", exit_code: "0" }] },
         { commands: [{ command: "verify", exit_code: 0, phase: "baseline" }] },
         { status: "no-fix" }, { report: "" },
-        { files: [{ ...file, content: "x".repeat(512 * 1024 + 1) }] },
+        { files: [{ ...file, content: "x".repeat(1024 * 1024 + 1) }] },
     ])
         assert.throws(() => validatePayload(payload(changes), sha));
     assert.equal(validatePayload(payload({
         source_sha: null, status: "no-fix", files: [], commands: [],
     }), sha).status, "no-fix");
+});
+
+test("repair snapshots accept large native bridge tests within the source byte limit", () => {
+    const file = { path: "fstar/tools/test_native_bridge.ml", content: "x".repeat(1024 * 1024) };
+    assert.equal(validatePayload(payload({ files: [file] }), sha).files[0].content, file.content);
+    assert.throws(() => validatePayload(payload({
+        files: [{ ...file, content: "\u00e9".repeat(512 * 1024) + "x" }],
+    }), sha), /oversized repair source file/);
 });
 
 test("a verified fix preserves failing baseline and exploratory command evidence", () => {

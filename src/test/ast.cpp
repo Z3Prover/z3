@@ -18,6 +18,8 @@ Revision History:
 --*/
 #include "ast/ast.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include <sstream>
 
@@ -210,6 +212,31 @@ static void tst_clause_event_arities() {
     }
 }
 
+static void tst_bv_recognizers() {
+    bv_recognizers recognizers;
+    for (bool extra_family : { false, true }) {
+        ast_manager m;
+        if (extra_family)
+            m.mk_family_id("extra");
+        reg_decl_plugins(m);
+        bv_util bv(m);
+        arith_util arith(m);
+        expr_ref numeral(bv.mk_numeral(rational(3), 8), m);
+        expr_ref sum(bv.mk_bv_add(numeral, numeral), m);
+        expr_ref extract(bv.mk_extract(3, 0, sum), m);
+        expr_ref integer(arith.mk_int(3), m);
+        rational value;
+        unsigned width;
+        ENSURE(recognizers.is_numeral(numeral, value, width));
+        ENSURE(value == 3 && width == 8);
+        ENSURE(recognizers.is_bv_add(sum));
+        ENSURE(recognizers.is_extract(extract));
+        ENSURE(recognizers.is_bv_sort(extract->get_sort()));
+        ENSURE(!recognizers.is_numeral(integer));
+        ENSURE(!recognizers.is_bv_sort(integer->get_sort()));
+    }
+}
+
 void tst_ast() {
     TRACE(ast, 
           tout << "sizeof(ast):  " << sizeof(ast) << "\n";
@@ -227,4 +254,5 @@ void tst_ast() {
     tst_smt2_format_order("long_function_name", 1);
     tst_smt2_format_order("long_function_name", 2);
     tst_clause_event_arities();
+    tst_bv_recognizers();
 }

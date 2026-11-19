@@ -5,7 +5,7 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 
-let int_sort : sort = BaseSort "Int"
+let int_sort : sort = (SortApp IntSymbol [])
 
 let arithmetic_decl (f:func_decl) : bool =
   f.domain = [int_sort; int_sort] && f.range = int_sort && f.int_params = [] &&

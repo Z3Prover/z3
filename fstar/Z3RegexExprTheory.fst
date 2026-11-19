@@ -205,7 +205,7 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
    since `Z3AstTotEval.teval_bool` is monomorphic in a single
    `value:eqtype` for an entire condition tree and so cannot itself
    recurse into real `seq a` semantics mid-tree. *)
-let seq_sort : sort = BaseSort "Seq"
+let seq_sort : sort = SortApp SeqSymbol [BaseSort "Element"]
 
 let is_seq_sorted (e:expr) : bool = sort_eq (get_sort e) seq_sort
 
@@ -464,4 +464,3 @@ let rec to_lang (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot (option (lang a)) (dec
           | _, _ -> None)
        | _ -> None)
     else None
-

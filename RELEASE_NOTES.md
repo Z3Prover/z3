@@ -1,5 +1,277 @@
 RELEASE NOTES
 
+Version 5.4.2
+==============
+
+- Revert general quantifier-polarity handling during SMT internalization
+  introduced in 5.4.0. Handle both polarities specifically for generated
+  universal quantifiers from array/lambda equality rewrites, using fresh
+  Skolem witnesses for their negative occurrences. Distinguish quantifiers
+  with different Skolem IDs during hash-consing.
+  https://github.com/Z3Prover/z3/pull/11638, https://github.com/Z3Prover/z3/pull/11644
+- Preserve the equality-propagation justification when merging a newly
+  internalized equality atom with true.
+  https://github.com/Z3Prover/z3/pull/11658
+- Store theory variable IDs as full-width integers instead of signed
+  24-bit fields, preventing truncation and crashes at 8,388,608 variables.
+  https://github.com/Z3Prover/z3/pull/11655
+- Handle canceled or unsuccessful model searches in Spacer's global
+  subsumption without dereferencing a missing model.
+  https://github.com/Z3Prover/z3/pull/11635
+- Restore tactic, probe, and simplifier registration in CMake static
+  builds through a generated source file, with explicit build dependencies
+  for Windows and other parallel builds.
+  https://github.com/Z3Prover/z3/pull/11660
+- Extend Lean proof reconstruction for integer difference logic and
+  linear Real arithmetic, including the plan-21, DTP, and tta_startup
+  benchmark examples. Keep ITEs folded in EUF and array lemmas to reduce
+  reconstruction cost.
+  https://github.com/Z3Prover/z3/pull/11661
+- Address narrowing-conversion, signedness, and ignored-result build
+  warnings in solver code, examples, and tests.
+  https://github.com/Z3Prover/z3/pull/11666
+
+Version 5.4.1
+==============
+
+- Extend F*/Pulse typed proof replay with guarded integer and Real
+  product-equality clauses.
+  https://github.com/Z3Prover/z3/pull/11629
+- Make native checker regression expectations independent of proof-search
+  choices and generated Skolem numbering, while retaining checks for
+  pending proof obligations.
+  https://github.com/Z3Prover/z3/commit/16291f1c56342c84698e4d6d6042cd8fb339070d
+
+Version 5.4.0
+==============
+
+- **Integer exponentiation and API compatibility:** add SMT-LIB
+  `(** Int Int)` with an Int result. `Z3_mk_power` and Python `**` now use
+  integer exponentiation when both operands are Int, instead of returning
+  a Real expression. Negative integer exponents yield zero except for
+  bases 1 and -1; coerce an operand to Real for reciprocal semantics.
+  Exponent zero yields one, including `(** 0 0)`.
+  https://github.com/Z3Prover/z3/pull/11211
+- **Total Real exponentiation:** specify powers of zero and negative
+  bases, preserve odd rational roots and reciprocals, and align rewriting,
+  arithmetic refinement, purification, and exact model evaluation.
+  Exponent zero always yields one; zero to a nonzero exponent is zero.
+  Negative bases have their usual value for reduced rational exponents
+  with odd denominators, and yield zero for other Real exponents.
+  Add F* mathematical specifications and proofs for these semantics.
+  General transcendental solving remains incomplete.
+  https://github.com/Z3Prover/z3/pull/11211
+- Stop model-evaluation loops involving symbolic division, modulo, and
+  remainder inside ITEs and quantifiers. Leave symbolic arithmetic
+  residual instead of repeatedly introducing zero-divisor guards;
+  preserve concrete zero-divisor model lookup and ordinary nonzero
+  evaluation without overriding Boolean rewrite statuses.
+  https://github.com/Z3Prover/z3/pull/11620
+- Correct comparisons of distinct algebraic roots whose isolating
+  intervals overlap, and retain the strongest lower bound when
+  simplifying arithmetic conjunctions.
+  https://github.com/Z3Prover/z3/pull/11599, https://github.com/Z3Prover/z3/pull/11604
+- Return Pareto points on continuous Real arithmetic fronts instead of
+  indefinitely climbing through dominating models. Support both the
+  nonlinear-real and general SMT optimization paths, including problems
+  with uninterpreted functions, integer terms, and assumptions.
+  https://github.com/Z3Prover/z3/pull/11470, https://github.com/Z3Prover/z3/pull/11477
+- Eliminate supported linear Int/Real quantifiers in hard constraints
+  before optimization. Compare the `qe` and `qe_rec` results with an SMT
+  equivalence check; retain the original constraint on disagreement,
+  failure, or resource exhaustion.
+  https://github.com/Z3Prover/z3/pull/11475
+- Certify unbounded integer and mixed arithmetic objectives along
+  polynomial curves, with unit-direction fallbacks and the
+  `opt.optsmt_unbounded_curve` switch. Share resource budgets with
+  projection checks and preserve cancellation.
+  https://github.com/Z3Prover/z3/pull/11452
+- Correctly commit relaxation-seeded optima in `pd-maxres`, preserving
+  earlier objectives during lexicographic optimization. Avoid null-model
+  dereferences when extracting correction sets, and retain base-model
+  labels in arithmetic optimization.
+  https://github.com/Z3Prover/z3/pull/11469, https://github.com/Z3Prover/z3/pull/11468,
+  https://github.com/Z3Prover/z3/pull/11372
+- Accumulate colliding soft-constraint weights during MaxSMT dualization.
+  Correct bounds, threshold encodings, and model reconstruction when
+  optimizing sums of zero/one ITEs.
+  https://github.com/Z3Prover/z3/pull/11561, https://github.com/Z3Prover/z3/pull/11585
+- **FiniteSet simplification:** integrate local bounded-filter rewrites
+  into ordinary simplification and SMT solving. Handle unused binders,
+  fixed points, independent guards, and minima/maxima over the same finite
+  domain with capture-safe substitution. Propagate existing memberships
+  through newly registered set operations.
+  https://github.com/Z3Prover/z3/pull/11456, https://github.com/Z3Prover/z3/pull/11511
+- Bound finite-set cardinality by the exact size of the element domain
+  when available, rejecting oversized Boolean, bit-vector, enumeration,
+  and nested finite-set cardinalities.
+  https://github.com/Z3Prover/z3/pull/11455
+- Defer array lambda-default axioms to final checking, skipping irrelevant
+  lambdas and avoiding unnecessary defaults for singleton lambda classes
+  used only by pointwise non-array consumers.
+  https://github.com/Z3Prover/z3/pull/11463
+- Respect quantifier polarity during SMT internalization, including
+  existential and negative universal occurrences (reverted in 5.4.2;
+  see the generated-quantifier replacement above).
+  https://github.com/Z3Prover/z3/pull/11562
+- Re-bind residual and projected variables in quantifier-elimination
+  results instead of exposing fresh free constants.
+  https://github.com/Z3Prover/z3/pull/11559
+- Skip `eq2bv` when recursive definitions are registered. Guard oversized
+  cardinality thresholds in `lia2card` instead of converting them to
+  out-of-range cardinality parameters.
+  https://github.com/Z3Prover/z3/pull/11622, https://github.com/Z3Prover/z3/pull/11586
+- Enable all disabled recursive-function guards named by an unsat core
+  in each re-search round, reducing repeated solver restarts while
+  preserving breadth-first unfolding.
+  https://github.com/Z3Prover/z3/pull/11523
+- Prefer non-recursive constructors when deciding existing recognizers
+  of recursive datatypes. Restrict fresh-value enumeration during model
+  construction to the requested sort's recursive dependency group,
+  avoiding irrelevant datatype expansion and excessive memory use.
+  https://github.com/Z3Prover/z3/pull/11461, https://github.com/Z3Prover/z3/pull/11489
+- Detect recursive datatype cycles through nested arrays, sequences, and
+  finite sets, retaining the membership and equality dependencies needed
+  to explain conflicts. Fix iterator invalidation during datatype subterm
+  propagation.
+  https://github.com/Z3Prover/z3/pull/11597, https://github.com/Z3Prover/z3/pull/11598
+- Decompose sequence `nth` equations only when the index is known to be
+  in bounds, and preserve length constraints on nested sequence elements
+  during model construction.
+  https://github.com/Z3Prover/z3/pull/11549, https://github.com/Z3Prover/z3/pull/11550
+- Add opt-in relevant-first activity-based case splitting through
+  `smt.case_split_relevant_first=true` (default: `false`).
+  Fix stale delayed-heap variables causing crashes with `smt.case_split=4`
+  across search rounds.
+  https://github.com/Z3Prover/z3/commit/06093c136,
+  https://github.com/Z3Prover/z3/pull/11460
+- Extend the existing `is-qffp` and `is-qffpbv` probes to enumeration
+  expressions. Insert `dt2bv` before Ackermannization in the shared
+  floating-point preamble, retaining the SMT fallback for unsupported uses.
+  https://github.com/Z3Prover/z3/pull/11506
+- Correct FMA significand extraction for small floating-point formats,
+  including `FP(2,3)`, preserving sticky bits and exact results.
+  https://github.com/Z3Prover/z3/pull/11488
+- Keep assumptions contradicted at level zero in SAT unsat cores.
+  Clear popped variable expressions and cached assertions in the
+  incremental SAT solver so reused variable indices do not expose stale
+  formulas.
+  https://github.com/Z3Prover/z3/pull/11474, https://github.com/Z3Prover/z3/pull/11481
+- Guard Spacer concretization against null models, preserve query-root
+  lifetime across repeated fixedpoint queries, and correct Debug
+  proof-mode setup and invalid clause-shape assertions for normalized
+  datatype lemmas. Fix QBMC proof reconstruction for recursive rules,
+  including trace-level bindings, facts, and hyper-resolution positions.
+  https://github.com/Z3Prover/z3/pull/11487, https://github.com/Z3Prover/z3/pull/11540,
+  https://github.com/Z3Prover/z3/pull/11605, https://github.com/Z3Prover/z3/commit/70af3813f
+- **Proof-mode pipelines:** skip selected unsupported formula
+  transformations at their own tactic or simplifier stage, allowing
+  proof-capable stages to continue. Preserve existing explicit proof-mode
+  rejections and keep SLS available. Reject custom simplifiers that omit
+  required proofs or provide proofs of different assertions.
+  https://github.com/Z3Prover/z3/pull/11547, https://github.com/Z3Prover/z3/pull/11533
+- Preserve proof-converter scope and composition across case splits,
+  retain existential quantifier rewrite certificates, and construct scoped
+  non-ground demodulator instantiations under quantifiers.
+  https://github.com/Z3Prover/z3/pull/11528, https://github.com/Z3Prover/z3/pull/11530,
+  https://github.com/Z3Prover/z3/pull/11531
+- Preserve integer modulo's unspecified zero-divisor completion in
+  `bit2int`; lower to bit-vector remainder only for known nonzero numeral
+  divisors. Correct rewrite-proof ownership and pseudo-Boolean proof
+  lemmas whose missing premises made them invalid.
+  https://github.com/Z3Prover/z3/pull/11529, https://github.com/Z3Prover/z3/pull/11539
+- Extend F*/Pulse checking with typed integer and Real arithmetic,
+  supplied Farkas certificates, integer equality/order consequences,
+  term-ITE and Boolean definition axioms, and sort-generic ITE rewrites.
+  Add sorted constant folding and an inhabited typed-root model for the
+  document-proof prototype.
+  https://github.com/Z3Prover/z3/pull/11462, https://github.com/Z3Prover/z3/pull/11495,
+  https://github.com/Z3Prover/z3/pull/11497, https://github.com/Z3Prover/z3/pull/11498,
+  https://github.com/Z3Prover/z3/pull/11537, https://github.com/Z3Prover/z3/pull/11554
+- Extend typed F* replay with guarded nonzero-divisor integer division
+  and modulo, Real equality/order certificates, integer factor
+  permutations, and selected scoped quantifier rewrites. Add bounded
+  linear consequences and product-sign/equality reconstruction for Int
+  and Real arithmetic; synthesized coefficients remain untrusted and
+  are checked by the verified replay. Make native LP certificate and
+  parameter decoding stack-safe.
+  https://github.com/Z3Prover/z3/pull/11578, https://github.com/Z3Prover/z3/pull/11606,
+  https://github.com/Z3Prover/z3/pull/11618
+- Scope-check binder certificates and extend quantified, positive/negative
+  NNF, and typed Skolem replay, including Hilbert-epsilon bridges.
+  Make Cherry checker traversal stack-safe and show readable pending
+  proof conditions in both native backends. Unsupported and over-budget
+  steps remain explicit obligations; these additions do not establish
+  unconditional end-to-end SMT-LIB soundness.
+  https://github.com/Z3Prover/z3/pull/11450, https://github.com/Z3Prover/z3/pull/11478,
+  https://github.com/Z3Prover/z3/pull/11493, https://github.com/Z3Prover/z3/pull/11503,
+  https://github.com/Z3Prover/z3/pull/11515
+- Expand Lean reconstruction to supported mixed Int/Real coercions,
+  integer remainder, Real absolute value, and propositional
+  pseudo-Boolean constraints. Handle deeper and wider proofs, large
+  Farkas conflicts, and Gomory cuts. Check division, modulo, remainder,
+  absolute-value axioms, and Boolean-constant EUF/Tseitin steps natively.
+  Add an on-demand Lean workflow sharing its driver with CI.
+  https://github.com/Z3Prover/z3/pull/11442, https://github.com/Z3Prover/z3/pull/11451,
+  https://github.com/Z3Prover/z3/pull/11519, https://github.com/Z3Prover/z3/pull/11521,
+  https://github.com/Z3Prover/z3/pull/11539
+- Extend Lean reconstruction to arrays, sets, array maps, enumeration
+  datatypes, and uninterpreted functions combined with Int/Real
+  arithmetic. Support arrays of enumerations, additional constant-array
+  rewrites, and large `distinct` constraints through the clause log.
+  https://github.com/Z3Prover/z3/pull/11588, https://github.com/Z3Prover/z3/pull/11592,
+  https://github.com/Z3Prover/z3/pull/11602
+- Accept scripts containing print-only and optimization commands when
+  certifying unsatisfiable hard assertions in Lean; this does not certify
+  optimization optimality. Reduce reconstruction cost for deep ITE
+  chains, propositional lemmas, and balanced arithmetic sums.
+  https://github.com/Z3Prover/z3/pull/11623
+- Handle empty inputs to Python `PbEq`, `PbLe`, and `PbGe`, returning
+  the appropriate Boolean constraint instead of raising an unpacking
+  error.
+  https://github.com/Z3Prover/z3/pull/11621
+- Print n-ary bit-vector concatenations as nested binary SMT-LIB
+  `concat` applications so printed formulas can be parsed back.
+  https://github.com/Z3Prover/z3/pull/11551
+- Prevent AST and API object reference-count overflow under extreme
+  sharing by saturating their reference counts.
+  https://github.com/Z3Prover/z3/commit/472ec49dd,
+  https://github.com/Z3Prover/z3/commit/6283c6564
+- **Java packaging:** include Linux ARM64 in platform and universal JARs,
+  and attach standalone JARs to Nightly downloads. Add source/Javadoc
+  companions, validated Maven repository bundles, an optional POM-only
+  platform selector, and Maven/Gradle consumer checks. Use Maven platform
+  classifiers `linux-x86_64`, `linux-aarch_64`, `windows-x86_64`, and
+  `osx-aarch_64`. Maven Central deployment is opt-in and requires explicitly
+  configured coordinates and publication settings.
+  https://github.com/Z3Prover/z3/pull/11454, https://github.com/Z3Prover/z3/pull/11457,
+  https://github.com/Z3Prover/z3/pull/11472, https://github.com/Z3Prover/z3/pull/11483,
+  https://github.com/Z3Prover/z3/pull/11484, https://github.com/Z3Prover/z3/pull/11494,
+  https://github.com/Z3Prover/z3/pull/11518
+- Reuse bundled Java native libraries across JVM restarts with a verified
+  per-user cache and atomic publication, retaining private-copy fallbacks
+  for ClassLoader ownership conflicts. Honor the configured compression
+  level when writing native JAR entries.
+  https://github.com/Z3Prover/z3/pull/11496, https://github.com/Z3Prover/z3/pull/11492
+- Release the OCaml runtime lock during fixedpoint queries, optimization
+  checks, and tactic application; reacquire it when needed by `on_clause`
+  callbacks.
+  https://github.com/Z3Prover/z3/pull/11476, https://github.com/Z3Prover/z3/pull/11479
+- Restore `split-clause` registration in static library builds, update
+  Bazel's `rules_foreign_cc` dependency for current CMake/platform support,
+  and shorten benchmark paths for Windows checkouts.
+  https://github.com/Z3Prover/z3/pull/11526, https://github.com/Z3Prover/z3/pull/11490,
+  https://github.com/Z3Prover/z3/pull/11510
+
+**Acknowledgements:** Thanks to Gabriel Ebner (Cherry proof checking),
+Hiroshi Unno (OCaml bindings), Jason E. Aten (QBMC proof reconstruction),
+Jean-Frédéric Etienne (SMT branching and recursive-function unfolding),
+Lev Nachmanson (optimization, SAT fixes, and Lean/native proof checking),
+msuad (@msuadOf; floating-point enumeration probes),
+nieyuanhong (Java packaging and Maven integration), and Prajval Arora
+(MaxSMT fixes) for their contributions to this release.
+
+
 Version 5.3.3
 ==============
 

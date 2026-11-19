@@ -29,10 +29,10 @@
                       `is_quantifier` are mutually exclusive and
                       disjoint from `is_sort`/`is_func_decl`).
 
-     sort          ~  `class sort : public decl`: here reduced to a
-                      symbolic sort identifier (name); a
-                      family_id/parameter list is not modeled, since
-                      downstream only the regex/sequence sort matters.
+     sort          ~  `class sort : public decl`: recursive arrays and
+                      sort applications retain interpreted identities and
+                      parameters; opaque declaration identities remain
+                      separate from interpreted sort symbols.
 
      func_decl     ~  `class func_decl : public decl`: carries a name,
                       a domain (list of argument sorts), a range sort,
@@ -67,23 +67,34 @@ module Z3AstTheory
 (* Sorts                                                               *)
 (* ----------------------------------------------------------------- *)
 
-(* A sort is either a flat, name-identified "base" sort (modeling
-   every non-array sort abstractly by its name, standing in for Z3's
-   hash-consing-based pointer equality on `sort*`), or an `(Array dom1
-   ... domN range)` sort built from an arbitrary (possibly multi-
-   argument) list of domain (index) sorts and a range (value) sort,
-   mirroring `array_decl_plugin.h`'s actual `ARRAY_SORT` family, whose
-   `get_array_arity()` is in general `> 1` (e.g. `(Array Int Int
-   Bool)`, a two-index Boolean-valued array) -- not just the
-   single-index case. *)
+(* Interpreted sort identities are structural, never parsed from display
+   names. BaseSort is an opaque declaration identity supplied by the
+   importer; SortApp also permits registered extension families. *)
+type sort_symbol =
+  | BoolSymbol
+  | IntSymbol
+  | RealSymbol
+  | CharSymbol
+  | BvSymbol : width:int -> sort_symbol
+  | SeqSymbol
+  | ReSymbol
+  | FiniteFieldSymbol : modulus:int -> sort_symbol
+  | FiniteSetSymbol
+  | FloatSymbol : exponent:int -> significand:int -> sort_symbol
+  | RoundingModeSymbol
+  | DatatypeSymbol : identity:nat -> sort_symbol
+  | ExtensionSymbol : family:nat -> kind:int -> sort_symbol
+
 type sort =
   | BaseSort  : name:string -> sort
   | ArraySort : domain:list sort -> range:sort -> sort
+  | SortApp   : symbol:sort_symbol -> arguments:list sort -> sort
 
 let rec sort_eq (s1 s2:sort) : Tot bool (decreases s1) =
   match s1, s2 with
   | BaseSort n1, BaseSort n2 -> n1 = n2
   | ArraySort d1 r1, ArraySort d2 r2 -> sort_list_eq d1 d2 && sort_eq r1 r2
+  | SortApp k1 a1, SortApp k2 a2 -> k1 = k2 && sort_list_eq a1 a2
   | _, _ -> false
 
 and sort_list_eq (l1 l2:list sort) : Tot bool (decreases l1) =
@@ -91,6 +102,28 @@ and sort_list_eq (l1 l2:list sort) : Tot bool (decreases l1) =
   | [], [] -> true
   | a :: l1', b :: l2' -> sort_eq a b && sort_list_eq l1' l2'
   | _, _ -> false
+
+(* Syntactic shape only: registration and theory-specific validity, including
+   primality for fields, belong to the owning checked signature. *)
+let rec valid_sort (s:sort) : Tot bool (decreases s) =
+  match s with
+  | BaseSort _ -> true
+  | ArraySort ds r -> Cons? ds && valid_sorts ds && valid_sort r
+  | SortApp symbol args ->
+    valid_sorts args &&
+    (match symbol with
+     | SeqSymbol | FiniteSetSymbol -> FStar.List.Tot.length args = 1
+     | ReSymbol -> (match args with [SortApp SeqSymbol [_]] -> true | _ -> false)
+     | BvSymbol w -> w > 0 && args = []
+     | FiniteFieldSymbol p -> p > 1 && args = []
+     | FloatSymbol e p -> e > 1 && p > 1 && args = []
+     | DatatypeSymbol _ | ExtensionSymbol _ _ -> true
+     | _ -> args = [])
+
+and valid_sorts (ss:list sort) : Tot bool (decreases ss) =
+  match ss with
+  | [] -> true
+  | s :: rest -> valid_sort s && valid_sorts rest
 
 (* ----------------------------------------------------------------- *)
 (* Function declarations                                              *)
@@ -179,7 +212,7 @@ and arguments_budget (fuel:nat) (args:list expr)
 (* Sort of an expression (mirrors `expr::get_sort()`)                  *)
 (* ----------------------------------------------------------------- *)
 
-let bool_sort : sort = BaseSort "Bool"
+let bool_sort : sort = SortApp BoolSymbol []
 
 (* The sort a quantifier node of kind `qk`, bound bariable sorts
    `bound_sorts`, and body sort `body_sort` must carry: `Bool` for

@@ -326,6 +326,10 @@ These were discovered while formalizing `check_arith_literal`/
   files not yet run with `smt.arith.solver=2`/parsed) but were not
   pursued further for this report.
 
+## Typed Real Farkas replay on the Sorted route
+
+This report covers the separate Pulse/LRA theory path. The unified Sorted kernel now also replays producer Farkas weights over Real literals (`Z3SortedProof.real_farkas`, [`Z3SortedRealLinear.fst`](Z3SortedRealLinear.fst)) against a typed Real semantics derived from the root model; Real strict bounds stay strict, Int strict bounds keep their rounding, a zero weight never supplies strictness, and a negative inequality weight is read as its magnitude (as on the Int path). Contracts, the schema gate, controls and the unsupported forms are in [PROOF_CHECKING.md](PROOF_CHECKING.md#typed-real-certificates-and-ite-rewrite-laws-sorted-route).
+
 ## Files
 
 | File | Role |

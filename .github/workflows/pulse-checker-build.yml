@@ -6,11 +6,13 @@ on:
       - 'fstar/**'
       - '.github/workflows/pulse-checker-build.yml'
       - '.github/workflows/pulse-checker-regressions.yml'
+      - '.github/scripts/install-pulse-checker-toolchains.sh'
   pull_request:
     paths:
       - 'fstar/**'
       - '.github/workflows/pulse-checker-build.yml'
       - '.github/workflows/pulse-checker-regressions.yml'
+      - '.github/scripts/install-pulse-checker-toolchains.sh'
   workflow_run:
     workflows: [Nightly Build]
     types: [completed]
@@ -34,7 +36,7 @@ jobs:
        (github.event.workflow_run.event == 'schedule' ||
         github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 300
     defaults:
       run:
         shell: bash
@@ -48,7 +50,8 @@ jobs:
       - name: Checkout Z3
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+          # Temporarily exercise the independent checker from Z3Prover/z3#11718.
+          ref: ${{ (github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch') && 'feat/fstar-independent-proof-checker' || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare build report directory
@@ -60,37 +63,10 @@ jobs:
 
       - name: Install pinned F*, Cherry, and OCaml toolchains
         timeout-minutes: 30
-        run: |
-          set -euo pipefail
-          sudo apt-get update -y
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-          sudo apt-get update -y
-          sudo apt-get install -y cmake ninja-build g++ gcc-15 g++-15 libgmp-dev opam pkg-config python3 curl
-          archive="$RUNNER_TEMP/fstar.tar.gz"
-          curl --fail --location --retry 3 \
-            "https://github.com/FStarLang/FStar/releases/download/$FSTAR_VERSION/fstar-$FSTAR_VERSION-Linux-x86_64.tar.gz" \
-            --output "$archive"
-          printf '%s  %s\n' "$FSTAR_SHA256" "$archive" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/fstar-toolchain"
-          tar -xzf "$archive" -C "$RUNNER_TEMP/fstar-toolchain" --strip-components=2
-          "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" --version
-          cherry_archive="$RUNNER_TEMP/fstar-cherry.tar.gz"
-          curl --fail --location --retry 3 \
-            "https://github.com/FStarLang/FStar-nightly/releases/download/$CHERRY_FSTAR_VERSION/fstar-Linux-x86_64.tar.gz" \
-            --output "$cherry_archive"
-          printf '%s  %s\n' "$CHERRY_FSTAR_SHA256" "$cherry_archive" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/fstar-cherry-toolchain"
-          tar -xzf "$cherry_archive" -C "$RUNNER_TEMP/fstar-cherry-toolchain" --strip-components=2
-          "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" --version
-          gcc-15 --version
-          g++-15 --version
-          opam init --disable-sandboxing --bare --yes
-          opam switch create "$OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
-          opam install --switch="$OPAM_SWITCH" ocamlfind zarith --yes
-          opam exec --switch="$OPAM_SWITCH" -- ocamlc -version
+        run: bash .github/scripts/install-pulse-checker-toolchains.sh
 
-      - name: Build Z3, verify Pulse, and test both standalone checkers
+      - name: Build Z3, verify the checker dependency closure, and link both standalone checkers
+        if: ${{ github.event_name != 'workflow_run' && github.event_name != 'workflow_dispatch' }}
         timeout-minutes: 120
         run: |
           set -euo pipefail
@@ -101,19 +77,136 @@ jobs:
             -Z3WindowsBuildDir "$RUNNER_TEMP/checker-z3-build" \
             -Z3InstallDir "$RUNNER_TEMP/checker-z3-install" \
             -CacheDir "$RUNNER_TEMP/checker-fstar-cache" \
-            -WslBuildDir "$RUNNER_TEMP/native-checker" \
-            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -RunTests -BuildCherry \
+            -WslBuildDir "$RUNNER_TEMP/native-checker" -ReportDir "$REPORT_DIR" \
+            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -BuildCherry \
             -CherryFstarExe "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
             2>&1 | tee "$REPORT_DIR/build.log"; then
             status=0
           else
             status=$?
           fi
-          printf '{"wall_seconds":%d,"exit_code":%d,"fstar_version":"%s","ocaml_version":"5.3.0"}\n' \
+          printf '{"mode":"checker","wall_seconds":%d,"exit_code":%d,"fstar_version":"%s","ocaml_version":"5.3.0"}\n' \
             "$((SECONDS - start))" "$status" "$FSTAR_VERSION" > "$REPORT_DIR/build.json"
           exit "$status"
 
+      - name: Build Z3 for the independent and Cherry checkers
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 120
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          cmake -S . -B "$RUNNER_TEMP/checker-z3-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/checker-z3-install" \
+            -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_OCAML_BINDINGS=ON \
+            -DZ3_BUILD_EXECUTABLE=ON -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DZ3_INSTALL_OCAML_BINDINGS=ON -DCMAKE_INSTALL_LIBDIR=lib \
+            -DZ3_OCAML_PACKAGE_INSTALLDIR=lib/ocaml/z3 \
+            -DZ3_OCAML_STUB_INSTALLDIR=lib/ocaml/stublibs \
+            2>&1 | tee "$REPORT_DIR/z3-configure.log"
+          cmake --build "$RUNNER_TEMP/checker-z3-build" --parallel 4 \
+            2>&1 | tee "$REPORT_DIR/z3-build.log"
+          cmake --install "$RUNNER_TEMP/checker-z3-build" \
+            2>&1 | tee "$REPORT_DIR/z3-install.log"
+
+      - name: Verify and build the independent OCaml checker
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 60
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          export INDEPENDENT_FSTAR="$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe"
+          export INDEPENDENT_Z3="$RUNNER_TEMP/checker-z3-install/bin/z3"
+          export INDEPENDENT_CACHE="$RUNNER_TEMP/independent-fstar-cache"
+          mkdir -p "$INDEPENDENT_CACHE"
+          python3 - <<'PY' 2>&1 | tee "$REPORT_DIR/independent-build.log"
+          import json
+          import os
+          from pathlib import Path
+          import shlex
+          import subprocess
+          import sys
+          import time
+          sys.path.insert(0, "fstar/tools")
+          import checker_scope
+          start = time.monotonic()
+          fstar = os.environ["INDEPENDENT_FSTAR"]
+          z3 = os.environ["INDEPENDENT_Z3"]
+          cache = os.environ["INDEPENDENT_CACHE"]
+          version = subprocess.check_output([z3, "-version"], text=True).split()[2]
+          roots = ["Z3IndependentNative.fst"] + [
+              name + ".fst" for name in (
+                  "Z3IndependentFiniteFieldPrime", "Z3IndependentModPow",
+                  "Z3IndependentCoprimePower", "Z3IndependentPrimeEvidence",
+                  "Z3IndependentProofIndex", "Z3IndependentFiniteFieldMonomial",
+                  "Z3IndependentFiniteFieldPolynomial", "Z3IndependentFiniteFieldBudget",
+                  "Z3IndependentFiniteFieldCompactReplay", "Z3IndependentFiniteFieldCompactMetered",
+                  "Z3IndependentFiniteFieldCompactPacMetered",
+                  "Z3IndependentFiniteFieldCompactCertificate",
+              )
+          ]
+          dependencies = subprocess.check_output([
+              *checker_scope.dependency_command(fstar, roots),
+              "--cache_dir", cache, "--already_cached", "Prims,FStar",
+          ], cwd="fstar", text=True)
+          closure = checker_scope.dependency_files(dependencies, Path("fstar"))
+          if "Z3ValueTheory.fst" in closure or "Z3UnifiedProof.fst" in closure:
+              raise RuntimeError("Independent checker depends on legacy semantics")
+          manifest = json.loads(Path("fstar/tools/checker_modules.json").read_text())
+          # The independent prototype modules are currently registered as tests.
+          manifest["modules"] += [module for module in manifest["tests"] if module in closure]
+          manifest["tests"] = [module for module in manifest["tests"] if module not in closure]
+          modules, tests = checker_scope.select(manifest, "ocaml", False, closure, roots)
+          checker_scope.write_report(
+              Path(os.environ["REPORT_DIR"]) / "scope-independent.json",
+              manifest, "ocaml", False,
+              subprocess.check_output([fstar, "--version"], text=True), roots, modules, tests)
+          verify = [
+              fstar, "--timing", "--message_format", "human", "--warn_error", "@1..999",
+              "--cache_checked_modules", "--cache_dir", cache, "--include", cache,
+              "--smt", z3, "--z3version", version,
+          ]
+          # F*'s dependency rules preserve interface boundaries and cold-cache ordering.
+          makefile = Path(os.environ["REPORT_DIR"]) / "verify-independent.mk"
+          targets = " ".join(str(Path(cache) / (module + ".checked")) for module in modules)
+          makefile.write_text(
+              dependencies + "\n.PHONY: verify-independent\nverify-independent: " + targets + "\n"
+              + str(Path(cache) / "%.checked") + ":\n\t" + shlex.join(verify) + ' "$<"\n')
+          subprocess.run(["make", "--no-builtin-rules", "-f", str(makefile), "verify-independent"],
+                         cwd="fstar", check=True)
+          subprocess.run([
+              sys.executable, "fstar/tools/build_independent_checker.py",
+              "--fstar", fstar, "--z3-exe", z3, "--z3-version", version,
+              "--install-dir", str(Path(z3).parent.parent),
+              "--cache-dir", cache, "--output",
+              str(Path(os.environ["RUNNER_TEMP"]) / "independent-checker"),
+              "--timeout", "120",
+          ], check=True)
+          source = Path(os.environ["REPORT_DIR"]) / "source.json"
+          metadata = json.loads(source.read_text())
+          metadata.update(source_ref="feat/fstar-independent-proof-checker",
+                          ocaml_checker="independent-definition")
+          source.write_text(json.dumps(metadata) + "\n")
+          (source.parent / "build.json").write_text(json.dumps({
+              "mode": "independent-checker", "exit_code": 0,
+              "wall_seconds": time.monotonic() - start,
+              "fstar_version": os.environ["FSTAR_VERSION"], "ocaml_version": "5.3.0",
+          }) + "\n")
+          PY
+
+      - name: Build the Cherry baseline from the same source revision
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 60
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/build_cherry_checker.py \
+            --fstar "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
+            --z3-install "$RUNNER_TEMP/checker-z3-install" \
+            --build-dir "$RUNNER_TEMP/native-checker/cherry" \
+            --report "$REPORT_DIR/scope-cherry.json" \
+            2>&1 | tee "$REPORT_DIR/cherry-build.log"
+
       - name: Package and smoke-test the standalone checker artifacts
+        if: ${{ github.event_name != 'workflow_run' && github.event_name != 'workflow_dispatch' }}
         run: |
           set -euo pipefail
           eval "$(opam env --switch="$OPAM_SWITCH")"
@@ -128,7 +221,38 @@ jobs:
             --fstar "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
             --output-dir "$RUNNER_TEMP/checker-artifacts/cherry"
 
+      - name: Package and smoke-test the nightly Cherry baseline
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/package_checker.py \
+            --checker "$RUNNER_TEMP/native-checker/cherry/checker" --backend cherry \
+            --fstar "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
+            --output-dir "$RUNNER_TEMP/checker-artifacts/cherry"
+
+      - name: Package and smoke-test the independent OCaml checker
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          python3 fstar/tools/package_checker.py \
+            --checker "$RUNNER_TEMP/independent-checker/checker" --backend ocaml \
+            --fstar "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" \
+            --extra-license "$(opam var doc)/ocaml/LICENSE" \
+            --extra-license "$(opam var prefix)/.opam-switch/sources/zarith.$(opam var zarith:version)/LICENSE" \
+            --output-dir "$RUNNER_TEMP/checker-artifacts/independent"
+
+      - name: Upload standalone independent OCaml checker
+        if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-independent-ocaml-linux-x86_64
+          path: ${{ runner.temp }}/checker-artifacts/independent/*
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload standalone OCaml checker
+        if: ${{ github.event_name != 'workflow_run' && github.event_name != 'workflow_dispatch' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pulse-checker-ocaml-linux-x86_64
@@ -173,10 +297,10 @@ jobs:
           sparse-checkout: .github/scripts/publish-pulse-nightly.cjs
           sparse-checkout-cone-mode: false
 
-      - name: Download OCaml checker package
+      - name: Download independent OCaml checker package
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: pulse-checker-ocaml-linux-x86_64
+          name: pulse-checker-independent-ocaml-linux-x86_64
           path: ${{ runner.temp }}/nightly-checkers/ocaml
 
       - name: Download Cherry checker package
@@ -184,6 +308,12 @@ jobs:
         with:
           name: pulse-checker-cherry-linux-x86_64
           path: ${{ runner.temp }}/nightly-checkers/cherry
+
+      - name: Download checker source metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-build-report
+          path: ${{ runner.temp }}/nightly-checkers/build
 
       - name: Attach checker packages to the matching Nightly release
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0

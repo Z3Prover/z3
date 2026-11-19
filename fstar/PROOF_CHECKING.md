@@ -56,6 +56,8 @@ of all imports.
 | Typed quantifier instantiation | [`Z3TypedQuantifier.fst`](Z3TypedQuantifier.fst) states `quantifier_model i dom`: one interpretation and one domain assignment that satisfy `core_model`, typed `forall`/`exists` over exactly the value lists typed by the reversed binder list, and quantifier extensionality. `core_model` itself is unchanged. `Z3GhostStandardModel.lemma_quantifier_model` proves that the classical model satisfies all three jointly, with the same interpretation, domains and projection; extensionality is proved from its quantifier field, opaque lambda branch included, and is not a lambda (beta) law. [`Z3QuantifierKernel.fst`](Z3QuantifierKernel.fst) proves the unchanged executable decision `Z3QuantifierInstantiation.check` sound in every such model, under every environment: the evaluated closed arguments are typed by `L.rev bs`, the `forall` is eliminated at exactly those values, and the existing capture-avoiding substitution theorem relates the body there to the instance. For an instantiation node, `check_node_with_context` returns `Some` with pending obligation 0 exactly when `check_step` accepts it, and with pending 1 otherwise, also for false conclusions and always for `Equal` conclusions; observational conclusions and nodes with premises are rejected. The node theorem requires pending 0 and gives the returned fact, which has no hypotheses. `lemma_typed_check_node_sound` extends the core theorem to core rules plus checked instantiations. The legacy `lemma_check_sound` still requires the untyped `boolean_model` and `forall_elimination_model`, has no model, and is not used. [`Z3QuantifierKernelTests.fst`](Z3QuantifierKernelTests.fst) computes accepted and rejected actual nodes (Int, Bool, `[Int; Bool]` and two Int binders, nested binders, `BV2`) and checks them in the classical model: instances follow from true quantifiers, several rejected nodes returned with pending 1 have false conclusions, capture, shadowing, unscoped, wrong-order, wrong-sort and wrong-arity mutations are not checked, and the untyped elimination contract fails there while the typed one holds. Quantifier introduction and the other binder rules, definitions, Skolemization and the document layer still rest on `model_sound`. |
 | Contextual datatype kernel | [`Z3SortedSemantics.fst`](Z3SortedSemantics.fst), [`Z3SortedDatatype.fst`](Z3SortedDatatype.fst), and [`Z3SortedProof.fst`](Z3SortedProof.fst) check native datatype proof DAGs against one checked schema and derive zero-obligation unsatisfiability of the original assertions in the typed interpretation. Native documents with datatype metadata use this path without a legacy fallback; [coverage and theory boundaries](OCAML_CHECKER_REPORT.md#concrete-sort-indexed-datatype-semantics) remain explicit. Typed-root prototype branch only (no route uses it): [`Z3SortedRoot.fst`](Z3SortedRoot.fst) proves that the Sorted layers agree with every [`Z3TypedRoot.fst`](Z3TypedRoot.fst) root model, and [`Z3SortedRootDocument.fst`](Z3SortedRootDocument.fst) derives the Sorted quantifier laws from that root model's R1, restates `lemma_check_document` for every root model and adds an off-route certification gate that also checks typing and root coverage of every document term the checker reads (assertions, entry formulas, instantiation arguments; the canonical wrappers and instances the kernels build internally are not gated, and coverage restricts only the SMT reading, not the root-class falsity proof); [`Z3SortedRootDocumentTests.fst`](Z3SortedRootDocumentTests.fst) runs actual documents through it: 9 positive documents (B1–B9) falsified in every root model plus 4 certified variants (D8 and D10 pairs, F1, F2). No route calls the gate, so a native Sorted ACCEPT is not `RootCertified`; other legacy ACCEPTs, the default route and the uninhabited legacy `model_sound` are unchanged. Native front-end translation (assertions, schema, `define-fun`), native datatype id/tag fidelity and the full-function-space array/lambda and `FStar.Real` parameterization remain trust points, not a theorem about every SMT model. The sorted kernel also replays typed integer Farkas certificates and, on the native sorted route, elaborates certified closed Skolem steps into Hilbert-epsilon choice equations over one joint witness tuple ([`Z3SortedSkolem.fst`](Z3SortedSkolem.fst), `check_document_epsilon`). `Z3SortedRootDocument.fst` keeps the consumed `ArithmeticFarkas` coefficients and `Skolemization` label in its read view and proves that, in every root model, an epsilon verdict `Some 0` makes the original assertions not all true (`lemma_root_check_document_epsilon`, with the off-route gate `check_root_document_epsilon`); closed Skolem steps inside the NNF certificates the kernel replays are collected into the same epsilon context, and their dependent Skolem functions into a dependent context on top of it ([`Z3SortedDependentSkolem.fst`](Z3SortedDependentSkolem.fst), next row); top-level dependency-bearing Skolem steps stay pending. |
 | NNF certificate replay | [`Z3NnfReplay.fst`](Z3NnfReplay.fst) replays, inside `Z3SortedProof.check_node_cached` (one extra disjunct, so the single diagnosed check of both native front ends sees it), the binder certificate of a premise-free `QuantifierIntroduction` node whose root entry is `nnf-neg` or `nnf-pos`: the polarity-aware local NNF rules of `src/ast/normal_forms/nnf.cpp`, `refl`, `trans`, `monotonicity`, closed `sk` steps whose choice equation is an assertion of the (epsilon-elaborated) document, and open (dependent) `sk` steps whose universal closure is one ([`Z3SortedDependentSkolem.fst`](Z3SortedDependentSkolem.fst): one joint witness tuple per argument tuple; tests in [`Z3NnfSkolemTests.fst`](Z3NnfSkolemTests.fst)). `lemma_replay` proves every replayed conclusion true in the Sorted model from the universal and existential quantifier laws only; `Z3SortedRootDocument` derives both from R1 of one inhabited typed root model, keeps the certificate in its read view and gates its internal terms. See [NNF certificate replay](#nnf-certificate-replay-sorted-route). |
+| Typed Real arithmetic and ITE laws | [`Z3SortedReal.fst`](Z3SortedReal.fst) (Real carrier and laws over the Sorted interpretation), [`Z3SortedRealLinear.fst`](Z3SortedRealLinear.fst) (linear normal forms, typed Int/Real Farkas replay, Real rewrite equivalence incl. Real equations), [`Z3SortedRealOrder.fst`](Z3SortedRealOrder.fst) (the Real equality/order atoms of the `real_order` clause check), [`Z3SortedRealExtension.fst`](Z3SortedRealExtension.fst) (Skolem overrides keep the laws) and [`Z3SortedRealRoot.fst`](Z3SortedRealRoot.fst) (the laws from R2 of every root model) add the `real_farkas` and `real_rewrite` disjuncts of `Z3SortedProof.check_node_cached` and the gated Real leaves of the quant-intro replay; `Z3NnfReplay.ite_rewritten` replays three sort-generic `ite` laws (on quant-intro leaves and, through the ungated `ite_rewrite` disjunct, on closed premise-free `rewrite` steps). See [Typed Real certificates and ITE rewrite laws](#typed-real-certificates-and-ite-rewrite-laws-sorted-route). |
+| Typed Int division laws | [`Z3SortedIntDivision.fst`](Z3SortedIntDivision.fst) states the Sorted Int division laws (`division_laws`: for a NONZERO divisor the canonical `div`/`mod` are the Euclidean quotient `x / y` and remainder `x % y` of the arguments' Int values, in the same Sorted interpretation and Int carrier as every other Int law; a zero divisor has no law), at every scope and typed environment (`lemma_quotient_at`, `lemma_remainder_at`); [`Z3SortedDivisionExtension.fst`](Z3SortedDivisionExtension.fst) (Skolem overrides keep them) and [`Z3SortedDivisionRoot.fst`](Z3SortedDivisionRoot.fst) (derived from R2 of every root model; the standard root model satisfies R1-R6, the Real laws and these laws at once). Model-contract change: see [Typed Int division](#typed-int-division-laws-and-the-root-model-contract). |
 | Rewrite verification | [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) recognizes rewrite schemas and proves matching leaves sound; unmatched leaves can be collected as remaining obligations. |
 | Rewrite synthesis | [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), and [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) compute rewritten expressions via `apply_lemma_x`, `apply_lemmas`, and `is_rewrite`. This complements verification of a supplied expression pair. |
 | Clausal/resolution calculus | [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) embeds equational proofs via `REq` and adds propositional/clausal rules, hypotheses, lemmas, and explicit trusted obligations. [`Z3ResolutionProofCheckerTests.fst`](Z3ResolutionProofCheckerTests.fst) exercises this calculus. |
@@ -76,7 +78,7 @@ of all imports.
 | Bounded bit-vector evaluation | [`Z3BvExhaustive.fst`](Z3BvExhaustive.fst) decides premise-free `th-lemma` and `rewrite` steps by enumerating values for structurally identified BV leaves. The fragment includes canonical Boolean connectives and equality, unsigned BV comparisons, numerals, binary `concat`, `extract`, `zero_extend` and binary `bvadd`. Connectives require the typed name, tag, domain, range and parameter predicates of [`Z3CanonicalOps.fst`](Z3CanonicalOps.fst); datatype declarations with connective names are not connectives. BV operations use the checked [`Z3BvLemma.fst`](Z3BvLemma.fst) recognizers. Unsupported Boolean terms and malformed evaluated declarations stay pending. The conclusion must be closed and ground, with at most 512 unfolded-tree occurrences and at most 12 total leaf bits, hence at most 4096 assignments. Leaves are enumerated, not assigned a presumed constant value. [`Z3StandardModel.fst`](Z3StandardModel.fst) proves that the ground Boolean/BV contracts have models: canonical connectives and BV-tagged heads with matching parameters are computed, and remaining heads use an arbitrary function of their argument values, with results coerced to their range sorts. This witness has no hypotheses. The direct evaluator lemmas prove `valid` and `equivalent` sound in every ground model, with standard-model corollaries. The legacy kernel theorem reaches them only through the uninhabited global `model_sound`; `Z3CoreKernel` instead proves theory-lemma and rewrite nodes whose conclusion this evaluator decides sound from the inhabited `Z3CoreModel.core_model`. No document-level theorem is claimed. Arrays, arithmetic, datatypes, finite fields, quantifiers, open terms and projection widths above 4096 are outside this model's theory claims. [`Z3BvExhaustiveTests.fst`](Z3BvExhaustiveTests.fst) covers accepted and rejected steps, bounds, malformed declarations, name/tag clashes, datatype names, witness values and countermodels. |
 | Modular bit-vector sums | [`Z3BvAddNormalize.fst`](Z3BvAddNormalize.fst) decides premise-free `rewrite` steps `a = b` between sums of one bit-vector sort `BV<w>`: each side is read as the sum of its numerals modulo `2^w` and the sequence of its atoms (any other closed term of that sort, kept opaque), through nested binary and n-ary `bvadd` recognized by declaration kind, width parameter and argument sorts with the [`Z3BvExtract.fst`](Z3BvExtract.fst) and [`Z3BvLemma.fst`](Z3BvLemma.fst) recognizers. Both sides must have the same total modulo `2^w` and the same atoms in the same order, so `bvadd(bvadd(c1, t), c2) = bvadd(c3, t)` is decided for any `t` of any width up to 4096, with wrap-around and cancellation to the bare atom. Atoms are never evaluated, reordered or merged; a malformed numeral or sum declaration is neither read nor an atom; the tree has at most 512 occurrences and both sides are closed. Soundness is an induction on the sum using only the existing `bv_model` conjuncts for numerals, `operation` and `nary_operation` (through `model_sound`). [`Z3BvAddNormalizeTests.fst`](Z3BvAddNormalizeTests.fst) decides closed positive and negative instances (widths 1, 8, 32 and 66, wrap-around, cancellation, wrong totals, dropped, extra, replaced, reordered and merged atoms, sorts, malformed declarations, the size bound). |
 | Finite-field rewrites | [`Z3FiniteFieldLemma.fst`](Z3FiniteFieldLemma.fst) decides `rewrite` steps over `FF<p>` terms by normalizing both sides to sparse polynomials modulo `p` (atoms are the maximal non-field subterms) and by rescaling equalities with checked factors. It uses only commutative-ring laws, never assumes `p` is prime, and relies on the explicit `ff_model` hypothesis conjoined into `normalization_model`. The native bridge marshals `FiniteField p` sorts as `FF<p>` and `ff` numerals/operators with `decl_kind` 300-304 (see [`FINITE_FIELD_REPORT.md`](FINITE_FIELD_REPORT.md)). Finite-field `th-lemma` steps are decided by bounded exhaustive evaluation or, for any modulus, by replaying the recorded `ff-pac` ideal certificate in [`Z3FiniteFieldPac.fst`](Z3FiniteFieldPac.fst) when it uses only definitions and positive premises; certificates that need the inverse witness of a disequality remain unmet. |
-| Integer division | [`Z3IntegerDivision.fst`](Z3IntegerDivision.fst) checks guarded quotient/remainder identities, remainder bounds, and common-factor cancellation with positive numeral divisors. Native integer `div` and `mod` have distinct interpreted tags. Soundness assumes their standard nonzero-divisor semantics; division by zero remains unspecified. [`Z3ArithmeticRewrite.fst`](Z3ArithmeticRewrite.fst) also checks binary-sum product expansion over integers and reals. |
+| Integer division | [`Z3IntegerDivision.fst`](Z3IntegerDivision.fst) checks guarded quotient/remainder identities, remainder bounds, and common-factor cancellation with positive numeral divisors. Native integer `div` and `mod` have distinct interpreted tags. Soundness assumes their standard nonzero-divisor semantics; division by zero remains unspecified. The Sorted route does not use this assumption: its guarded div/mod clauses read the derived `Z3SortedIntDivision.division_laws` (see the typed Int division section). [`Z3ArithmeticRewrite.fst`](Z3ArithmeticRewrite.fst) also checks binary-sum product expansion over integers and reals. |
 | Gomory cuts | [`Z3LpGomory.fst`](Z3LpGomory.fst) reconstructs integer-split candidates from native LP row/bound data and requires both branches to derive the actual cut through the existing Farkas checker. Split exhaustiveness follows from integer semantics; no LP row, bound metadata, or foreign checker verdict is assumed. |
 | Integer rounding cuts | [`Z3LpIntegerCut.fst`](Z3LpIntegerCut.fst) refutes a set of premises by Chvátal-Gomory rounding followed by a Farkas combination. A certificate is a list of rounded bounds `L <= k` and a final weight vector. Every bound and the final refutation are replayed through [`Z3LinearArithmeticAst.check`](Z3LinearArithmeticAst.fst) against the actual premise ASTs and the earlier bounds only, with one weight per premise or earlier bound plus one for the negated bound; that check rounds a strict inequality over Int terms (`a < b` to `a + 1 <= b`), so the rounding is checked, not trusted, and is unavailable for Real terms. Soundness uses only the existing `numeric_model` and Boolean contracts, exactly like [`Z3LpGomory.fst`](Z3LpGomory.fst). The untrusted candidate search handles the conclusion `false` only: it substitutes variables fixed or equated by unit-coefficient equalities, rounds each non-strict row whose atoms are all Int and whose coefficients have a common factor `g >= 2` not dividing the constant, and finds the final weights by Fourier-Motzkin elimination (cheapest atom first, one-sided atoms dropped). Every cap fails closed to a pending obligation: at most 32 premises, 8 bounds of at most 64 terms, 128 rows, 64 eliminations, 4096 row pairs in total, and magnitudes at most 2^128 for every coefficient, constant, denominator and weight, checked on the input rows and after every substitution or elimination. Systems that need a genuine Gomory or branching cut stay pending. [`Z3LpIntegerCutTests.fst`](Z3LpIntegerCutTests.fst) decides closed positive and negative certificates (too-strong and too-weak rounding, zero or negative divisor weights, non-cancelling rational weights, wrong weight lengths, forward references, permuted premises, Real sorts). |
 | Typed proof documents | [`Z3ProofDocument.fst`](Z3ProofDocument.fst) performs transport-independent definition, scope, input, and topological validation; [`Z3ProofIndex.fst`](Z3ProofIndex.fst) supplies persistent caches. |
@@ -121,9 +123,11 @@ F* verification, Pulse tests, and extraction explicitly use the installed
 version checks. `-Z3WindowsBuildDir` and `-Z3InstallDir` change the build
 directory and installation prefix; `-CacheDir` selects the proof cache.
 The WSL producer and official OCaml bindings are also rebuilt and installed
-before linking from that installation. `-RunTests` verifies the F*/Pulse
-regressions and runs native bridge and CLI tests after these installation
-steps. See the [toolchain instructions](OCAML_CHECKER_REPORT.md).
+before linking from that installation. `-RunTests` verifies every registered
+module and F*/Pulse regression and runs native bridge and CLI tests after these
+installation steps; without it, only the registered production modules in the
+F* dependency closure of the extracted checker are verified and no test is
+built. See the [toolchain instructions](OCAML_CHECKER_REPORT.md).
 
 [`Z3NativeProof.fst`](Z3NativeProof.fst) uses native AST identities for
 expression/sort caches; declaration caches also include application arity.
@@ -229,7 +233,7 @@ parameters).
 | closed `sk` (Skolem constants) whose equation `(= a b)` is an assertion; on the epsilon route the closed eligible definitions of top-level and inner `sk` steps form one context (`Z3SortedProof.epsilon_context`; when the merged context fails a gate the top-level context is used) | replayed in the choice extension |
 | open `sk`: a Skolem FUNCTION of the enclosing binders (`(exists bs. B) ~ B[f(x1..xm)]`, or the negative form), accepted when a universal closure `(forall cb. (= a b))` of its exact equation (any binder list cb; the generated ones quantify over the dependency scope) is an assertion and its dependencies are typed at every assigned scope; on the epsilon route the closures of the certified dependent context (`Z3SortedProof.dependent_context`) are appended to the assertions | replayed in the joint dependent choice extension |
 | negative `forall` | Skolemized by the producer (`sk` + `trans`), covered by the rows above |
-| `quant-intro` or `rewrite` roots, labels (`rewrite` from `mk_iff_oeq`), `apply-def`/`intro-def` naming, lambdas, the `hnf.cpp` `nnf-neg` variant, any other entry name | PENDING |
+| `rewrite` roots (a `quant-intro` root is replayed with scoped `rewrite` leaves: [Real and ITE leaves](#typed-real-certificates-and-ite-rewrite-laws-sorted-route)), labels (`rewrite` from `mk_iff_oeq`), `apply-def`/`intro-def` naming, lambdas, the `hnf.cpp` `nnf-neg` variant, any other entry name | PENDING |
 | over budget, unclassifiable entry, failed guard or local check | PENDING |
 | premise id that is not an earlier entry (forward, self, negative, or past the last entry) in an `nnf-neg`/`nnf-pos`-rooted certificate | rejected proof entry (`Malformed`) |
 
@@ -393,6 +397,221 @@ so the preprocessor substituted it and their proofs had no NNF certificate
 (the old checker accepted them too); they were replaced by probes without a
 unit Boolean (and `xor` under a universal was added), on which the previous
 checker reports one pending `nnf-neg`/`nnf-pos` obligation each.
+
+## Typed Real certificates and ITE rewrite laws (Sorted route)
+
+The Sorted kernel (`Z3SortedProof.check_node_cached`, used by `check_document_epsilon`, i.e. by both native
+frontends whenever a query has datatype metadata or `--sorted-core` is given) checks Real arithmetic against a typed
+Real semantics and replays three sort-generic `ite` rewrite laws. The default legacy route is unchanged.
+
+**Semantics (design A).** `T.scalar_model` keeps its Int carrier; Real is added beside it.
+[`Z3SortedReal.fst`](Z3SortedReal.fst) defines a Real carrier (an injection of the base Real values into
+`FStar.Real.real`), the executable classification of canonical Real declarations (rational numerals `n/d` with
+`d > 0`, n-ary `+ * -`, `/`, `to_real`, `<= < >= >`; exact declaration identity, interpretation tag, sorts and
+parameters, never a name), the law predicate `real_laws s bc model other reals` over the existing Sorted
+interpretation and the kernel-facing `real_model s bc model other = exists reals. real_laws ...`. The laws are, per
+classified declaration: numerals denote `n/d`; `+ * -` denote the field operations; `x / y` satisfies
+`(x / y) * y = x` only for a nonzero divisor (`x/0` is a free model choice, no div0 law); `to_real x` is the value of
+`x` in the SAME integer carrier as the Int valuation; comparisons have their order truth. `real_primitive s` (Real is
+not registered as a datatype sort of the checked schema `s`) is part of `real_laws`, so `real_model` can only hold
+on schemas where the executed schema check opens the gate. [`Z3SortedRealRoot.fst`](Z3SortedRealRoot.fst) derives
+`real_laws` with the identity carrier from R2 of EVERY root model over a Real-primitive schema
+(`lemma_root_real_laws`, `lemma_root_real_model`), proves it jointly with R1–R6 in the standard root
+(`lemma_standard_real_root`) and shows it is not vacuous: a Real variable valued 1/2 satisfies `0 < x` and `x < 1`
+while the Int rounding `x <= 1 - 1` is false (`lemma_real_rounding_countermodel`). A checked schema that registers
+a datatype named Real is accepted by `S.valid` but closes the gate (`lemma_real_datatype_refused`).
+
+**Checks.** [`Z3SortedRealLinear.fst`](Z3SortedRealLinear.fst) proves the existing executable arithmetic against one
+mixed numeric valuation (Int terms through the integer carrier, Real terms through the Real carrier):
+`A.linearize` (Real `+ * -`, `/` only by a constant polynomial with a nonzero constant, `to_real`, other terms opaque
+atoms), `A.literal`, `A.prepare_literal`, `P.accepts`, and the rewrite checks `constraint_of`,
+`boolean_equivalent`, `numeric_equivalent` and binary `commuted_product` of
+[`Z3ArithmeticRewrite.fst`](Z3ArithmeticRewrite.fst) (`real_equivalent`). Two disjuncts of `check_node_cached`,
+tried after every previous Int path, read them:
+
+| disjunct | accepts | contract |
+|---|---|---|
+| `real_farkas s node` | an `ArithmeticFarkas cs` node whose supplied weights `cs` refute exactly the node's literals (premise propositions positive, conclusion literals negated) by `LIN.check_numeric_contradiction`: `real_primitive s`, the 4096-node budget, every literal (zero-weight ones too) a closed Boolean formula, one weight per literal, `A.prepare`/`P.accepts` | `lemma_real_contradiction` |
+| `real_rewrite s node` | a premise-free `RewriteRule` node `a = b` (closed) with `real_primitive s` and `LIN.real_equivalent a b` | `lemma_real_rewrite` |
+| `ite_rewrite node` (no schema gate, tried last) | a premise-free `RewriteRule` node `a = b` (closed) with `NR.ite_rewritten a b` (the ITE laws below) | `lemma_ite_rewrite` (no hypothesis) |
+
+Strictness is per literal: the Int strict-bound adjustment (`a < b` to `a + 1 <= b`) applies exactly to literals
+whose sides are Int; Real strict literals stay strict; a contradiction at a non-positive constant needs a
+NONZERO-weight strict non-Int literal (`lemma_zero_contradiction_needs_weighted_strict`); a zero weight contributes
+the non-strict zero polynomial whatever its literal. As on the Int path, `A.weighted` reads a negative weight on an
+inequality as its magnitude (sound: a non-negative multiple of a true inequality); such a certificate is accepted
+exactly when its magnitudes form a valid certificate, so not every negative-sign mutant is refused. Int/Real mixing
+is supported only through explicit `to_real` (each literal compares two terms of one sort).
+
+**Theorem doors and their Root discharge.** The only new hypothesis is `RL.real_model s bc eq other`, required
+exactly where a Real law is read: `SP.lemma_check_node_cached` (`real_node s node ==> real_model`; for a
+quant-intro node also `real_primitive s ==> real_model`), `SP.lemma_entries` / `SP.lemma_check_document`
+(`needs_real_semantics s entries ==> real_model`, where `needs_real_semantics` is `real_primitive s` and an
+`ArithmeticFarkas` or `RewriteRule` entry or an entry whose formula is a closed Real order clause
+(`real_order_entry`); for binder certificates `real_primitive s ==> real_model`) and
+`SP.lemma_check_document_epsilon` (`real_primitive s ==> real_model`, transferred to the epsilon/dependent-Skolem
+extension by `SP.lemma_full_extension_real_model`: a Skolem witness is never a classified Real operator,
+[`Z3SortedRealExtension.fst`](Z3SortedRealExtension.fst)). Generic documents without Farkas, rewrite or binder
+entries keep their unconditional statements. `Z3SortedRootDocument.lemma_root_check_node`,
+`lemma_root_check_document` and `lemma_root_check_document_epsilon` (hence `lemma_root_certified` and
+`lemma_root_certified_epsilon`) discharge the premise with `Z3SortedRealRoot.lemma_root_real_model` of the SAME
+root model; `lemma_epsilon_real_laws` / `lemma_epsilon_real_agreement` show that the epsilon extension keeps every
+canonical Real operator. The read view keeps `ArithmeticFarkas` coefficients and the `RewriteRule` label; coverage
+needs no extension (coefficients are numbers; every literal and atom is a subterm of a covered entry formula).
+
+**Quant-intro replay.** `Z3NnfReplay.replay_with real` takes the gate as a parameter; `Z3SortedProof` passes
+`RL.real_primitive s`, and `replay` (every previous caller) is `replay_with false`. Under the gate a `rewrite` leaf
+the previous checks refuse is replayed when `LIN.real_equivalent` decides it (`real_rewrite_ok`); its lemma
+(`lemma_real_rewrite_at`) requires `real ==> RL.real_model`, so a test that sets the flag must supply the Real laws
+(which contain `real_primitive`). Captured Pulse.Class.PtsTo q1 nodes 114 (`>` to `not <=`, the renormalized `>=`)
+and 176 (binary Real `*` commutation) replay with the gate and stay pending without it
+([`Z3SortedRealReplayTests.fst`](Z3SortedRealReplayTests.fst)). On the saved capture of that query (Marshal (schema, doc), sha256 `a3380b33...`, 208 entries; PARTIAL 15 with
+the 9af checker), the same check now leaves 6 pending (5 `th-lemma`, 1 `rewrite`): the 7 Real Farkas steps are
+accepted by `real_farkas` and quant-intro nodes 114 and 176 by the gated replay.
+
+**ITE laws (S1).** `Z3NnfReplay.ite_rewritten` replays, at every result sort, `ite (not c) x y = ite c y x`,
+`ite c1 x (ite c2 x y) = ite (or c1 c2) x y` and `ite c1 (ite c2 x y) y = ite (and c1 c2) x y` (with the
+producer's one-level flattening of `and`), by exact structural identity and the canonical `ite` declaration
+(`T.Choice`); `lemma_ite_rewritten_at` proves them in every Sorted model at every scope. A Real subterm is an
+opaque operand of these laws. They apply on two paths: as `rewrite` leaves of a replayed `quant-intro` certificate
+(at the leaf's binder scope, `rewrite_ok`), and as a premise-free top-level `rewrite` step with a closed equation,
+the direct path `SP.ite_rewrite` (the same check at the scope `[]`). The direct path has no schema gate and no new
+hypothesis: `lemma_ite_rewrite` is `lemma_ite_rewritten_at` at the scope `[]` and the empty environment, so the
+node, document, epsilon and Root theorems cover it unchanged; the read view keeps the `RewriteRule` label (the
+decision is unchanged on it) and the equation is a covered entry formula.
+They are the replayed fragment of the captured Term-ITE leaves; the residual ITE shapes recorded on the captured
+cohort stay pending (no law for them yet): 5 leaves `ite c1 (ite c2 t1 t2) t1 = ite (and c1 (not c2)) t2 t1`
+(`bool_rewriter::mk_ite_core`, merge with a negated inner guard), 6 or-with-negation merges, and 1 leaf that
+lifts an `ite` into a function application. The laws do not read the Real gate.
+
+**Real equality/order laws.** Two more checks read the same Real laws (no new hypothesis, no new Root law).
+
+- `SP.real_order` is the Real mirror of the Int `order_clause`: the producer's arith_eq_adapter (`th-lemma ... triangle-eq`)
+  clauses over two Real terms x and y, `not (x = y) \/ c` with c one of `x <= y`, `x >= y`, `x = y` or the same on
+  `x + (-1)*y` / `(-1)*y + x` against the numeral 0, and the three-literal `(x = y) \/ not c1 \/ not c2` with c1, c2 opposite
+  bounds on x - y (any literal order). Formula-based like the Int check: the rule label, premises and payload are never
+  read (any rule but the leaves and the lemma rule), the Root read view is unchanged and no term beyond the covered entry
+  formula is consumed. x and y are arbitrary Real terms read only as their typed Real values and matched by
+  expression identity (nothing is linearized or searched). The equation, comparisons, `+`, `*` and the numerals 0 and
+  -1 are classified by their full canonical declaration (`RL.classify`: interpretation tag, domain, range, numeral
+  parameters), never by name, so a counterfeit or twin declaration, a numeral written -2/2 and the Real `-` are
+  outside the fragment; a strict comparison is not implied by an equation and is no bound. At most three literals, and
+  the clause must pass `NR.shallow` (4,096 levels, 2^20 pops, iterative) before any comparison. The gate is the
+  executed schema check `RL.real_primitive s`. Laws: `RO.lemma_real_offset`, `lemma_real_implied_by_equation`,
+  `lemma_real_bound` (Z3SortedRealOrder) and `SP.lemma_real_equation_order`, `lemma_real_antisymmetric`,
+  `lemma_real_order_clause`, `lemma_real_order` (every Sorted model satisfying the Real laws, hence every root
+  model). It is a disjunct of `check_node_cached` next to `real_rewrite`, is part of `real_node`, and its entries
+  are counted by `needs_real_semantics`.
+- `LIN.real_equivalent` (the Real rewrite check, used by `SP.real_rewrite` and, through `real_rewrite_ok`, by the
+  rewrite leaves of quant-intro certificates) also decides Real equations: the difference polynomials of the two
+  equations are the same, opposite or proportional by a nonzero factor (`LIN.real_equation_equivalent`, the existing
+  `RW.equation_equivalent` read on Real equations only), and an equation whose monomials all cancel is the canonical
+  `true` or `false` (`LIN.real_constant_equation`). `LIN.lemma_real_equation`, `lemma_real_equation_equivalent` and
+  `lemma_real_constant_equation` hold at every scope and typed environment, so the quant-intro replay is covered by
+  the unchanged `NR.lemma_real_rewrite_at`. Budgets are unchanged (256 nodes per side, linearize fuel 64). The
+  proportionality test (`RW.proportional_polynomial false`) reads only the integer NUMERATORS of the two difference
+  polynomials and not their denominators. That is complete and sound for equations, not a limitation: a difference
+  polynomial stands for its numerator divided by a positive denominator, so two equations are equivalent exactly when
+  the numerators are proportional by a nonzero rational factor, whatever the denominators are (`c/2 = 1/4` and
+  `2c = 1` have difference polynomials with denominators 8 and 1 and equal numerators and are accepted, while
+  `c/2 = 1/4` and `2c = 1/2` are different equations, c = 1/2 against c = 1/4, and stay pending). The invariant is a
+  theorem for every pair of positive denominators (`Z3SortedRealOrderTests.o6_equation_zero_rational`, from
+  `RW.lemma_proportional_polynomial` and `lemma_denotes_zero`), and the tests (section O6) run the production helper
+  on Real fractions: non-unit and mismatched denominators, positive and negative rational scales, both
+  orientations, and the refusals of a changed constant, sign, ratio, a zero factor and strictness. Int equations,
+  negated equations, `to_int`/`is_int` and nonlinear normalization are outside.
+
+Tests: [`Z3SortedRealOrderTests.fst`](Z3SortedRealOrderTests.fst) (the hosted shapes, every refusal, the two-route
+documents RootCertified and false in every root model, counter-models of the false mutants at concrete Real
+environments in the standard root, the quant-intro leaf, the laws in every root model), OCaml groups
+`sorted-real-order-clauses` and `sorted-real-equation-rewrites` (z3's own proofs, marshalled mutants, the depth bound
+n = 4,093 / 4,094 / 200,000), Cherry `real_order_controls` and `real_equation_controls`. A valid clause written in an
+unsupported shape (Real `-`, a bound not against the numeral 0, a strict literal, four literals) is a shape-refusal
+control in these tests, not a false mutant.
+
+**Unsupported (pending, with the rule's own diagnostic).** `to_int`, `is_int` (no interpretation tag in the
+operator vocabulary), `div0`/Real division by zero, floor, Int `div`/`mod` at Real, nonlinear Real products
+beyond binary commutation, n-ary factor permutations, `(x = y) = (x <= y and x >= y)` and other equality splits,
+coefficient-free Real consequences (no recomputed Real certificate), mixed comparisons without `to_real`.
+Tests: [`Z3SortedRealTests.fst`](Z3SortedRealTests.fst), [`Z3SortedRealDocumentTests.fst`](Z3SortedRealDocumentTests.fst),
+[`Z3SortedRealReplayTests.fst`](Z3SortedRealReplayTests.fst), OCaml group `sorted-real-Farkas`, Cherry
+`real_farkas_controls`, and `test_sorted_real_certificates_in_both_modes`; for the direct ITE path, section R6 of
+`Z3SortedRealDocumentTests.fst` (the three laws at Bool, Int, Real, an uninterpreted sort, an array sort, a datatype
+and under function applications, RootCertified and false in every root model; also certified with the Real gate
+closed; branch, operator, guard, declaration and twin-constant mutants pending), OCaml group
+`sorted-direct-ite-rewrites`, Cherry `direct_ite_controls` and `test_sorted_direct_ite_rewrites_in_both_modes`.
+
+## Typed Int division laws and the Root model contract
+
+Until run e78cd96c the typed Root class (`Z3TypedRoot.root_model`, R1-R6) left the canonical Int `div` and `mod` free at EVERY
+divisor, so `(or (= d 0) (>= (mod x d) 0))` was false in some root models (retained countermodel: `mod` the constant -1 and
+d = 1, `Z3SortedDivisionRoot.mod_minus_one`). The contract is now narrowed to SMT-LIB's own semantics and nothing beyond:
+
+- `Z3TypedRoot` has two more operator classes, `IntDiv` and `IntMod`, for the canonical declarations only
+  (`canonical_int_division`: the exact name `div`/`mod`, the kind tag `Z3IntegerDivision.op_idiv` 33 / `op_mod` 34, the domain
+  `[Int; Int]`, the range Int and no parameter). A twin with another name, tag, arity, sort (a Real division, a sort merely named
+  Int) or a parameter, and the Real division tag at Int, stay `Other` (free), pinned in `Z3TypedRootTests.int_division_classes`.
+- At a NONZERO divisor R2 fixes the value: `div` is F*'s `x / y`, `mod` is `x % y` (Euclidean: `x = y*(x/y) + x%y`,
+  `0 <= x%y < |y|`, identical to Z3's `div`/`mod` for every divisor); at a ZERO divisor the value stays a free choice of the model
+  (`uf.apply`), exactly as for Real division. Nothing is assumed about `div0`/`mod0`: no identity between a division and its alias
+  is provable, and the guarded clauses are valid only under the guard.
+- The class is smaller, so every theorem quantified over root models keeps its proof (a stronger hypothesis); the class stays
+  inhabited: `lemma_standard_root` is unchanged (the standard model reads `interpreted`) and
+  `Z3SortedDivisionRoot.lemma_standard_division_root` / `lemma_standard_joint_root` show that the standard root of EVERY
+  uninterpreted carrier and free symbol satisfies R1-R6, the Real laws (when the Real gate holds) and the Sorted division laws at
+  once. Epsilon/dependent-Skolem overrides only change tagless witness symbols, so they keep the laws
+  (`Z3SortedDivisionExtension`, and `Z3SortedRootDocument.lemma_root_epsilon_extension` for the root laws).
+- The Sorted layers (`Z3SortedInteger`, `Z3SortedSemantics`) are unchanged and still pass `div`/`mod` to the interpretation;
+  `Z3SortedIntDivision.division_laws` is a hypothesis about that interpretation, DERIVED from R2 of the same root model
+  (`Z3SortedDivisionRoot.lemma_root_division_laws`), never assumed. The legacy `Z3IntegerDivision.division_model` is not used.
+
+**Guarded Int div/mod clauses.** `SP.division_order` checks z3's arithmetic div/mod axioms for a non-numeral divisor, the
+producer's premise-free `th-lemma` clauses over two Int terms x and d, with q = `div x d` and m = `mod x d` the CANONICAL
+declarations (`DV.classify`: exact name, kind tag, domain, range and parameters, never a name alone):
+
+| template | clause |
+|---|---|
+| mod bounded below | `d = 0 \/ m >= 0` |
+| mod bounded above, positive divisor | `d <= 0 \/ m + (-1)*d <= -1` (`AR.difference`: either operand order) |
+| mod bounded above, negative divisor | `d >= 0 \/ m + d <= -1` |
+| decomposition | `d = 0 \/ x = d*q + m` (and the sides of the equation swapped) |
+
+in either literal order, with the guard against the canonical Int numeral 0, the bound against the canonical Int numeral -1, `+`
+and `*` the canonical Int operators (two operands) and the guard's d the very d of the division. x and d are arbitrary Int terms
+(an opaque application, a datatype accessor, a product), read only as their typed Int values in the same Sorted interpretation
+and matched by expression identity. Formula-based: the rule label, premises and payload are never read (any rule but the leaves
+and the lemma rule), the Root read view is unchanged and no term beyond the covered entry formula is consumed. Two literals, and
+the clause must pass `NR.shallow` (4,096 levels, 2^20 pops, iterative) before any comparison. No schema gate: Int is never a
+datatype sort of a checked schema. Laws: `SP.lemma_remainder_lower`, `lemma_remainder_upper_positive`,
+`lemma_remainder_upper_negative`, `lemma_decomposed`, `lemma_remainder_decomposition`, `lemma_division_clause`,
+`lemma_division_order` (every Sorted model satisfying `DV.division_laws`, hence every root model), from the atoms of
+`Z3SortedIntDivision` (`zero_guard`, `sign_guard`, `remainder_arguments`, `quotient_arguments` and their lemmas at every scope)
+and `DV.lemma_euclid`. It is a disjunct of `check_node_cached` next to `real_order`, is part of `division_node`, and its entries
+are counted by `needs_division_semantics`.
+
+Outside (pending): a clause with another guard or bound (a weaker guard such as `d <= 0 \/ m >= 0` is a VALID clause in an
+unsupported shape), zero on the left of the guard, a commuted product `(div x d) * d`, summands exchanged, a strict bound, a
+third literal, an unguarded alias of a division with its `div0`/`mod0`, a lookalike `div`/`mod` (no kind tag, a twin parameter,
+another name, the Real division tag, a sort merely named Int) and a counterfeit guard `=` or numeral. The producer's other
+div/mod lemmas (`(>= (+ x (* -1 (* (div x d) d))) 0)`, a `d = 2` substitution, five literals) are not in this fragment.
+
+**Theorem doors.** `SP.lemma_check_node_cached` requires `division_node node ==> DV.division_laws s bc eq other`;
+`SP.lemma_entries` and `SP.lemma_check_document` require `needs_division_semantics entries ==> DV.division_laws`;
+`SP.lemma_check_document_epsilon` requires `DV.division_laws s bc eq other` and transfers it to the epsilon and dependent-Skolem
+extension (`SP.lemma_full_extension_division`: a witness is never a classified division operator,
+[`Z3SortedDivisionExtension.fst`](Z3SortedDivisionExtension.fst)). Documents without a guarded division clause keep their
+unconditional statements. `Z3SortedRootDocument.lemma_root_check_node`, `lemma_root_check_document` and
+`lemma_root_check_document_epsilon` discharge the premise with `Z3SortedDivisionRoot.lemma_root_division_laws` of the SAME root
+model.
+
+Tests: [`Z3SortedIntDivisionTests.fst`](Z3SortedIntDivisionTests.fst) (the five templates over opaque, compound and
+uninterpreted-function operands in both literal orders checked by `division_order` alone; the refusals: missing or wrong guard,
+wrong bound, mod and div exchanged, a guard on x, a wrong coefficient or operand of the decomposition, lookalike declarations,
+the unguarded div0 alias; valid clauses in an unsupported shape as SHAPE controls, not false mutants; documents RootCertified on
+both routes and false in every root model, the same documents with a wrong clause RootPending; the clause theorem in every root
+model; counter-models of the false mutants in the standard root of an adversarial free choice at a zero divisor, at concrete
+typed environments, and the positive instances), OCaml group `sorted-int-division-clauses` (z3's own proofs, marshalled
+mutants, the depth bound n = 4,093 / 4,094 / 200,000), Cherry `int_division_controls`.
 
 ## Native LP inference certificates
 

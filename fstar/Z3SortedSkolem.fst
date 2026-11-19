@@ -144,6 +144,17 @@ let exists_model (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
                  (other:V.interpretation base (S.signature s)) : prop =
   forall (bound:list sort) (body:Q.ghost_body base s bound). exists_case s bc other bound body
 
+let lemma_signature_application_fresh (#base:sort -> Type0) (s:S.checked_schema)
+                                      (bc:S.boolean_carrier base)
+                                      (other:V.interpretation base (S.signature s))
+                                      (d:definition s)
+                                      (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
+                                      (f:func_decl) (args:V.arguments base (S.signature s) f.domain)
+  : Lemma (requires SK.component f d.witnesses == None)
+          (ensures S.application s bc other f args ==
+                   S.application s bc (override s d vs other) f args) =
+  ()
+
 let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                             (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
@@ -151,7 +162,7 @@ let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
   : Lemma (requires SK.component f d.witnesses == None)
           (ensures T.application s bc eq other f args ==
                    T.application s bc eq (override s d vs other) f args) =
-  ()
+  lemma_signature_application_fresh s bc other d vs f args
 
 let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

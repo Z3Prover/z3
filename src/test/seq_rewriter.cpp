@@ -37,6 +37,7 @@ Tests:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_skolem.h"
+#include "model/model.h"
 #include "smt/smt_context.h"
 #include <iostream>
 #include <string>
@@ -69,6 +70,57 @@ static void tst_eq_skolem_arity() {
     expr_ref marker(sk.mk_eq(x, y));
     ENSURE(sk.is_eq(marker, a, b));
     ENSURE(a == x && b == y);
+}
+
+static void tst_nested_sequence_models() {
+    for (bool uninterpreted : {false, true}) {
+        for (unsigned seed : {0u, 1u}) {
+            for (unsigned length : {0u, 1u, 3u}) {
+                for (unsigned variant = 0; variant < 4; ++variant) {
+                    ast_manager m;
+                    reg_decl_plugins(m);
+                    seq_util su(m);
+                    arith_util a(m);
+                    sort_ref element(uninterpreted ? m.mk_uninterpreted_sort(symbol("U")) : a.mk_int(), m);
+                    sort_ref inner_sort(su.str.mk_seq(element), m);
+                    sort_ref outer_sort(su.str.mk_seq(inner_sort), m);
+                    app_ref s(m.mk_const("s", outer_sort), m);
+                    expr_ref nth(su.str.mk_nth(s, a.mk_int(0)), m);
+                    expr_ref inner(nth);
+                    expr_ref_vector assertions(m);
+                    if (variant == 1) {
+                        expr_ref outer_length(su.str.mk_length(s), m);
+                        assertions.push_back(a.mk_ge(outer_length, a.mk_int(1)));
+                    }
+                    if (variant == 2) {
+                        inner = m.mk_const("t", inner_sort);
+                        assertions.push_back(m.mk_eq(inner, nth));
+                    }
+                    if (variant == 3) {
+                        expr_ref outer_length(su.str.mk_length(s), m);
+                        assertions.push_back(m.mk_eq(outer_length, a.mk_int(2)));
+                        expr_ref second(su.str.mk_nth(s, a.mk_int(1)), m);
+                        expr_ref second_length(su.str.mk_length(second), m);
+                        assertions.push_back(m.mk_eq(second_length, a.mk_int(length + 1)));
+                    }
+                    expr_ref inner_length(su.str.mk_length(inner), m);
+                    assertions.push_back(m.mk_eq(inner_length, a.mk_int(length)));
+                    smt_params sp;
+                    sp.m_random_seed = seed;
+                    smt::context ctx(m, sp);
+                    for (expr* assertion : assertions)
+                        ctx.assert_expr(assertion);
+                    ENSURE(ctx.check() == l_true);
+                    model_ref mdl;
+                    ctx.get_model(mdl);
+                    ENSURE(mdl);
+                    expr_ref value(m);
+                    for (expr* assertion : assertions)
+                        ENSURE(mdl->eval_expr(assertion, value, true) && m.is_true(value));
+                }
+            }
+        }
+    }
 }
 
 static void tst_nested_sequence_assumptions() {
@@ -1354,6 +1406,43 @@ void tst_seq_rewriter() {
         ENSURE(ctx.check() == l_false);
     }
 
+    // 30. Regression for issue #11545: extracting the suffix after the first
+    //     element of x ++ unit(empty) is satisfiable even when x is empty.
+    {
+        arith_util a_util(m);
+        sort* seq_int_sort = su.str.mk_seq(a_util.mk_int());
+        sort* element_sorts[] = { str_sort, seq_int_sort };
+        expr_ref one(a_util.mk_int(1), m);
+        expr_ref zero(a_util.mk_int(0), m);
+        smt_params sp;
+
+        for (sort* element_sort : element_sorts) {
+            sort* sequence_sort = su.str.mk_seq(element_sort);
+            expr_ref empty_element(su.str.mk_empty(element_sort), m);
+            expr_ref empty_sequence(su.str.mk_empty(sequence_sort), m);
+            app_ref a(m.mk_fresh_const("a", sequence_sort), m);
+            app_ref b(m.mk_fresh_const("b", sequence_sort), m);
+            app_ref c(m.mk_fresh_const("c", sequence_sort), m);
+
+            auto t = [&](expr* x) {
+                expr_ref base(su.str.mk_concat(x, su.str.mk_unit(empty_element)), m);
+                return expr_ref(su.str.mk_substr(base, one, su.str.mk_length(x)), m);
+            };
+
+            expr_ref ta = t(a);
+            expr_ref tb = t(b);
+            expr_ref tc = t(c);
+            smt::context ctx(m, sp);
+            ctx.assert_expr(m.mk_eq(ta, empty_sequence));
+            ctx.assert_expr(m.mk_eq(ta, tb));
+            ctx.assert_expr(m.mk_eq(ta, tc));
+            expr_ref nth_b(su.str.mk_nth(b, zero), m);
+            expr_ref nth_c(su.str.mk_nth(c, zero), m);
+            ctx.assert_expr(m.mk_eq(nth_b, nth_c));
+            ENSURE(ctx.check() == l_true);
+        }
+    }
+
     // A sequence of length at most one contains only itself and the empty sequence.
     {
         arith_util a_util(m);
@@ -1368,6 +1457,7 @@ void tst_seq_rewriter() {
         ENSURE(contains == expected);
     }
 
+    tst_nested_sequence_models();
     tst_nested_sequence_assumptions();
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }

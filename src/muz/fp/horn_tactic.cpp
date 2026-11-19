@@ -403,6 +403,10 @@ public:
 
     void operator()(goal_ref const & in,
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         (*m_imp)(in, result);
     }
 
@@ -432,5 +436,7 @@ tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(horn_tactic, true, m, p));
+    tactic * t = alloc(horn_tactic, true, m, p);
+    t->set_display_name("horn-simplify");
+    return clean(t);
 }

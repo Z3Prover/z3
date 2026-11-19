@@ -1,0 +1,22 @@
+{
+  "pull_request": 11554,
+  "head_sha": "86cec18b3477a5ace02713b56eb671161d47c07d",
+  "base_sha": "784b613b57cde61abf05fdbd52fa861195de9acb",
+  "path_prefix": "fstar/audits/pr-11554/86cec18b3477a5ace02713b56eb671161d47c07d/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41965976252",
+  "files": [
+    {
+      "name": "IteLawsAudit.fst",
+      "sha256": "30798b60ef8384eacfee6febfcea0f1514e95484ce233db5652073e3e0659a66"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "7ed441c2203d91b9b7dbea85f7ef55a19b04a9ed51bd6a48502dbe0bd3047593"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "66f34646acfaa472bab58399871e2f1ea03f12eac229104ae51dd1f861cd1823"
+    }
+  ]
+}

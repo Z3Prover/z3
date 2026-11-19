@@ -352,6 +352,7 @@ class params {
     friend class params_ref;
     struct value {
         param_kind m_kind;
+        bool       m_default = false; // set by params_ref::set_default_*
         union {
             bool          m_bool_value;
             unsigned      m_uint_value;
@@ -364,6 +365,7 @@ class params {
         value(const value &) = default;
         value &operator=(value const &other) {
             m_kind = other.m_kind;
+            m_default = other.m_default;
             switch (m_kind) {
             case CPK_BOOL: m_bool_value = other.m_bool_value; break;
             case CPK_UINT: m_uint_value = other.m_uint_value; break;
@@ -380,6 +382,19 @@ class params {
     std::atomic<unsigned> m_ref_count = 0;
     void del_value(entry & e);
     void del_values();
+
+    entry * find(symbol const & k) {
+        for (entry & e : m_entries)
+            if (e.first == k)
+                return &e;
+        return nullptr;
+    }
+    entry const * find(symbol const & k) const { return const_cast<params*>(this)->find(k); }
+    bool has_unflagged(symbol const & k) const {
+        entry const * e = find(k);
+        return e && !e->second.m_default;
+    }
+    void mark_default(symbol const & k) { find(k)->second.m_default = true; }
 
 public:
     ~params() {
@@ -615,6 +630,8 @@ void params_ref::copy_core(params const * src) {
     if (src == nullptr)
         return;
     for (auto const& p : src->m_entries) {
+        if (p.second.m_default && m_params->has_unflagged(p.first))
+            continue;
         switch (p.second.m_kind) {
         case CPK_BOOL:
             m_params->set_bool(p.first, p.second.m_bool_value);
@@ -638,6 +655,8 @@ void params_ref::copy_core(params const * src) {
             UNREACHABLE();
             break;
         }
+        if (p.second.m_default)
+            m_params->mark_default(p.first);
     }
 }
 
@@ -706,6 +725,15 @@ bool params_ref::empty() const {
     if (!m_params)
         return true;
     return m_params->empty();
+}
+
+unsigned params_ref::size() const {
+    return m_params ? m_params->m_entries.size() : 0;
+}
+
+symbol params_ref::get_key(unsigned idx) const {
+    SASSERT(idx < size());
+    return m_params->m_entries[idx].first;
 }
 
 bool params_ref::contains(symbol const & k) const {
@@ -795,6 +823,32 @@ void params_ref::set_sym(char const * k, symbol const & v) {
     m_params->set_sym(k, v);
 }
 
+
+#define SET_DEFAULT(SETTER) {                    \
+    init();                                     \
+    symbol _k(k);                               \
+    if (m_params->has_unflagged(_k))            \
+        return;                                 \
+    m_params->SETTER(_k, v);                    \
+    m_params->mark_default(_k);                 \
+}
+
+void params_ref::set_default_bool(char const * k, bool v) SET_DEFAULT(set_bool)
+void params_ref::set_default_uint(char const * k, unsigned v) SET_DEFAULT(set_uint)
+void params_ref::set_default_double(char const * k, double v) SET_DEFAULT(set_double)
+void params_ref::set_default_str(char const * k, char const * v) SET_DEFAULT(set_str)
+void params_ref::set_default_sym(char const * k, symbol const & v) SET_DEFAULT(set_sym)
+
+bool params_ref::is_default(symbol const & k) const {
+    if (!m_params)
+        return false;
+    auto const * e = m_params->find(k);
+    return e && e->second.m_default;
+}
+
+bool params_ref::is_default(char const * k) const {
+    return is_default(symbol(k));
+}
 
 void params::del_value(entry & e) {
     switch (e.second.m_kind) {
@@ -947,38 +1001,39 @@ symbol params::get_sym(char const * k, symbol const & _default) const {
     GET_VALUE(return it->second.m_sym_value;, CPK_SYMBOL);
 }
 
-#define GET_VALUE2(MATCH_CODE, KIND) {                                  \
+// A local entry flagged as a default yields to the fallback.
+#define GET_VALUE2(GETTER, FIELD_NAME, KIND) {                          \
     if (!empty()) {                                                     \
         TRAVERSE_CONST_ENTRIES(if (it->first == k && it->second.m_kind == KIND) { \
-                MATCH_CODE                                              \
+                if (it->second.m_default)                               \
+                    return fallback.GETTER(k, it->second.FIELD_NAME);   \
+                return it->second.FIELD_NAME;                           \
         });                                                             \
     }                                                                   \
 }
 
-#define GET_SIMPLE_VALUE2(FIELD_NAME, KIND) GET_VALUE2(return it->second.FIELD_NAME;, KIND)
-
 bool params::get_bool(char const * k, params_ref const & fallback, bool _default) const {
-    GET_SIMPLE_VALUE2(m_bool_value, CPK_BOOL);
+    GET_VALUE2(get_bool, m_bool_value, CPK_BOOL);
     return fallback.get_bool(k, _default);
 }
 
 unsigned params::get_uint(char const * k, params_ref const & fallback, unsigned _default) const {
-    GET_SIMPLE_VALUE2(m_uint_value, CPK_UINT);
+    GET_VALUE2(get_uint, m_uint_value, CPK_UINT);
     return fallback.get_uint(k, _default);
 }
 
 double params::get_double(char const * k, params_ref const & fallback, double _default) const {
-    GET_SIMPLE_VALUE2(m_double_value, CPK_DOUBLE);
+    GET_VALUE2(get_double, m_double_value, CPK_DOUBLE);
     return fallback.get_double(k, _default);
 }
 
 char const * params::get_str(char const * k, params_ref const & fallback, char const * _default) const {
-    GET_SIMPLE_VALUE2(m_str_value, CPK_STRING);
+    GET_VALUE2(get_str, m_str_value, CPK_STRING);
     return fallback.get_str(k, _default);
 }
 
 symbol params::get_sym(char const * k, params_ref const & fallback, symbol const & _default) const {
-    GET_VALUE2(return it->second.m_sym_value;, CPK_SYMBOL);
+    GET_VALUE2(get_sym, m_sym_value, CPK_SYMBOL);
     return fallback.get_sym(k, _default);
 }
 
@@ -992,6 +1047,7 @@ symbol params::get_sym(char const * k, params_ref const & fallback, symbol const
 
 #define SET_SIMPLE_VALUE(FIELD_NAME, KIND) SET_VALUE({  \
     del_value(*it);                                     \
+    it->second.m_default = false;                       \
     it->second.m_kind = KIND;                           \
     it->second.FIELD_NAME = v;                          \
 },                                                      \
@@ -1037,6 +1093,7 @@ void params::set_str(char const * k, char const * v) {
 }
 
 #define SET_RAT_VALUE() SET_VALUE({                             \
+    it->second.m_default = false;                               \
     if (it->second.m_kind != CPK_NUMERAL) {                     \
         del_value(*it);                                         \
         it->second.m_kind = CPK_NUMERAL;                        \
@@ -1063,6 +1120,7 @@ void params::set_rat(char const * k, rational const & v) {
 
 #define SET_SYM_VALUE() SET_VALUE({                     \
     del_value(*it);                                     \
+    it->second.m_default = false;                       \
     it->second.m_kind = CPK_SYMBOL;                     \
     it->second.m_sym_value = v.bare_str();              \
 },                                                      \

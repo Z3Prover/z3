@@ -6,9 +6,77 @@
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include <iostream>
 
+static void tst_partial_arithmetic() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    p.set_uint("max_steps", 10000);
+
+    for (auto k : { OP_IDIV, OP_MOD, OP_REM, OP_DIV }) {
+        bool is_int = k != OP_DIV;
+        sort* s = is_int ? a.mk_int() : a.mk_real();
+        expr_ref zero(a.mk_numeral(rational(0), is_int), m);
+        expr_ref one(a.mk_numeral(rational(1), is_int), m);
+        expr_ref four(a.mk_numeral(rational(4), is_int), m);
+        expr_ref z(m.mk_const("z", s), m);
+        expr_ref divisor(a.mk_add(one, z), m);
+        expr_ref division(m.mk_app(a.get_family_id(), k, four, divisor), m);
+        func_decl_ref f0(m);
+        ENSURE(a.is_considered_partially_interpreted(to_app(division)->get_decl(), 2,
+                                                    to_app(division)->get_args(), f0));
+        for (int value : { 0, 5, 7 }) {
+            model mdl(m);
+            expr_ref v0(a.mk_numeral(rational(value), is_int), m);
+            auto* fi = alloc(func_interp, m, 2);
+            fi->set_else(v0);
+            mdl.register_decl(f0, fi);
+            model_evaluator eval(mdl, p);
+            expr_ref condition(a.mk_gt(z, zero), m);
+            expr_ref is_zero(m.mk_eq(divisor, zero), m);
+            expr_ref nonzero(m.mk_not(is_zero), m);
+            expr_ref_vector terms(m);
+            terms.push_back(division);
+            terms.push_back(m.mk_ite(condition, division, v0));
+            terms.push_back(m.mk_ite(condition, v0, division));
+            terms.push_back(m.mk_ite(condition, division, zero));
+            terms.push_back(m.mk_ite(nonzero, division, v0));
+            terms.push_back(a.mk_add(one, division));
+            for (expr* term : terms) {
+                expr_ref result(m);
+                ENSURE(eval.eval(term, result, false));
+                for (int sample : { -2, -1, 0, 1, 3 }) {
+                    expr_ref numeral(a.mk_numeral(rational(sample), is_int), m);
+                    expr_safe_replace subst(m);
+                    subst.insert(z, numeral);
+                    expr_ref original(term, m), reduced(result, m), expected(m), actual(m);
+                    subst(original);
+                    subst(reduced);
+                    ENSURE(eval.eval(original, expected, false));
+                    ENSURE(eval.eval(reduced, actual, false));
+                    ENSURE(a.is_numeral(actual));
+                    ENSURE(actual == expected);
+                }
+
+                expr_ref body(a.mk_gt(term, zero), m);
+                expr_safe_replace subst(m);
+                expr_ref x(m.mk_var(0, s), m);
+                subst.insert(z, x);
+                subst(body);
+                symbol name("x");
+                expr_ref quantified(m.mk_exists(1, &s, &name, body), m);
+                for (bool completion : { false, true })
+                    ENSURE(eval.eval(quantified, result, completion));
+            }
+        }
+    }
+}
+
 void tst_model_evaluator() {
+    tst_partial_arithmetic();
     ast_manager m;
     reg_decl_plugins(m);
     arith_util a(m);
@@ -50,6 +118,27 @@ void tst_model_evaluator() {
     model_evaluator eval(mdl);
 
     expr_ref e(m), v(m);
+
+    for (bool is_int : {true, false}) {
+        expr_ref x(m.mk_const("x", is_int ? a.mk_int() : a.mk_real()), m);
+        expr_ref_vector bounds(m);
+        for (unsigned i = 1; i <= 3; ++i) {
+            expr_ref numeral(a.mk_numeral(rational(i), is_int), m);
+            bounds.push_back(a.mk_le(numeral, x));
+        }
+        unsigned orders[][3] = {
+            {0, 2, 1}, {0, 1, 2}, {1, 0, 2},
+            {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
+        };
+        for (auto const& order : orders) {
+            e = m.mk_and(bounds.get(order[0]), bounds.get(order[1]), bounds.get(order[2]));
+            ENSURE(eval.eval(e, v, false));
+            ENSURE(v == bounds[2]);
+        }
+        e = m.mk_and(bounds.get(2), bounds.get(0));
+        ENSURE(eval.eval(e, v, false));
+        ENSURE(v == bounds[2]);
+    }
 
     {
         symbol nI("N");

@@ -37,8 +37,8 @@ module S = Z3DatatypeSignature
 module D = Z3Definitions
 module L = FStar.List.Tot
 
-let int_s : sort = BaseSort "Int"
-let bool_s : sort = BaseSort "Bool"
+let int_s : sort = (SortApp IntSymbol [])
+let bool_s : sort = (SortApp BoolSymbol [])
 let tree_s : sort = BaseSort "Tree"
 let forest_s : sort = BaseSort "Forest"
 

@@ -5,10 +5,10 @@
    theory of sequences as implemented by the rewrite rules in
    src/ast/rewriter/seq_rewriter.cpp.
 
-   A sequence is modeled as a finite list over an arbitrary element type
-   with decidable equality (`eqtype`); in Z3 the element type is the
-   8-bit bit-vector sort used for characters (for str.* symbols) or an
-   arbitrary sort (for general seq.* symbols). Using lists gives us
+   A sequence is modeled as a finite list over an arbitrary element type.
+   Only operations that compare elements require decidable equality.
+   Strings use Z3's dedicated character sort; general sequences may use
+   any element sort. Using lists gives us
    induction and pattern matching for free while remaining fully
    self-contained (no dependency on FStar.Seq).
 
@@ -40,13 +40,13 @@ module Z3SeqTheory
 (* Sequences                                                          *)
 (* ----------------------------------------------------------------- *)
 
-type seq (a:eqtype) = list a
+type seq (a:Type) = list a
 
-let empty (#a:eqtype) : seq a = []
+let empty (#a:Type) : seq a = []
 
-let unit (#a:eqtype) (x:a) : seq a = [x]
+let unit (#a:Type) (x:a) : seq a = [x]
 
-let rec concat (#a:eqtype) (s t:seq a) : seq a =
+let rec concat (#a:Type) (s t:seq a) : seq a =
   match s with
   | [] -> t
   | x :: s' -> x :: concat s' t
@@ -55,7 +55,7 @@ let rec concat (#a:eqtype) (s t:seq a) : seq a =
 (* Length                                                              *)
 (* ----------------------------------------------------------------- *)
 
-let rec len (#a:eqtype) (s:seq a) : nat =
+let rec len (#a:Type) (s:seq a) : nat =
   match s with
   | [] -> 0
   | _ :: s' -> 1 + len s'
@@ -65,13 +65,13 @@ let rec len (#a:eqtype) (s:seq a) : nat =
 (* ----------------------------------------------------------------- *)
 
 (* The defined, in-range element accessor (Z3's seq.nth_i). *)
-let rec nth (#a:eqtype) (s:seq a) (i:nat{i < len s}) : a =
+let rec nth (#a:Type) (s:seq a) (i:nat{i < len s}) : a =
   match s with
   | [] -> FStar.Pervasives.false_elim ()
   | x :: s' -> if i = 0 then x else nth s' (i - 1)
 
 (* Total accessor: empty outside of range, otherwise a singleton. *)
-let at (#a:eqtype) (s:seq a) (i:int) : seq a =
+let at (#a:Type) (s:seq a) (i:int) : seq a =
   if i < 0 || i >= len s then empty
   else unit (nth s i)
 
@@ -79,12 +79,12 @@ let at (#a:eqtype) (s:seq a) (i:int) : seq a =
 (* drop / take -- helpers used to specify `extract`                   *)
 (* ----------------------------------------------------------------- *)
 
-let rec drop (#a:eqtype) (s:seq a) (n:nat) : seq a =
+let rec drop (#a:Type) (s:seq a) (n:nat) : seq a =
   match s with
   | [] -> []
   | x :: s' -> if n = 0 then s else drop s' (n - 1)
 
-let rec take (#a:eqtype) (s:seq a) (n:nat) : seq a =
+let rec take (#a:Type) (s:seq a) (n:nat) : seq a =
   match s with
   | [] -> []
   | x :: s' -> if n = 0 then [] else x :: take s' (n - 1)
@@ -96,7 +96,7 @@ let rec take (#a:eqtype) (s:seq a) (n:nat) : seq a =
 (* extract s pos ln : the maximal prefix of length min(ln, len s - pos)
    of the suffix of s that starts at position pos; empty when
    pos < 0, ln <= 0, or pos >= len s. *)
-let rec extract_nat (#a:eqtype) (s:seq a) (pos:nat) (ln:nat) : seq a =
+let rec extract_nat (#a:Type) (s:seq a) (pos:nat) (ln:nat) : seq a =
   match s with
   | [] -> []
   | x :: s' ->
@@ -104,7 +104,7 @@ let rec extract_nat (#a:eqtype) (s:seq a) (pos:nat) (ln:nat) : seq a =
     else if ln = 0 then []
     else x :: extract_nat s' 0 (ln - 1)
 
-let extract (#a:eqtype) (s:seq a) (pos:int) (ln:int) : seq a =
+let extract (#a:Type) (s:seq a) (pos:int) (ln:int) : seq a =
   if pos < 0 || ln <= 0 then empty
   else extract_nat s pos ln
 
@@ -112,7 +112,7 @@ let extract (#a:eqtype) (s:seq a) (pos:int) (ln:int) : seq a =
 (* reverse                                                             *)
 (* ----------------------------------------------------------------- *)
 
-let rec reverse (#a:eqtype) (s:seq a) : seq a =
+let rec reverse (#a:Type) (s:seq a) : seq a =
   match s with
   | [] -> []
   | x :: s' -> concat (reverse s') (unit x)
@@ -121,10 +121,10 @@ let rec reverse (#a:eqtype) (s:seq a) : seq a =
 (* power (seq.^ / str.^)                                               *)
 (* ----------------------------------------------------------------- *)
 
-let rec power_nat (#a:eqtype) (s:seq a) (n:nat) : seq a =
+let rec power_nat (#a:Type) (s:seq a) (n:nat) : seq a =
   if n = 0 then empty else concat s (power_nat s (n - 1))
 
-let power (#a:eqtype) (s:seq a) (n:int) : seq a =
+let power (#a:Type) (s:seq a) (n:int) : seq a =
   if n <= 0 then empty else power_nat s n
 
 (* ----------------------------------------------------------------- *)
@@ -139,14 +139,44 @@ let rec is_prefix (#a:eqtype) (p s:seq a) : bool =
      | [] -> false
      | y :: s' -> x = y && is_prefix p' s')
 
+let rec semantic_prefix (#a:Type) (p s:seq a) : GTot bool (decreases p) =
+  match p, s with
+  | [], _ -> true
+  | x :: rest, y :: tail ->
+    FStar.IndefiniteDescription.strong_excluded_middle (x == y) &&
+    semantic_prefix rest tail
+  | _, _ -> false
+
+let rec lemma_semantic_prefix (#a:eqtype) (p s:seq a)
+  : Lemma (semantic_prefix p s == is_prefix p s) (decreases p) =
+  match p, s with
+  | _ :: rest, _ :: tail -> lemma_semantic_prefix rest tail
+  | _, _ -> ()
+
 let is_suffix (#a:eqtype) (p s:seq a) : bool =
   is_prefix (reverse p) (reverse s)
+
+let semantic_suffix (#a:Type) (p s:seq a) : GTot bool =
+  semantic_prefix (reverse p) (reverse s)
+
+let lemma_semantic_suffix (#a:eqtype) (p s:seq a)
+  : Lemma (semantic_suffix p s == is_suffix p s) =
+  lemma_semantic_prefix (reverse p) (reverse s)
 
 let rec contains (#a:eqtype) (s t:seq a) : bool =
   is_prefix t s ||
   (match s with
    | [] -> false
    | _ :: s' -> contains s' t)
+
+let rec semantic_contains (#a:Type) (s t:seq a) : GTot bool (decreases s) =
+  semantic_prefix t s ||
+  (match s with [] -> false | _ :: rest -> semantic_contains rest t)
+
+let rec lemma_semantic_contains (#a:eqtype) (s t:seq a)
+  : Lemma (semantic_contains s t == contains s t) (decreases s) =
+  lemma_semantic_prefix t s;
+  match s with [] -> () | _ :: rest -> lemma_semantic_contains rest t
 
 (* ----------------------------------------------------------------- *)
 (* replace (first occurrence)                                         *)
@@ -162,6 +192,18 @@ let rec replace (#a:eqtype) (s pat rep:seq a) : seq a =
     match s with
     | [] -> []
     | x :: s' -> x :: replace s' pat rep
+
+let rec semantic_replace (#a:Type) (s pat rep:seq a) : GTot (seq a) (decreases s) =
+  if semantic_prefix pat s then concat rep (drop s (len pat))
+  else match s with
+       | [] -> []
+       | x :: rest -> x :: semantic_replace rest pat rep
+
+let rec lemma_semantic_replace (#a:eqtype) (s pat rep:seq a)
+  : Lemma (semantic_replace s pat rep == replace s pat rep) (decreases s) =
+  lemma_semantic_prefix pat s;
+  if is_prefix pat s then ()
+  else match s with [] -> () | _ :: rest -> lemma_semantic_replace rest pat rep
 
 (* ----------------------------------------------------------------- *)
 (* map / mapi / fold_left / fold_lefti                                 *)
@@ -179,28 +221,28 @@ let rec replace (#a:eqtype) (s pat rep:seq a) : seq a =
 (* ----------------------------------------------------------------- *)
 
 (* map f s : apply f to every element of s, left to right. *)
-let rec map (#a #b:eqtype) (f:a -> b) (s:seq a) : seq b =
+let rec map (#a #b:Type) (f:a -> b) (s:seq a) : seq b =
   match s with
   | [] -> []
   | x :: s' -> f x :: map f s'
 
 (* mapi f i s : apply f to every element of s together with its        *)
 (* position, counting up from the starting index i. *)
-let rec mapi (#a #b:eqtype) (f:int -> a -> b) (i:int) (s:seq a) : Tot (seq b) (decreases s) =
+let rec mapi (#a #b:Type) (f:int -> a -> b) (i:int) (s:seq a) : Tot (seq b) (decreases s) =
   match s with
   | [] -> []
   | x :: s' -> f i x :: mapi f (i + 1) s'
 
 (* fold_left f b0 s : left fold of f over s starting from accumulator  *)
 (* b0, i.e. f(...f(f(b0,s_0),s_1)...,s_{n-1}). *)
-let rec fold_left (#a #b:eqtype) (f:b -> a -> b) (b0:b) (s:seq a) : Tot b (decreases s) =
+let rec fold_left (#a #b:Type) (f:b -> a -> b) (b0:b) (s:seq a) : Tot b (decreases s) =
   match s with
   | [] -> b0
   | x :: s' -> fold_left f (f b0 x) s'
 
 (* fold_lefti f i b0 s : indexed left fold, counting the running index *)
 (* up from i as fold_left does with the accumulator. *)
-let rec fold_lefti (#a #b:eqtype) (f:int -> b -> a -> b) (i:int) (b0:b) (s:seq a) : Tot b (decreases s) =
+let rec fold_lefti (#a #b:Type) (f:int -> b -> a -> b) (i:int) (b0:b) (s:seq a) : Tot b (decreases s) =
   match s with
   | [] -> b0
   | x :: s' -> fold_lefti f (i + 1) (f i b0 x) s'

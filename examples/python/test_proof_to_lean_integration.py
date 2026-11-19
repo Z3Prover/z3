@@ -8,6 +8,7 @@ import itertools
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -21,38 +22,50 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
 import proof_preprocessing
+import lean_test_support
 import proof_to_lean
 from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
-    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
+    MODULAR_CHAINS, STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, chained_text, gate_inputs,
+    make_certificate, nested_conjunction, opened_frames, simplified_under_a_unit, swept_frames, time_step_clause,
 )
+
+# One small input per kind of certificate text, for the chains of modules: a propositional
+# refutation (legacy proof object; a private rewrite lemma and the decidability helper), linear real
+# arithmetic (Farkas lemmas), an uninterpreted sort (grind lemmas over the carrier), integer ites
+# (MODULAR_CHAINS: omega, gates stated over folded definitions and unfolded), and arrays (the
+# private lemmas of the array prelude).
+MODULE_INPUTS = {
+    "propositional": (BRANCHING, False),
+    "real arithmetic": ("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
+                        "(assert (or (< x y) (< x z)))(assert (<= y x))(assert (<= z x))", True),
+    # The symbol a/-b is named in a header comment of the text: `/-` there opens no block comment.
+    "uninterpreted sort": ("(declare-sort U 0)(declare-fun f (U) U)(declare-const a U)(declare-const b U)"
+                           "(declare-const a/-b U)(assert (or (= a b) (= a a/-b)))(assert (not (= (f a) (f b))))"
+                           "(assert (not (= (f a) (f a/-b))))", True),
+    "integer ites": (MODULAR_CHAINS, True),
+    "arrays": ("(declare-const a (Array Int Int))(declare-const b (Array Int Int))(declare-const i Int)"
+               "(declare-const j Int)(assert (= b (store a i 5)))(assert (or (= j i) (= (select a j) 7)))"
+               "(assert (not (= (select b j) 5)))(assert (not (= (select b j) 7)))", True),
+}
 
 
 class TestProofToLeanIntegration(unittest.TestCase):
     def check(self, source, certificate):
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked proof.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            self.assertNotIn("Decidable", statement)
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            theorem_rules = {z3.Z3_OP_PR_REWRITE: "rewrite", z3.Z3_OP_PR_DEF_AXIOM: "def_axiom"}
-            theorems = ["unsat"]
-            for node, raw in enumerate(certificate["nodes"]):
-                rule = certificate["declarations"][raw["declaration"]]["kind"]
-                if rule in theorem_rules:
-                    theorems.append("%s_%d" % (theorem_rules[rule], node))
-            output.write_text(text + "".join(
-                "\n#print axioms %s.%s\n" % (namespace, theorem) for theorem in theorems))
-            result = subprocess.run(
-                [str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(result.stdout.count("does not depend on any axioms"), len(theorems))
-            return text
+        theorem_rules = {z3.Z3_OP_PR_REWRITE: "rewrite", z3.Z3_OP_PR_DEF_AXIOM: "def_axiom"}
+        theorems = ["unsat"]
+        for node, raw in enumerate(certificate["nodes"]):
+            rule = certificate["declarations"][raw["declaration"]]["kind"]
+            if rule in theorem_rules:
+                theorems.append("%s_%d" % (theorem_rules[rule], node))
+        text, report = lean_test_support.check(self, source, certificate, theorems=theorems)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
+        self.assertNotIn("Decidable", statement)
+        self.assertEqual(report.count("does not depend on any axioms"), len(theorems))
+        return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
         for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED, UNARY_XOR,
@@ -152,6 +165,212 @@ class TestProofToLeanIntegration(unittest.TestCase):
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             text = self.check(UNARY_XOR_GATES, certificate)
         self.assertEqual(text.count("private theorem def_axiom_"), 2)
+
+    def test_refutations_over_relevant_gates_check(self):
+        # The propositional prover restricted to the gates of z3's unsat
+        # core (test_proof_to_lean checks the search itself): one case split
+        # over the clause's time step, and a gate outside the relevant set
+        # split by Classical.em on its let-bound name.
+        structure, _, _ = time_step_clause()
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 3000):
+            prover = proof_to_lean._PropositionalProver(structure, classical=True)
+            self.assertIsNone(prover.refutation(structure))
+            relevant = proof_to_lean._relevant_structures(prover.order, [structure])
+            lines = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant).refutation(
+                structure)
+        cases = [(structure, lines)]
+        structure, relevant, _ = gate_inputs()
+        cases.append((structure, proof_to_lean._PropositionalProver(
+            structure, classical=True, relevant=relevant).refutation(structure)))
+        for index, (structure, lines) in enumerate(cases):
+            self.assertIsNotNone(lines)
+            source = ["theorem refutation_%d (_atoms : Nat -> Prop)" % index,
+                      "    : Not %s := by" % proof_to_lean._render_structure(structure)]
+            source += ["  " + line for line in lines]
+            with self.subTest(index=index), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "refutation.lean"
+                path.write_text("\n".join(source) + "\n")
+                result = lean_test_support.run_check_lean(path)
+                self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    def test_sweep_declarations_check_in_lean(self):
+        # The declarations of a sweep (test_proof_to_lean checks their shape)
+        # over three frames of two forms of one formula: the gates' own
+        # definitions, as a certificate has for its nodes, the canonical
+        # gates, the links, each a theorem using the ones before it, and the
+        # refutation of the clause through them. The second family's links
+        # need a named gate tied on demand (_open). The third is a
+        # conjunction nested 64 deep against the flat one: one link, proved
+        # through the nested ands, which have none; 600 deep that link is
+        # beyond a link's limits and the refutation itself reads through
+        # the 600 ands. The last is refuted four rounds below the first cut
+        # (_SWEEP_DEPTH), over canonical gates opened on the way.
+        binder = "(_atoms : Nat -> Prop)"
+        for family, size, links in ((swept_frames, 3, 7), (opened_frames, 3, 7), (nested_conjunction, 64, 1),
+                                    (nested_conjunction, 600, 0), (simplified_under_a_unit, 4, 2)):
+            with self.subTest(family=family.__name__, size=size):
+                clause, names = family(size)
+                plain = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names)
+                source = ["set_option maxRecDepth 100000", ""]  # as a certificate has: one definition is 600 wide
+                source += ["def %s %s : Prop := %s" % (name[1:].split()[0], binder, plain._shallow(structure))
+                           for structure, name in names.items()]
+                prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                            scope=("lemma", " _atoms"))
+                declarations, refutation = prover.sweep(("not", clause), [])
+                for name, statement, lines in declarations:
+                    if statement is None:
+                        source.append("def %s %s : Prop := %s" % (name, binder, lines[0]))
+                    else:
+                        source += ["theorem %s %s" % (name, binder), "    : %s := by" % statement]
+                        source += ["  " + line for line in lines]
+                source += ["theorem refutation %s" % binder, "    : Not (Not %s) := by" % names[clause]]
+                source += ["  " + line for line in refutation]
+                self.assertEqual(sum(line.startswith("theorem lemma_s") for line in source), links)
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "sweep.lean"
+                    path.write_text("\n".join(source) + "\n")
+                    result = lean_test_support.run_check_lean(path)
+                    self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    @staticmethod
+    def axioms(report):
+        """The `#print axioms` part of a check's report (the rest names the checked files)."""
+        return report[report.index("'Z3Proofs.NativeCertificate."):]
+
+    def test_certificates_split_into_modules_verify_as_chains(self):
+        # A certificate above proof_to_lean._MODULE_CHARS is checked as a chain of modules, one Lean
+        # process each (test_proof_to_lean checks the split itself). Here the limit is lowered so
+        # that small certificates of every kind of text are split into four modules or more, and
+        # Lean checks each chain: the declarations name those of earlier modules (private in the
+        # one file), unfold their definitions, and the theorem's axioms are those of the one file.
+        for label, (source, clause_log) in MODULE_INPUTS.items():
+            with self.subTest(label=label):
+                certificate = (proof_certificate.export_clause_log_certificate(source) if clause_log
+                               else proof_certificate.export_certificate(source))
+                text, whole = lean_test_support.check(self, source, certificate)
+                self.assertIn("\nprivate theorem ", text)
+                self.assertEqual("/-" in text, "/-" in source)
+                limit = len(text) // 5
+                modules = proof_to_lean.modules(text, limit)
+                self.assertGreaterEqual(len(modules), 4)
+                with patch.object(proof_to_lean, "_MODULE_CHARS", limit):
+                    _, chained = lean_test_support.check(self, source, text=text)
+                self.assertEqual(chained.count("Checking "), len(modules))
+                self.assertEqual(self.axioms(chained), self.axioms(whole))
+                self.assertIn(".unsat' ", self.axioms(chained))
+
+    def test_a_chain_is_rejected_with_any_module_lean_rejects(self):
+        # Every module of a chain is checked under the flags of a single file, and a module is
+        # only read by the later ones after Lean accepted it: a wrong proof, or a `sorry`, in any
+        # module stops the chain there; a module left out, or the last file alone, is rejected;
+        # and an axiom declared in an earlier module is in the theorem's `#print axioms` report.
+        ns = "Z3Proofs.NativeCertificate.pchained"
+        text = chained_text(24) + "\n#print axioms %s.unsat\n" % ns
+        proof = "  intro _h\n  unfold formula_12 at _h\n  exact _h.left\n"
+        lemma = "theorem lemma_12 (_atoms : Nat -> Prop)\n    : (formula_12 _atoms) -> (formula_11 _atoms)"
+        with tempfile.TemporaryDirectory() as directory:
+            paths = proof_to_lean.write_modules(text, Path(directory) / "checked.lean", 1500)
+            self.assertGreaterEqual(len(paths), 5)
+            holder = next(path for path in paths if proof in path.read_text())
+            self.assertNotIn(holder, (paths[0], paths[-1]))
+            self.assertIn(lemma + " := by\n" + proof, holder.read_text())
+            original = holder.read_text()
+            result = lean_test_support.run_check_lean(paths)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            self.assertEqual(result.stdout.count("Checking "), len(paths))
+            self.assertIn("'%s.unsat' does not depend on any axioms" % ns, result.stdout)
+            for label, changed in (("a wrong proof", original.replace(proof, proof.replace("left", "right"))),
+                                   ("sorry", original.replace(proof, "  sorry\n"))):
+                with self.subTest(label=label):
+                    holder.write_text(changed)
+                    result = lean_test_support.run_check_lean(paths)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("error", result.stdout + result.stderr)
+                    self.assertNotIn("Lean checks passed.", result.stdout)
+                    # The chain stops at the rejected module: nothing after it is checked.
+                    self.assertEqual(result.stdout.count("Checking "), paths.index(holder) + 1)
+                    self.assertNotIn("depend", result.stdout)
+            holder.write_text(original.replace(lemma + " := by\n" + proof, "axiom" + lemma[len("theorem"):] + "\n"))
+            result = lean_test_support.run_check_lean(paths)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            self.assertIn("'%s.unsat' depends on axioms: [%s.lemma_12]" % (ns, ns), " ".join(result.stdout.split()))
+            holder.write_text(original)
+            for label, files in (("the last file alone", paths[-1]), ("a module left out", paths[:1] + paths[2:]),
+                                 ("the modules out of order", paths[1:-1] + paths[:1] + paths[-1:])):
+                with self.subTest(label=label):
+                    result = lean_test_support.run_check_lean(files)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertNotIn("Lean checks passed.", result.stdout)
+                    self.assertNotIn("depend", result.stdout)
+
+    def test_check_requires_every_reconstructed_text_to_split_into_modules(self):
+        # No Lean. Only a certificate above proof_to_lean._MODULE_CHARS is split, and the fast
+        # tier has none; so lean_test_support.check splits every text it reconstructs, of any
+        # size, and a top-level command the splitter does not know fails the test of the small
+        # certificate that has it (2026-11-14: the 1,632 texts of these tests all split).
+        text = chained_text(6)
+        with patch.object(lean_test_support, "run_check_lean") as checker:
+            checker.return_value = subprocess.CompletedProcess([], 0, "'x.unsat' Lean checks passed.\n", "")
+            with patch.object(proof_to_lean, "reconstruct", return_value=text):
+                self.assertEqual(lean_test_support.check(self, "chained", {})[0], text)
+            self.assertEqual(checker.call_count, 1)
+            changed = text.replace("\ndef formula_3 ", "\nopen Classical\ndef formula_3 ")
+            with patch.object(proof_to_lean, "reconstruct", return_value=changed):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot split Lean text at the line"):
+                    lean_test_support.check(self, "chained", {})
+            self.assertEqual(checker.call_count, 1)  # rejected before Lean is run
+            # A text the caller supplies is checked as it is (tests alter texts on purpose).
+            lean_test_support.check(self, "chained", text=changed)
+            self.assertEqual(checker.call_count, 2)
+
+    def test_a_split_certificate_is_published_with_the_modules_it_imports(self):
+        # check_and_write through the real checker: the chain is checked, and the published
+        # files (the modules next to the output, under their module names) check again as they are.
+        certificate = proof_certificate.export_certificate(BRANCHING)
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean, "_MODULE_CHARS", 1000):
+            output = Path(directory) / "proof.lean"
+            published = proof_to_lean.check_and_write(BRANCHING, certificate, output)
+            self.assertGreaterEqual(len(published), 3)
+            self.assertEqual(published[-1], output)
+            self.assertEqual(sorted(Path(directory).iterdir()), sorted(published))
+            self.assertIn("\nimport %s\n" % published[-2].stem, output.read_text())
+            self.assertIn("\ntheorem unsat ", output.read_text())
+            result = lean_test_support.run_check_lean(published)
+            self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+            # A chain Lean rejects publishes nothing: here it is given last file first, so the
+            # modules that file imports have not been checked.
+            (Path(directory) / "other").mkdir()
+            with patch.object(proof_to_lean, "check_command", lambda paths: [
+                    str(proof_to_lean._CHECK_LEAN), "--chain"] + [str(path) for path in reversed(paths)]):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    proof_to_lean.check_and_write(BRANCHING, certificate, Path(directory) / "other" / "proof.lean")
+            self.assertEqual(list((Path(directory) / "other").iterdir()), [])
+
+    def test_sweep_gives_up_on_a_thousand_nested_conjunctions_before_any_search(self):
+        # No Lean: the limits of a sweep as they are (test_proof_to_lean
+        # lowers them). The and classes of a conjunction nested a thousand
+        # deep have half a million members, above _SWEEP_MEMBERS, so the
+        # formula is not swept, and that is known from the classes alone;
+        # 400 deep it is within both limits: 81 thousand members, and 80
+        # thousand characters, twice those of 200 levels, since the nested
+        # ands are read through (with a link and a canonical gate each
+        # they took 15 of the 16 million characters, four times those of
+        # 200 levels).
+        def sweep(count):
+            clause, names = nested_conjunction(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [])
+
+        prover, found = sweep(1000)
+        self.assertIsNone(found)
+        self.assertIsNone(prover.links)
+        self.assertEqual((prover.proved, prover.spent), ({}, 0))
+        prover, found = sweep(400)
+        self.assertIsNotNone(found)
+        self.assertLess(prover.members, proof_to_lean._SWEEP_MEMBERS // 2)
+        self.assertLess(prover.spent, 100000)
+        self.assertLess(prover.spent, 2.5 * sweep(200)[0].spent)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
@@ -594,9 +813,28 @@ class TestProofToLeanIntegration(unittest.TestCase):
             ("unit-resolution", [9, 1], "false"),
         ])
         text = self.check(source, certificate)
-        self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
-                         sum(certificate["rule_counts"].values()))
+        # Each step is bound once, except the hypotheses: their users name
+        # them by their binders (the hypothesis p is used twice).
+        self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:= )", text, re.MULTILINE)),
+                         sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
+        self.assertNotRegex(text, r"let _step_\d+ := _step_\d+ _hyp\d+\n")
         self.assertNotIn("cases _d", text)
+
+    def test_hypothesis_premise_of_a_lemma_used_by_another_step(self):
+        # The hypothesis false is the premise of a lemma, which discharges
+        # its binder, so it keeps a step of its own; the resolution that also
+        # uses it re-applies that step to the binder, in place
+        # (_reapplications_in_place).
+        source = "(declare-const p Bool)(assert p)(assert (not p))"
+        text = self.check(source, make_certificate(source, [
+            ("hypothesis", [], "false"),
+            ("unit-resolution", [2], "false"),
+            ("lemma", [2], "(not false)"),
+            ("lemma", [3], "(not false)"),
+            ("unit-resolution", [0, 1], "false"),
+        ]))
+        self.assertRegex(text, r"let (_step_\d+) \((_hyp\d+) : [^\n]*\n +\2\n(.*\n)* +\(False\.elim \(\1 \2\)\)\n")
+        self.assertNotRegex(text, r"let (_step_\d+) := \1 _hyp")
 
     def test_scoped_structural_proofs_and_double_negation(self):
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
@@ -1050,6 +1288,42 @@ class TestProofToLeanIntegration(unittest.TestCase):
             ("unit-resolution", [4, 2, 3], "false"),
         ]))
 
+    def test_last_kept_literal_is_resolved_on_the_right(self):
+        # When every literal after the last kept one is eliminated, the
+        # resolution is Or.resolve_right on that tail instead of an Or.elim
+        # case split: one refutation of a last literal, or a fun refuting
+        # a longer tail, false literals included. A literal (not q)
+        # eliminated by a proof of q is cut by Or.neg_resolve_right or
+        # Or.neg_resolve_left on that proof, also inside a longer tail.
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        for assertions, units, conclusion, splits in [
+            (["(or p q)", "(not q)"], [1], "p", 0),
+            (["(or p (not q))", "q"], [1], "p", 0),
+            (["(or (not q) p (not r))", "q", "r"], [1, 2], "p", 0),
+            (["(or (not q) p (not r) s)", "q", "r", "(not s)"], [1, 2, 3], "p", 0),
+            (["(or q p r)", "(not q)", "(not r)"], [1, 2], "p", 0),
+            (["(or p q r s)", "(not q)", "(not r)", "(not s)"], [1, 2, 3], "p", 0),
+            (["(or p q false)", "(not q)"], [1], "p", 0),
+            (["(or p false)"], [], "p", 0),
+            (["(or p q r)", "(not r)"], [1], "(or p q)", 1),
+            (["(or p q r)", "(not r)"], [1], "(or q p)", 1),
+            (["(or p q r s)", "(not q)", "(not s)"], [1, 2], "(or r p)", 1),
+        ]:
+            with self.subTest(clause=assertions[0], conclusion=conclusion):
+                # The kept literals are refuted by assertions after the others.
+                refuted = ["(not %s)" % atom for atom in "pqrs" if re.search(r"\b%s\b" % atom, conclusion)]
+                full = source + "".join("(assert %s)" % assertion for assertion in assertions + refuted)
+                resolvent = len(assertions) + len(refuted)
+                text = self.check(full, make_certificate(full, [
+                    ("unit-resolution", [0] + units, conclusion),
+                    ("unit-resolution", [resolvent] + list(range(len(assertions), resolvent)), "false"),
+                ]))
+                self.assertRegex(text, r"\.(neg_)?resolve_right ")
+                self.assertEqual(text.count("Or.elim"), splits)
+                negated = len(re.findall(r"\(not [qrs]\)", assertions[0]))
+                self.assertEqual(text.count(".neg_resolve_"), negated)
+                self.assertNotIn("fun _literal => _literal _", text)
+
     def test_empty_singleton_and_false_containing_clauses(self):
         for clause in ["false", "(or p)", "(or false p)", "(or p false)"]:
             with self.subTest(clause=clause):
@@ -1262,7 +1536,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertNotIn("Classical", text)
         self.assertIn("  refute_with_decidable", text)
         closing = text.rstrip().splitlines()[-3]  # the main theorem's body, before "end"
-        self.assertRegex(closing, r"^  proof_step_%d _atoms \(And\.intro .*\)( _df?\d+)+$" % certificate["proof"])
+        self.assertRegex(closing, r"^  @proof_step_%d _atoms \(Inputs\.mk \(And\.intro .*\)\)( _df?\d+)+$"
+                         % certificate["proof"])
 
 
 if __name__ == "__main__":

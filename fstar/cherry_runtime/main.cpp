@@ -52,9 +52,21 @@ struct Options {
 };
 
 static std::string sort_shape(Z3AstTheory_sort sort, unsigned depth) {
-    if (cherry_tag(sort) == Z3ASTTHEORY_BASESORT) {
-        auto name = text(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(sort)->name);
-        return name == "Bool" || name == "Int" || name == "Real" ? name : "U";
+    if (cherry_tag(sort) == Z3ASTTHEORY_BASESORT)
+        return "U";
+    if (cherry_tag(sort) == Z3ASTTHEORY_SORTAPP) {
+        auto* app = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(sort);
+        std::string result = readable::sort_symbol_text(app->symbol);
+        if (!depth || cherry_is_scalar(app->arguments))
+            return result;
+        result += "[";
+        bool first = true;
+        each<Prims_list__sort_Cons_s>(app->arguments, [&](auto argument) {
+            if (!std::exchange(first, false))
+                result += ",";
+            result += sort_shape(argument, depth - 1);
+        });
+        return result + "]";
     }
     if (!depth)
         return "Array";
@@ -237,6 +249,20 @@ class Pretty {
     std::string sort(Z3AstTheory_sort value, unsigned depth) {
         if (cherry_tag(value) == Z3ASTTHEORY_BASESORT)
             return symbol(original_name("sort", text(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(value)->name)));
+        if (cherry_tag(value) == Z3ASTTHEORY_SORTAPP) {
+            auto* app = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(value);
+            std::string result = readable::sort_symbol_text(app->symbol);
+            if (!depth || cherry_is_scalar(app->arguments))
+                return result;
+            result += "[";
+            bool first = true;
+            each<Prims_list__sort_Cons_s>(app->arguments, [&](auto argument) {
+                if (!std::exchange(first, false))
+                    result += ", ";
+                result += sort(argument, depth - 1);
+            });
+            return result + "]";
+        }
         auto* array = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(value);
         if (!depth || length_up_to<Prims_list__sort_Cons_s>(array->domain, 32) > 32)
             return "Array";

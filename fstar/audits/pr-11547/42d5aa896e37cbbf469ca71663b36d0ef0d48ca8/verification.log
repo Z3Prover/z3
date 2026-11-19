@@ -1,0 +1,6 @@
+$ fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --include fstar --cache_dir c --odir o --z3rlimit 10 Z3PR11547Throw.fst
+stdout:
+Verified module: Z3PR11547Throw
+All verification conditions discharged successfully
+stderr:
+exit code: 0

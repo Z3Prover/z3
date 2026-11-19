@@ -36,6 +36,27 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
 static char const* example1 = "(<= (+ (* 1.3 x y) (* 2.3 y y) (* (- 1.1 x x))) 2.2)";
 static char const* example2 = "(= (+ 4 3 (- (* 3 x x) (* 5 y)) y) 0)";
 
+static void check_arith_ineq_lhs() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    for (bool lhs : {false, true}) {
+        params_ref p;
+        p.set_bool("arith_ineq_lhs", true);
+        p.set_bool("arith_lhs", lhs);
+        th_rewriter rw(m, p);
+        expr_ref eq = parse_fml(m, "(= (+ x y) (+ a b))");
+        expr_ref le = parse_fml(m, "(<= (+ x y) (+ a b))");
+        rw(eq);
+        rw(le);
+        expr *left = nullptr, *right = nullptr;
+        ENSURE(m.is_eq(eq, left, right));
+        ENSURE((a.is_numeral(left) || a.is_numeral(right)) == lhs);
+        ENSURE(a.is_le(le, left, right));
+        ENSURE(a.is_numeral(right));
+    }
+}
+
 static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
     cmd_context ctx(false, &m);
@@ -99,16 +120,16 @@ static void check_power_declarations() {
     sort* reals[2] = { a.mk_real(), a.mk_real() };
     sort* invalid[2] = { a.mk_int(), m.mk_bool_sort() };
     for (unsigned arity : {1u, 3u}) {
-        reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
-        reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
+        reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
+        reject([&] { (void)m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
     }
     parameter index(2);
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
-    reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
+    reject([&] { (void)m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
     reject([&] { a.mk_power(i, m.mk_true()); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
     for (bool coercions : {false, true}) {
         m.enable_int_real_coercions(coercions);
         for (expr* base : {i.get(), r.get()}) {
@@ -394,6 +415,7 @@ static void tst_inverse_trig_domains() {
 }
 
 void tst_arith_rewriter() {
+    check_arith_ineq_lhs();
     check_integer_power_syntax();
     check_power_declarations();
     check_real_zero_power();

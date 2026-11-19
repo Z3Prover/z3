@@ -1,0 +1,22 @@
+{
+  "pull_request": 11668,
+  "head_sha": "f2ce8042347396272b57e6f1185cda36f1150dec",
+  "base_sha": "f88557ef970a2997eae33a4a6644a6563fff49cb",
+  "path_prefix": "fstar/audits/pr-11668/f2ce8042347396272b57e6f1185cda36f1150dec/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43156200877",
+  "files": [
+    {
+      "name": "Rem0Refactor.fst",
+      "sha256": "a76ad934504099e9b23332b2284ab4dd678f3b57e494015fd952c68817724db6"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "e87b06d427bdbbcb4fb1d94c646f57aa42d67008f96d2e680e4b39805fc7da8d"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "233cbdc5fe7e27d92d6f0099c43dde359548aea1134e6a9d29f727dbfafce450"
+    }
+  ]
+}

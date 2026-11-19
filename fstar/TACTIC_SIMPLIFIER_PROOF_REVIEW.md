@@ -8,6 +8,47 @@ that revision; subsequent dispositions are recorded separately.
 
 ## Subsequent dispositions
 
+### Proof-mode no-op policy
+
+Unsupported tactics and transformations with known-invalid proof certificates
+are skipped before changing a proof-enabled goal. This includes `dt2bv`,
+`bit-blast`, `fpa2bv`, `fix-dl-var`, `normalize-bounds`, `lia2card`,
+`purify-arith`, `quasi-macros`, and the Horn transformations. The historical
+`dt2bv` class-1 entry below does not authorize its current certificate.
+Unsupported solver-to-tactic backends are likewise skipped. Tactics that already
+rejected proof production with `fail_if_proof_generation` retain that behavior,
+including SAT, NLSAT, QSAT, unit subsumption and parallel backends. `par-then`
+retains its proof-mode rejection in multi-threaded builds; the single-threaded
+implementation remains ordinary sequential composition. `qe_rec` retains its
+proof-capable simplification preamble before the unsupported QSAT stage.
+The finite-field backends `ff-sat`, `ff-solve`, and `ff2bv` retain their existing
+unsupported-certificate exceptions rather than becoming proof-mode no-ops.
+`add-bounds` is skipped rather than introducing artificial asserted premises,
+even though its under-approximation precision already prevents original UNSAT
+claims.
+Sequential SMT is unchanged by #11547, including its existing asserted-false
+bailouts for missing or wrong-conclusion backend certificates. The proposed
+replacement exception was reverted following review; this PR does not repair
+the historical LOGICS-SMT-FABRICATED-FALSE-BAILOUT finding.
+
+Newly disabled tactic implementations check proof mode at their execution entry
+and return the unchanged goal; their factories do not wrap complete pipelines
+in `if_no_proofs`. Proof-capable preambles and subsequent stages therefore
+continue to run unless a stage retains its pre-existing rejection behavior.
+Simplifier tactic adapters preserve the
+original goal, and sequential simplifier pipelines skip unsupported children,
+including inside nested custom solver pipelines. Proof-capable portfolio
+fallbacks remain available; `nra` and `qfnra` run their proof-capable preambles
+before selecting SMT in proof mode.
+
+SLS preambles retain the BV-size-reduction stage and its existing proof-mode
+rejection. The proposed wrapper skipping that stage was reverted following
+review. Non-proof SLS search and model production remain unchanged.
+
+Demodulation was repaired by #11531 and remains enabled, as do the repaired
+quantifier-pulling, bit2int and QE paths. These guards do not add proof support
+to the skipped transformations. The catalogue below remains a historical review.
+
 The `sk_hack=true` option is **by design** and **not expected to be sound**.
 Its strengthening is intentional, not a pending tactic/proof-production bug.
 This correction applies to every `sk_hack` reference below, including the

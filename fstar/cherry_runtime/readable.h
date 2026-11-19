@@ -149,6 +149,29 @@ inline bool identified(std::string_view prefix, std::string_view name, size_t& f
     return true;
 }
 
+inline std::string sort_symbol_text(Z3AstTheory_sort_symbol key) {
+    switch (key.tag) {
+    case Z3ASTTHEORY_BOOLSYMBOL: return "Bool";
+    case Z3ASTTHEORY_INTSYMBOL: return "Int";
+    case Z3ASTTHEORY_REALSYMBOL: return "Real";
+    case Z3ASTTHEORY_CHARSYMBOL: return "Char";
+    case Z3ASTTHEORY_BVSYMBOL: return "BV" + integer_text(key.val.BvSymbol);
+    case Z3ASTTHEORY_SEQSYMBOL: return "Seq";
+    case Z3ASTTHEORY_RESYMBOL: return "RegEx";
+    case Z3ASTTHEORY_FINITEFIELDSYMBOL: return "FF" + integer_text(key.val.FiniteFieldSymbol);
+    case Z3ASTTHEORY_FINITESETSYMBOL: return "FiniteSet";
+    case Z3ASTTHEORY_FLOATSYMBOL:
+        return "Float[" + integer_text(key.val.FloatSymbol.exponent) + "," +
+            integer_text(key.val.FloatSymbol.significand) + "]";
+    case Z3ASTTHEORY_ROUNDINGMODESYMBOL: return "RoundingMode";
+    case Z3ASTTHEORY_DATATYPESYMBOL: return "Datatype#" + integer_text(key.val.DatatypeSymbol);
+    case Z3ASTTHEORY_EXTENSIONSYMBOL:
+        return "Extension[" + integer_text(key.val.ExtensionSymbol.family) + "," +
+            integer_text(key.val.ExtensionSymbol.kind) + "]";
+    }
+    throw NativeError("Invalid sort symbol");
+}
+
 inline void sort_text(Text& out, Z3AstTheory_sort sort, unsigned depth) {
     if (cherry_tag(sort) == Z3ASTTHEORY_BASESORT) {
         auto name = view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(sort)->name);
@@ -156,6 +179,25 @@ inline void sort_text(Text& out, Z3AstTheory_sort sort, unsigned depth) {
         std::string_view id;
         out.add(identified("sort", name, first, id) ? symbol(name.substr(first)) + "#" + std::string(id)
                                                     : symbol(name));
+        return;
+    }
+    if (cherry_tag(sort) == Z3ASTTHEORY_SORTAPP) {
+        auto* app = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(sort);
+        auto name = sort_symbol_text(app->symbol);
+        if (cherry_is_scalar(app->arguments))
+            out.add(name);
+        else if (!depth) {
+            out.cut = true;
+            out.add("<...depth>");
+        }
+        else {
+            out.add("(" + name);
+            each<Prims_list__sort_Cons_s>(app->arguments, [&](auto arg) {
+                out.add(" ");
+                sort_text(out, arg, depth - 1);
+            });
+            out.add(")");
+        }
         return;
     }
     if (!depth) {
@@ -175,8 +217,10 @@ inline void sort_text(Text& out, Z3AstTheory_sort sort, unsigned depth) {
 }
 
 inline bool is_int_sort(Z3AstTheory_sort sort) {
-    return cherry_tag(sort) == Z3ASTTHEORY_BASESORT &&
-        view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(sort)->name) == "Int";
+    if (cherry_tag(sort) != Z3ASTTHEORY_SORTAPP)
+        return false;
+    auto* app = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(sort);
+    return app->symbol.tag == Z3ASTTHEORY_INTSYMBOL && cherry_is_scalar(app->arguments);
 }
 
 // F* Z3BvLemma.op_numeral; the extracted checker does not export it, unlike the datatype tags.
@@ -205,8 +249,10 @@ inline void parameters_text(Text& out, std::vector<cherry_int> const& values) {
 }
 
 inline bool is_bool_sort(Z3AstTheory_sort sort) {
-    return cherry_tag(sort) == Z3ASTTHEORY_BASESORT &&
-        view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(sort)->name) == "Bool";
+    if (cherry_tag(sort) != Z3ASTTHEORY_SORTAPP)
+        return false;
+    auto* app = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(sort);
+    return app->symbol.tag == Z3ASTTHEORY_BOOLSYMBOL && cherry_is_scalar(app->arguments);
 }
 
 inline Z3AstTheory_sort sort_of(Z3AstTheory_expr value) {
@@ -220,21 +266,56 @@ inline Z3AstTheory_sort sort_of(Z3AstTheory_expr value) {
 
 constexpr size_t max_compared_name_bytes = 4096;
 
-// Sorts are equal if they are the same name or the same array of equal sorts. The comparison is bounded like the rendering (depth,
-// nodes, name bytes): when it cannot be completed the sorts count as different, which only prints more.
+inline bool same_sort_symbol(Z3AstTheory_sort_symbol a, Z3AstTheory_sort_symbol b) {
+    if (a.tag != b.tag)
+        return false;
+    switch (a.tag) {
+    case Z3ASTTHEORY_BVSYMBOL:
+        return cherry_int_eq(a.val.BvSymbol, b.val.BvSymbol);
+    case Z3ASTTHEORY_FINITEFIELDSYMBOL:
+        return cherry_int_eq(a.val.FiniteFieldSymbol, b.val.FiniteFieldSymbol);
+    case Z3ASTTHEORY_FLOATSYMBOL:
+        return cherry_int_eq(a.val.FloatSymbol.exponent, b.val.FloatSymbol.exponent) &&
+            cherry_int_eq(a.val.FloatSymbol.significand, b.val.FloatSymbol.significand);
+    case Z3ASTTHEORY_DATATYPESYMBOL:
+        return cherry_int_eq(a.val.DatatypeSymbol, b.val.DatatypeSymbol);
+    case Z3ASTTHEORY_EXTENSIONSYMBOL:
+        return cherry_int_eq(a.val.ExtensionSymbol.family, b.val.ExtensionSymbol.family) &&
+            cherry_int_eq(a.val.ExtensionSymbol.kind, b.val.ExtensionSymbol.kind);
+    default:
+        return true;
+    }
+}
+
+// Incomplete bounded comparisons count as different, which only prints more.
 inline bool same_sort(Z3AstTheory_sort a, Z3AstTheory_sort b, unsigned depth, unsigned& budget) {
     if (!budget)
         return false;
     --budget;
     if (!depth)
         return false;
-    bool a_base = cherry_tag(a) == Z3ASTTHEORY_BASESORT, b_base = cherry_tag(b) == Z3ASTTHEORY_BASESORT;
-    if (a_base != b_base)
+    if (cherry_tag(a) != cherry_tag(b))
         return false;
-    if (a_base) {
+    if (cherry_tag(a) == Z3ASTTHEORY_BASESORT) {
         auto x = view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(a)->name);
         auto y = view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(b)->name);
         return x.size() <= max_compared_name_bytes && x == y;
+    }
+    if (cherry_tag(a) == Z3ASTTHEORY_SORTAPP) {
+        auto* left = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(a);
+        auto* right = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(b);
+        if (!same_sort_symbol(left->symbol, right->symbol))
+            return false;
+        auto x = left->arguments, y = right->arguments;
+        while (!cherry_is_scalar(x) && !cherry_is_scalar(y)) {
+            auto* cx = reinterpret_cast<Prims_list__sort_Cons_s*>(x);
+            auto* cy = reinterpret_cast<Prims_list__sort_Cons_s*>(y);
+            if (!same_sort(cx->hd, cy->hd, depth - 1, budget))
+                return false;
+            x = cx->tl;
+            y = cy->tl;
+        }
+        return cherry_is_scalar(x) && cherry_is_scalar(y);
     }
     auto* left = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(a);
     auto* right = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(b);

@@ -23,6 +23,14 @@ module SK = Z3Skolemization
 module NR = Z3NnfReplay
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
+module RL = Z3SortedReal
+module LIN = Z3SortedRealLinear
+module RO = Z3SortedRealOrder
+module RP = Z3SortedRealProduct
+module SI = Z3SortedInteger
+module DV = Z3SortedIntDivision
+module RX = Z3SortedRealExtension
+module DX = Z3SortedDivisionExtension
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -272,6 +280,31 @@ and congruent_atom (arithmetic:bool) (scope:list sort) (fuel:nat) (a b:expr)
   if D.scoped scope a && D.scoped scope b
   then congruent arithmetic false scope (atom_fuel fuel) a b else false
 
+let lemma_scoped_binary (scope:list sort) (f:func_decl) (x y:expr)
+  : Lemma (requires D.scoped scope (App f [x; y]))
+          (ensures D.scoped scope x /\ D.scoped scope y) =
+  assert (D.scoped_args scope [x; y]);
+  assert (D.scoped_args scope [y])
+
+let lemma_scoped_ternary (scope:list sort) (f:func_decl) (c x y:expr)
+  : Lemma (requires D.scoped scope (App f [c; x; y]))
+          (ensures D.scoped scope c /\ D.scoped scope x /\ D.scoped scope y) =
+  assert (D.scoped_args scope [c; x; y]);
+  assert (D.scoped_args scope [x; y]);
+  assert (D.scoped_args scope [y])
+
+let lemma_congruent_boolean_shape (arithmetic:bool) (search_atoms:bool) (scope:list sort)
+                                  (fuel:nat) (a b:expr)
+  : Lemma (requires congruent_boolean arithmetic search_atoms scope fuel a b)
+          (ensures N.shape_equal_by (congruent_atom arithmetic scope fuel)
+                     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))) =
+  assert_norm (congruent_boolean arithmetic search_atoms scope fuel a b ==
+    (if not search_atoms || scope = [] then false else
+     if not (Some? (expression_budget 256 a) && Some? (expression_budget 256 b)) then false else
+     if T.cut 64 a = B.Atom a && T.cut 64 b = B.Atom b then false
+     else N.shape_equal_by (congruent_atom arithmetic scope fuel)
+       32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))))
+
 let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -297,6 +330,8 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         lemma_congruent_arguments s bc eq other scope rho arithmetic search_atoms (fuel - 1) xs ys f.domain
       else (match xs, ys with
       | [x; y], [u; v] ->
+        lemma_scoped_binary scope f x y;
+        lemma_scoped_binary scope g u v;
         assert (f = R.eq_decl (get_sort x));
         V.lemma_sort_eq (get_sort y) (get_sort x);
         V.lemma_sort_eq (get_sort u) (get_sort x);
@@ -308,6 +343,8 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
         T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho b)
       | [c; x; y], [d; u; v] ->
+        lemma_scoped_ternary scope f c x y;
+        lemma_scoped_ternary scope g d u v;
         assert (T.classify f = T.Choice (get_sort x));
         assert (f = T.ite_decl (get_sort x));
         V.lemma_sort_eq (get_sort c) bool_sort;
@@ -382,12 +419,7 @@ and lemma_congruent_boolean (#base:sort -> Type0) (s:S.checked_schema)
           (ensures T.evaluate_at s bc eq other scope rho a ==
                    T.evaluate_at s bc eq other scope rho b)
           (decreases %[fuel; 2]) =
-  assert_norm (congruent_boolean arithmetic search_atoms scope fuel a b ==
-    (search_atoms && scope <> [] && Some? (expression_budget 256 a) && Some? (expression_budget 256 b) &&
-     (T.cut 64 a <> B.Atom a || T.cut 64 b <> B.Atom b) &&
-     N.shape_equal_by
-       (congruent_atom arithmetic scope fuel)
-       32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))));
+  lemma_congruent_boolean_shape arithmetic search_atoms scope fuel a b;
   assert (N.shape_equal_by
     (congruent_atom arithmetic scope fuel)
     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b)));
@@ -724,13 +756,21 @@ let quantifier_equality (conclusion:expr) : bool =
     DT.propositional (B.Eq (T.cut 64 a) (T.cut 64 b))
   | _ -> false
 
+let lemma_scoped_quantifier_pair (f:func_decl) (k k':quantifier_kind) (bs bs':list sort) (t t':sort) (a b:expr)
+  : Lemma (requires D.scoped [] (App f [Quantifier k bs t a; Quantifier k' bs' t' b]))
+          (ensures D.scoped [] (Quantifier k bs t a) /\ D.scoped [] (Quantifier k' bs' t' b) /\
+                   D.scoped (L.rev bs @ []) a /\ D.scoped (L.rev bs' @ []) b) =
+  assert (D.scoped_args [] [Quantifier k bs t a; Quantifier k' bs' t' b]);
+  assert (D.scoped_args [] [Quantifier k' bs' t' b])
+
 let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (conclusion:expr)
   : Lemma (requires D.scoped [] conclusion /\ quantifier_equality conclusion)
           (ensures T.truth s bc eq other conclusion) =
   match conclusion with
-  | App _ [Quantifier k bs t a; Quantifier k' bs' t' b] ->
+  | App f [Quantifier k bs t a; Quantifier k' bs' t' b] ->
+    lemma_scoped_quantifier_pair f k k' bs bs' t t' a b;
     let sigma = S.signature s in
     let scope = L.rev bs in
     let body_scope = L.append scope [] in
@@ -1012,6 +1052,367 @@ let lemma_order_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   lemma_equation s bc eq other conclusion x y;
   lemma_has_bound s bc eq other x y true facts;
   lemma_has_bound s bc eq other x y false facts
+
+(* ---------------------------------------------------------------------- *)
+(* Real equality/order laws: the Real mirror of the Int clauses above       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The same producer clauses over two Real terms x and y (arith_eq_adapter:
+   not (x = y) \/ c with c = x <= y, x >= y, x = y, or any of them on
+   x + (-1)*y or (-1)*y + x against 0, and (x = y) \/ not c1 \/ not c2 with
+   c1 and c2 opposite bounds on x - y). The equation is the canonical Real
+   equality and the comparisons and operands are the canonical Real ones
+   (Z3SortedRealLinear.real_equation, real_offset, real_bound: exact
+   declaration identity, never a name). x and y are read only as their typed
+   Real values in the same Sorted interpretation and matched by expression
+   identity: an opaque application, a nonlinear product, a quotient or a
+   to_real is one value, and nothing is linearized or searched. Strict
+   comparisons are not implied by an equation and are no bound. The literals
+   are at most three and the clause must be shallow (Z3NnfReplay.shallow)
+   before any comparison. Formula-based like the Int check, so the rule label
+   is never read; the laws it reads are the Sorted Real laws. *)
+
+(* not (x = y) \/ c, c implied by x = y. *)
+let real_equation_order (ne c:expr) : bool =
+  match negated ne with
+  | Some e ->
+    (match LIN.real_equation e with
+     | Some (x, y) -> RO.real_implied_by_equation x y c
+     | None -> false)
+  | None -> false
+
+(* (x = y) \/ not c1 \/ not c2, c1 and c2 opposite bounds on x - y. *)
+let real_antisymmetric (e n1 n2:expr) : bool =
+  match LIN.real_equation e, negated n1, negated n2 with
+  | Some (x, y), Some c1, Some c2 ->
+    (match RO.real_bound x y c1, RO.real_bound x y c2 with
+     | Some u1, Some u2 -> u1 <> u2
+     | _, _ -> false)
+  | _, _, _ -> false
+
+(* The two- and three-literal clauses, literals in any order. *)
+let real_order_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> NR.shallow conclusion && (real_equation_order a b || real_equation_order b a)
+  | [a; b; c] ->
+    NR.shallow conclusion &&
+    (real_antisymmetric a b c || real_antisymmetric b a c || real_antisymmetric c a b)
+  | _ -> false
+
+(* A closed Real equation, read at the Real values of its sides. *)
+let lemma_real_equation_sides (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (reals:RL.carrier base) (e x y:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ D.scoped [] e /\ LIN.real_equation e == Some (x, y))
+          (ensures D.scoped [] x /\ D.scoped [] y /\ get_sort x == LA.real_s /\
+                   (T.truth s bc eq other e <==>
+                    RL.real_at s bc eq other reals [] (T.empty_environment (S.signature s)) x ==
+                    RL.real_at s bc eq other reals [] (T.empty_environment (S.signature s)) y)) =
+  let rho = T.empty_environment (S.signature s) in
+  LIN.lemma_comparison s bc eq other reals [] rho e x y LA.Eq;
+  RO.lemma_numeric_at_real s bc eq other reals [] rho x;
+  RO.lemma_numeric_at_real s bc eq other reals [] rho y
+
+let lemma_real_equation_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (reals:RL.carrier base) (conclusion ne c:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\
+                    L.mem ne (DT.literals conclusion) /\ L.mem c (DT.literals conclusion) /\
+                    real_equation_order ne c)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) ne;
+  lemma_literals_scoped (DT.literals conclusion) c;
+  let e = Some?.v (negated ne) in
+  lemma_negated s bc eq other ne e;
+  let x, y = Some?.v (LIN.real_equation e) in
+  lemma_real_equation_sides s bc eq other reals e x y;
+  if T.truth s bc eq other ne then lemma_clause_member s bc eq other conclusion ne
+  else (
+    RO.lemma_real_implied_by_equation s bc eq other reals [] (T.empty_environment (S.signature s)) x y c;
+    lemma_clause_member s bc eq other conclusion c)
+
+let lemma_real_antisymmetric (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (reals:RL.carrier base) (conclusion e n1 n2:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\
+                    L.mem e (DT.literals conclusion) /\ L.mem n1 (DT.literals conclusion) /\
+                    L.mem n2 (DT.literals conclusion) /\ real_antisymmetric e n1 n2)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) e;
+  lemma_literals_scoped (DT.literals conclusion) n1;
+  lemma_literals_scoped (DT.literals conclusion) n2;
+  let x, y = Some?.v (LIN.real_equation e) in
+  let c1 = Some?.v (negated n1) in
+  let c2 = Some?.v (negated n2) in
+  lemma_real_equation_sides s bc eq other reals e x y;
+  lemma_negated s bc eq other n1 c1;
+  lemma_negated s bc eq other n2 c2;
+  if T.truth s bc eq other n1 then lemma_clause_member s bc eq other conclusion n1
+  else if T.truth s bc eq other n2 then lemma_clause_member s bc eq other conclusion n2
+  else (
+    let rho = T.empty_environment (S.signature s) in
+    RO.lemma_real_bound s bc eq other reals [] rho x y c1 (Some?.v (RO.real_bound x y c1));
+    RO.lemma_real_bound s bc eq other reals [] rho x y c2 (Some?.v (RO.real_bound x y c2));
+    lemma_clause_member s bc eq other conclusion e)
+
+let lemma_real_order_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                            (reals:RL.carrier base) (conclusion:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\ real_order_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match DT.literals conclusion with
+  | [a; b] ->
+    if real_equation_order a b then lemma_real_equation_order s bc eq other reals conclusion a b
+    else lemma_real_equation_order s bc eq other reals conclusion b a
+  | [a; b; c] ->
+    if real_antisymmetric a b c then lemma_real_antisymmetric s bc eq other reals conclusion a b c
+    else if real_antisymmetric b a c then lemma_real_antisymmetric s bc eq other reals conclusion b a c
+    else lemma_real_antisymmetric s bc eq other reals conclusion c a b
+  | _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* Guarded Int div/mod clauses                                              *)
+(* ---------------------------------------------------------------------- *)
+
+(* z3's arithmetic div/mod axioms for a non-numeral divisor d, as the
+   producer states them (premise-free th-lemma clauses), over any two Int
+   terms x and d, with q = div x d and m = mod x d the CANONICAL declarations
+   (Z3SortedIntDivision.classify: exact name, kind tag, domain, range and
+   parameters, never a name alone):
+
+     d = 0   \/ m >= 0
+     d <= 0  \/ m + (-1)*d <= -1        (AR.difference: either operand order)
+     d >= 0  \/ m + d <= -1
+     d = 0   \/ x = d*q + m             (and the sides of the equation swapped)
+
+   with the guard against the canonical Int numeral 0, the bound against the
+   canonical Int numeral -1, + and * the canonical Int operators (two
+   operands) and the guard's d the very d of the division. x and d are read
+   only as their typed Int values in the same Sorted interpretation, matched
+   by expression identity: an opaque application, a datatype accessor or a
+   product is one value. Each clause is a theorem of every Sorted model
+   satisfying the division laws (Z3SortedIntDivision.division_laws: the
+   Euclidean quotient and remainder at a NONZERO divisor, nothing at zero),
+   because the guard is false exactly where the divisor is nonzero (and of the
+   sign the bound needs); a clause with another guard, bound, operand order
+   or declaration is not recognized. The unguarded identity of a division
+   with its div0/mod0 alias is not a clause of this shape and is not proved.
+   The clause is two literals and must be shallow (Z3NnfReplay.shallow)
+   before any comparison. Formula-based like the Int and Real order clauses,
+   so the rule label is never read. *)
+
+(* d = 0 \/ mod x d >= 0 *)
+let remainder_lower (guard body:expr) : bool =
+  match LA.comparison body with
+  | Some (LA.Ge, m, z) ->
+    get_sort m = LA.int_s && AR.int_numeral 0 z &&
+    (match DV.remainder_arguments m with
+     | Some (_, d) -> DV.zero_guard d guard
+     | None -> false)
+  | _ -> false
+
+(* d <= 0 \/ (mod x d) + (-1)*d <= -1 *)
+let remainder_upper_positive (guard body:expr) : bool =
+  match LA.comparison body with
+  | Some (LA.Le, l, r) ->
+    get_sort l = LA.int_s && AR.int_numeral (-1) r &&
+    (match AR.difference l with
+     | Some (m, d) ->
+       (match DV.remainder_arguments m with
+        | Some (_, d') -> d' = d && DV.sign_guard LA.Le d guard
+        | None -> false)
+     | None -> false)
+  | _ -> false
+
+(* d >= 0 \/ (mod x d) + d <= -1 *)
+let remainder_upper_negative (guard body:expr) : bool =
+  match LA.comparison body with
+  | Some (LA.Le, l, r) ->
+    get_sort l = LA.int_s && AR.int_numeral (-1) r &&
+    (match l with
+     | App f [m; d] ->
+       SI.classify f = SI.Calculate LA.Add &&
+       (match DV.remainder_arguments m with
+        | Some (_, d') -> d' = d && DV.sign_guard LA.Ge d guard
+        | None -> false)
+     | _ -> false)
+  | _ -> false
+
+(* x = d*(div x d) + mod x d, read from the sum side `sum` and the plain side `x`. *)
+let decomposed (x sum guard:expr) : bool =
+  match sum with
+  | App f [p; m] ->
+    SI.classify f = SI.Calculate LA.Add &&
+    (match p with
+     | App g [d; q] ->
+       SI.classify g = SI.Calculate LA.Mul && DV.quotient_arguments q = Some (x, d) &&
+       DV.remainder_arguments m = Some (x, d) && DV.zero_guard d guard
+     | _ -> false)
+  | _ -> false
+
+(* d = 0 \/ x = d*q + m, the equation in either orientation. *)
+let remainder_decomposition (guard body:expr) : bool =
+  match int_equation body with
+  | Some (a, b) -> decomposed a b guard || decomposed b a guard
+  | None -> false
+
+let division_literals (guard body:expr) : bool =
+  remainder_lower guard body || remainder_upper_positive guard body ||
+  remainder_upper_negative guard body || remainder_decomposition guard body
+
+(* The two-literal clause, literals in either order. *)
+let division_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> NR.shallow conclusion && (division_literals a b || division_literals b a)
+  | _ -> false
+
+let lemma_remainder_lower (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (conclusion guard body:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem guard (DT.literals conclusion) /\ L.mem body (DT.literals conclusion) /\
+                    remainder_lower guard body)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) guard;
+  lemma_literals_scoped (DT.literals conclusion) body;
+  let rho = T.empty_environment (S.signature s) in
+  match LA.comparison body with
+  | Some (LA.Ge, m, z) ->
+    AR.lemma_int_comparison s bc eq other [] rho body LA.Ge m z;
+    AR.lemma_int_numeral s bc eq other [] rho 0 z;
+    let x, d = Some?.v (DV.remainder_arguments m) in
+    DV.lemma_zero_guard s bc eq other [] rho d guard;
+    DV.lemma_remainder_arguments s bc eq other [] rho m x d;
+    if T.truth s bc eq other guard then lemma_clause_member s bc eq other conclusion guard
+    else (
+      DV.lemma_euclid (integer_value s bc eq other x) (integer_value s bc eq other d);
+      lemma_clause_member s bc eq other conclusion body)
+  | _ -> ()
+
+let lemma_remainder_upper_positive (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                   (conclusion guard body:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem guard (DT.literals conclusion) /\ L.mem body (DT.literals conclusion) /\
+                    remainder_upper_positive guard body)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) guard;
+  lemma_literals_scoped (DT.literals conclusion) body;
+  let rho = T.empty_environment (S.signature s) in
+  match LA.comparison body with
+  | Some (LA.Le, l, r) ->
+    AR.lemma_int_comparison s bc eq other [] rho body LA.Le l r;
+    AR.lemma_int_numeral s bc eq other [] rho (-1) r;
+    let m, d = Some?.v (AR.difference l) in
+    AR.lemma_difference s bc eq other [] rho l m d;
+    let x, _ = Some?.v (DV.remainder_arguments m) in
+    DV.lemma_sign_guard s bc eq other [] rho LA.Le d guard;
+    DV.lemma_remainder_arguments s bc eq other [] rho m x d;
+    if T.truth s bc eq other guard then lemma_clause_member s bc eq other conclusion guard
+    else (
+      DV.lemma_euclid (integer_value s bc eq other x) (integer_value s bc eq other d);
+      lemma_clause_member s bc eq other conclusion body)
+  | _ -> ()
+
+let lemma_remainder_upper_negative (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                   (conclusion guard body:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem guard (DT.literals conclusion) /\ L.mem body (DT.literals conclusion) /\
+                    remainder_upper_negative guard body)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) guard;
+  lemma_literals_scoped (DT.literals conclusion) body;
+  let rho = T.empty_environment (S.signature s) in
+  match LA.comparison body with
+  | Some (LA.Le, l, r) ->
+    AR.lemma_int_comparison s bc eq other [] rho body LA.Le l r;
+    AR.lemma_int_numeral s bc eq other [] rho (-1) r;
+    (match l with
+     | App f [m; d] ->
+       AR.lemma_int_binary s bc eq other [] rho f m d LA.Add;
+       let x, _ = Some?.v (DV.remainder_arguments m) in
+       DV.lemma_sign_guard s bc eq other [] rho LA.Ge d guard;
+       DV.lemma_remainder_arguments s bc eq other [] rho m x d;
+       if T.truth s bc eq other guard then lemma_clause_member s bc eq other conclusion guard
+       else (
+         DV.lemma_euclid (integer_value s bc eq other x) (integer_value s bc eq other d);
+         lemma_clause_member s bc eq other conclusion body)
+     | _ -> ())
+  | _ -> ()
+
+let lemma_decomposed (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (x sum guard:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] sum /\ D.scoped [] guard /\
+                    decomposed x sum guard /\ D.scoped [] x /\
+                    ~(T.truth s bc eq other guard))
+          (ensures integer_value s bc eq other x == integer_value s bc eq other sum) =
+  let rho = T.empty_environment (S.signature s) in
+  match sum with
+  | App f [p; m] ->
+    AR.lemma_int_binary s bc eq other [] rho f p m LA.Add;
+    (match p with
+     | App g [d; q] ->
+       AR.lemma_int_binary s bc eq other [] rho g d q LA.Mul;
+       DV.lemma_zero_guard s bc eq other [] rho d guard;
+       DV.lemma_quotient_arguments s bc eq other [] rho q x d;
+       DV.lemma_remainder_arguments s bc eq other [] rho m x d;
+       DV.lemma_euclid (integer_value s bc eq other x) (integer_value s bc eq other d)
+     | _ -> ())
+  | _ -> ()
+
+let lemma_remainder_decomposition (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                  (conclusion guard body:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem guard (DT.literals conclusion) /\ L.mem body (DT.literals conclusion) /\
+                    remainder_decomposition guard body)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) guard;
+  lemma_literals_scoped (DT.literals conclusion) body;
+  match int_equation body with
+  | Some (a, b) ->
+    lemma_equation s bc eq other body a b;
+    if T.truth s bc eq other guard then lemma_clause_member s bc eq other conclusion guard
+    else (
+      if decomposed a b guard then lemma_decomposed s bc eq other a b guard
+      else lemma_decomposed s bc eq other b a guard;
+      lemma_clause_member s bc eq other conclusion body)
+  | None -> ()
+
+let lemma_division_literals (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                            (conclusion guard body:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem guard (DT.literals conclusion) /\ L.mem body (DT.literals conclusion) /\
+                    division_literals guard body)
+          (ensures T.truth s bc eq other conclusion) =
+  if remainder_lower guard body then lemma_remainder_lower s bc eq other conclusion guard body
+  else if remainder_upper_positive guard body then lemma_remainder_upper_positive s bc eq other conclusion guard body
+  else if remainder_upper_negative guard body then lemma_remainder_upper_negative s bc eq other conclusion guard body
+  else lemma_remainder_decomposition s bc eq other conclusion guard body
+
+let lemma_division_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (conclusion:expr)
+  : Lemma (requires DV.division_laws s bc eq other /\ D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    division_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match DT.literals conclusion with
+  | [a; b] ->
+    if division_literals a b then lemma_division_literals s bc eq other conclusion a b
+    else lemma_division_literals s bc eq other conclusion b a
+  | _ -> ()
 
 (* ---------------------------------------------------------------------- *)
 (* Term if-then-else branch clauses                                         *)
@@ -1505,6 +1906,168 @@ let arithmetic_farkas (node:U.proof_node) : bool =
   | U.ArithmeticFarkas cs -> AR.check_contradiction (arithmetic_assumptions node) cs
   | _ -> false
 
+(* The SAME supplied weights against the SAME literals, replayed by the typed
+   Int/Real check (Z3SortedRealLinear.check_numeric_contradiction): enabled
+   only when the executed schema check RL.real_primitive s holds (Real is not
+   a datatype sort of the schema), Int literals rounded as on the Int path,
+   Real strict literals kept strict. Tried after the unchanged Int path. *)
+let real_farkas (s:S.checked_schema) (node:U.proof_node) : bool =
+  match node.kind with
+  | U.ArithmeticFarkas cs -> LIN.check_numeric_contradiction s (arithmetic_assumptions node) cs
+  | _ -> false
+
+(* A premise-free rewrite step whose closed equation the Real normal forms
+   (Z3SortedRealLinear.real_equivalent: Real and Int-with-to_real linear
+   renormalization, comparison orientation and strictness, binary Real
+   product commutation) prove, enabled by the same schema gate. *)
+let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
+  RL.real_primitive s && node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && LIN.real_equivalent a b
+   | U.Holds _ -> false)
+
+(* A premise-free rewrite step whose closed equation is one of the ITE laws
+   of Z3NnfReplay.ite_rewritten (negated-condition swap, then-branch merge by
+   `or`, else-branch merge by `and`, one canonical ite declaration at any
+   result sort): the same check as on the quant-intro rewrite leaves, read
+   at the scope []. No schema gate: the laws hold in every Sorted model. *)
+let ite_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.ite_rewritten a b
+   | U.Holds _ -> false)
+
+(* A premise-free rewrite step whose closed Int equation permutes and
+   regroups the factors of canonical Int products
+   (Z3NnfReplay.product_permuted, the check of the quant-intro rewrite
+   leaves, read at the scope []). No schema gate: the Int product is the
+   one the Sorted semantics gives `*` in every Sorted model. *)
+let product_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.product_permuted a b
+   | U.Holds _ -> false)
+
+(* A premise-free closed ElimUnused step (q = e, exported as iff(q, e)):
+   the check of the quant-intro elim-unused entries
+   (Z3NnfReplay.unused_eliminated, z3's elim_unused_vars recomputed from q),
+   read at the scope []. It reads the universal and existential laws, and
+   the removed binders' carriers are inhabited by the interpretation. *)
+let unused_elimination (node:U.proof_node) : bool =
+  node.kind = U.ElimUnused && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.unused_eliminated a b
+   | U.Holds _ -> false)
+
+(* A premise-free closed der step (q = e, exported as iff(q, e)): the check
+   of the quant-intro der entries (Z3NnfReplay.der_step: one eliminated
+   binder of a universal over a disjunction, the binder list kept), read at
+   the scope []. *)
+let der_rewrite (node:U.proof_node) : bool =
+  node.kind = U.DestructiveEquality && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.der_step a b
+   | U.Holds _ -> false)
+
+(* The rules whose checks read the universal and existential laws: a binder
+   certificate (the NNF and quant-intro replay), an ElimUnused step and a
+   der step. *)
+let binder_rule (r:U.rule) : bool =
+  U.QuantifierIntroduction? r || r = U.ElimUnused || r = U.DestructiveEquality
+
+(* The rules whose entries may be closed Real order clauses: every rule but
+   the two leaves and the lemma rule (the Int clauses are read by the same
+   rule-independent consequence kernel). *)
+let order_rule (r:U.rule) : bool = not (r = U.Asserted || r = U.Hypothesis || r = U.LemmaRule)
+
+(* A closed Real equality/order clause (real_order_clause above), judged from
+   the entry formula alone: no premise, rule label or payload is read. It is a
+   theorem of every Sorted model satisfying the Real laws, enabled by the same
+   executed schema gate RL.real_primitive as the other Real kernels. *)
+let real_order (s:S.checked_schema) (node:U.proof_node) : bool =
+  order_rule node.kind &&
+  (match node.conclusion with
+   | U.Holds c -> real_order_clause c && D.scoped [] c && get_sort c = bool_sort
+   | U.Equal _ _ | U.Observational _ _ -> false) &&
+  RL.real_primitive s
+
+(* The node kernels that read the Sorted Real laws. *)
+let real_equality (s:S.checked_schema) (node:U.proof_node) : bool =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    ((node.kind = U.RewriteRule || node.kind = U.Unverified "th-lemma") &&
+     LIN.implied_equality s (propositions node.premises) a b) ||
+    (order_rule node.kind && RP.equality_check s (propositions node.premises) a b)
+  | _ -> false
+
+let real_product (s:S.checked_schema) (node:U.proof_node) : bool =
+  node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
+  RP.check s (propositions node.premises)
+
+let product_equality_clause_facts (facts lits:list expr) (e:expr) : list expr =
+  facts @ L.map R.mk_not_expr (Z3List.filter (fun (t:expr) -> t <> e) lits)
+
+let real_product_literal_equality (s:S.checked_schema) (facts:list expr) (e:expr) : bool =
+  match e with
+  | App f [a; b] -> f = R.eq_decl LA.real_s && RP.equality_check s facts a b
+  | _ -> false
+
+let rec real_clause_equality_witness (s:S.checked_schema) (facts lits candidates:list expr)
+  : Tot (option (e:expr{L.mem e lits /\
+      real_product_literal_equality s (product_equality_clause_facts facts lits e) e}))
+        (decreases candidates) =
+  match candidates with
+  | [] -> None
+  | e :: rest ->
+    if L.mem e lits && real_product_literal_equality s (product_equality_clause_facts facts lits e) e
+    then Some e
+    else real_clause_equality_witness s facts lits rest
+
+let real_product_clause_equality (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else if None? (arguments_budget 4096 (conclusion :: facts)) then false
+  else
+    let lits = DT.literals conclusion in
+    if L.length facts + L.length lits > 30 then false
+    else D.scoped_args [] (L.map R.mk_not_expr lits) &&
+         Some? (real_clause_equality_witness s facts lits lits)
+
+let real_product_clause_shape (c:expr) : bool =
+  if c = R.false_expr then false
+  else if None? (expression_budget 4096 c) then false
+  else not (Nil? (RP.products 16 c))
+
+let real_product_clause (s:S.checked_schema) (node:U.proof_node) : bool =
+  RL.real_primitive s && order_rule node.kind &&
+  (match node.conclusion with
+   | U.Holds c ->
+     if not (real_product_clause_shape c) then false
+     else
+       let complements = L.map R.mk_not_expr (DT.literals c) in
+       D.scoped_args [] complements &&
+       (RP.check s (propositions node.premises @ complements) ||
+        real_product_clause_equality s (propositions node.premises) c)
+   | _ -> false)
+
+let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
+  real_farkas s node || real_rewrite s node || real_order s node || real_equality s node ||
+  real_product s node || real_product_clause s node
+
+(* A closed guarded Int div/mod clause (division_clause above), judged from the
+   entry formula alone: no premise, rule label or payload is read. It is a
+   theorem of every Sorted model satisfying the Sorted Int division laws
+   (Z3SortedIntDivision.division_laws). No schema gate: Int is never a
+   datatype sort of a checked schema, and the laws are derived from R2 of the
+   same root model whatever the schema. *)
+let division_order (node:U.proof_node) : bool =
+  order_rule node.kind &&
+  (match node.conclusion with
+   | U.Holds c -> division_clause c && D.scoped [] c && get_sort c = bool_sort
+   | U.Equal _ _ | U.Observational _ _ -> false)
+
+(* The node kernels that read the Sorted division laws. *)
+let division_node (node:U.proof_node) : bool = division_order node
+
 let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                     (facts lits:list expr)
@@ -1567,13 +2130,16 @@ let int_ge (x y:expr) : expr =
   App { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
         interp = Some Z3ValueTheory.op_arith_ge; int_params = [] } [x; y]
 
-(* An Int equation x = y: x <= y and x >= y each refuted on its own (its own
-   search and check), then antisymmetry (order_equation over the two
-   bounds). The conclusion false: one refutation of the facts. *)
+(* Int equations use two checked bounds and antisymmetry. Unit conclusions
+   and false use one checked refutation. Bound the conclusion before
+   extracting its clause. *)
 let linear_consequence (facts:list expr) (conclusion:expr) : bool =
   match int_equation conclusion with
   | Some (x, y) -> refutes facts (int_le x y) && refutes facts (int_ge x y)
-  | None -> conclusion = R.false_expr && refutes facts R.false_expr
+  | None ->
+    if conclusion = R.false_expr then refutes facts R.false_expr
+    else if None? (expression_budget 4096 conclusion) then false
+    else R.formula_clause conclusion = [conclusion] && refutes facts conclusion
 
 (* A refuted c is not false where the facts hold: the facts and the negated
    literals of c would satisfy every literal of the validated certificate
@@ -1617,17 +2183,683 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
     assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
     lemma_order_equation s bc eq other [le; ge] conclusion
   | None ->
+    if conclusion = R.false_expr then (
+      assert_norm (R.formula_clause R.false_expr == []);
+      lemma_refutes s bc eq other facts R.false_expr)
+    else lemma_unit_refuted s bc eq other facts conclusion
+
+let int_zero : expr =
+  App { decl_name = "0"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [0; 1] } []
+
+let int_one : expr =
+  App { decl_name = "1"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [1; 1] } []
+
+let int_minus_one : expr =
+  App { decl_name = "-1"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [-1; 1] } []
+
+let int_bound (lower:bool) (e:expr) : expr =
+  if lower then int_ge e int_zero else int_le e int_zero
+
+let int_strict_bound (lower:bool) (e:expr) : expr =
+  if lower then int_ge e int_one else int_le e int_minus_one
+
+let nonnegative_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_bound true x) && refutes facts (int_bound true y)) ||
+     (refutes facts (int_bound false x) && refutes facts (int_bound false y))) &&
+    refutes (int_ge p int_zero :: facts) R.false_expr
+  | _ -> false
+
+let nonpositive_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_bound true x) && refutes facts (int_bound false y)) ||
+     (refutes facts (int_bound false x) && refutes facts (int_bound true y))) &&
+    refutes (int_le p int_zero :: facts) R.false_expr
+  | _ -> false
+
+let positive_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound true y)) ||
+     (refutes facts (int_strict_bound false x) && refutes facts (int_strict_bound false y))) &&
+    refutes (int_ge p int_one :: facts) R.false_expr
+  | _ -> false
+
+let negative_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound false y)) ||
+     (refutes facts (int_strict_bound false x) && refutes facts (int_strict_bound true y))) &&
+    refutes (int_le p int_minus_one :: facts) R.false_expr
+  | _ -> false
+
+let zero_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_bound true x) && refutes facts (int_bound false x)) ||
+     (refutes facts (int_bound true y) && refutes facts (int_bound false y))) &&
+    refutes (int_ge p int_zero :: int_le p int_zero :: facts) R.false_expr
+  | _ -> false
+
+let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) =
+  if fuel = 0 then []
+  else match e with
+  | App f args ->
+    (if SI.classify f = SI.Calculate LA.Mul && L.length args = 2 then [e] else []) @
+    L.concatMap (integer_products (fuel - 1)) args
+  | _ -> []
+
+let rec integer_product_candidate (facts:list expr) (fuel:nat) (rest:list expr)
+  : Tot (p:option expr{Some? p ==> (nonnegative_int_product facts (Some?.v p) ||
+                                   positive_int_product facts (Some?.v p) ||
+                                   nonpositive_int_product facts (Some?.v p) ||
+                                   negative_int_product facts (Some?.v p) ||
+                                   zero_int_product facts (Some?.v p))}) (decreases fuel) =
+  if fuel = 0 then None
+  else match rest with
+  | [] -> None
+  | p :: tail ->
+    let next : nat = fuel - 1 in
+    if nonnegative_int_product facts p || positive_int_product facts p ||
+       nonpositive_int_product facts p || negative_int_product facts p || zero_int_product facts p then Some p
+    else integer_product_candidate facts next tail
+
+let integer_product_witness (facts:list expr) : option expr =
+  integer_product_candidate facts 32 (L.concatMap (integer_products 16) facts)
+
+let int_constant (n:int) : expr =
+  App { decl_name = "n"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+
+let lemma_int_constant_shape (n:int)
+  : Lemma (ensures D.scoped [] (int_constant n) /\ get_sort (int_constant n) == LA.int_s /\
+                   AR.int_numeral n (int_constant n)) =
+  assert_norm (D.scoped [] (int_constant n));
+  assert_norm (get_sort (int_constant n) == LA.int_s);
+  assert_norm (AR.int_numeral n (int_constant n))
+
+let lemma_int_equation_shape (x y:expr)
+  : Lemma (requires D.scoped [] x /\ D.scoped [] y /\
+                    get_sort x == LA.int_s /\ get_sort y == LA.int_s)
+          (ensures D.scoped [] (R.mk_eq_expr x y) /\
+                   int_equation (R.mk_eq_expr x y) == Some (x, y)) =
+  assert_norm (sort_eq LA.int_s LA.int_s);
+  assert (sorts_match [x; y] [LA.int_s; LA.int_s]);
+  assert (D.scoped_args [] [x; y])
+
+let lemma_int_product_domain (f:func_decl) (x y:expr)
+  : Lemma (requires D.scoped [] (App f [x; y]) /\ SI.classify f == SI.Calculate LA.Mul)
+          (ensures f.domain == [LA.int_s; LA.int_s] /\ f.range == LA.int_s) =
+  assert (sorts_match [x; y] f.domain);
+  assert (SI.integer_sorts f.domain);
+  match f.domain with
+  | a :: b :: rest ->
+    assert (rest == []);
+    assert (SI.integer_sorts [b])
+  | _ -> ()
+
+let lemma_int_application_shape (f:func_decl) (x y:expr)
+  : Lemma (requires f.domain == [LA.int_s; LA.int_s] /\ f.range == LA.int_s /\
+                    D.scoped [] x /\ D.scoped [] y /\ get_sort x == LA.int_s /\ get_sort y == LA.int_s)
+          (ensures D.scoped [] (App f [x; y]) /\ get_sort (App f [x; y]) == LA.int_s) =
+  assert_norm (sort_eq LA.int_s LA.int_s);
+  assert (sorts_match [x; y] f.domain);
+  assert (D.scoped_args [] [x; y])
+
+let constant_int_product_value (f:func_decl) (x y:expr) (n:int) (left:bool) : expr =
+  let other = if left then y else x in
+  if n = 1 then other else App f [int_constant n; other]
+
+let constant_int_product (facts:list expr) (p:expr) (n:int) (left:bool) : bool =
+  if n = 0 then false
+  else match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    (let factor = if left then x else y in
+     let k = int_constant n in
+     refutes facts (int_le factor k) && refutes facts (int_ge factor k) &&
+     refutes (R.mk_eq_expr p (constant_int_product_value f x y n left) :: facts) R.false_expr)
+  | _ -> false
+
+let rec take_int_constants (fuel:nat) (ns:list int) : Tot (list int) (decreases fuel) =
+  if fuel = 0 then []
+  else match ns with [] -> [] | n :: rest -> n :: take_int_constants (fuel - 1) rest
+
+let rec insert_int_constant (n:int) (ns:list int) : Tot (list int) (decreases ns) =
+  match ns with
+  | [] -> [n]
+  | m :: rest ->
+    if n = m then ns else if n < m then n :: ns else m :: insert_int_constant n rest
+
+(* Retain the smallest sixteen distinct numeral proposals throughout traversal. *)
+let rec integer_product_constants (fuel:nat) (e:expr) (known:list int)
+  : Tot (list int) (decreases fuel) =
+  if fuel = 0 then known
+  else
+  let next : nat = fuel - 1 in
+  match e with
+  | App f args ->
+    let known : list int =
+      match SI.classify f, args with
+      | SI.Numeral n, [] -> take_int_constants 16 (insert_int_constant n known)
+      | _ -> known in
+    L.fold_left (fun (ns:list int) (child:expr) -> integer_product_constants next child ns) known args
+  | _ -> known
+
+type int_constant_witness (facts:list expr) =
+  w:(expr & int & bool){let p, n, left = w in constant_int_product facts p n left}
+
+let rec constant_int_factor_candidate (facts:list expr) (p:expr) (values:list int)
+  : Tot (option (int_constant_witness facts)) (decreases values) =
+  match values with
+  | [] -> None
+  | n :: rest ->
+    if constant_int_product facts p n true then Some (p, n, true)
+    else if constant_int_product facts p n false then Some (p, n, false)
+    else constant_int_factor_candidate facts p rest
+
+let rec constant_int_product_candidate (facts:list expr) (values:list int) (fuel:nat) (products:list expr)
+  : Tot (option (int_constant_witness facts)) (decreases fuel) =
+  if fuel = 0 then None
+  else match products with
+  | [] -> None
+  | p :: rest ->
+    (match constant_int_factor_candidate facts p values with
+     | Some w -> Some w
+     | None -> constant_int_product_candidate facts values (fuel - 1) rest)
+
+let constant_int_product_witness (facts:list expr) : option (int_constant_witness facts) =
+  let values = L.fold_left (fun ns e -> integer_product_constants 16 e ns) [-1; 0; 1] facts in
+  constant_int_product_candidate facts values 32 (L.concatMap (integer_products 16) facts)
+
+let integer_product_check (facts:list expr) : bool =
+  if L.length facts > 30 then false
+  else if None? (arguments_budget 4096 facts) then false
+  else integer_literals (L.map LA.positive_literal facts) &&
+    (Some? (integer_product_witness facts) || Some? (constant_int_product_witness facts))
+
+let integer_product (node:U.proof_node) : bool =
+  node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
+  integer_product_check (propositions node.premises)
+
+let lemma_int_bound_shape (lower:bool) (e:expr)
+  : Lemma (requires D.scoped [] e /\ get_sort e == LA.int_s)
+          (ensures AR.int_numeral 0 int_zero /\ D.scoped [] (int_bound lower e) /\
+                   LA.comparison (int_bound lower e) == Some ((if lower then LA.Ge else LA.Le), e, int_zero) /\
+                   R.formula_clause (int_bound lower e) == [int_bound lower e]) =
+  assert_norm (get_sort int_zero == LA.int_s);
+  assert_norm (AR.int_numeral 0 int_zero);
+  if lower then assert (LA.application
+    { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
+    [e; int_zero] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+  else assert (LA.application
+    { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
+    [e; int_zero] bool_sort "<=" Z3ValueTheory.op_arith_le)
+
+let lemma_int_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (facts:list expr) (lower:bool) (e:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] e /\ get_sort e == LA.int_s /\
+                    refutes facts (int_bound lower e))
+          (ensures (if lower then integer_value s bc eq other e >= 0 else integer_value s bc eq other e <= 0)) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_int_bound_shape lower e;
+  lemma_unit_refuted s bc eq other facts (int_bound lower e);
+  AR.lemma_int_comparison s bc eq other [] rho (int_bound lower e) (if lower then LA.Ge else LA.Le) e int_zero;
+  AR.lemma_int_numeral s bc eq other [] rho 0 int_zero
+
+let lemma_int_strict_bound_shape (lower:bool) (e:expr)
+  : Lemma (requires D.scoped [] e /\ get_sort e == LA.int_s)
+          (ensures AR.int_numeral 1 int_one /\ AR.int_numeral (-1) int_minus_one /\
+                   D.scoped [] (int_strict_bound lower e) /\
+                   LA.comparison (int_strict_bound lower e) ==
+                     Some ((if lower then LA.Ge else LA.Le), e, (if lower then int_one else int_minus_one)) /\
+                   R.formula_clause (int_strict_bound lower e) == [int_strict_bound lower e]) =
+  assert_norm (get_sort int_one == LA.int_s);
+  assert_norm (get_sort int_minus_one == LA.int_s);
+  assert_norm (AR.int_numeral 1 int_one);
+  assert_norm (AR.int_numeral (-1) int_minus_one);
+  if lower then assert (LA.application
+    { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
+    [e; int_one] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+  else assert (LA.application
+    { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
+    [e; int_minus_one] bool_sort "<=" Z3ValueTheory.op_arith_le)
+
+let lemma_int_strict_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (facts:list expr) (lower:bool) (e:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] e /\ get_sort e == LA.int_s /\
+                    refutes facts (int_strict_bound lower e))
+          (ensures (if lower then integer_value s bc eq other e >= 1 else integer_value s bc eq other e <= -1)) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_int_strict_bound_shape lower e;
+  lemma_unit_refuted s bc eq other facts (int_strict_bound lower e);
+  AR.lemma_int_comparison s bc eq other [] rho (int_strict_bound lower e)
+    (if lower then LA.Ge else LA.Le) e (if lower then int_one else int_minus_one);
+  AR.lemma_int_numeral s bc eq other [] rho (if lower then 1 else (-1)) (if lower then int_one else int_minus_one)
+
+#push-options "--smtencoding.nl_arith_repr native --using_facts_from 'Prims' --fuel 0 --ifuel 0"
+let lemma_int_multiply_nonnegative (x y:int)
+  : Lemma (requires (x >= 0 /\ y >= 0) \/ (x <= 0 /\ y <= 0)) (ensures x * y >= 0) = ()
+
+let lemma_int_multiply_nonpositive (x y:int)
+  : Lemma (requires (x >= 0 /\ y <= 0) \/ (x <= 0 /\ y >= 0)) (ensures x * y <= 0) = ()
+
+let lemma_int_multiply_positive (x y:int)
+  : Lemma (requires (x >= 1 /\ y >= 1) \/ (x <= -1 /\ y <= -1)) (ensures x * y >= 1) = ()
+
+let lemma_int_multiply_negative (x y:int)
+  : Lemma (requires (x >= 1 /\ y <= -1) \/ (x <= -1 /\ y >= 1)) (ensures x * y <= -1) = ()
+
+let lemma_int_multiply_zero (x y:int)
+  : Lemma (requires x == 0 \/ y == 0) (ensures x * y == 0) = ()
+
+let lemma_int_multiply_constant (x y n:int) (left:bool)
+  : Lemma (requires (if left then x else y) == n)
+          (ensures x * y == n * (if left then y else x) /\
+                   (n == 1 ==> x * y == (if left then y else x))) = ()
+#pop-options
+
+let lemma_nonnegative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                  (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ nonnegative_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_bound true x) && refutes facts (int_bound true y) then (
+      lemma_int_bound s bc eq other facts true x;
+      lemma_int_bound s bc eq other facts true y)
+    else (
+      lemma_int_bound s bc eq other facts false x;
+      lemma_int_bound s bc eq other facts false y);
+    lemma_int_multiply_nonnegative (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_bound_shape true p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_zero) LA.Ge p int_zero;
+    AR.lemma_int_numeral s bc eq other [] rho 0 int_zero;
+    assert (T.truth s bc eq other (int_ge p int_zero));
     assert_norm (R.formula_clause R.false_expr == []);
-    lemma_refutes s bc eq other facts R.false_expr
+    lemma_refutes s bc eq other (int_ge p int_zero :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_nonpositive_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                  (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ nonpositive_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_bound true x) && refutes facts (int_bound false y) then (
+      lemma_int_bound s bc eq other facts true x;
+      lemma_int_bound s bc eq other facts false y)
+    else (
+      lemma_int_bound s bc eq other facts false x;
+      lemma_int_bound s bc eq other facts true y);
+    lemma_int_multiply_nonpositive (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_zero) LA.Le p int_zero;
+    AR.lemma_int_numeral s bc eq other [] rho 0 int_zero;
+    assert (T.truth s bc eq other (int_le p int_zero));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_le p int_zero :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_positive_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ positive_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound true y) then (
+      lemma_int_strict_bound s bc eq other facts true x;
+      lemma_int_strict_bound s bc eq other facts true y)
+    else (
+      lemma_int_strict_bound s bc eq other facts false x;
+      lemma_int_strict_bound s bc eq other facts false y);
+    lemma_int_multiply_positive (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_strict_bound_shape true p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_one) LA.Ge p int_one;
+    AR.lemma_int_numeral s bc eq other [] rho 1 int_one;
+    assert (T.truth s bc eq other (int_ge p int_one));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_ge p int_one :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_negative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ negative_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound false y) then (
+      lemma_int_strict_bound s bc eq other facts true x;
+      lemma_int_strict_bound s bc eq other facts false y)
+    else (
+      lemma_int_strict_bound s bc eq other facts false x;
+      lemma_int_strict_bound s bc eq other facts true y);
+    lemma_int_multiply_negative (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_strict_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_minus_one) LA.Le p int_minus_one;
+    AR.lemma_int_numeral s bc eq other [] rho (-1) int_minus_one;
+    assert (T.truth s bc eq other (int_le p int_minus_one));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_le p int_minus_one :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_zero_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ zero_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_bound true x) && refutes facts (int_bound false x) then (
+      lemma_int_bound s bc eq other facts true x;
+      lemma_int_bound s bc eq other facts false x)
+    else (
+      lemma_int_bound s bc eq other facts true y;
+      lemma_int_bound s bc eq other facts false y);
+    lemma_int_multiply_zero (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_bound_shape true p;
+    lemma_int_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_zero) LA.Ge p int_zero;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_zero) LA.Le p int_zero;
+    AR.lemma_int_numeral s bc eq other [] rho 0 int_zero;
+    assert (T.truth s bc eq other (int_ge p int_zero) /\ T.truth s bc eq other (int_le p int_zero));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_ge p int_zero :: int_le p int_zero :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_constant_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (facts:list expr) (p:expr) (n:int) (left:bool)
+  : Lemma (requires T.truths s bc eq other facts /\ constant_int_product facts p n left)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    lemma_int_product_domain f x y;
+    let factor = if left then x else y in
+    let other_factor = if left then y else x in
+    let k = int_constant n in
+    lemma_int_constant_shape n;
+    let fixed = R.mk_eq_expr factor k in
+    lemma_int_equation_shape factor k;
+    assert (int_equation fixed == Some (factor, k) /\ linear_consequence facts fixed);
+    lemma_linear_consequence s bc eq other facts fixed;
+    lemma_equation s bc eq other fixed factor k;
+    AR.lemma_int_numeral s bc eq other [] rho n k;
+    lemma_int_multiply_constant (integer_value s bc eq other x) (integer_value s bc eq other y) n left;
+    let value = constant_int_product_value f x y n left in
+    if n <> 1 then (
+      lemma_int_application_shape f k other_factor;
+      AR.lemma_int_binary s bc eq other [] rho f k other_factor LA.Mul);
+    assert (integer_value s bc eq other value ==
+            (if n = 1 then integer_value s bc eq other other_factor
+             else n * integer_value s bc eq other other_factor));
+    assert (integer_value s bc eq other p == integer_value s bc eq other value);
+    let equation = R.mk_eq_expr p value in
+    lemma_int_equation_shape p value;
+    lemma_equation s bc eq other equation p value;
+    assert (T.truth s bc eq other equation);
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (equation :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ integer_product_check facts)
+          (ensures False) =
+  if Some? (integer_product_witness facts) then (
+    let p = Some?.v (integer_product_witness facts) in
+    if nonnegative_int_product facts p then lemma_nonnegative_int_product s bc eq other facts p
+    else if positive_int_product facts p then lemma_positive_int_product s bc eq other facts p
+    else if nonpositive_int_product facts p then lemma_nonpositive_int_product s bc eq other facts p
+    else if negative_int_product facts p then lemma_negative_int_product s bc eq other facts p
+    else lemma_zero_int_product s bc eq other facts p)
+  else
+    let p, n, left = Some?.v (constant_int_product_witness facts) in
+    lemma_constant_int_product s bc eq other facts p n left
+
+let integer_product_equality (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else match int_equation conclusion with
+  | Some (x, y) ->
+    if None? (arguments_budget 4096 (x :: y :: facts)) then false
+    else get_sort x = LA.int_s && get_sort y = LA.int_s && D.scoped [] x && D.scoped [] y &&
+         integer_product_check (R.mk_not_expr (int_le x y) :: facts) &&
+         integer_product_check (R.mk_not_expr (int_ge x y) :: facts)
+  | None -> false
+
+let lemma_product_complement_scope (c:expr)
+  : Lemma (requires D.scoped [] c /\ get_sort c == bool_sort)
+          (ensures D.scoped [] (R.mk_not_expr c)) =
+  assert_norm (R.not_decl.domain == [bool_sort]);
+  assert (sorts_match [c] R.not_decl.domain);
+  assert (D.scoped_args [] [c])
+
+let lemma_integer_product_unit (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] c /\ get_sort c == bool_sort /\
+                    integer_product_check (R.mk_not_expr c :: facts))
+          (ensures T.truth s bc eq other c) =
+  lemma_product_complement_scope c;
+  if not (T.truth s bc eq other c) then (
+    T.lemma_negation s bc eq other R.not_decl c;
+    lemma_integer_product_check s bc eq other (R.mk_not_expr c :: facts))
+
+let lemma_product_equality_bounds (x y:expr)
+  : Lemma (requires D.scoped [] x /\ D.scoped [] y /\ get_sort x == LA.int_s /\ get_sort y == LA.int_s)
+          (ensures D.scoped [] (int_le x y) /\ get_sort (int_le x y) == bool_sort /\
+                   D.scoped [] (int_ge x y) /\ get_sort (int_ge x y) == bool_sort /\
+                   LA.comparison (int_le x y) == Some (LA.Le, x, y) /\
+                   LA.comparison (int_ge x y) == Some (LA.Ge, x, y)) =
+  assert (LA.application
+    { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
+    [x; y] bool_sort "<=" Z3ValueTheory.op_arith_le);
+  assert (LA.application
+    { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
+    [x; y] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+
+let lemma_integer_product_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                   (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    integer_product_equality facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let x, y = Some?.v (int_equation conclusion) in
+  let le = int_le x y in
+  let ge = int_ge x y in
+  lemma_equation s bc eq other conclusion x y;
+  lemma_product_equality_bounds x y;
+  lemma_integer_product_unit s bc eq other facts le;
+  lemma_integer_product_unit s bc eq other facts ge;
+  assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
+  lemma_order_equation s bc eq other [le; ge] conclusion
+
+let rec integer_clause_equality_witness (facts lits candidates:list expr)
+  : Tot (option (e:expr{L.mem e lits /\
+      integer_product_equality (product_equality_clause_facts facts lits e) e}))
+        (decreases candidates) =
+  match candidates with
+  | [] -> None
+  | e :: rest ->
+    if L.mem e lits && Some? (int_equation e) &&
+       integer_product_equality (product_equality_clause_facts facts lits e) e
+    then Some e
+    else integer_clause_equality_witness facts lits rest
+
+let integer_product_clause_equality (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else if None? (arguments_budget 4096 (conclusion :: facts)) then false
+  else
+    let lits = DT.literals conclusion in
+    if L.length facts + L.length lits > 30 then false
+    else D.scoped_args [] (L.map R.mk_not_expr lits) &&
+         Some? (integer_clause_equality_witness facts lits lits)
+
+let integer_product_clause (facts:list expr) (conclusion:expr) : bool =
+  if integer_product_equality facts conclusion then true
+  else if conclusion = R.false_expr then false
+  else if None? (expression_budget 4096 conclusion) then false
+  else
+    let complements = L.map R.mk_not_expr (DT.literals conclusion) in
+    D.scoped_args [] complements &&
+    (integer_product_check (facts @ complements) || integer_product_clause_equality facts conclusion)
+
+let rec lemma_clause_complements (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                (lits:list expr)
+  : Lemma (requires D.scoped_args [] (L.map R.mk_not_expr lits) /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+          (ensures T.truths s bc eq other (L.map R.mk_not_expr lits))
+          (decreases lits) =
+  match lits with
+  | [] -> ()
+  | lit :: rest ->
+    T.lemma_negation s bc eq other R.not_decl lit;
+    lemma_clause_complements s bc eq other rest
+
+let rec lemma_clause_complements_except (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                       (lits:list expr) (e:expr)
+  : Lemma (requires D.scoped_args [] (L.map R.mk_not_expr lits) /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+          (ensures T.truths s bc eq other (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits)))
+          (decreases lits) =
+  match lits with
+  | [] -> ()
+  | lit :: rest ->
+    if lit <> e then T.lemma_negation s bc eq other R.not_decl lit;
+    lemma_clause_complements_except s bc eq other rest e
+
+let lemma_integer_product_clause_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                         (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\ integer_product_clause_equality facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if not (T.truth s bc eq other conclusion) then (
+    let lits = DT.literals conclusion in
+    let e = Some?.v (integer_clause_equality_witness facts lits lits) in
+    DT.lemma_literals s bc eq other conclusion;
+    lemma_literals_of conclusion;
+    lemma_literals_scoped lits e;
+    lemma_clause_complements_except s bc eq other lits e;
+    Z3List.lemma_filter (fun (t:expr) -> t <> e) lits;
+    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits));
+    lemma_integer_product_equality s bc eq other (product_equality_clause_facts facts lits e) e;
+    lemma_clause_member s bc eq other conclusion e)
+
+let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                 (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\ integer_product_clause facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if integer_product_equality facts conclusion then
+    lemma_integer_product_equality s bc eq other facts conclusion
+  else if integer_product_check (facts @ L.map R.mk_not_expr (DT.literals conclusion)) then (
+    if not (T.truth s bc eq other conclusion) then (
+      DT.lemma_literals s bc eq other conclusion;
+      lemma_clause_complements s bc eq other (DT.literals conclusion);
+      DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));
+      lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion))))
+  else lemma_integer_product_clause_equality s bc eq other facts conclusion
+
+let lemma_real_product_literal_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                       (reals:RL.carrier base) (facts:list expr) (e:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ T.truths s bc eq other facts /\
+                    real_product_literal_equality s facts e)
+          (ensures T.truth s bc eq other e) =
+  match e with
+  | App f [a; b] -> RP.lemma_equality_check s bc eq other reals facts a b
+  | _ -> ()
+
+let lemma_real_product_clause_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                      (reals:RL.carrier base) (facts:list expr) (conclusion:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ T.truths s bc eq other facts /\
+                    D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    real_product_clause_equality s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if not (T.truth s bc eq other conclusion) then (
+    let lits = DT.literals conclusion in
+    let e = Some?.v (real_clause_equality_witness s facts lits lits) in
+    DT.lemma_literals s bc eq other conclusion;
+    lemma_clause_complements_except s bc eq other lits e;
+    Z3List.lemma_filter (fun (t:expr) -> t <> e) lits;
+    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits));
+    lemma_real_product_literal_equality s bc eq other reals (product_equality_clause_facts facts lits e) e;
+    lemma_clause_member s bc eq other conclusion e)
+
+let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\
+                    T.truths s bc eq other (propositions node.premises) /\
+                    RL.real_model s bc eq other /\ real_product_clause s node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Holds c ->
+    let facts = propositions node.premises in
+    let complements = L.map R.mk_not_expr (DT.literals c) in
+    if RP.check s (facts @ complements) then (
+      if not (T.truth s bc eq other c) then (
+        DT.lemma_literals s bc eq other c;
+        lemma_clause_complements s bc eq other (DT.literals c);
+        DT.lemma_truths_append s bc eq other facts complements;
+        FStar.Classical.exists_elim False
+          #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+          (fun reals -> RP.lemma_check s bc eq other reals (facts @ complements))))
+    else
+      FStar.Classical.exists_elim (T.truth s bc eq other c)
+        #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+        (fun reals -> lemma_real_product_clause_equality s bc eq other reals facts c)
+  | _ -> ()
 
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
    keeps the previous treatment. *)
-let nnf_verdict (assertions:list expr) (node:U.proof_node) : NR.verdict =
+let nnf_verdict (s:S.checked_schema) (assertions:list expr) (node:U.proof_node) : NR.verdict =
   match node.U.kind with
   | U.QuantifierIntroduction c ->
-    if Nil? node.U.premises then NR.replay assertions c node.U.conclusion else NR.Unreplayed
+    if Nil? node.U.premises then NR.replay_with (RL.real_primitive s) assertions c node.U.conclusion
+    else NR.Unreplayed
   | _ -> NR.Unreplayed
 
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1644,7 +2876,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     then Some ({ U.conclusion = node.conclusion; hypotheses = [conclusion] }, 0)
     else None
   | _ ->
-    let nnf = nnf_verdict assertions node in
+    let nnf = nnf_verdict s assertions node in
     (* A certificate whose premise ids are not earlier entries is a malformed
        proof entry, reported as a rejection rather than as a pending step. *)
     if nnf = NR.Malformed then None else
@@ -1656,11 +2888,16 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      arithmetic_farkas node || quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
+      arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
+      lemma_step node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
+      integer_product node || division_order node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
-      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) in
+      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
+      (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
+      real_product_clause s node ||
+      ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1690,12 +2927,13 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (assertions:list expr) (node:U.proof_node)
   : Lemma (requires T.truths s bc eq other assertions /\
                     Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (RL.real_primitive s ==> RL.real_model s bc eq other) /\
                     boolean_expression s (proposition node.conclusion) /\
-                    nnf_verdict assertions node == NR.Replayed)
+                    nnf_verdict s assertions node == NR.Replayed)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.kind with
   | U.QuantifierIntroduction c ->
-    NR.lemma_replay s bc eq other assertions c node.conclusion;
+    NR.lemma_replay_with s bc eq other (RL.real_primitive s) assertions c node.conclusion;
     (match node.conclusion with
      | U.Equal a b | U.Observational a b ->
        V.lemma_sort_eq (get_sort b) (get_sort a);
@@ -1704,6 +2942,132 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
      | U.Holds _ -> ())
   | _ -> ()
 
+(* An accepted typed Int/Real certificate refutes its literals in every
+   Sorted model satisfying the Real laws (RL.real_model: SOME Real carrier). *)
+let lemma_real_contradiction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (xs:list (bool & expr)) (cs:list LA.coefficient)
+  : Lemma (requires RL.real_model s bc eq other /\ LIN.check_numeric_contradiction s xs cs /\
+                    AR.assumptions_hold s bc eq other xs)
+          (ensures False) =
+  FStar.Classical.exists_elim False #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+    (fun reals -> LIN.lemma_check_numeric_contradiction s bc eq other reals xs cs)
+
+(* An accepted Real rewrite equation is true in every Sorted model
+   satisfying the Real laws. *)
+let lemma_real_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (node:U.proof_node)
+  : Lemma (requires RL.real_model s bc eq other /\ boolean_expression s (proposition node.conclusion) /\
+                    real_rewrite s node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
+      #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+      (fun reals -> LIN.lemma_real_equivalent s bc eq other reals [] (T.empty_environment (S.signature s)) a b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted Real equality/order clause is true in every Sorted model
+   satisfying the Real laws. *)
+let lemma_real_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (node:U.proof_node)
+  : Lemma (requires RL.real_model s bc eq other /\ boolean_expression s (proposition node.conclusion) /\
+                    real_order s node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Holds c ->
+    FStar.Classical.exists_elim (T.truth s bc eq other c)
+      #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+      (fun reals -> lemma_real_order_clause s bc eq other reals c)
+  | _ -> ()
+
+(* An accepted guarded Int div/mod clause is true in every Sorted model
+   satisfying the division laws. *)
+let lemma_division_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (node:U.proof_node)
+  : Lemma (requires DV.division_laws s bc eq other /\ boolean_expression s (proposition node.conclusion) /\
+                    division_order node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Holds c -> lemma_division_clause s bc eq other c
+  | _ -> ()
+
+(* An accepted ITE rewrite equation is true in every Sorted model: the ITE
+   laws at the scope [] and the empty environment. *)
+let lemma_ite_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ ite_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_ite_rewritten_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted Int factor permutation equation is true in every Sorted
+   model: the law at the scope [] and the empty environment. *)
+let lemma_product_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ product_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_product_permuted_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted ElimUnused equation is true in every Sorted model satisfying
+   the universal and existential laws: the law at the scope [] and the empty
+   environment. *)
+let lemma_unused_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (node:U.proof_node)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\ unused_elimination node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_unused_eliminated_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted der equation is true in every Sorted model satisfying the
+   universal law: the law at the scope [] and the empty environment. *)
+let lemma_der_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (node:U.proof_node)
+  : Lemma (requires Q.forall_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\ der_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_der_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1711,7 +3075,11 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     (quantifier_flattening node ==> Q.forall_model s bc other) /\
-                    (U.QuantifierIntroduction? node.kind ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (binder_rule node.kind ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (real_node s node ==> RL.real_model s bc eq other) /\
+                    (division_node node ==> DV.division_laws s bc eq other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
   lemma_check_node_context s assertions node fact 0;
@@ -1729,6 +3097,40 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | U.ArithmeticFarkas cs ->
           AR.lemma_check_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
+    else if real_farkas s node then (
+      if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        DT.lemma_literals s bc eq other conclusion;
+        lemma_arithmetic_assumptions s bc eq other (propositions node.premises) (DT.literals conclusion);
+        match node.kind with
+        | U.ArithmeticFarkas cs -> lemma_real_contradiction s bc eq other (arithmetic_assumptions node) cs
+        | _ -> ()))
+    else if real_rewrite s node then lemma_real_rewrite s bc eq other node
+    else if real_order s node then lemma_real_order s bc eq other node
+    else if real_equality s node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        match node.conclusion with
+        | U.Equal a b | U.Observational a b ->
+          FStar.Classical.exists_elim (T.truth s bc eq other (proposition node.conclusion))
+            #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+            (fun reals ->
+              if (node.kind = U.RewriteRule || node.kind = U.Unverified "th-lemma") &&
+                 LIN.implied_equality s (propositions node.premises) a b
+              then LIN.lemma_implied_equality s bc eq other reals (propositions node.premises) a b
+              else RP.lemma_equality_check s bc eq other reals (propositions node.premises) a b)
+        | _ -> ()))
+    else if real_product s node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        FStar.Classical.exists_elim False
+          #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+          (fun reals -> RP.lemma_check s bc eq other reals (propositions node.premises))))
+    else if integer_product node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_integer_product_check s bc eq other (propositions node.premises)))
+    else if division_order node then lemma_division_order s bc eq other node
     else if quantifier_instantiation node then (
       match node.kind, node.conclusion with
       | U.QuantifierInstantiation args, U.Holds formula ->
@@ -1744,7 +3146,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
           assert_norm (T.cut 1 R.false_expr == B.Bool false);
           T.lemma_cut s bc eq other 1 R.false_expr)
       | _ -> ())
-    else if nnf_verdict assertions node = NR.Replayed then
+    else if nnf_verdict s assertions node = NR.Replayed then
       lemma_nnf_node s bc eq other assertions node
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
@@ -1754,10 +3156,22 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       lemma_scoped_propositions s bc eq other node.premises;
       DT.lemma_consequence s bc eq other (scoped_propositions node.premises) (scoped_proposition fact);
       lemma_scoped_proposition s bc eq other fact)
-    else (
+    else if node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
+    else if node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_integer_product_clause s bc eq other (propositions node.premises) conclusion))
+    else if real_product_clause s node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_real_product_clause s bc eq other node))
+    else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
+    else if product_rewrite node then lemma_product_rewrite s bc eq other node
+    else if unused_elimination node then lemma_unused_elimination s bc eq other node
+    else lemma_der_rewrite s bc eq other node
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
@@ -1858,12 +3272,74 @@ let rec needs_forall_truth (entries:list P.entry) : Tot bool (decreases entries)
   | e :: rest ->
     e.P.rule = U.PullQuantifier || needs_forall_truth rest
 
-(* An entry with a binder certificate: the NNF replay reads the universal and
-   existential laws (Z3NnfReplay.lemma_replay). *)
+(* An entry with a binder certificate (the NNF replay reads the universal and
+   existential laws, Z3NnfReplay.lemma_replay) or an ElimUnused step. *)
 let rec needs_binder_semantics (entries:list P.entry) : Tot bool (decreases entries) =
   match entries with
   | [] -> false
-  | e :: rest -> U.QuantifierIntroduction? e.P.rule || needs_binder_semantics rest
+  | e :: rest -> binder_rule e.P.rule || needs_binder_semantics rest
+
+(* A Farkas or rewrite entry over a Real-primitive schema: the typed Int/Real
+   replay (real_farkas) and the Real rewrite check (real_rewrite) read the
+   Real laws. *)
+let real_rule (r:U.rule) : bool = U.ArithmeticFarkas? r || r = U.RewriteRule
+
+(* An entry whose formula is a closed Real order clause (real_order reads the
+   Real laws for exactly those). *)
+let real_order_entry (e:P.entry) : bool = order_rule e.P.rule && real_order_clause e.P.formula
+
+let real_product_entry (e:P.entry) : bool =
+  e.P.rule = U.Unverified "th-lemma" && e.P.formula = R.false_expr
+
+let real_product_clause_entry (e:P.entry) : bool =
+  order_rule e.P.rule &&
+  (match U.classify_fact e.P.formula with
+   | Some (U.Holds c) -> real_product_clause_shape c
+   | _ -> false)
+
+let real_equality_entry (e:P.entry) : bool =
+  order_rule e.P.rule &&
+  (match U.classify_fact e.P.formula with
+   | Some (U.Equal a b) | Some (U.Observational a b) -> get_sort a = LA.real_s && get_sort b = LA.real_s
+   | _ -> false)
+
+let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest ->
+    (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e ||
+                            real_product_clause_entry e || real_equality_entry e)) ||
+    needs_real_semantics s rest
+
+(* An entry whose formula is a guarded Int div/mod clause (division_order reads
+   the division laws for exactly those). *)
+let division_order_entry (e:P.entry) : bool = order_rule e.P.rule && division_clause e.P.formula
+
+let rec needs_division_semantics (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest -> division_order_entry e || needs_division_semantics rest
+
+let lemma_division_node_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
+                              (node:U.proof_node)
+  : Lemma (requires prepare_entry s cache e == Some node /\ division_node node)
+          (ensures division_order_entry e) = ()
+
+let rec lemma_needs_real_primitive (s:S.checked_schema) (entries:list P.entry)
+  : Lemma (requires needs_real_semantics s entries) (ensures RL.real_primitive s) (decreases entries) =
+  match entries with
+  | [] -> ()
+  | e :: rest ->
+    if not (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e ||
+                                  real_product_clause_entry e || real_equality_entry e))
+    then lemma_needs_real_primitive s rest
+
+let lemma_real_node_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
+                          (node:U.proof_node)
+  : Lemma (requires prepare_entry s cache e == Some node /\ real_node s node)
+          (ensures RL.real_primitive s /\
+                   (real_rule e.P.rule \/ real_order_entry e \/ real_product_entry e \/
+                    real_product_clause_entry e \/ real_equality_entry e)) = ()
 
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -1872,7 +3348,11 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
                     (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics entries ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (needs_binder_semantics entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s entries ==> RL.real_model s bc eq other) /\
+                    (needs_division_semantics entries ==> DV.division_laws s bc eq other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
           (decreases entries) =
@@ -1884,6 +3364,8 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     lemma_pending s assertions (I.index_put cache next fact) (next + 1) (pending + local) rest result 0;
     lemma_premise_lookup s bc eq other cache e.premise_ids node.premises;
     lemma_check_node_context s assertions node fact local;
+    if real_node s node then lemma_real_node_entry s cache e node;
+    if division_node node then lemma_division_node_entry s cache e node;
     lemma_check_node_cached s bc eq other assertions node fact;
     lemma_cache_insert s bc eq other cache next fact;
     lemma_entries s bc eq other assertions (I.index_put cache next fact) (next + 1)
@@ -1895,7 +3377,11 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   : Lemma (requires check_document s doc == Some 0 /\
                     (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth doc.entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics doc.entries ==> Q.forall_model s bc other /\ E.exists_model s bc other))
+                    (needs_binder_semantics doc.entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s doc.entries ==> RL.real_model s bc eq other) /\
+                    (needs_division_semantics doc.entries ==> DV.division_laws s bc eq other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in
@@ -2405,14 +3891,53 @@ let lemma_full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   lemma_truths_append s bc eq j doc.assertions (epsilon_equations s ds doc.entries);
   lemma_truths_append s bc eq j (elaborate_epsilon s ds doc).P.assertions (DS.closures s dds)
 
+(* The same extension keeps the Real laws of `other` (a witness is never a
+   classified Real operator), so the Real hypothesis transfers from the
+   original model to the elaborated one. *)
+let lemma_full_extension_real (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                              (doc:P.document) (other:V.interpretation base (S.signature s))
+                              (reals:RL.carrier base)
+  : Lemma (requires RL.real_laws s bc eq other reals)
+          (ensures RL.real_laws s bc eq (full_extension s bc eq choice doc other) reals) =
+  let ds = epsilon_context s doc in
+  RX.lemma_build_real s bc eq choice ds other reals;
+  RX.lemma_dbuild_real s bc eq choice (dependent_context s doc ds) (E.build s bc eq choice ds other) reals
+
+let lemma_full_extension_real_model (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                    (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                                    (doc:P.document) (other:V.interpretation base (S.signature s))
+  : Lemma (requires RL.real_model s bc eq other)
+          (ensures RL.real_model s bc eq (full_extension s bc eq choice doc other)) =
+  FStar.Classical.exists_elim (RL.real_model s bc eq (full_extension s bc eq choice doc other))
+    #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+    (fun reals -> lemma_full_extension_real s bc eq choice doc other reals)
+
+(* The same extension keeps the Sorted Int division laws of `other` (a witness
+   is never a classified division operator). *)
+let lemma_full_extension_division (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                  (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                                  (doc:P.document) (other:V.interpretation base (S.signature s))
+  : Lemma (requires DV.division_laws s bc eq other)
+          (ensures DV.division_laws s bc eq (full_extension s bc eq choice doc other)) =
+  let ds = epsilon_context s doc in
+  DX.lemma_build_division s bc eq choice ds other;
+  DX.lemma_dbuild_division s bc eq choice (dependent_context s doc ds) (E.build s bc eq choice ds other)
+
 let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
                                  (other:V.interpretation base (S.signature s)) (doc:P.document)
   : Lemma (requires check_document_epsilon s doc == Some 0 /\
-                    Q.forall_model s bc other /\ E.exists_model s bc other)
+                    Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (RL.real_primitive s ==> RL.real_model s bc eq other) /\
+                    DV.division_laws s bc eq other)
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let j = full_extension s bc eq choice doc other in
     lemma_full_extension s bc eq choice doc other;
     lemma_full_forall_elimination s bc j;
+    if RL.real_primitive s then lemma_full_extension_real_model s bc eq choice doc other;
+    lemma_full_extension_division s bc eq choice doc other;
+    if needs_real_semantics s (elaborate_full s doc).P.entries then
+      lemma_needs_real_primitive s (elaborate_full s doc).P.entries;
     lemma_check_document s bc eq j (elaborate_full s doc))

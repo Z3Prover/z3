@@ -814,6 +814,34 @@ guard's own stack only. With the pinned F* (v2026.10.25, nightly
 compiles to a loop under Cherry; the expression and sort recursion
 elsewhere in the checker is unchanged.
 
+The native parameters of an `lp-context` node (one per coefficient, index
+and variable: 83,270 of them, 14,347 expressions, for the Pulse query
+`FStar.UInt128-3`) are walked three times before the node is checked:
+`Z3NativeProof.parameter_expressions` collects the expression parameters,
+`Z3NativeProof.marshal_parameters` translates every parameter, and the
+counted lists of `Z3LpCertificate.decode` read the certificate. Each was a
+non-tail recursion that used one C stack frame per element (`read_many`
+four, through its closures), so the Cherry checker overflowed the default
+8 MiB stack on 20 hosted Pulse queries (SIGSEGV at about 65,000 parameters
+in `marshal_parameters` with the hosted build's 128-byte frames, 87,000
+with a 96-byte frame, and at about 26,000 variables in `read_many`). All
+three accumulate and reverse once, so they are loops under Cherry and the
+OCaml extraction is unchanged in behavior. `lemma_parameter_expressions`
+proves the new `parameter_expressions` equal to its structural
+specification, and `lemma_read_many_acc` and `lemma_counted` prove the
+accumulating reader equal to the combinator `read_many` on every input,
+for the result and the rest of the parameters. `marshal_parameters` has the
+`ML` effect (`cached_expression` fails on an expression that was not
+marshaled), so it is not provable in F*: it is the pure translation of one
+parameter followed by the same walk as `cached_expressions`, and the first
+unmarshaled expression still fails with the same message. The Cherry
+regressions `Z3CherryTests.native_parameters` (200,000 mixed and 400,000
+expression parameters built from two real native ASTs, every kind, content
+and position checked) and `lp_decode_scale` (a 100,000-term polynomial),
+and the OCaml bridge test `native-LP-parameter-walks` (the same lists and
+the failure on an unmarshaled expression) decide them. No limit, admission
+check or stack size changed.
+
 `Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
 an introduction node checked with pending 0 has a true conclusion under
 every environment at which the node's assertions hold, provided every

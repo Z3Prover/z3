@@ -1333,6 +1333,32 @@ namespace qe {
                 in->inc_depth();
                 if (m_mode == qsat_qe) {
                     fml = ::mk_and(m_answer);
+                    // A false conjunct decides the answer. Re-binding variables around it
+                    // would hide it from the goal as (forall (...) (and ... false)).
+                    for (expr* a : m_answer)
+                        if (m.is_false(a))
+                            fml = m.mk_false();
+                    for (unsigned i = m_vars.size(); i-- > 1;) {
+                        app_ref_vector vars(m);
+                        for (app* v : m_vars[i]) {
+                            if (occurs(v, fml))
+                                vars.push_back(v);
+                        }
+                        if (!vars.empty()) {
+                            fml = is_exists(i) ?
+                                ::mk_forall(m, vars.size(), vars.data(), fml) :
+                                ::mk_exists(m, vars.size(), vars.data(), fml);
+                        }
+                    }
+                    unsigned j = 0;
+                    for (app* v : m_free_vars) {
+                        if (occurs(v, fml))
+                            m_free_vars[j++] = v;
+                    }
+                    m_free_vars.shrink(j);
+                    if (!m_free_vars.empty()) {
+                        fml = ::mk_exists(m, m_free_vars.size(), m_free_vars.data(), fml);
+                    }
                     in->assert_expr(fml);
                 }
                 else {
@@ -1523,4 +1549,3 @@ tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {
     return cond(mk_produce_proofs_probe(),
                 and_then(mk_simplify_tactic(m, p), t.get()), t.get());
 }
-

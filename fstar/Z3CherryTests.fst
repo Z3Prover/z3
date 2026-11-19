@@ -6,6 +6,12 @@ module R = Z3ResolutionProofTheory
 module U = Z3UnifiedProof
 module C = Z3Cherry
 module CR = Z3ConditionalRewrite
+module N = Z3Native
+module NP = Z3NativeProof
+module LP = Z3LpCertificate
+module L = FStar.List.Tot
+module RP = Z3SortedRealProduct
+module RL = Z3SortedReal
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -85,13 +91,13 @@ let bounded_conditional_rewrite () : bool =
    50,000 deep in an array domain); the guard-free checker accepted them. Inputs
    are built by tail-recursive accumulators. *)
 let rec int_sorts (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
-  if n = 0 then acc else int_sorts (n - 1) (A.BaseSort "Int" :: acc)
+  if n = 0 then acc else int_sorts (n - 1) ((A.SortApp A.IntSymbol []) :: acc)
 
 let rec nested_not (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
   if depth = 0 then acc else nested_not (depth - 1) (R.mk_not_expr acc)
 
 let rec domain_nested (depth:nat) (acc:A.sort) : Tot A.sort (decreases depth) =
-  if depth = 0 then acc else domain_nested (depth - 1) (A.ArraySort [acc] (A.BaseSort "Int"))
+  if depth = 0 then acc else domain_nested (depth - 1) (A.ArraySort [acc] ((A.SortApp A.IntSymbol [])))
 
 let binder_entry (name:string) (formula:A.expr) (premises:list int) : U.binder_entry =
   { U.binder_name = name; U.binder_formula = formula; U.binder_premises = premises; U.binder_sorts = None }
@@ -116,14 +122,14 @@ let hidden_term_pending (q:A.expr) (pad:nat) : int =
   | None -> -1
 
 let binder_guard_stack () : bool =
-  let deep_sort = domain_nested 50000 (A.BaseSort "Int") in
+  let deep_sort = domain_nested 50000 ((A.SortApp A.IntSymbol [])) in
   let x = A.Var 0 deep_sort in
   let deep_sort_q = A.Quantifier A.Forall_k [deep_sort] A.bool_sort (R.mk_eq_expr x x) in
   hidden_term_pending (A.Quantifier A.Forall_k (int_sorts 200000 []) A.bool_sort R.true_expr) 42 = 0 &&
   hidden_term_pending (nested_not 200000 R.true_expr) 308 = 0 &&
   hidden_term_pending deep_sort_q 200 = 0 &&
-  (* the same certificate with less work: the guard's budget leaves it pending *)
-  hidden_term_pending deep_sort_q 79 = 1
+  (* Structural Int comparisons need less work than the old name comparisons. *)
+  hidden_term_pending deep_sort_q 40 = 1
 
 (* The NNF certificate replay (Z3NnfReplay) at native scale: its walks are
    loops. A chain of 200,000 transitivity steps, a 100,000-ary disjunction,
@@ -299,6 +305,69 @@ let qi_regroup_scale () : bool =
   qi_distinct_deep true &&
   qi_distinct_deep false
 
+(* The ITE laws of quant-intro rewrite leaves (Z3NnfReplay.ite_rewritten) at
+   native scale in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_quant_intro_ite_laws`): at sort Term the
+   negated condition, the then merge by `or` and the else merge by a
+   flattened `and` replay, and the then merge with its branches swapped is
+   pending. Distinct guards f^d(a) and f^d(b), which pointer equality
+   cannot short-circuit: at d = 4,000 the generated (recursive) C equality
+   compares them at the normal stack (refused when they differ, accepted
+   for an unshared equal copy); at d = 200,000 the depth admission (4,096
+   levels) refuses them before any comparison. A shared guard with 2^16
+   tree nodes replays with enough work and is pending without it; one with
+   2^60 tree nodes is pending. *)
+let qi_ite (c x y:A.expr) : A.expr = A.App (Z3SortedSemantics.ite_decl qi_term) [c; x; y]
+
+let qi_y : A.expr = A.App { A.decl_name = "y"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } []
+
+let qi_ite_leaf (l r:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let h = A.App { A.decl_name = "h"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } [] in
+  let el = R.mk_eq_expr h l in
+  let er = R.mk_eq_expr h r in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr el er) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qi_all el) (qi_all er);
+        U.binder_premises = [1]; U.binder_sorts = Some [qi_term] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qi_all el) (qi_all er))
+
+let qi_ite_swap (g g':A.expr) : A.expr & A.expr =
+  (qi_ite (R.mk_not_expr g) (A.Var 0 qi_term) qi_y, qi_ite g' qi_y (A.Var 0 qi_term))
+
+let qi_ite_deep () : bool =
+  let a = qi_atom "a" 0 in
+  let b = qi_atom "b" 0 in
+  let (l1, r1) = qi_ite_swap (qi_applied 4000 a) (qi_applied 4000 b) in
+  let (l2, r2) = qi_ite_swap (qi_applied 4000 a) (qi_applied 4000 a) in
+  let (l3, r3) = qi_ite_swap (qi_applied 200000 a) (qi_applied 200000 b) in
+  let (l4, r4) = qi_ite_swap (qi_applied 200000 a) (qi_applied 200000 a) in
+  not (Z3NnfReplay.ite_rewritten l1 r1) && qi_ite_leaf l1 r1 200 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.ite_rewritten l2 r2 && qi_ite_leaf l2 r2 200 = Z3NnfReplay.Replayed &&
+  not (Z3NnfReplay.ite_rewritten l3 r3) &&
+  not (Z3NnfReplay.ite_rewritten l4 r4)
+
+let qi_ite_scale () : bool =
+  let x = A.Var 0 qi_term in
+  let c1 = qi_atom "c" 1 in
+  let c2 = qi_atom "c" 2 in
+  let c3 = qi_atom "c" 3 in
+  let c4 = qi_atom "c" 4 in
+  let (l1, r1) = qi_ite_swap c1 c1 in
+  let l2 = qi_ite c1 x (qi_ite c2 x qi_y) in
+  let l3 = qi_ite (qi_and [c1; c3]) (qi_ite (qi_and [c2; c4]) x qi_y) qi_y in
+  let (w1, w2) = qi_ite_swap (shared_expression 16 c1) (shared_expression 16 c1) in
+  let (b1, b2) = qi_ite_swap (shared_expression 60 c1) (shared_expression 60 c1) in
+  qi_ite_leaf l1 r1 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l2 (qi_ite (qi_or [c1; c2]) x qi_y) 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l3 (qi_ite (qi_and [c1; c3; c2; c4]) x qi_y) 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l2 (qi_ite (qi_or [c1; c2]) qi_y x) 0 = Z3NnfReplay.Unreplayed &&
+  qi_ite_deep () &&
+  qi_ite_leaf w1 w2 2000 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf w1 w2 0 = Z3NnfReplay.Unreplayed &&
+  qi_ite_leaf b1 b2 40 = Z3NnfReplay.Unreplayed
+
 (* The premise-id boundary of the NNF replay is structural: forward, self,
    negative and missing (past the last entry) ids make a certificate
    Malformed and its document is rejected; a valid earlier id and one id
@@ -376,6 +445,1180 @@ let name_pair_units_scale () : bool =
   pair_units_exact huge_s huge_s' && pair_units_exact huge_s huge_t &&
   pair_units_exact "é名" "é名" && pair_units_exact "é名" "é吊"
 
+(* Typed Int/Real Farkas certificates on the forced Sorted route
+   (Z3SortedProof.real_farkas inside check_document_epsilon), natively: the
+   strict conflict {x > 0, x <= 0} and {x < y, y <= x} with rational weights
+   are accepted; the satisfiable {0 < x, x < 1} (x = 1/2) and {x <= y, y <= x}
+   (x = y), a zero weight on the strict premise, non-cancelling weights, a
+   dropped premise, a counterfeit > and a same-spelled distinct constant stay
+   pending. *)
+let real_s : A.sort = (A.SortApp A.RealSymbol [])
+
+let real_constant (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = real_s; A.interp = None; A.int_params = params } []
+
+let real_numeral (n:int) (d:pos) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = real_s; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; d] } []
+
+let real_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = op; A.int_params = [] }
+    [a; b]
+
+let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmeticAst.coefficient) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [a; b];
+      P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                   { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                   { P.rule = U.ArithmeticFarkas cs; P.formula = R.false_expr; P.premise_ids = ids }];
+      P.root = 2 };
+    C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let real_equality_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let facts = [ge x one; le x one; ge y zero; le y zero] in
+  let premise e : U.checked_fact = { U.conclusion = U.Holds e; U.hypotheses = [ge x one] } in
+  let run kind facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Equal one (A.App RL.real_plus_decl [x; y]);
+        U.premises = L.map premise facts } in
+  let preserves (result:option (U.checked_fact & nat)) = match result with
+    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x one]
+    | None -> false in
+  let pending (result:option (U.checked_fact & nat)) = match result with | Some (_, n) -> n = 1 | None -> false in
+  preserves (run (U.Unverified "th-lemma") facts) &&
+  preserves (run U.RewriteRule facts) &&
+  pending (run (U.Unverified "th-lemma") [le x one; ge y zero; le y zero]) &&
+  pending (run (U.ArithmeticFarkas []) facts)
+
+let integer_unit_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let x = A.App { A.decl_name = "x"; domain = []; range = sort; interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let comparison name tag a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = A.bool_sort; interp = Some tag; int_params = [] } [a; b] in
+  let check missing bound =
+    let facts = if missing then [R.true_expr]
+      else [R.true_expr; comparison "<" Z3ValueTheory.op_arith_lt x (numeral 0)] in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-integer-tighten";
+        U.conclusion = U.Holds (comparison "<=" Z3ValueTheory.op_arith_le x (numeral bound));
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  (match check false (-1) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [R.true_expr]
+   | None -> false) &&
+  (match check true (-1) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check false (-2) with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_product_clause_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "clause_x" in
+  let y = constant "clause_y" in
+  let zero = Z3SortedProof.int_zero in
+  let a = Z3SortedProof.int_ge x zero in
+  let b = Z3SortedProof.int_ge y zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let clause bound = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound])
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound] in
+  let check kind facts goal =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds goal;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [a] }) facts } in
+  (match check (U.Unverified "assumed:nlsat") [] (clause zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  (match check (U.Unverified "assumed:nlsat") [] (clause Z3SortedProof.int_one) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match check U.LemmaRule [] (clause zero) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a; b] (Z3SortedProof.int_ge product zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [a]
+   | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a] (Z3SortedProof.int_ge product zero) with
+   | Some (_, n) -> n = 1 | None -> false)
+
+let integer_zero_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "zero_x" in
+  let y = constant "zero_y" in
+  let zero = Z3SortedProof.int_zero in
+  let lower = Z3SortedProof.int_ge x zero in
+  let upper = Z3SortedProof.int_le x zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let check facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le product zero);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [lower] }) facts } in
+  (match check [lower; upper] with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [lower]
+   | None -> false) &&
+  (match check [lower] with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check [upper] with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_constant_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "constant_x" in
+  let y = constant "constant_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient missing =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le (mul x y) value);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> match check n n false with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [1; -1; 2; 340282366920938463463374607431768211456] &&
+  (match check 2 3 false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check 2 2 true with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_product_equality_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "equality_x" in
+  let y = constant "equality_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let product = if reversed then mul y x else mul x y in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    match check n n reversed false observational with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [false; true]) [false; true]) [0; 1; -1; 2] &&
+  (match check 2 3 false false false with | Some (_, count) -> count = 1 | None -> false) &&
+  (match check 2 2 false true false with | Some (_, count) -> count = 1 | None -> false)
+
+let integer_product_equality_clause_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "clause_equality_x" in
+  let y = constant "clause_equality_y" in
+  let two = Z3SortedProof.int_constant 2 in
+  let three = Z3SortedProof.int_constant 3 in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let equality = R.mk_eq_expr (mul x y) (mul two y) in
+  let lower = R.mk_not_expr (Z3SortedProof.int_ge x two) in
+  let check kind lits facts =
+    let c = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds c;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  let upper = R.mk_not_expr (Z3SortedProof.int_le x two) in
+  (match check (U.Unverified "th-lemma") [equality; upper; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [upper; equality; equality; lower] [R.true_expr] with
+   | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr] | None -> false) &&
+  (match check (U.ArithmeticFarkas []) [upper; equality; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma")
+     [equality; R.mk_not_expr (Z3SortedProof.int_le x three); lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [equality; Z3SortedProof.int_le x two; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check U.LemmaRule [equality; upper; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false)
+
+let real_product_equality_clause_controls () : bool =
+  let x = A.App { A.decl_name = "real_clause_x"; domain = []; range = Z3LinearArithmeticAst.real_s;
+                 interp = None; int_params = [] } [] in
+  let y = A.App { A.decl_name = "real_clause_y"; domain = []; range = Z3LinearArithmeticAst.real_s;
+                 interp = None; int_params = [] } [] in
+  let two = A.App (RL.real_numeral_decl 2 1) [] in
+  let three = A.App (RL.real_numeral_decl 3 1) [] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let equality = R.mk_eq_expr (mul x y) (mul two y) in
+  let lower = R.mk_not_expr (A.App RL.real_ge_decl [x; two]) in
+  let upper = R.mk_not_expr (A.App RL.real_le_decl [x; two]) in
+  let check kind lits facts =
+    let c = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds c;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  (match check (U.Unverified "th-lemma") [equality; upper; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [upper; equality; equality; lower] [R.true_expr] with
+   | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr] | None -> false) &&
+  (match check (U.ArithmeticFarkas []) [upper; equality; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma")
+     [equality; R.mk_not_expr (A.App RL.real_le_decl [x; three]); lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [equality; A.App RL.real_le_decl [x; two]; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check U.LemmaRule [equality; upper; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false)
+
+let integer_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let x = constant "x" in
+  let y = constant "y" in
+  let z = constant "z" in
+  let binary name tag result a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = result; interp = Some tag; int_params = [] } [a; b] in
+  let ge a b = binary ">=" Z3ValueTheory.op_arith_ge A.bool_sort a b in
+  let le a b = binary "<=" Z3ValueTheory.op_arith_le A.bool_sort a b in
+  let mul a b = binary "*" Z3ValueTheory.op_arith_mul sort a b in
+  let zero = numeral 0 in
+  let replay kind facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds R.false_expr;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x zero] }) facts } in
+  let check kind strict wrong_sign =
+    let minimum = if strict then numeral 1 else zero in
+    let b = if wrong_sign then le y zero else ge y minimum in
+    let facts = [ge x minimum; b;
+                 (if strict then le z zero else binary "<" Z3ValueTheory.op_arith_lt A.bool_sort z zero);
+                 le (binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
+    replay kind facts in
+  let signed kind strict opposite wrong_sign =
+    let positive = if strict then numeral 1 else zero in
+    let negative = if strict then numeral (-1) else zero in
+    let b = if opposite <> wrong_sign then ge y positive else le y negative in
+    let c = if strict then (if opposite then ge z zero else le z zero)
+      else binary (if opposite then ">" else "<")
+      (if opposite then Z3ValueTheory.op_arith_gt else Z3ValueTheory.op_arith_lt) A.bool_sort z zero in
+    let difference = binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z) in
+    replay kind [le x negative; b; c; if opposite then ge difference zero else le difference zero] in
+  (match check (U.Unverified "th-lemma") false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match check (U.Unverified "th-lemma") false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.ArithmeticFarkas []) false false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.Unverified "th-lemma") true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match check (U.Unverified "th-lemma") true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.ArithmeticFarkas []) true false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) false true false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) true true false with | Some (_, n) -> n = 1 | None -> false)
+
+let real_product_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let document a b c d : C.marshaled =
+    { C.document = {
+        P.declarations = []; P.expressions = []; P.assertions = [a; b; c; d];
+        P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = c; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = d; P.premise_ids = [] };
+                     { P.rule = U.Unverified "th-lemma"; P.formula = R.false_expr;
+                       P.premise_ids = [0; 1; 2; 3] }];
+        P.root = 4 };
+      C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } } in
+  let check a b d = C.check true (document (ge z RP.zero) a b d) in
+  let bound = le (mul x y) RP.zero in
+  let indirect = R.mk_not_expr
+    (ge (A.App RL.real_plus_decl [z; mul (A.App (RL.real_numeral_decl (-1) 1) []) x]) RP.zero) in
+  let good = document (ge z RP.zero) indirect (RP.positive y) bound in
+  let nested a b = le (A.App RL.real_plus_decl
+    [z; mul (real_numeral (-1) 1) (mul a b)]) RP.zero in
+  check (RP.positive x) (RP.positive y) bound = Some 0 &&
+  check indirect (R.mk_not_expr (le y RP.zero)) bound = Some 0 &&
+  check (ge x RP.zero) (RP.positive y) bound = Some 1 &&
+  check (RP.positive x) (ge y RP.zero) bound = Some 1 &&
+  check (RP.positive x) (RP.positive y) (le (mul x z) RP.zero) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested x y)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested y x)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (ge y RP.zero) (RP.positive z) (nested x y)) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (le z RP.zero) (nested x y)) = Some 1 &&
+  C.check true { good with C.document = { good.document with P.assertions = [] } } = None
+
+let real_constant_product_controls () : bool =
+  let x = real_constant "fixed_x" [] in
+  let y = real_constant "fixed_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let check n coefficient missing =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-interval";
+      U.conclusion = U.Holds (A.App RL.real_le_decl
+        [A.App RL.real_times_decl [x; y]; A.App RL.real_times_decl [real_numeral coefficient 1; y]]);
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node && (match Z3SortedProof.check_node schema [] node with
+      | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+      | None -> false) in
+  L.for_all (fun n -> check n n false) [0; 1; 2; -1] &&
+  not (check 2 3 false) && not (check 2 2 true)
+
+let real_product_equality_controls () : bool =
+  let x = real_constant "equality_x" [] in
+  let y = real_constant "equality_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let product = if reversed then mul y x else mul x y in
+    let value = mul (real_numeral coefficient 1) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node &&
+    (match Z3SortedProof.check_node schema [] node with
+     | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+     | None -> false) in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    check n n reversed false observational) [false; true]) [false; true]) [0; 1; 2; -1] &&
+  not (check 2 3 false false false) && not (check 2 2 false true false)
+
+let real_product_clause_controls () : bool =
+  let x = real_constant "clause_x" [] in
+  let y = real_constant "clause_y" [] in
+  let z = real_constant "clause_z" [] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let clause p =
+    let lits = [le x RP.zero; le y RP.zero; RP.positive p] in
+    A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let node kind facts goal =
+    { U.kind = kind; U.conclusion = U.Holds goal;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x RP.zero] }) facts } in
+  let run kind facts goal = Z3SortedProof.check_node schema [] (node kind facts goal) in
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x y)) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  Z3SortedProof.real_node schema (node (U.Unverified "assumed:nlsat") [] (clause (mul x y))) &&
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x z)) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match run U.LemmaRule [] (clause (mul x y)) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero; le y RP.zero] (le (mul x y) RP.zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x RP.zero]
+   | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero] (le (mul x y) RP.zero) with
+   | Some (_, n) -> n = 1 | None -> false)
+
+let real_farkas_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let twin = real_constant "x" [7] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let gt = real_compare ">" (Some Z3ValueTheory.op_arith_gt) in
+  let fake_gt = real_compare ">" None in
+  let lt = real_compare "<" (Some Z3ValueTheory.op_arith_lt) in
+  let le = real_compare "<=" (Some Z3ValueTheory.op_arith_le) in
+  let check a b ids cs = C.check true (real_farkas_document a b ids cs) in
+  check (gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 0 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (2, 4)] = Some 0 &&
+  check (lt zero x) (lt x one) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (le x y) (le y x) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(0, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (3, 7)] = Some 1 &&
+  check (gt x zero) (le x zero) [0] [(1, 1)] = Some 1 &&
+  check (fake_gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (gt x zero) (le twin zero) [0; 1] [(1, 1); (1, 1)] = Some 1
+
+(* The producer's premise-free closed ITE rewrite steps on the forced Sorted
+   route (Z3SortedProof.ite_rewrite inside check_document_epsilon),
+   natively: the else-branch merge by `and`, the then-branch merge by `or`
+   and the negated-condition swap at an uninterpreted sort and at Real are
+   accepted, also on a schema registering a datatype named Real (the Real
+   gate closed); swapped branches, `or` for `and`, the opposite inner guard,
+   a counterfeit ite and a same-spelled twin branch stay pending. *)
+let ite_rewrite_document (schema:Z3DatatypeSignature.schema) (l r:A.expr) : C.marshaled =
+  let e = R.mk_eq_expr l r in
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr e];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr e; P.premise_ids = [] };
+                   { P.rule = U.RewriteRule; P.formula = e; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let direct_ite_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_s];
+                        Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                                       Z3DatatypeSignature.recognizer = is_real_box;
+                                                       Z3DatatypeSignature.accessors = [] }] } in
+  let c = qi_atom "c" 0 in
+  let d = qi_atom "d" 0 in
+  let x = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } [] in
+  let twin = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [7] } [] in
+  let rx = real_constant "x" [] in
+  let ry = real_constant "y" [] in
+  let rite (g a b:A.expr) : A.expr = A.App (Z3SortedSemantics.ite_decl real_s) [g; a; b] in
+  let fake_ite = { Z3SortedSemantics.ite_decl qi_term with A.interp = None } in
+  let check schema l r = C.check true (ite_rewrite_document schema l r) in
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite (R.mk_not_expr c) x qi_y) (qi_ite c qi_y x) = Some 0 &&
+  check core (rite c (rite d rx ry) ry) (rite (qi_and [c; d]) rx ry) = Some 0 &&
+  check real_datatype (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check real_datatype (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) qi_y x) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_or [c; d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; R.mk_not_expr d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (A.App fake_ite [qi_and [c; d]; x; qi_y]) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) twin qi_y) = Some 1
+
+(* The Int product factor permutation natively in the Cherry checker (the
+   OCaml counterparts are test_native_bridge.ml
+   `sorted_int_factor_permutation` and `sorted_direct_product_rewrites`):
+   quant-intro rewrite leaves under two Int binders (Z3NnfReplay.
+   product_permuted) replay for the captured Euclid shape p1 * p0 ~ p0 * p1
+   and a regrouped repeat, and stay pending for x*y ~ x*x and a shifted
+   index; 64 factors are accepted in reverse order, 65 and a 100,000-factor
+   product are refused by the factor bound, and a product candidate with a
+   100,000-sort domain by its bounded admission; 64 unshared copies of a
+   4,000-deep factor are accepted, and refused when one copy differs.
+   Distinct factors f^d(a) and
+   f^d(b), which pointer equality cannot short-circuit: at d = 4,000 the
+   generated (recursive) C equality compares them at the normal stack
+   (refused when they differ, accepted for an unshared equal copy); at
+   d = 200,000 the depth admission (4,096 levels) refuses them before any
+   comparison. A shared factor with 2^16 tree nodes replays with enough work
+   and is pending without it; one with 2^60 tree nodes is pending. Closed
+   premise-free RewriteRule documents (Z3SortedProof.product_rewrite on the
+   forced Sorted route): x * y = y * x and a regrouped three-factor product
+   are certified; x * y = x * x, a same-spelled twin factor and a look-alike
+   `*` stay pending. *)
+let qp_int : A.sort = A.SortApp A.IntSymbol []
+
+let qp_mul (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3ValueTheory.op_mul;
+          A.int_params = [] } [a; b]
+
+let rec qp_ints (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
+  match xs with [] -> acc | _ :: rest -> qp_ints rest (qp_int :: acc)
+
+let qp_times (args:list A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = qp_ints args []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_arith_mul;
+          A.int_params = [] } args
+
+let qp_atom (name:string) (k:int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = qp_int; A.interp = None; A.int_params = [k] } []
+
+let rec qp_atoms (n:nat) (acc:list A.expr) : Tot (list A.expr) (decreases n) =
+  if n = 0 then acc else qp_atoms (n - 1) (qp_atom "v" n :: acc)
+
+let qp_zero : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [0; 1] } []
+
+let qp_nonpositive (a:A.expr) : A.expr =
+  A.App { A.decl_name = "<="; A.domain = [qp_int; qp_int]; A.range = A.bool_sort; A.interp = Some Z3ValueTheory.op_arith_le;
+          A.int_params = [] } [a; qp_zero]
+
+let qp_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [qp_int; qp_int] A.bool_sort body
+
+let qp_leaf (l r:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let bl = qp_nonpositive l in
+  let br = qp_nonpositive r in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr bl br) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qp_all bl) (qp_all br);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int; qp_int] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qp_all bl) (qp_all br))
+
+let qp_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [qp_int]; A.range = qp_int; A.interp = None; A.int_params = [] }
+
+let rec qp_applied (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qp_applied (depth - 1) (A.App qp_f [acc])
+
+let qp_shared : A.func_decl =
+  { A.decl_name = "shared"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = None; A.int_params = [] }
+
+let rec qp_dag (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qp_dag (depth - 1) (A.App qp_shared [acc; acc])
+
+let qp_swap (p q:A.expr) : A.expr & A.expr = (qp_mul p (qp_atom "y" 0), qp_mul (qp_atom "y" 0) q)
+
+let rec qp_sorts (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
+  if n = 0 then acc else qp_sorts (n - 1) (qp_int :: acc)
+
+(* n unshared 4,000-deep factors f^4000(a), the one at position k f^4000(b). *)
+let rec qp_copies (n k:nat) (a b:A.expr) (acc:list A.expr) : Tot (list A.expr) (decreases n) =
+  if n = 0 then acc else qp_copies (n - 1) k a b (qp_applied 4000 (if n - 1 = k then b else a) :: acc)
+
+let qi_product_scale () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let a = qp_atom "a" 0 in
+  let b = qp_atom "b" 0 in
+  let vs64 = qp_atoms 64 [] in
+  let vs65 = qp_atoms 65 [] in
+  let wide = qp_times (qp_atoms 100000 []) in
+  let long = A.App { A.decl_name = "*"; A.domain = qp_sorts 100000 []; A.range = qp_int;
+                     A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b] in
+  let (d1, e1) = qp_swap (qp_applied 4000 a) (qp_applied 4000 b) in
+  let (d2, e2) = qp_swap (qp_applied 4000 a) (qp_applied 4000 a) in
+  let (d3, e3) = qp_swap (qp_applied 200000 a) (qp_applied 200000 b) in
+  let (d4, e4) = qp_swap (qp_applied 200000 a) (qp_applied 200000 a) in
+  let (w1, w2) = qp_swap (qp_dag 16 a) (qp_dag 16 a) in
+  let (b1, b2) = qp_swap (qp_dag 60 a) (qp_dag 60 a) in
+  qp_leaf (qp_mul i1 i0) (qp_mul i0 i1) 0 = Z3NnfReplay.Replayed &&
+  qp_leaf (qp_mul (qp_mul i1 i0) i1) (qp_mul i1 (qp_mul i0 i1)) 0 = Z3NnfReplay.Replayed &&
+  qp_leaf (qp_mul i1 i0) (qp_mul i1 i1) 0 = Z3NnfReplay.Unreplayed &&
+  qp_leaf (qp_mul i1 i0) (qp_mul i0 i0) 0 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.product_permuted (qp_times vs64) (qp_times (FStar.List.Tot.rev vs64)) &&
+  not (Z3NnfReplay.product_permuted (qp_times vs65) (qp_times (FStar.List.Tot.rev vs65))) &&
+  not (Z3NnfReplay.product_permuted wide wide) &&
+  not (Z3NnfReplay.product_permuted long long) &&
+  Z3NnfReplay.product_permuted (qp_times (qp_copies 64 64 a b [])) (qp_times (qp_copies 64 64 a b [])) &&
+  not (Z3NnfReplay.product_permuted (qp_times (qp_copies 64 64 a b [])) (qp_times (qp_copies 64 63 a b []))) &&
+  not (Z3NnfReplay.product_permuted d1 e1) && qp_leaf d1 e1 200 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.product_permuted d2 e2 && qp_leaf d2 e2 200 = Z3NnfReplay.Replayed &&
+  not (Z3NnfReplay.product_permuted d3 e3) &&
+  not (Z3NnfReplay.product_permuted d4 e4) &&
+  qp_leaf w1 w2 2000 = Z3NnfReplay.Replayed &&
+  qp_leaf w1 w2 0 = Z3NnfReplay.Unreplayed &&
+  qp_leaf b1 b2 40 = Z3NnfReplay.Unreplayed
+
+let direct_product_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = qp_atom "x" 0 in
+  let y = qp_atom "y" 0 in
+  let z = qp_atom "z" 0 in
+  let twin = qp_atom "x" 7 in
+  let look_alike = A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int;
+                           A.interp = Some Z3ValueTheory.op_mul; A.int_params = [0] } [y; x] in
+  let check l r = C.check true (ite_rewrite_document core l r) in
+  check (qp_mul x y) (qp_mul y x) = Some 0 &&
+  check (qp_mul (qp_mul x y) z) (qp_times [x; y; z]) = Some 0 &&
+  check (qp_mul x y) (qp_mul x x) = Some 1 &&
+  check (qp_mul x y) (qp_mul y twin) = Some 1 &&
+  check (qp_mul x y) look_alike = Some 1
+
+(* A sort merely NAMED Int is an opaque declaration identity (A.BaseSort), not the canonical Int sort:
+   a product over it is no Int product, so no factor permutation. *)
+let qp_named_int : A.sort = A.BaseSort "Int"
+
+let qp_named_mul (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = [qp_named_int; qp_named_int]; A.range = qp_named_int;
+          A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b]
+
+let qp_named_atom (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = qp_named_int; A.interp = None; A.int_params = [] } []
+
+let direct_named_int_control () : bool =
+  let x = qp_named_atom "x" in
+  let y = qp_named_atom "y" in
+  not (Z3NnfReplay.product_permuted (qp_named_mul x y) (qp_named_mul y x)) &&
+  not (Z3NnfReplay.product_permuted (qp_mul (qp_atom "x" 0) (qp_atom "y" 0)) (qp_named_mul x y))
+
+(* elim-unused natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_elim_unused`): quant-intro leaves under an
+   Int binder (Z3NnfReplay.unused_eliminated) replay for the captured
+   (forall [Term^k] true) = true (k = 1, 64), a lowered free index and a
+   4,000-deep body; 65 binders, a dropped used binder and the reversed
+   orientation stay pending, and a 200,000-deep body is refused by the depth
+   admission. Closed premise-free ElimUnused documents
+   (Z3SortedProof.unused_elimination on the forced Sorted route): the
+   captured step is certified; a dropped used binder, the reversed
+   orientation and the RewriteRule label stay pending. *)
+let qe_term : A.sort = A.BaseSort "Term"
+
+let qe_forall (bs:list A.sort) (body:A.expr) : A.expr = A.Quantifier A.Forall_k bs A.bool_sort body
+
+let qe_pi (x:A.expr) : A.expr =
+  A.App { A.decl_name = "pi"; A.domain = [qp_int]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [x]
+
+let rec qe_terms (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
+  if n = 0 then acc else qe_terms (n - 1) (qe_term :: acc)
+
+let qe_or (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b]
+
+let qe_leaf (q e:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let lq = qe_or (qe_pi i0) q in
+  let le = qe_or (qe_pi i0) e in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "elim-unused" (R.mk_eq_expr q e) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr lq le) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] lq) (qe_forall [qp_int] le);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] lq) (qe_forall [qp_int] le))
+
+let rec qe_applied (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qe_applied (depth - 1) (A.App qp_f [acc])
+
+let qi_elim_scale () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  qe_leaf (qe_forall [qe_term] R.true_expr) R.true_expr 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall (qe_terms 64 []) R.true_expr) R.true_expr 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall [qe_term] (qe_pi i1)) (qe_pi i0) 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall [qe_term] (qe_pi (qe_applied 4000 i1))) (qe_pi (qe_applied 4000 i0)) 200 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall (qe_terms 65 []) R.true_expr) R.true_expr 0 = Z3NnfReplay.Unreplayed &&
+  qe_leaf (qe_forall [qp_int] (qe_pi (A.Var 0 qp_int))) R.true_expr 0 = Z3NnfReplay.Unreplayed &&
+  qe_leaf R.true_expr (qe_forall [qe_term] R.true_expr) 0 = Z3NnfReplay.Unreplayed &&
+  not (Z3NnfReplay.unused_eliminated (qe_forall [qe_term] (qe_pi (qe_applied 200000 i1))) (qe_pi (qe_applied 200000 i0)))
+
+let elim_document (rule:U.rule) (q e:A.expr) : C.marshaled =
+  let f = R.mk_eq_expr q e in
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr f];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr f; P.premise_ids = [] };
+                   { P.rule = rule; P.formula = f; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let direct_elim_controls () : bool =
+  let captured = qe_forall [qe_term] R.true_expr in
+  let used = qe_forall [qp_int] (qe_pi (A.Var 0 qp_int)) in
+  C.check true (elim_document U.ElimUnused captured R.true_expr) = Some 0 &&
+  C.check true (elim_document U.ElimUnused used R.true_expr) = Some 1 &&
+  C.check true (elim_document U.ElimUnused R.true_expr captured) = Some 1 &&
+  C.check true (elim_document U.RewriteRule captured R.true_expr) = Some 1
+
+(* der natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_der`): a quant-intro leaf under an Int
+   binder (Z3NnfReplay.der_step) replays for the captured shape
+   (forall [Int] (or (not (= #1 #0)) (pi #0))) = (forall [Int] (pi #1)) and,
+   in the producer's flatten_or order (the last literal first),
+   (forall [Int] (or (not (= #1 #0)) (pi #0) (forall [Int] (pi #1)))) =
+   (forall [Int] (or (forall [Int] (pi #2)) (pi #1))); it stays pending for
+   an unsubstituted, an unlifted or a literal-dropping target; closed
+   premise-free DestructiveEquality documents (Z3SortedProof.der_rewrite)
+   certify the step with a constant in both orders and stay pending for a
+   wrong substitution, a different operator and under the RewriteRule
+   label. *)
+let qd_neq (a b:A.expr) : A.expr = R.mk_not_expr (R.mk_eq_expr a b)
+
+let qd_or3 (a b c:A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b; c]
+
+let qd_and (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "and"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } [a; b]
+
+let qd_leaf (q e:A.expr) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let lq = qe_or (qe_pi i0) q in
+  let le = qe_or (qe_pi i0) e in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "der" (R.mk_eq_expr q e) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr lq le) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] lq) (qe_forall [qp_int] le);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } :: [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] lq) (qe_forall [qp_int] le))
+
+let der_controls () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let i2 = A.Var 2 qp_int in
+  let k = qp_atom "k" 0 in
+  let m = qp_atom "m" 0 in
+  let open_q = qe_forall [qp_int] (qe_or (qd_neq i1 i0) (qe_pi i0)) in
+  let closed_q = qe_forall [qp_int] (qe_or (qd_neq i0 k) (qe_pi i0)) in
+  let flat_q = qe_forall [qp_int] (qd_or3 (qd_neq i1 i0) (qe_pi i0) (qe_forall [qp_int] (qe_pi i1))) in
+  let closed3 = qe_forall [qp_int] (qd_or3 (qd_neq i0 k) (qe_pi i0) (qe_pi (qp_atom "n" 0))) in
+  qd_leaf open_q (qe_forall [qp_int] (qe_pi i1)) = Z3NnfReplay.Replayed &&
+  qd_leaf open_q (qe_forall [qp_int] (qe_pi i0)) = Z3NnfReplay.Unreplayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_or (qe_forall [qp_int] (qe_pi i2)) (qe_pi i1))) = Z3NnfReplay.Replayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_or (qe_forall [qp_int] (qe_pi i1)) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_forall [qp_int] (qe_pi i2))) = Z3NnfReplay.Unreplayed &&
+  C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi k))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi m))) = Some 1 &&
+  C.check true (elim_document U.RewriteRule closed_q (qe_forall [qp_int] (qe_pi k))) = Some 1 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qe_or (qe_pi (qp_atom "n" 0)) (qe_pi k)))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qe_or (qe_pi k) (qe_pi (qp_atom "n" 0))))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qd_and (qe_pi (qp_atom "n" 0)) (qe_pi k)))) = Some 1
+
+(* pull-quant natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_pull_quant`): a quant-intro leaf under an
+   Int binder (Z3NnfReplay.pull_ok) replays for (or (pi #0) (forall [Int]
+   (pi #1))) = (forall [Int] (or (pi #1) (pi #1))) and for a flattened
+   nested forall, and stays pending for an unlifted child and the reversed
+   orientation. *)
+let qpq_leaf (e q:A.expr) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let le = qe_or (qe_pi i0) e in
+  let lq = qe_or (qe_pi i0) q in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "pull-quant" (R.mk_eq_expr e q) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr le lq) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] le) (qe_forall [qp_int] lq);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } :: [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] le) (qe_forall [qp_int] lq))
+
+let pull_controls () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let i2 = A.Var 2 qp_int in
+  let e = qe_or (qe_pi i0) (qe_forall [qp_int] (qe_pi i1)) in
+  let q = qe_forall [qp_int] (qe_or (qe_pi i1) (qe_pi i1)) in
+  let nested = qe_forall [qp_int] (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i2))) in
+  let flat = qe_forall [qp_int; qp_int] (qe_or (qe_pi i0) (qe_pi i2)) in
+  qpq_leaf e q = Z3NnfReplay.Replayed &&
+  qpq_leaf nested flat = Z3NnfReplay.Replayed &&
+  qpq_leaf e (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
+  qpq_leaf q e = Z3NnfReplay.Unreplayed
+
+(* Real equality/order clauses (Z3SortedProof.real_order) natively in the Cherry checker, on the forced
+   Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_real_order_clauses`): the
+   producer's triangle clauses over Real terms are accepted (a bound against the numeral 0 on the
+   difference x + (-1)*y in either operand order, a reversed bound, the three-literal antisymmetric
+   clause), and a strict bound, a wrong coefficient, a wrong target, a counterfeit `=`, a twin
+   operand, a fourth literal and the closed Real gate of a schema registering a datatype named Real
+   stay pending. The clause must be shallow (4,096 levels, iterative) before any comparison: with
+   unshared equal deep operands f^n(a) n = 4,093 is accepted and n = 4,094 refused, a mismatch at the
+   bottom of f^4093 is refused after the comparison, and 200,000 levels are refused by the walk. *)
+let rec ro_bools (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
+  match xs with [] -> acc | _ :: rest -> ro_bools rest (A.bool_sort :: acc)
+
+let ro_or (args:list A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = ro_bools args []; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } args
+
+let ro_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = real_s; A.interp = Some op; A.int_params = [] } [a; b]
+
+let ro_plus (a b:A.expr) : A.expr = ro_binary "+" Z3ValueTheory.op_arith_add a b
+let ro_times (a b:A.expr) : A.expr = ro_binary "*" Z3ValueTheory.op_arith_mul a b
+let ro_num (n:int) : A.expr = real_numeral n 1
+let ro_diff (a b:A.expr) : A.expr = ro_plus a (ro_times (ro_num (-1)) b)
+let ro_eq (a b:A.expr) : A.expr = R.mk_eq_expr a b
+let ro_not (a:A.expr) : A.expr = R.mk_not_expr a
+let ro_le (a b:A.expr) : A.expr = real_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let ro_ge (a b:A.expr) : A.expr = real_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let ro_lt (a b:A.expr) : A.expr = real_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let ro_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [real_s]; A.range = real_s; A.interp = None; A.int_params = [] }
+
+let rec ro_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else ro_chain (n - 1) (A.App ro_f [acc])
+
+(* not (f^n(bottom) = f^n(bottom)) \/ f^n(bottom) <= f^n(other), all four chains unshared. *)
+let ro_deep (n:nat) (bottom other:A.expr) : A.expr =
+  ro_or [ro_not (ro_eq (ro_chain n bottom) (ro_chain n bottom)); ro_le (ro_chain n bottom) (ro_chain n other)]
+
+let ro_clause_document (schema:Z3DatatypeSignature.schema) (clause:A.expr) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr clause];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr clause; P.premise_ids = [] };
+                   { P.rule = U.Unverified "th-lemma"; P.formula = clause; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let ro_real_datatype : Z3DatatypeSignature.schema =
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  { Z3DatatypeSignature.sorts = [real_s];
+    Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                   Z3DatatypeSignature.recognizer = is_real_box;
+                                   Z3DatatypeSignature.accessors = [] }] }
+
+let real_order_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let twin = real_constant "x" [7] in
+  let zero = ro_num 0 in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let check clause = C.check true (ro_clause_document core clause) in
+  let a = real_constant "a" [] in
+  let b = real_constant "b" [] in
+  let wide = ro_or [ro_not (ro_eq x y); ro_le x y; ro_le y x; ro_le x y] in
+  check (ro_or [ro_not (ro_eq x y); ro_le x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq zero x); ro_ge x zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_diff x y) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus (ro_times (ro_num (-1)) y) x) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff y x) zero]) = Some 0 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff x y) zero)]) = Some 0 &&
+  check (ro_or [ro_not (ro_le x y); ro_eq x y; ro_not (ro_le y x)]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt (ro_diff x y) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt x y]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus x (ro_times (ro_num 1) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_plus x (ro_times (ro_num (-2)) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff x z) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le twin y]) = Some 1 &&
+  check (ro_or [ro_not (fake_eq x y); ro_le x y]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff y x) zero)]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_le x y]) = Some 1 &&
+  check wide = Some 1 &&
+  C.check true (ro_clause_document ro_real_datatype (ro_or [ro_not (ro_eq x y); ro_le x y])) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a a)) = Some 0 &&
+  C.check true (ro_clause_document core (ro_deep 4094 a a)) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a b)) = Some 1 &&
+  Z3SortedProof.real_order_clause (ro_deep 4093 a a) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 4094 a a)) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 200000 a a))
+
+(* Guarded Int div/mod clauses (Z3SortedProof.division_order) natively in the Cherry checker, on the
+   forced Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_int_division_clauses`):
+   the five producer templates over Int terms are accepted in both literal orders
+     d = 0 \/ mod x d >= 0,  d <= 0 \/ (mod x d) + (-1)*d <= -1,  d >= 0 \/ (mod x d) + d <= -1,
+     d = 0 \/ x = d*(div x d) + mod x d  (and the equation's sides swapped),
+   and a missing guard (a unit clause), a guard of the wrong sign for its bound, a wrong bound, mod
+   and div exchanged, a guard on x, a wrong operand of the decomposition, a lookalike mod (no kind
+   tag, the div tag, a twin parameter, another name), a counterfeit `=` and an unguarded alias of a
+   division with its div0 stay pending, as do valid clauses in an unsupported shape (a weaker guard,
+   a commuted product, a third literal). The clause must be shallow (4,096 levels, iterative) before
+   any comparison: with unshared equal deep operands f^n(x), f^n(d) n = 4,093 is accepted and
+   n = 4,094 refused, a mismatch at the bottom of f^4093 is refused after the comparison, and
+   200,000 levels are refused by the walk. *)
+let dv_int : A.sort = qp_int
+
+let dv_const (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = dv_int; A.interp = None; A.int_params = params } []
+
+let dv_num (n:int) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = dv_int; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; 1] } []
+
+let dv_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = dv_int; A.interp = Some op; A.int_params = [] } [a; b]
+
+let dv_plus (a b:A.expr) : A.expr = dv_binary "+" Z3ValueTheory.op_arith_add a b
+let dv_times (a b:A.expr) : A.expr = dv_binary "*" Z3ValueTheory.op_arith_mul a b
+let dv_diff (a b:A.expr) : A.expr = dv_plus a (dv_times (dv_num (-1)) b)
+
+let dv_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = op; A.int_params = [] } [a; b]
+
+let dv_le (a b:A.expr) : A.expr = dv_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let dv_ge (a b:A.expr) : A.expr = dv_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let dv_lt (a b:A.expr) : A.expr = dv_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let dv_rem (a b:A.expr) : A.expr = dv_binary "mod" Z3IntegerDivision.op_mod a b
+let dv_quot (a b:A.expr) : A.expr = dv_binary "div" Z3IntegerDivision.op_idiv a b
+
+let dv_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [dv_int]; A.range = dv_int; A.interp = None; A.int_params = [] }
+
+let rec dv_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else dv_chain (n - 1) (A.App dv_f [acc])
+
+(* d' = 0 \/ mod x' d'' >= 0, with f^n applied to unshared copies of x and of both d's. *)
+let dv_deep (n:nat) (x d d':A.expr) : A.expr =
+  ro_or [ro_eq (dv_chain n d) (dv_num 0); dv_ge (dv_rem (dv_chain n x) (dv_chain n d')) (dv_num 0)]
+
+(* The NEW validator (Z3SortedProof.division_order, called directly) against the whole checker. A clause the new
+   validator accepts must be accepted by the checker (Some 0); a clause it refuses must stay pending in the whole
+   checker (Some 1), i.e. no pre-existing kernel accepts it as a fallback; anything else is None. So an expected Some 0
+   is support of the new division kernel, never of an old fallback, and an expected Some 1 is refused by both. *)
+let dv_node (clause:A.expr) : U.proof_node =
+  { U.kind = U.Unverified "th-lemma"; U.conclusion = U.Holds clause; U.premises = [] }
+
+let dv_check (clause:A.expr) : option nat =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let verdict = C.check true (ro_clause_document core clause) in
+  if Z3SortedProof.division_order (dv_node clause)
+  then (if verdict = Some 0 then Some 0 else None)
+  else (if verdict = Some 1 then Some 1 else None)
+
+let int_division_controls () : bool =
+  let x = dv_const "x" [] in
+  let d = dv_const "d" [] in
+  let e = dv_const "e" [] in
+  let zero = dv_num 0 in
+  let m1 = dv_num (-1) in
+  let rem_decl_with (f:A.func_decl -> A.func_decl) (a b:A.expr) : A.expr =
+    match dv_rem a b with A.App k args -> A.App (f k) args | other -> other in
+  let check = dv_check in
+  let sum = dv_plus (dv_times d (dv_quot x d)) (dv_rem x d) in
+  let lower = ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero] in
+  check lower = Some 0 &&
+  check (ro_or [dv_ge (dv_rem x d) zero; ro_eq d zero]) = Some 0 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_plus (dv_times m1 d) (dv_rem x d)) m1; dv_le d zero]) = Some 0 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [ro_eq d zero; ro_eq x sum]) = Some 0 &&
+  check (ro_or [ro_eq sum x; ro_eq d zero]) = Some 0 &&
+  (* a numeral divisor: the guard 3 = 0 is false and mod x 3 >= 0 is valid, a POSITIVE control accepted by the new validator *)
+  check (ro_or [ro_eq (dv_num 3) zero; dv_ge (dv_rem x (dv_num 3)) zero]) = Some 0 &&
+  (* the numeral instance x = 7, d = -2 (7 div -2 = -3, 7 mod -2 = 1) of every template is accepted *)
+  check (ro_or [ro_eq (dv_num (-2)) zero; dv_ge (dv_rem (dv_num 7) (dv_num (-2))) zero]) = Some 0 &&
+  check (ro_or [dv_ge (dv_num (-2)) zero; dv_le (dv_plus (dv_rem (dv_num 7) (dv_num (-2))) (dv_num (-2))) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_num 2) zero; dv_le (dv_diff (dv_rem (dv_num 7) (dv_num 2)) (dv_num 2)) m1]) = Some 0 &&
+  check (ro_or [ro_eq (dv_num (-2)) zero;
+                ro_eq (dv_num 7) (dv_plus (dv_times (dv_num (-2)) (dv_quot (dv_num 7) (dv_num (-2))))
+                                    (dv_rem (dv_num 7) (dv_num (-2))))]) = Some 0 &&
+  (* the zero-divisor controls at numerals: no guard, or a guard on the dividend instead of the divisor *)
+  check (dv_ge (dv_rem (dv_num 7) zero) zero) = Some 1 &&
+  check (ro_or [ro_eq (dv_num 7) zero; dv_ge (dv_rem (dv_num 7) zero) zero]) = Some 1 &&
+  check (dv_ge (dv_rem x d) zero) = Some 1 &&
+  check (ro_or [ro_eq x zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) (dv_num (-2))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_quot x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot d x)) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot x d)) (dv_times (dv_num 2) (dv_rem x d)))]) = Some 1 &&
+  check (ro_eq x sum) = Some 1 &&
+  check (ro_eq (dv_quot x d) (dv_binary "div0" Z3IntegerDivision.op_idiv x d)) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = None }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = Some Z3IntegerDivision.op_idiv }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.int_params = [1] }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.decl_name = "remainder" }) x d) zero]) = Some 1 &&
+  check (ro_or [A.App { A.decl_name = "="; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = None;
+                        A.int_params = [] } [d; zero]; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times (dv_quot x d) d) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero; dv_le x zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) (dv_num 1)]) = Some 1 &&
+  check (ro_or [ro_eq e zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (dv_deep 4093 x d d) = Some 0 &&
+  check (dv_deep 4094 x d d) = Some 1 &&
+  check (dv_deep 4093 x d e) = Some 1 &&
+  Z3SortedProof.division_clause (dv_deep 4093 x d d) &&
+  not (Z3SortedProof.division_clause (dv_deep 4094 x d d)) &&
+  not (Z3SortedProof.division_clause (dv_deep 200000 x d d))
+
+(* Real equation rewrites (Z3SortedRealLinear.real_equivalent) natively on the forced Sorted route:
+   the renormalized, commuted and proportional difference forms and the equations of constants are
+   accepted as closed premise-free rewrite steps; a wrong sign, offset, target and constant, a
+   counterfeit `=` and the closed Real gate stay pending. A quant-intro leaf with a Real equation
+   under two Real binders replays with the Real gate and not without it, its mutants not at all. *)
+let re_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [real_s; real_s] A.bool_sort body
+
+let re_leaf (gate:bool) (l r:A.expr) : Z3NnfReplay.verdict =
+  Z3NnfReplay.replay_with gate [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (re_all l) (re_all r);
+        U.binder_premises = [0]; U.binder_sorts = Some [real_s; real_s] } :: [];
+    U.binder_root = 1 }) (U.Equal (re_all l) (re_all r))
+
+let real_equation_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let zero = ro_num 0 in
+  let check l r = C.check true (ite_rewrite_document core l r) in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let v0 = A.Var 0 real_s in
+  let v1 = A.Var 1 real_s in
+  check (ro_eq x y) (ro_eq (ro_diff x y) zero) = Some 0 &&
+  check (ro_eq x (ro_times (ro_num 2) y)) (ro_eq (ro_plus x (ro_times (ro_num (-2)) y)) zero) = Some 0 &&
+  check (ro_eq x y) (ro_eq y x) = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus (ro_times (ro_num 3) x) (ro_times (ro_num (-3)) y)) zero) = Some 0 &&
+  check (ro_eq (ro_num 2) zero) R.false_expr = Some 0 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.true_expr = Some 0 &&
+  check (ro_eq (real_numeral 1 2) (real_numeral 2 4)) R.true_expr = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus x y) zero) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x y) (ro_num 1)) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x z) zero) = Some 1 &&
+  check (ro_eq (ro_num 2) zero) R.true_expr = Some 1 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.false_expr = Some 1 &&
+  check (fake_eq x y) (ro_eq (ro_diff x y) zero) = Some 1 &&
+  C.check true (ite_rewrite_document ro_real_datatype (ro_eq x y) (ro_eq (ro_diff x y) zero)) = Some 1 &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Replayed &&
+  re_leaf false (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num 2) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) (ro_num 1)) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v1 (ro_times (ro_num (-2)) v0)) zero) =
+    Z3NnfReplay.Unreplayed
+
+(* Native LP contexts, through Z3NativeProof.marshal_parameters and parameter_expressions.
+   An LP context has one native parameter per coefficient, index and variable: 83,270 for
+   the Pulse query FStar.UInt128-3 (14,347 of them expressions). A walk that used one C
+   stack frame per parameter overflowed the normal 8 MiB stack on it (the frame is 96 to
+   128 bytes, depending on the C compiler, so 65,000 to 87,000 parameters are enough).
+   Both walks are tail recursive now. The two ASTs come from the native test (real Z3 ASTs,
+   `false` and `true`); every list is built here. Their elements interleave every kind of
+   parameter with repeated expressions, negative, huge and zero denominators (marshaling
+   carries them verbatim; only the certificate decoder judges them), so the result must
+   keep each parameter's kind, content and position. *)
+let big_numerator : int = 123456789012345678901234567890
+
+(* Parameter i of the mixed list: an expression at every sixth position. *)
+let parameter_at (a0 a1:N.ast) (i:nat) : N.parameter_view =
+  if i % 6 = 0 then N.ParameterExpression (if i % 12 = 0 then a0 else a1)
+  else if i % 6 = 3 then N.ParameterUnsupported
+  else if i % 6 = 5 then N.ParameterRational big_numerator (0 - (i % 7))
+  else N.ParameterRational (i - 40) (1 + i % 4)
+
+let expected_parameter (e0 e1:A.expr) (i:nat) : LP.raw_parameter =
+  if i % 6 = 0 then LP.Expression (if i % 12 = 0 then e0 else e1)
+  else if i % 6 = 3 then LP.Unsupported
+  else if i % 6 = 5 then LP.Rational big_numerator (0 - (i % 7))
+  else LP.Rational (i - 40) (1 + i % 4)
+
+let rec mixed_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else mixed_parameters a0 a1 (count - 1) (parameter_at a0 a1 (count - 1) :: acc)
+
+(* Only expressions, alternating a0 and a1: the walk that collects them has most to do. *)
+let rec dense_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else dense_parameters a0 a1 (count - 1)
+         (N.ParameterExpression (if (count - 1) % 2 = 0 then a0 else a1) :: acc)
+
+let rec parameters_match (e0 e1:A.expr) (n i:nat) (raw:list LP.raw_parameter)
+  : Tot bool (decreases raw) =
+  match raw with
+  | [] -> i = n
+  | r :: rest ->
+    if r = expected_parameter e0 e1 i then parameters_match e0 e1 n (i + 1) rest else false
+
+(* The j-th expression parameter is a0 for even j and a1 for odd j, in both lists. *)
+let rec expressions_match (a0 a1:N.ast) (n j:nat) (xs:list N.ast) : FStar.All.ML bool =
+  match xs with
+  | [] -> j = n
+  | x :: rest ->
+    if N.ast_id x = N.ast_id (if j % 2 = 0 then a0 else a1)
+    then expressions_match a0 a1 n (j + 1) rest else false
+
+let native_parameters ([@@@FStar.Attributes.cherry_borrowed] asts:list N.ast) : FStar.All.ML bool =
+  match asts with
+  | [a0; a1] ->
+    let st = NP.marshal_expressions (NP.empty_state ()) asts in
+    let e0 = NP.cached_expression st a0 in
+    let e1 = NP.cached_expression st a1 in
+    let small = [N.ParameterRational (-3) 4; N.ParameterExpression a0; N.ParameterUnsupported;
+                 N.ParameterExpression a1; N.ParameterRational big_numerator (-2);
+                 N.ParameterRational 0 0; N.ParameterExpression a0] in
+    let small_raw = [LP.Rational (-3) 4; LP.Expression e0; LP.Unsupported; LP.Expression e1;
+                     LP.Rational big_numerator (-2); LP.Rational 0 0; LP.Expression e0] in
+    let count = 200000 in
+    let mixed = mixed_parameters a0 a1 count [] in
+    let dense = dense_parameters a0 a1 400000 [] in
+    NP.marshal_parameters st [] = [] &&
+    NP.marshal_parameters st small = small_raw &&
+    expressions_match a0 a1 3 0 (NP.parameter_expressions small) &&
+    expressions_match a0 a1 0 0 (NP.parameter_expressions []) &&
+    parameters_match e0 e1 count 0 (NP.marshal_parameters st mixed) &&
+    expressions_match a0 a1 ((count + 5) / 6) 0 (NP.parameter_expressions mixed) &&
+    expressions_match a0 a1 400000 0 (NP.parameter_expressions dense)
+  | _ -> false
+
+(* The certificate decoder (Z3LpCertificate.decode) reads every count-prefixed list in a loop. A
+   certificate with 14,347 variables overflowed the normal stack near 26,000 elements of one list
+   (four C frames per element); the list below has 100,000 coefficient terms. The two variables are
+   Int constants; the second one's definition is the terms (k + 1)/1 * variable 0 for k < 100,000,
+   so the decoded polynomial must keep every term and its position. The one step is a plain input. *)
+let lp_rat (n:int) : LP.raw_parameter = LP.Rational n 1
+
+let lp_int_constant (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = Z3LinearArithmeticAst.int_s;
+          A.interp = None; A.int_params = [] } []
+
+let lp_absent : int = 4294967295
+
+let lp_input_step : list LP.raw_parameter =
+  [lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat 0; lp_rat lp_absent; lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat lp_absent; lp_rat lp_absent; lp_rat lp_absent;
+   lp_rat 1; lp_rat 0; lp_rat 0]
+
+let rec lp_terms (count:nat) (acc:list LP.raw_parameter)
+  : Tot (list LP.raw_parameter) (decreases count) =
+  if count = 0 then acc
+  else lp_terms (count - 1) (lp_rat count :: lp_rat 0 :: acc)
+
+let lp_certificate (declared terms:nat) : list LP.raw_parameter =
+  let x0 = lp_int_constant "x0" in
+  let x1 = lp_int_constant "x1" in
+  Z3List.append
+    [lp_rat 1; lp_rat 2; LP.Expression x0; lp_rat 1; lp_rat 0; LP.Expression x1; lp_rat 1; lp_rat declared]
+    (Z3List.append (lp_terms terms [])
+       (Z3List.append [lp_rat 0; lp_rat 1] (Z3List.append lp_input_step [lp_rat 0])))
+
+let rec lp_terms_match (k n:nat) (p:LP.polynomial) : Tot bool (decreases p) =
+  match p with
+  | [] -> k = n
+  | ((c, d), j) :: rest ->
+    if c = k + 1 && d = 1 && j = 0 then lp_terms_match (k + 1) n rest else false
+
+let lp_decode_scale () : bool =
+  let terms = 100000 in
+  let kept (declared count:nat) : bool =
+    match LP.decode (lp_certificate declared count) with
+    | Some c ->
+      (match c.LP.variables with
+       | [_; v] -> L.length c.LP.steps = 1 && lp_terms_match 0 count v.LP.definition
+       | _ -> false)
+    | None -> false in
+  kept 2 2 && kept terms terms &&
+  (* a declared length beyond the parameters, or too few terms for it, is refused *)
+  None? (LP.decode (lp_certificate (terms + 1) terms)) &&
+  None? (LP.decode (lp_certificate (terms - 1) terms))
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -401,4 +1644,31 @@ let run () : bool =
   nnf_replay_scale () &&
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
-  name_pair_units_scale ()
+  qi_ite_scale () &&
+  real_farkas_controls () &&
+  real_equality_controls () &&
+  integer_unit_controls () &&
+  integer_product_clause_controls () &&
+  integer_zero_product_controls () &&
+  integer_constant_product_controls () &&
+  integer_product_equality_controls () &&
+  integer_product_equality_clause_controls () &&
+  real_product_equality_clause_controls () &&
+  integer_product_controls () &&
+  real_product_controls () &&
+  real_constant_product_controls () &&
+  real_product_equality_controls () &&
+  real_product_clause_controls () &&
+  real_order_controls () &&
+  real_equation_controls () &&
+  int_division_controls () &&
+  direct_ite_controls () &&
+  qi_product_scale () &&
+  direct_product_controls () &&
+  direct_named_int_control () &&
+  qi_elim_scale () &&
+  direct_elim_controls () &&
+  der_controls () &&
+  pull_controls () &&
+  name_pair_units_scale () &&
+  lp_decode_scale ()

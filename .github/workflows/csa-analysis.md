@@ -7,6 +7,12 @@ on:
 
 timeout-minutes: 180
 
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
+
 permissions: read-all
 
 network: defaults

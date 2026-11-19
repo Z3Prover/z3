@@ -6,7 +6,7 @@ module D = Z3Definitions
 module R = Z3ResolutionProofTheory
 module L = FStar.List.Tot
 
-let int_sort : sort = BaseSort "Int"
+let int_sort : sort = (SortApp IntSymbol [])
 
 (* Other sorts retain their theory-specific contracts. *)
 let scalar_typed (s:sort) (v:value) : bool =

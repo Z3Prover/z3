@@ -12,6 +12,7 @@ let rec lemma_sort_eq (a b:sort)
   : Lemma (ensures sort_eq a b <==> a == b) (decreases a) =
   match a, b with
   | ArraySort xs x, ArraySort ys y -> lemma_sort_list_eq xs ys; lemma_sort_eq x y
+  | SortApp _ xs, SortApp _ ys -> lemma_sort_list_eq xs ys
   | _, _ -> ()
 
 and lemma_sort_list_eq (xs ys:list sort)
@@ -29,6 +30,7 @@ let rec contains_datatype (sigma:signature) (s:sort) : Tot bool (decreases s) =
   datatype_sort sigma s ||
   (match s with
    | BaseSort _ -> false
+   | SortApp _ args -> contains_datatype_args sigma args
    | ArraySort domains range -> contains_datatype_args sigma domains || contains_datatype sigma range)
 
 and contains_datatype_args (sigma:signature) (ss:list sort) : Tot bool (decreases ss) =

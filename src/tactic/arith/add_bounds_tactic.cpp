@@ -49,6 +49,7 @@ bool is_unbounded(goal const & g) {
 
 class is_unbounded_probe : public probe {
 public:
+    char const* name() const override { return "is-unbounded"; }
     result operator()(goal const & g) override {
         return is_unbounded(g);
     }
@@ -160,6 +161,10 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         (*m_imp)(g, result);
     }
     

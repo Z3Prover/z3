@@ -106,6 +106,8 @@ open Z3InterpretedProofChecker
 open Z3BvInterp
 open FStar.List.Tot
 
+#set-options "--z3rlimit 40"
+
 (* ----------------------------------------------------------------- *)
 (* 1. A decidable "declared shape is self-consistent with its          *)
 (*    `the_interpretation` semantics" predicate.                       *)
@@ -168,7 +170,7 @@ and no_quant_args (args:list expr) : Tot bool (decreases args) =
   | a :: args' -> no_quant a && no_quant_args args'
 
 (* ----------------------------------------------------------------- *)
-(* 2. The value-shape predicate, keyed by declared sort name, mirroring*)
+(* 2. The value-shape predicate, keyed by declared sort, mirroring     *)
 (*    `Z3InterpretedProofChecker.default_value`'s own case split.      *)
 (*    "Lambda" (a quantifier's sort) is left unconstrained: nothing in *)
 (*    this file ever needs a shape obligation for it.                  *)
@@ -194,7 +196,7 @@ let rec get_sorts (args:list expr) : Tot (list sort) (decreases args) =
 
 let lemma_shape_ok_sort_eq (v:value) (s1 s2:sort)
   : Lemma (requires sort_eq s1 s2 /\ shape_ok v s1) (ensures shape_ok v s2)
-  = ()
+  = Z3DatatypeValue.lemma_sort_eq s1 s2
 
 let rec lemma_shapes_ok_sorts_match (args:list expr) (dom:list sort) (vs:list value)
   : Lemma (requires sorts_match args dom /\ shapes_ok vs (get_sorts args))
@@ -222,7 +224,7 @@ let lemma_default_value_shape_ok (srt:sort)
 let lemma_uninterp_app_shape_ok (f:func_decl{is_uninterp_decl f}) (vs:list value)
   : Lemma (shape_ok (uninterp_app f vs) f.range)
   = match vs with
-    | [] -> if sort_eq f.range (BaseSort "Int") then () else lemma_default_value_shape_ok f.range
+    | [] -> if sort_eq f.range ((SortApp IntSymbol [])) then () else lemma_default_value_shape_ok f.range
     | _ -> lemma_default_value_shape_ok f.range
 
 (* ----------------------------------------------------------------- *)
@@ -1312,7 +1314,10 @@ let rec lemma_eval_pairs_distinct_indices (us:list (expr & expr)) (rho:env value
 let store_perm_distinct (us:list (expr & expr){pairwise_distinct_keys us /\ pairs_wf us}) (rho:env value)
   : Z3ArrayTheory.key_distinct_hyp int int (eval_pairs rho us)
   = lemma_eval_pairs_distinct_indices us rho;
-    fun (k:int) (x1:int) (x2:int) -> lemma_distinct_indices_unique (eval_pairs rho us) k x1 x2
+    fun (k:int) (x1:int) (x2:int) ->
+      FStar.List.Tot.Properties.mem_memP (k, x1) (eval_pairs rho us);
+      FStar.List.Tot.Properties.mem_memP (k, x2) (eval_pairs rho us);
+      lemma_distinct_indices_unique (eval_pairs rho us) k x1 x2
 
 let rec lemma_mem_eval_pairs_intro (us:list (expr & expr)) (rho:env value) (i x:expr) (iv xv:int)
   : Lemma (requires pairs_wf us /\ mem (i, x) us /\
@@ -1352,8 +1357,10 @@ let rec lemma_eval_pairs_mem_transfer (us_s us_t:list (expr & expr)) (rho:env va
 let store_perm_same_set
     (us_s us_t:list (expr & expr){pairs_wf us_s /\ pairs_wf us_t /\ all_mem us_s us_t /\ all_mem us_t us_s})
     (rho:env value) (p:(int & int))
-  : Lemma (mem p (eval_pairs rho us_s) <==> mem p (eval_pairs rho us_t))
+  : Lemma (memP p (eval_pairs rho us_s) <==> memP p (eval_pairs rho us_t))
   = let (k, x) = p in
+    FStar.List.Tot.Properties.mem_memP p (eval_pairs rho us_s);
+    FStar.List.Tot.Properties.mem_memP p (eval_pairs rho us_t);
     let f1 () : Lemma (requires mem (k, x) (eval_pairs rho us_s)) (ensures mem (k, x) (eval_pairs rho us_t))
       = lemma_eval_pairs_mem_transfer us_s us_t rho k x
     in
@@ -2029,5 +2036,3 @@ let lemma_lit_bv_leaf_true (rho:env value)
   : Lemma (eval the_interpretation lit_bv_s rho == eval the_interpretation lit_bv_t rho)
   = lemma_lit_bv_leaf_matched ();
     lemma_matched_proof_true lit_bv_leaf rho
-
-

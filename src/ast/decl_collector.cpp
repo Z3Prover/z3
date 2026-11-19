@@ -66,6 +66,8 @@ void decl_collector::visit_func(func_decl * n) {
         }
         else if (m_ar_util.is_as_array(n, g)) 
             m_todo.push_back(g);
+        else if (m_ar_util.is_map(n, g))
+            m_todo.push_back(g);
         m_visited.mark(n, true);
         m_trail.push_back(n);
     }

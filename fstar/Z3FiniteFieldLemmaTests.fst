@@ -509,7 +509,7 @@ let ill_typed_condition : expr = eq (ite_term 3 x3 (num 3 2) y3) (num 3 1)
 let mixed_branches : expr =
   eq (App (Z3ArrayRewrite.term_ite_decl (FF.ff_sort 3)) [same3; num 3 2; num 5 1]) (num 3 1)
 let mixed_numeral : expr = eq (ite_term 3 same3 (num 3 2) y3) (num 5 1)
-let int_sort : sort = BaseSort "Int"
+let int_sort : sort = (SortApp IntSymbol [])
 let int_const (name:string) : expr =
   App { decl_name = name; domain = []; range = int_sort; interp = None; int_params = [] } []
 let int_ite : expr =

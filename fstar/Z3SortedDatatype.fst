@@ -396,6 +396,11 @@ let lemma_index_step (e:expr) (rest:list expr) (n:pos)
   : Lemma (requires n < L.length (e :: rest))
           (ensures L.index (e :: rest) n == L.index rest (n - 1)) = ()
 
+let lemma_selector_shift (s:S.checked_schema) (constructor:func_decl) (subject:expr)
+                         (index:nat) (n:pos) (e:expr)
+  : Lemma (requires selector_of s constructor subject (index + 1 + (n - 1)) e)
+          (ensures selector_of s constructor subject (index + n) e) = ()
+
 let rec lemma_selector_index (s:S.checked_schema) (constructor:func_decl)
                              (subject:expr) (index:nat) (es:list expr) (n:nat)
   : Lemma (requires selectors s constructor subject index es /\ n < L.length es)
@@ -408,7 +413,7 @@ let rec lemma_selector_index (s:S.checked_schema) (constructor:func_decl)
     if n > 0 then begin
       lemma_selector_index s constructor subject (index + 1) rest (n - 1);
       lemma_index_step e rest n;
-      assert (index + 1 + (n - 1) == index + n)
+      lemma_selector_shift s constructor subject index n (L.index rest (n - 1))
     end
     else assert (L.index es n == e)
 

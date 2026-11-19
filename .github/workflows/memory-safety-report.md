@@ -13,6 +13,12 @@ on:
 
 timeout-minutes: 30
 
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
+
 permissions:
   actions: read
   contents: read

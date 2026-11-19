@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_model_finder.h"
 #include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
 
 #include <iostream>
 
@@ -668,6 +669,14 @@ namespace smt {
         bool_var_data & d      = get_bdata(v);
         d.set_quantifier_flag();
         m_qmanager->add(q, generation);
+        if (q->get_skid() == symbol("generated")) {
+            expr_ref_vector skolems(m);
+            for (unsigned i = 0; i < q->get_num_decls(); ++i)
+                skolems.push_back(m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i)));
+            expr_ref body = var_subst(m)(q->get_expr(), skolems);
+            internalize(body, true);
+            mk_gate_clause(literal(v), ~get_literal(body));
+        }
     }
 
 
@@ -1104,7 +1113,7 @@ namespace smt {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
-                push_eq(e, m_true_enode, eq_justification());
+                push_eq(e, m_true_enode, eq_justification(literal(v)));
             }
             else {
                 if (cgc_enabled) {

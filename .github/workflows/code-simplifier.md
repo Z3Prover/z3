@@ -5,6 +5,12 @@ on:
   schedule: daily
   skip-if-match: 'is:pr is:open in:title "[code-simplifier]"'
 
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
+
 permissions:
   contents: read
   issues: read

@@ -333,7 +333,7 @@ namespace ff_unique {
             std::set<unsigned> zs_classes;
             std::vector<char> queued(eqs.size(), 1);
             std::vector<unsigned> queue;
-            for (unsigned i = eqs.size(); i-- > 0;)
+            for (unsigned i = static_cast<unsigned>(eqs.size()); i-- > 0;)
                 queue.push_back(i);
             st.touched.clear();
             auto apply = [&](int r) {

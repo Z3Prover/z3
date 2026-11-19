@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 
@@ -224,18 +225,47 @@ static Z3Native_sort_view view_sort(Z3_sort sort) {
     Z3Native_sort_view result{};
     result.tag = Z3NATIVE_BASE;
     auto name = symbol(Z3_get_sort_name(c, sort));
+    Z3AstTheory_sort_symbol key{};
+    std::vector<Z3_sort> arguments;
     switch (Z3_get_sort_kind(c, sort)) {
-    case Z3_BOOL_SORT: name = "Bool"; break;
-    case Z3_INT_SORT: name = "Int"; break;
-    case Z3_REAL_SORT: name = "Real"; break;
-    case Z3_BV_SORT: name = "BV" + std::to_string(Z3_get_bv_sort_size(c, sort)); break;
+    case Z3_BOOL_SORT: key.tag = Z3ASTTHEORY_BOOLSYMBOL; break;
+    case Z3_INT_SORT: key.tag = Z3ASTTHEORY_INTSYMBOL; break;
+    case Z3_REAL_SORT: key.tag = Z3ASTTHEORY_REALSYMBOL; break;
+    case Z3_CHAR_SORT: {
+        Z3_string encoding = nullptr;
+        if (Z3_global_param_get("encoding", &encoding) &&
+            (std::string_view(encoding) == "bmp" || std::string_view(encoding) == "ascii")) {
+            result.val.Base = string(unique("sort", Z3_get_sort_id(c, sort), name));
+            return result;
+        }
+        key.tag = Z3ASTTHEORY_CHARSYMBOL;
+        break;
+    }
+    case Z3_BV_SORT:
+        key.tag = Z3ASTTHEORY_BVSYMBOL;
+        key.val.BvSymbol = number(Z3_get_bv_sort_size(c, sort));
+        break;
     case Z3_FINITE_FIELD_SORT:
-        name = "FF" + std::string(checked(Z3_get_finite_field_sort_size(c, sort)));
+        key.tag = Z3ASTTHEORY_FINITEFIELDSYMBOL;
+        key.val.FiniteFieldSymbol = cherry_int_of_decimal(checked(Z3_get_finite_field_sort_size(c, sort)));
         break;
     case Z3_SEQ_SORT:
-        name = Z3_get_sort_kind(c, Z3_get_seq_sort_basis(c, sort)) == Z3_INT_SORT ?
-            "SeqInt" : unique("sort", Z3_get_sort_id(c, sort), name);
+        key.tag = Z3ASTTHEORY_SEQSYMBOL;
+        arguments.push_back(keep_sort(Z3_get_seq_sort_basis(c, sort)));
         break;
+    case Z3_RE_SORT:
+        key.tag = Z3ASTTHEORY_RESYMBOL;
+        arguments.push_back(keep_sort(Z3_get_re_sort_basis(c, sort)));
+        break;
+    case Z3_DATATYPE_SORT:
+        key.tag = Z3ASTTHEORY_DATATYPESYMBOL;
+        key.val.DatatypeSymbol = number(Z3_get_sort_id(c, sort));
+        break;
+    case Z3_FLOATING_POINT_SORT:
+        key.tag = Z3ASTTHEORY_FLOATSYMBOL;
+        key.val.FloatSymbol = {number(Z3_fpa_get_ebits(c, sort)), number(Z3_fpa_get_sbits(c, sort))};
+        break;
+    case Z3_ROUNDING_MODE_SORT: key.tag = Z3ASTTHEORY_ROUNDINGMODESYMBOL; break;
     case Z3_ARRAY_SORT: {
         std::vector<Z3_sort> domains;
         for (unsigned i = 0, n = Z3_get_array_arity(c, sort); i < n; ++i)
@@ -245,9 +275,17 @@ static Z3Native_sort_view view_sort(Z3_sort sort) {
             keep_sort(Z3_get_array_sort_range(c, sort))};
         return result;
     }
-    default: name = unique("sort", Z3_get_sort_id(c, sort), name);
+    default:
+        if (Z3_is_finite_set_sort(c, sort)) {
+            key.tag = Z3ASTTHEORY_FINITESETSYMBOL;
+            arguments.push_back(keep_sort(Z3_get_finite_set_sort_basis(c, sort)));
+            break;
+        }
+        result.val.Base = string(unique("sort", Z3_get_sort_id(c, sort), name));
+        return result;
     }
-    result.val.Base = string(name);
+    result.tag = Z3NATIVE_APPLIED;
+    result.val.Applied = {key, list<Prims_list__native_sort_Cons_s>(arguments)};
     return result;
 }
 
@@ -272,6 +310,17 @@ public:
                 cherry_alloc(sizeof(Z3AstTheory_sort_BaseSort_s), Z3ASTTHEORY_BASESORT));
             cell->name = view.val.Base;
             result = &cell->hdr;
+        }
+        else if (view.tag == Z3NATIVE_APPLIED) {
+            std::vector<Z3AstTheory_sort> arguments;
+            each<Prims_list__native_sort_Cons_s>(view.val.Applied.arguments,
+                [&](Z3_sort s) { arguments.push_back(convert(s)); });
+            auto* cell = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(
+                cherry_alloc(sizeof(Z3AstTheory_sort_SortApp_s), Z3ASTTHEORY_SORTAPP));
+            cell->symbol = view.val.Applied.symbol;
+            cell->arguments = list<Prims_list__sort_Cons_s>(arguments);
+            result = &cell->hdr;
+            checker_drop_native_sorts(view.val.Applied.arguments);
         }
         else {
             std::vector<Z3AstTheory_sort> domains;

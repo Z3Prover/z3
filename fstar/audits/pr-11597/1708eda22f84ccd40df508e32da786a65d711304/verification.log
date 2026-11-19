@@ -1,0 +1,6 @@
+F* 2026.09.27 ; Z3 4.13.3 (pinned release backend)
+cmd: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --cache_dir cache --odir out --z3rlimit 10 Z3SeqArgsNested.fst
+fresh cache; exit 0
+stdout: Verified module: Z3SeqArgsNested / All verification conditions discharged successfully
+stderr: (empty)
+source: src/smt/theory_datatype.cpp base d86b80e709032db581dfabac7b9e24c1753ebac7 sha256 dc1a6972981e8d5edbe289da0169a4970250f8f9185cea1fe06a4fef3dc4f9b1; head 1708eda22f84ccd40df508e32da786a65d711304 sha256 c5dfe5354632bca91d6257adb7036ac6a8f56ef9c4c32cfa0ff3b2f603123cb6 (decoded contents API)

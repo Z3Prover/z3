@@ -846,11 +846,11 @@ bool bv_recognizers::has_sign_bit(rational const & n, unsigned bv_size) const {
 }
 
 bool bv_recognizers::is_bv_sort(sort const * s) const {
-    return (s->get_family_id() == get_fid() && s->get_decl_kind() == BV_SORT && s->get_num_parameters() == 1);
+    return (s->get_family_id() == bv_family_id && s->get_decl_kind() == BV_SORT && s->get_num_parameters() == 1);
 }
 
 bool bv_recognizers::is_numeral(expr const * n, rational & val, unsigned & bv_size) const {
-    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+    if (!is_app_of(n, bv_family_id, OP_BV_NUM)) {
         return false;
     }
     func_decl * decl = to_app(n)->get_decl();
@@ -877,7 +877,7 @@ bool bv_recognizers::is_allone(expr const * e) const {
 }
 
 bool bv_recognizers::is_zero(expr const * n) const {
-    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+    if (!is_app_of(n, bv_family_id, OP_BV_NUM)) {
         return false;
     }
     func_decl * decl = to_app(n)->get_decl();
@@ -885,7 +885,7 @@ bool bv_recognizers::is_zero(expr const * n) const {
 }
 
 bool bv_recognizers::is_one(expr const* n) const {
-    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+    if (!is_app_of(n, bv_family_id, OP_BV_NUM)) {
         return false;
     }
     func_decl* decl = to_app(n)->get_decl();
@@ -901,7 +901,7 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
 }
 
 bool bv_recognizers::is_repeat(expr const * e, expr*& arg, unsigned& n) const {
-    if (!is_app_of(e, get_fid(), OP_REPEAT))
+    if (!is_app_of(e, bv_family_id, OP_REPEAT))
         return false;
     arg = to_app(e)->get_arg(0);
     n = to_app(e)->get_parameter(0).get_int();
@@ -923,10 +923,9 @@ bool bv_recognizers::is_bit2bool(expr* e, expr*& bv, unsigned& idx) const {
 
 
 bv_util::bv_util(ast_manager & m):
-    bv_recognizers(m.mk_family_id(symbol("bv"))),
     m_manager(m) {
-    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.mk_family_id("bv")));
-    SASSERT(m.has_plugin(symbol("bv")));
+    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(bv_family_id));
+    SASSERT(m.has_plugin(bv_family_id));
     }
 
 app * bv_util::mk_numeral(rational const & val, sort* s) const {
@@ -939,7 +938,7 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
 
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
-    app * r = m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
+    app * r = m_manager.mk_app(bv_family_id, OP_BV_NUM, 2, p, 0, nullptr);
 
     if (m_plugin->log_constant_meaning_prelude(r)) {
         if (bv_size % 4 == 0) {
@@ -954,7 +953,7 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
 
 sort * bv_util::mk_sort(unsigned bv_size) {
     parameter p(bv_size);
-    return m_manager.mk_sort(get_fid(), BV_SORT, 1, &p);
+    return m_manager.mk_sort(bv_family_id, BV_SORT, 1, &p);
 }
 
 unsigned bv_util::get_int2bv_size(parameter const& p) {
@@ -966,13 +965,13 @@ unsigned bv_util::get_int2bv_size(parameter const& p) {
 app * bv_util::mk_ubv2int(expr* e) const {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
-    return m_manager.mk_app(get_fid(), OP_UBV2INT, 1, &p, 1, &e);
+    return m_manager.mk_app(bv_family_id, OP_UBV2INT, 1, &p, 1, &e);
 }
 
 app * bv_util::mk_sbv2int(expr* e) const {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
-    return m_manager.mk_app(get_fid(), OP_SBV2INT, 1, &p, 1, &e);
+    return m_manager.mk_app(bv_family_id, OP_SBV2INT, 1, &p, 1, &e);
 }
 
 app* bv_util::mk_sbv2int_as_ubv2int(expr* e) {
@@ -991,17 +990,17 @@ app* bv_util::mk_sbv2int_as_ubv2int(expr* e) {
 
 app* bv_util::mk_int2bv(unsigned sz, expr* e) const {
     parameter p(sz);
-    return m_manager.mk_app(get_fid(), OP_INT2BV, 1, &p, 1, &e);
+    return m_manager.mk_app(bv_family_id, OP_INT2BV, 1, &p, 1, &e);
 }
 
 app* bv_util::mk_bv_rotate_left(expr* arg, unsigned n) {
     parameter p(n);
-    return m_manager.mk_app(get_fid(), OP_ROTATE_LEFT, 1, &p, 1, &arg);
+    return m_manager.mk_app(bv_family_id, OP_ROTATE_LEFT, 1, &p, 1, &arg);
 }
 
 app* bv_util::mk_bv_rotate_right(expr* arg, unsigned n) {
     parameter p(n);
-    return m_manager.mk_app(get_fid(), OP_ROTATE_RIGHT, 1, &p, 1, &arg);
+    return m_manager.mk_app(bv_family_id, OP_ROTATE_RIGHT, 1, &p, 1, &arg);
 }
 
 void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {

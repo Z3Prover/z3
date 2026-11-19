@@ -21,10 +21,12 @@ class core;
 class intervals {
     mutable dep_intervals     m_dep_intervals;
     core*                     m_core;
+    reslimit&                 m_limit;
     
 public:
     typedef dep_intervals::interval interval;
 private:
+    void checkpoint(unsigned cost = 1) const;
     u_dependency* mk_dep(lp::explanation const&);
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;

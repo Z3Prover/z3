@@ -1,0 +1,9 @@
+Versions: F* 2026.09.27; Z3 4.13.3 (pinned release backend).
+Attempt 1 (base-importing module, Z3PR11571ScopedHelpers.fst): command
+ fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Z3PR11571ScopedHelpers.fst
+ exit 1: Error 72 in base Z3List.fst(42,20): Identifier custard_inline not found in module FStar.Attributes (toolchain/base mismatch). Module omitted from bundle.
+Attempt 2:
+ /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache2 --odir out2 Z3PR11571ScopedModel.fst
+ exit 0
+ stdout: Verified module: Z3PR11571ScopedModel / All verification conditions discharged successfully
+ sha256 of Z3PR11571ScopedModel.fst: 27d60178af6d962e91483d09718a1f8ee1b3601cfa81766377ec3690e848b6f6

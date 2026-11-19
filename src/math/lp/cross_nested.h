@@ -43,6 +43,13 @@ class cross_nested {
 #ifdef Z3DEBUG
     nex* m_e_clone = nullptr;
 #endif
+    bool checkpoint(unsigned cost = 1) {
+        if (m_limit.inc(cost))
+            return true;
+        m_limit_exceeded = true;
+        return false;
+    }
+
 public:
     
     nex_creator& get_nex_creator() { return m_nex_creator; }
@@ -91,6 +98,8 @@ public:
         unsigned size = c->size();
         bool have_factor = false;
         for (const auto & p : m_nex_creator.occurences_map()) {
+            if (!checkpoint())
+                return nullptr;
             if (p.second.m_occs == size) {
                 have_factor = true;
                 break;
@@ -99,6 +108,8 @@ public:
         if (have_factor == false) return nullptr;
         m_nex_creator.m_mk_mul.reset();
         for (const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
+            if (!checkpoint())
+                return nullptr;
             if (p.second.m_occs == size) {
                 m_nex_creator.m_mk_mul *= nex_pow(m_nex_creator.mk_var(p.first), p.second.m_power);
             }
@@ -106,13 +117,17 @@ public:
         return m_nex_creator.m_mk_mul.mk();
     }
 
-    static bool has_common_factor(const nex_sum* c) {
+    bool has_common_factor(const nex_sum* c) {
         TRACE(nla_cn, tout << "c=" << *c << "\n";);
         auto & ch = *c;
+        if (!checkpoint(ch[0]->size()))
+            return false;
         auto common_vars = get_vars_of_expr(ch[0]);
         for (lpvar j : common_vars) {
             bool divides_the_rest = true;
             for (unsigned i = 1; i < ch.size() && divides_the_rest; ++i) {
+                if (!checkpoint(ch[i]->size()))
+                    return false;
                 if (!ch[i]->contains(j))
                     divides_the_rest = false;
             }
@@ -173,6 +188,8 @@ public:
         for (lpvar j : vars) {
             if (m_done || m_limit_exceeded)
                 return;
+            if (!checkpoint())
+                return;
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
                 // because the interval products do not become smaller
@@ -200,9 +217,11 @@ public:
         return out;
     }
 
-    void calc_occurences(nex_sum* e) {
+    bool calc_occurences(nex_sum* e) {
         clear_maps();
         for (const auto * ce : *e) {
+            if (!checkpoint(std::max(1u, ce->size())))
+                return false;
             if (ce->is_mul()) {
                 ce->to_mul().get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
@@ -212,6 +231,7 @@ public:
         }
         remove_singular_occurences();
         TRACE(nla_cn_details, tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
+        return true;
     }
 
     void fill_vars_from_occurences_map(svector<lpvar>& vars) {
@@ -243,10 +263,15 @@ public:
     }    
     
     bool proceed_with_common_factor_or_get_vars_to_factor_out(nex** c, svector<lpvar>& vars, vector<nex**> front) {
-        calc_occurences(to_sum(*c));
+        if (!calc_occurences(to_sum(*c)))
+            return true;
         if (proceed_with_common_factor(c, front))
             return true;
 
+        if (m_limit_exceeded)
+            return true;
+        if (!checkpoint(m_nex_creator.occurences_map().size()))
+            return true;
         fill_vars_from_occurences_map(vars);
         return false;
     }
@@ -254,8 +279,7 @@ public:
     void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
         if (m_done || m_limit_exceeded)
             return;
-        if (!m_limit.inc()) {
-            m_limit_exceeded = true;
+        if (!checkpoint()) {
             return;
         }
         svector<lpvar> vars;
@@ -294,8 +318,7 @@ public:
         TRACE(nla_cn, tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << nex_creator::ch(j) << "\nfront="; print_front(front, tout) << "\n";);
         if (m_done || m_limit_exceeded)
             return;
-        if (!m_limit.inc()) {
-            m_limit_exceeded = true;
+        if (!checkpoint()) {
             return;
         }
         if (!split_with_var(*c, j, front))
@@ -393,12 +416,14 @@ public:
             || (ce->is_var() && to_var(ce)->var() == j);
     }
     // all factors of j go to a, the rest to b
-    void pre_split(nex_sum * e, lpvar j, nex_sum const*& a, nex const*& b) {
+    bool pre_split(nex_sum * e, lpvar j, nex_sum const*& a, nex const*& b) {
         TRACE(nla_cn_details, tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
         SASSERT(m_nex_creator.is_simplified(*e));
         nex_creator::sum_factory sf(m_nex_creator);
         m_b_split_vec.clear();
         for (nex const* ce: *e) {
+            if (!checkpoint(std::max(1u, ce->size())))
+                return false;
             TRACE(nla_cn_details, tout << "ce = " << *ce << "\n";);
             if (is_divisible_by_var(ce, j)) {
                 sf += m_nex_creator.mk_div(*ce , j);
@@ -419,6 +444,7 @@ public:
             b = m_nex_creator.mk_sum(m_b_split_vec);
             TRACE(nla_cn_details, tout << "b = " << *b << "\n";);
         }
+        return true;
     }
 
     void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex_sum const* a, nex const* b) {
@@ -449,7 +475,8 @@ public:
         SASSERT(e->is_sum());
         TRACE(nla_cn, tout << "e = " << *e << ", j=" << nex_creator::ch(j) << "\n";);
         nex_sum const* a; nex const* b;
-        pre_split(to_sum(e), j, a, b);
+        if (!pre_split(to_sum(e), j, a, b))
+            return false;
         /*
           When we have e without a non-trivial common factor then
           there is a variable j such that e = jP + Q, where Q has all members
@@ -458,7 +485,7 @@ public:
           to explore only such variables to create all cross-nested forms.
         */
         
-        if (has_common_factor(a)) {
+        if (has_common_factor(a) || m_limit_exceeded) {
             return false;
         }
         update_front_with_split(e, j, front, a, b);

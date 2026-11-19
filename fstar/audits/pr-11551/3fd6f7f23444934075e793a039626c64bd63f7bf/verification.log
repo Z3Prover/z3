@@ -1,0 +1,8 @@
+F* 2026.09.27; Z3 4.13.3
+command: /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out Pr11551Head3fd6.fst
+exit: 0
+stdout:
+Verified module: Pr11551Head3fd6
+All verification conditions discharged successfully
+stderr:
+::warning file=Pr11551Head3fd6.fst,line=29,endLine=29::(328) * Warning 328 at Pr11551Head3fd6.fst(29,8-29,16):%0A  - Global binding%0A        ‘Pr11551Head3fd6.cat_nary’%0A    is recursive but not used in its body%0A

@@ -708,6 +708,9 @@ let rec sort_tasks_within (work:nat) (tasks:list sort_task)
            | None -> None)
         | ArraySort d1 r1, ArraySort d2 r2 ->
           sort_tasks_within w (SortListPair d1 d2 :: SortPair r1 r2 :: rest)
+        | SortApp k1 a1, SortApp k2 a2 ->
+          if k1 = k2 then sort_tasks_within w (SortListPair a1 a2 :: rest)
+          else Some (false, w)
         | _, _ -> Some (false, w)))
   | SortListPair l1 l2 :: rest ->
     (match scope_charge work 1 with

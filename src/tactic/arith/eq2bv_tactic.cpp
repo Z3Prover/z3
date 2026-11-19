@@ -22,6 +22,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp_util.h"
@@ -169,6 +170,10 @@ public:
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         m_trail.reset();
         m_fd.reset();
         m_max.reset();
@@ -179,10 +184,15 @@ public:
 
         tactic_report report("eq2bv", *g);
 
+        if (recfun::util(m).has_rec_defs()) {
+            result.push_back(g.get());
+            return;
+        }
+
         for (unsigned i = 0; i < g->size(); ++i)
             m_bounds(g->form(i), g->dep(i), g->pr(i));
 
-        if (m_bounds.inconsistent() || g->proofs_enabled()) {
+        if (m_bounds.inconsistent()) {
             g->inc_depth();
             result.push_back(g.get());
             return;
@@ -405,4 +415,3 @@ public:
 tactic * mk_eq2bv_tactic(ast_manager & m) {
     return clean(alloc(eq2bv_tactic, m));
 }
-

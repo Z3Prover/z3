@@ -798,7 +798,12 @@ let forall_halving_int_false (u:TR.uninterpreted) (i:model u) (scope:list sort) 
                (V.extend sigma (int_s :: scope) (L.rev [int_s]) ws rho') halves_i) == false) =
     assert_norm (L.rev [int_s] == [int_s]);
     match ws with
-    | [vy] -> halves_i_body u i scope rho vx vy
+    | [vy] ->
+      halves_i_body u i scope rho vx vy;
+      assert (int_v vx == 1);
+      assert (int_v vy + int_v vy <> int_v vx);
+      assert (bool_v (ev u i (int_s :: int_s :: scope)
+                (V.extend sigma (int_s :: scope) [int_s] [vy] rho') halves_i) == false)
     | _ -> () in
   FStar.Classical.forall_intro none;
   assert (TR.truth sch (V.evaluate sigma i (L.rev [int_s] @ scope)
@@ -1433,7 +1438,7 @@ let support_negative ()
   assert_norm (not (TR.supported_expression lsigma (Var 0 dt_idx)))
 
 (* The schema gate is NOT implied by S.valid. *)
-let r_s : sort = BaseSort "Real"
+let r_s : sort = (SortApp RealSymbol [])
 let mk_real_decl : func_decl =
   { decl_name = "mk"; domain = []; range = r_s; interp = Some DL.op_constructor; int_params = [0; 0; 0] }
 let is_mk_decl : func_decl =
@@ -1471,17 +1476,17 @@ let array_datatype_valid_but_unsupported ()
 
 let mk (name:string) (k:decl_kind) (dom:list sort) (rng:sort) (ps:list int) : func_decl =
   { decl_name = name; domain = dom; range = rng; interp = Some k; int_params = ps }
-let bv8 : sort = BaseSort "BV8"
+let bv8 : sort = (SortApp (BvSymbol 8) [])
 
-(* distinct, op_num_int numerals, Int div/mod (Z3IntegerDivision op_idiv = 33,
-   op_mod = 34), const-array, array-ext, op_oeq, n-ary =, bvand and "/" at
-   Int classify as Other: their meaning is a free model choice until a
-   future family migration adds and proves a law. *)
+(* distinct, op_num_int numerals, const-array, array-ext, op_oeq, n-ary =,
+   bvand and "/" at Int classify as Other: their meaning is a free model
+   choice until a future family migration adds and proves a law. (Int
+   div/mod, Z3IntegerDivision op_idiv = 33 and op_mod = 34, were in this list
+   until run e78cd96c; the canonical declarations now have the class of
+   `int_division_classes` below.) *)
 let free_operators ()
   : Lemma (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s] bool_sort []) == TR.Other /\
            TR.classify sigma (mk "num" op_num_int [] int_s [5]) == TR.Other /\
-           TR.classify sigma (mk "div" 33 [int_s; int_s] int_s []) == TR.Other /\
-           TR.classify sigma (mk "mod" 34 [int_s; int_s] int_s []) == TR.Other /\
            TR.classify sigma (mk "const" op_const_array [real_s] arr_s []) == TR.Other /\
            TR.classify sigma (mk "array-ext" op_array_ext [arr_s; arr_s] int_s []) == TR.Other /\
            TR.classify sigma (mk "~" op_oeq [int_s; int_s] bool_sort []) == TR.Other /\
@@ -1490,14 +1495,45 @@ let free_operators ()
            TR.classify sigma (mk "/" op_arith_div [int_s; int_s] int_s []) == TR.Other) =
   assert_norm (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s] bool_sort []) == TR.Other);
   assert_norm (TR.classify sigma (mk "num" op_num_int [] int_s [5]) == TR.Other);
-  assert_norm (TR.classify sigma (mk "div" 33 [int_s; int_s] int_s []) == TR.Other);
-  assert_norm (TR.classify sigma (mk "mod" 34 [int_s; int_s] int_s []) == TR.Other);
   assert_norm (TR.classify sigma (mk "const" op_const_array [real_s] arr_s []) == TR.Other);
   assert_norm (TR.classify sigma (mk "array-ext" op_array_ext [arr_s; arr_s] int_s []) == TR.Other);
   assert_norm (TR.classify sigma (mk "~" op_oeq [int_s; int_s] bool_sort []) == TR.Other);
   assert_norm (TR.classify sigma (mk "=" op_eq [int_s; int_s; int_s] bool_sort []) == TR.Other);
   assert_norm (TR.classify sigma (mk "bvand" op_bvand [bv8; bv8] bv8 []) == TR.Other);
   assert_norm (TR.classify sigma (mk "/" op_arith_div [int_s; int_s] int_s []) == TR.Other)
+
+(* Int div and mod (run e78cd96c, the model-contract change documented in
+   Z3TypedRoot): the canonical declarations (exact name, tag 33 / 34, domain
+   [Int; Int], range Int, no parameter) have the classes IntDiv and IntMod,
+   which give the Euclidean quotient and remainder at a NONZERO divisor (and
+   nothing at zero). Everything that differs from them in the name, the tag,
+   the arity, a sort (a Real division, a sort merely named Int) or a parameter,
+   and the Real division tag at Int, stays a free symbol. *)
+let int_division_classes ()
+  : Lemma (TR.classify sigma (mk "div" 33 [int_s; int_s] int_s []) == TR.IntDiv /\
+           TR.classify sigma (mk "mod" 34 [int_s; int_s] int_s []) == TR.IntMod /\
+           TR.classify sigma (mk "div" 34 [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "mod" 33 [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "idiv" 33 [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "div" 33 [int_s; int_s] int_s [1]) == TR.Other /\
+           TR.classify sigma (mk "div" 33 [real_s; real_s] real_s []) == TR.Other /\
+           TR.classify sigma (mk "div" 33 [int_s; int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "div" 33 [int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "mod" 34 [int_s; int_s] real_s []) == TR.Other /\
+           TR.classify sigma (mk "div" 33 [BaseSort "Int"; BaseSort "Int"] (BaseSort "Int") []) == TR.Other /\
+           TR.classify sigma (mk "div" op_arith_div [int_s; int_s] int_s []) == TR.Other) =
+  assert_norm (TR.classify sigma (mk "div" 33 [int_s; int_s] int_s []) == TR.IntDiv);
+  assert_norm (TR.classify sigma (mk "mod" 34 [int_s; int_s] int_s []) == TR.IntMod);
+  assert_norm (TR.classify sigma (mk "div" 34 [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "mod" 33 [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "idiv" 33 [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" 33 [int_s; int_s] int_s [1]) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" 33 [real_s; real_s] real_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" 33 [int_s; int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" 33 [int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "mod" 34 [int_s; int_s] real_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" 33 [BaseSort "Int"; BaseSort "Int"] (BaseSort "Int") []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "div" op_arith_div [int_s; int_s] int_s []) == TR.Other)
 
 (* Numeral limits: only op_num_rational [n; d] with d > 0 (and d = 1 at Int)
    is a numeral law. A zero or negative denominator, or an Int numeral with

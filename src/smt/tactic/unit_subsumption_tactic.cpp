@@ -140,4 +140,3 @@ struct unit_subsumption_tactic : public tactic {
 tactic * mk_unit_subsumption_tactic(ast_manager & m, params_ref const & p) {
     return alloc(unit_subsumption_tactic, m, p);
 }
-

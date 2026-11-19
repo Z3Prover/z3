@@ -15,16 +15,16 @@ module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
 
 let box = BaseSort "Box"
-let integer = BaseSort "Int"
+let integer = (SortApp IntSymbol [])
 
 let primitive (s:sort) : Type0 =
-  match s with BaseSort "Int" -> int | BaseSort "Bool" -> bool | _ -> unit
+  match s with (SortApp IntSymbol []) -> int | (SortApp BoolSymbol []) -> bool | _ -> unit
 
 let primitive_default (s:sort) : primitive s =
-  match s with BaseSort "Int" -> 0 | BaseSort "Bool" -> false | _ -> ()
+  match s with (SortApp IntSymbol []) -> 0 | (SortApp BoolSymbol []) -> false | _ -> ()
 
 let primitive_equal (s:sort) (x y:primitive s) : bool =
-  match s with BaseSort "Int" -> x = y | BaseSort "Bool" -> x = y | _ -> true
+  match s with (SortApp IntSymbol []) -> x = y | (SortApp BoolSymbol []) -> x = y | _ -> true
 
 let equality : T.scalar_model primitive =
   { T.reflection = T.Mkscalar_equality #primitive primitive_equal ();
@@ -243,6 +243,13 @@ let unrelated_boolean_fact_is_rejected ()
     (Tac.norm [nbe; delta; iota; zeta; primops];
      Tac.trivial ())
 
+[@@expect_failure]
+let nbe_normalization_rejects_unrelated_boolean_fact ()
+  : Lemma (DT.boolean_consequence [shared] (App is_empty [x])) =
+  assert (DT.boolean_consequence [shared] (App is_empty [x])) by
+    (Tac.norm [nbe; delta; iota; zeta; primops];
+     Tac.trivial ())
+
 let conditional_and_shared_boolean_facts ()
   : Lemma (ensures DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y /\
                    DT.boolean_consequence
@@ -312,6 +319,8 @@ let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier 
                                    (other:V.interpretation base (S.signature schema))
   : Lemma (ensures not (T.truths schema bc eq other exhaustive_document.assertions)) =
   original_inputs_and_exhaustiveness ();
+  assert_norm (not (K.needs_real_semantics schema exhaustive_document.entries));
+  assert_norm (not (K.needs_division_semantics exhaustive_document.entries));
   K.lemma_check_document schema bc eq other exhaustive_document
 
 let equality_exclusion_document : P.document = {
@@ -386,6 +395,8 @@ let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean
   : Lemma (ensures K.check_document core_schema core_document == Some 0 /\
                    not (T.truths core_schema bc eq other core_document.assertions)) =
   assert_norm (K.check_document core_schema core_document == Some 0);
+  assert_norm (not (K.needs_real_semantics core_schema core_document.entries));
+  assert_norm (not (K.needs_division_semantics core_document.entries));
   K.lemma_check_document core_schema bc eq other core_document
 
 (* Independently constructed bodies: declaration-order blocks flatten as
@@ -857,10 +868,13 @@ let checked_gate_clauses ()
   : Lemma (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
            K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested /\
            K.consequence core_schema [] or_intro_nested /\ K.consequence core_schema [] or_elim_two) =
-  assert_norm (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
-               K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested);
-  assert_norm (K.consequence core_schema [] or_intro_nested);
-  assert_norm (K.consequence core_schema [] or_elim_two)
+  assert (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
+               K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ());
+  assert (K.consequence core_schema [] or_intro_nested) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ());
+  assert (K.consequence core_schema [] or_elim_two) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
 (* The bounded propositional route alone refuses the nested or-intro: the
    shared h is cut at two depths into two different skeletons over more than
@@ -1013,7 +1027,7 @@ let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier ba
    twin declaration and a counterfeit `<=` without its interpretation tag. *)
 let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
 let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
-let real = BaseSort "Real"
+let real = (SortApp RealSymbol [])
 let to_real (e:expr) : expr =
   App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
         int_params = [] } [e]

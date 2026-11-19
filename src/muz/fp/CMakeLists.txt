@@ -4,6 +4,8 @@ z3_add_component(fp
     dl_cmds.cpp
     dl_register_engine.cpp
     horn_tactic.cpp
+  REGISTRATION_HEADERS
+    horn_tactic.h
   COMPONENT_DEPENDENCIES
     bmc
     clp

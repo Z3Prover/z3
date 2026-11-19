@@ -19,6 +19,7 @@ Author:
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "util/util.h"
 #include <iostream>
 #include <sstream>
@@ -190,6 +191,78 @@ static void test_smt2_parametric_datatype_is_constructor() {
     ENSURE(l_true == smt_ctx.check());
 }
 
+static void test_failed_datatype_declarations() {
+    char const* failures[] = {
+        "(declare-datatypes ((A 0)) (((mkA (a X)))))",
+        "(declare-datatypes ((A 0) (B 0)) (((mkA (a B))) ((mkB (b X)))))",
+        "(declare-datatypes ((A 0) (B 0)) (((mkA))))",
+        "(declare-datatypes ((A 0)) (((mkA)) ((mkB))))",
+        "(declare-datatypes ((A 0) (B bad)) ())",
+        "(declare-datatypes ((A 0 extra)) (((mkA))))",
+        "(declare-datatypes ((A 0) (A 0)) ())",
+        "(declare-datatypes ((A 0) (Existing 0)) ())",
+        "(declare-datatypes ((A 0)) (((mkA (a A)))))",
+        "(declare-datatypes ((A 0)) (((mkA (a Int) (a Bool)))))",
+        "(declare-datatype A ((mkA (a X))))",
+        "(declare-datatype A (par (T) ((mkA (a X)))))",
+        "(declare-datatype A ((mkA)) extra)",
+        "(declare-datatype Existing ((mkExisting (a X))))"
+    };
+    for (bool global : {false, true}) {
+        for (char const* failure : failures) {
+            std::ostringstream out;
+            cmd_context ctx;
+            ctx.set_global_decls(global);
+            ctx.set_regular_stream(out);
+            std::istringstream prelude("(declare-sort Existing 0) (push)");
+            ENSURE(parse_smt2_commands(ctx, prelude));
+            psort_decl* existing = ctx.find_psort_decl(symbol("Existing"));
+            std::istringstream input(failure);
+            ENSURE(!parse_smt2_commands(ctx, input));
+            ENSURE(!ctx.find_psort_decl(symbol("A")));
+            ENSURE(!ctx.find_psort_decl(symbol("B")));
+            ENSURE(ctx.find_psort_decl(symbol("Existing")) == existing);
+
+            std::istringstream retry(
+                "(declare-datatypes ((A 0)) (((mkA))))\n"
+                "(declare-datatypes ((B 0)) (((mkB (b A) (x Int) (y Int)))))\n"
+                "(declare-const w B)\n"
+                "(assert (<= (x w) (y w)))\n");
+            ENSURE(parse_smt2_commands(ctx, retry));
+            {
+                smt_params params;
+                smt::context smt_ctx(ctx.m(), params);
+                for (expr* a : ctx.assertions())
+                    smt_ctx.assert_expr(a);
+                ENSURE(l_true == smt_ctx.check());
+            }
+
+            std::istringstream pop("(pop)");
+            ENSURE(parse_smt2_commands(ctx, pop));
+            ENSURE(bool(ctx.find_psort_decl(symbol("A"))) == global);
+            ENSURE(bool(ctx.find_psort_decl(symbol("B"))) == global);
+            ENSURE(ctx.find_psort_decl(symbol("Existing")) == existing);
+        }
+    }
+
+    std::ostringstream out;
+    cmd_context ctx;
+    ctx.set_regular_stream(out);
+    ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::istringstream repro(
+        "(declare-datatypes ((A 0)) (((mkA (a X)))))\n"
+        "(declare-datatypes ((B 0)) (((mkB (b A) (x Int) (y Int)))))\n"
+        "(declare-const w B)\n"
+        "(assert (<= (x w) (y w)))\n"
+        "(check-sat)\n");
+    ENSURE(!parse_smt2_commands(ctx, repro));
+    ENSURE(out.str().find("unknown sort 'X'") != std::string::npos);
+    ENSURE(out.str().find("unknown sort 'A'") != std::string::npos);
+    ENSURE(out.str().find("unknown sort 'B'") != std::string::npos);
+    ENSURE(out.str().find("unknown constant w") != std::string::npos);
+    ENSURE(out.str().ends_with("sat\n"));
+}
+
 static void test_subterm_declarations() {
     char const* prelude =
         "(declare-datatypes ((Lst 1)) ((par (X) ((lnil) (lcons (lh X) (lt (Lst X)))))))\n";
@@ -325,6 +398,8 @@ static void test_sequence_field_occurs_check() {
 }
 
 static void test_sequence_field_occurs_check_terminates(char const* solver) {
+    // The occurs check visits every sequence equivalence class once.
+    // Here the sequence solver relates (stmts t) to a concatenation that contains it.
     char const* input =
         "(declare-sort E)\n"
         "(declare-datatypes ((S 0)) (((leaf (val E)) (block (stmts (Seq S))))))\n"
@@ -384,7 +459,7 @@ static void test_nested_sequence_field_occurs_check(char const* solver) {
 }
 
 static void test_mixed_container_occurs_check(char const* solver) {
-    for (char const* schema : {"SS", "FF", "AS", "SF", "FS", "AF", "SAFAS"}) {
+    for (char const* schema : {"SS", "AA", "FF", "SA", "AS", "SF", "FS", "AF", "FA", "SAFAS"}) {
         std::string field = "Tree", cycle = "t", control = "leaf", declarations, cycles, controls;
         unsigned index = 0;
         for (char kind : std::string(schema)) {
@@ -463,6 +538,23 @@ static void test_mixed_container_occurs_check(char const* solver) {
         "(check-sat)\n", "unsat\n", solver);
 }
 
+static void test_nested_container_covariance() {
+    for (char const* field : {
+            "(Array Tree Int)", "(Seq (Array Tree Int))", "(FiniteSet (Array Tree Int))",
+            "(Array Int (Seq (Array Tree Int)))", "(Seq (Array (Seq Tree) Int))",
+            "(Array Int Tree Int)"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+        std::string input = std::string("(declare-datatype Tree ((leaf) (node (children ") + field + "))))\n";
+        std::string actual = Z3_eval_smtlib2_string(ctx, input.c_str());
+        ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+        ENSURE(actual.find("datatype is not co-variant") != std::string::npos);
+        Z3_del_context(ctx);
+    }
+}
+
 static void test_subterm_recursive_polarity() {
     char const* declarations =
         "(declare-datatype L ((nil) (cons (hd Int) (tl L))) :subterm sub)\n"
@@ -494,6 +586,31 @@ static void test_subterm_recursive_polarity() {
     }
 }
 
+static void test_subterm_merge() {
+    char const* declarations =
+        "(declare-datatype Nat ((Z) (S (pred Nat))) :subterm P)\n"
+        "(declare-const a Nat)\n"
+        "(declare-const b Nat)\n"
+        "(declare-const x Nat)\n";
+    std::string assertions =
+        "(assert (P Z a))\n"
+        "(assert (not (P x (S (S b)))))\n"
+        "(assert (= b (S (S a))))\n";
+    check_datatype_commands((declarations + assertions + "(check-sat)\n").c_str(), "sat\n");
+    for (unsigned relevancy : {0, 2}) {
+        std::string input =
+            "(set-option :smt.relevancy " + std::to_string(relevancy) + ")\n" +
+            declarations + assertions +
+            "(push)\n"
+            "(assert (= x Z))\n"
+            "(check-sat)\n"
+            "(pop)\n"
+            "(assert (= x (S (S (S b)))))\n"
+            "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n");
+    }
+}
+
 static void test_non_recursive_recognizer_phases() {
     cmd_context ctx;
     std::stringstream input(
@@ -521,6 +638,7 @@ static void test_non_recursive_recognizer_phases() {
 }
 
 void tst_parametric_datatype() {
+    test_failed_datatype_declarations();
     test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
@@ -529,7 +647,9 @@ void tst_parametric_datatype() {
         test_nested_sequence_field_occurs_check(solver);
         test_mixed_container_occurs_check(solver);
     }
+    test_nested_container_covariance();
     test_subterm_recursive_polarity();
+    test_subterm_merge();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();

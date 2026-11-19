@@ -1,0 +1,26 @@
+{
+  "pull_request": 11597,
+  "head_sha": "b072c8390756f137e5449f9d775fc313dc4bb375",
+  "base_sha": "d86b80e709032db581dfabac7b9e24c1753ebac7",
+  "path_prefix": "fstar/audits/pr-11597/b072c8390756f137e5449f9d775fc313dc4bb375/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42435761234",
+  "files": [
+    {
+      "name": "Z3CovariantNested.fst",
+      "sha256": "9d9c6cb4dc70c487501785a8b1e72bcf1dd90c239c3e01af18cceef88b5ac500"
+    },
+    {
+      "name": "Z3NestedDatatypeSort.fst",
+      "sha256": "38b8ba85d6d023c1f1d4c2b4364c1530ac0bc131442a5f833f5ddeba23aa391e"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "05414c1b296cd27478945d7a6a485eef07ee973f2501518be2e9950950c48f1d"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "c258e5b72fa1dbe82724fb04368dcf487d586e3e243b3b7f24dd2f571b94ce5d"
+    }
+  ]
+}

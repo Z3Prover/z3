@@ -1,0 +1,5 @@
+$ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir /tmp/gh-aw/agent/fstar-audit/w/cache --odir /tmp/gh-aw/agent/fstar-audit/w/out AuditPR11618.fst
+Verified module: AuditPR11618
+All verification conditions discharged successfully
+exit code: 0
+stderr: empty

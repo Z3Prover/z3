@@ -4,14 +4,14 @@ description: Develop sound F* checker improvements from Pulse run evidence and p
 intent: Turn partial proofs and checker failures into reproducible, reviewable F* improvements for maintainer-directed integration.
 on:
   workflow_run:
-    workflows: [Pulse verification and native checker regressions, Build Pulse native checkers]
+    workflows: [Pulse verification and native checker regressions, Build Pulse native checkers, Verify all Pulse checker files]
     types: [completed]
     # Every producer branch is a data input; executable code comes only from the trusted workflow SHA.
     branches: ["**"]
   workflow_dispatch:
     inputs:
       run_id:
-        description: Completed Pulse regression or failed native-checker build run ID
+        description: Completed Pulse regression, or failed native-checker build or full verification run ID
         required: true
         type: string
   roles: all
@@ -21,6 +21,8 @@ if: >-
   (github.event_name == 'workflow_dispatch' ||
    github.event.workflow_run.path == '.github/workflows/pulse-checker-regressions.yml' ||
    (github.event.workflow_run.path == '.github/workflows/pulse-checker-build.yml' &&
+    github.event.workflow_run.conclusion != 'success') ||
+   (github.event.workflow_run.path == '.github/workflows/pulse-checker-full.yml' &&
     github.event.workflow_run.conclusion != 'success'))
 permissions:
   contents: read
@@ -307,6 +309,19 @@ verifies the complete module/test manifest, extracts and checks both backends.
 Run baseline and patched native checker/bridge/CLI tests, then replay the same
 selected inputs with `run_checker_regressions.py` and compare verdicts and
 unresolved obligations. Use fresh F* caches for final validation.
+
+Prior rounds repeatedly stopped at `Z3SortedRootDocumentTests.i3_certified`
+with exit 137 before extraction or replay. If this blocker reproduces, prioritize
+diagnosing it before adding another proof rule. Record the actual memory limit
+and peak usage; exit 137 alone does not establish an out-of-memory failure.
+Within the allowed F* modules and build wiring, factor expensive normalization
+or split test modules into smaller independently verified units while preserving
+every original assertion, certificate and manifest entry. Do not remove tests,
+skip modules, weaken statements or increase proof budgets to get past the build.
+Verify any prerequisite change on the otherwise unmodified trusted base, then
+rerun the complete fresh-cache build and native tests before rule development.
+If the blocker remains, publish its focused diagnosis rather than another
+overlapping rule patch that cannot reach validation.
 
 Bound individual exploratory F* checks to 120 seconds and benchmark replays to
 60 seconds each; allow the native build up to 90 minutes without cancelling it.

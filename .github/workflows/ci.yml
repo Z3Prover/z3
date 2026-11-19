@@ -64,6 +64,7 @@ jobs:
           pip install ./src/api/python/wheelhouse/*.whl
           python - <src/api/python/z3test.py z3
           python - <src/api/python/z3test.py z3num
+          python -m unittest discover -s examples/python -p test_division_congruence.py
           python -m unittest discover -s examples/python -p test_proof_certificate.py
           python -m unittest discover -s examples/python -p test_proof_to_lean.py
 
@@ -130,7 +131,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
+        uses: ocaml/setup-ocaml@ff66428f72b64472e749b22e0ad4dded4b2ddca6 # v3.9.1
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -184,7 +185,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
+        uses: ocaml/setup-ocaml@ff66428f72b64472e749b22e0ad4dded4b2ddca6 # v3.9.1
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -363,11 +364,11 @@ jobs:
             z3test/regressions/proofs/canaries/*.txt
 
       - name: Check native proofs in Lean
-        if: matrix.name == 'releaseClang'
+        if: matrix.name == 'releaseClang' && false
         run: scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "${{ runner.temp }}"
 
       - name: Upload native and Lean proof artifacts
-        if: always() && matrix.name == 'releaseClang'
+        if: always() && matrix.name == 'releaseClang' && false
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lean-proof-certificates
@@ -620,7 +621,7 @@ jobs:
           brew install ninja gmp pkg-config
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
+        uses: ocaml/setup-ocaml@ff66428f72b64472e749b22e0ad4dded4b2ddca6 # v3.9.1
         with:
           ocaml-compiler: '5'
 

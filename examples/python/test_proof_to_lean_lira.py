@@ -10,13 +10,10 @@
 ############################################
 import collections
 import copy
-import hashlib
 from pathlib import Path
 import random
 import re
-import subprocess
 import sys
-import tempfile
 import unittest
 from unittest import mock
 
@@ -26,6 +23,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import LIA_INPUTS, _STANDARD_AXIOMS, _hints, _parameters, _th_lemma_nodes, _z3_available
 
@@ -79,7 +77,30 @@ LIRA_INPUTS = {
 (assert (distinct n (- 1) 1))
 (check-sat)
 """,
+    # An Int ite over a Real condition: the farkas lemmas over the ite are
+    # Int steps, the condition's Real atoms not theirs.
+    "lira_int_ite_over_real_condition": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const a Int)
+(declare-const b Int)
+(assert (< (+ (ite (> x y) a b) 1) a))
+(assert (< a (+ b 1)))
+(check-sat)
+""",
+    # A Real ite over an Int condition, the other way round.
+    "lira_real_ite_over_int_condition": """(set-logic QF_LIRA)
+(declare-const n Int)
+(declare-const m Int)
+(declare-const u Real)
+(declare-const v Real)
+(assert (< (+ (ite (> n m) u v) 1.0) u))
+(assert (< u (+ v 1.0)))
+(check-sat)
+""",
 }
+# The ite inputs whose conditions are over the other sort, with the ite's sort.
+_OTHER_SORT_CONDITIONS = {"lira_int_ite_over_real_condition": "Int", "lira_real_ite_over_int_condition": "Real"}
 
 
 # Documented inputs relating the sorts through to_real: theory lemmas over
@@ -210,6 +231,21 @@ FLOOR_INPUTS = {
 (assert (is_int x))
 (assert (= (ite p x 0.25) 0.25))
 (assert p)
+""",
+    # is_int of a constant: no Int term but the floor is_int stands for,
+    # and the certificate is over both sorts all the same.
+    "is_int_of_a_fraction": """(assert (is_int 0.5))
+""",
+    "not_is_int_of_an_integer": """(assert (not (is_int 2.0)))
+""",
+    # Z3 rewrites the equality with the floor of a constant into bounds of
+    # x; the floor of -2 is replaced by its value first
+    # (proof_to_lean._floor_shift_facts), with (Rat.floor (-2)) in its
+    # context grind ran out of heartbeats.
+    "floor_equal_to_the_floor_of_a_constant": """(declare-const x Real)
+(assert (not (= (to_int x) (to_int (- 2.0)))))
+(assert (<= (- 2.0) x))
+(assert (< x (- 1.0)))
 """,
 }
 
@@ -354,8 +390,70 @@ def random_cast_instance(seed, variables=3, constraints=10):
 CAST_SEEDS = (11, 12, 25, 36)
 
 
-def random_mixed_instance(seed, variables=3, constraints=12):
-    """A random QF_LIRA problem over Int and Real variables tied by Booleans, or None when it is satisfiable."""
+def cast_chains_instance(depth=8, compare="real"):
+    """Two Int chains of nested ites with one value, compared through to_real or under a predicate.
+
+    The chains of test_proof_to_lean_lia.modular_chains_instance, x + 5 *
+    depth and x + 10 * (depth / 2) modulo 17, each step an ite holding the
+    previous step three times, so written out the depth-th one is about
+    3^depth times the size of its definition. compare "real" relates their
+    casts through a Real y (QF_LIRA: theory lemmas transport the Int atoms
+    over the chains into Rat, the cast facts of proof_to_lean._cast_facts);
+    "function" compares a Real function f of the two casts (QF_UFLIRA: Real
+    atoms over the casts alone too, _integrality_fact); "predicate" compares
+    a predicate p of a bound on each chain (QF_UFLIA: the excluded-middle
+    facts of Boolean arguments, _folded_boolean_arguments). "floor" makes
+    the chains Real, x + 5/2 * depth and x + 5 * (depth / 2) modulo 17/2,
+    and compares an Int function f of their floors (QF_UFLIRA: the
+    rewriter's normal form of each to_int floors a different Real chain,
+    related level by level by _argument_equality_levels). "is_int" compares
+    is_int of the two Real chains (QF_LIRA) and "is_int_predicate" a
+    predicate p of each (QF_UFLIRA): the rewriter's normal form of (is_int
+    t) is (= (to_real (to_int t')) t') over another chain t', related to t
+    by the equalities of the floored terms (_floored_terms).
+    """
+    logic = {"real": "QF_LIRA", "function": "QF_UFLIRA", "predicate": "QF_UFLIA", "floor": "QF_UFLIRA",
+             "is_int": "QF_LIRA", "is_int_predicate": "QF_UFLIRA"}[compare]
+    if compare in ("floor", "is_int", "is_int_predicate"):
+        sort, modulus, steps = "Real", "(/ 17 2)", ("(/ 5 2)", "5.0")
+    else:
+        sort, modulus, steps = "Int", "17", ("5", "10")
+    lines = ["(set-logic %s)" % logic, "(declare-const x %s)" % sort]
+    for name, step, count in (("a", steps[0], depth), ("b", steps[1], depth // 2)):
+        previous = "x"
+        for index in range(1, count + 1):
+            lines.append("(define-fun %s%d () %s (let ((s (+ %s %s))) (ite (< s %s) s (- s %s))))" % (
+                name, index, sort, previous, step, modulus, modulus))
+            previous = "%s%d" % (name, index)
+    first, second = "a%d" % depth, "b%d" % (depth // 2)
+    lines.append("(assert (and (<= 0 x) (< x %s)))" % modulus)
+    if compare == "floor":
+        lines += ["(declare-fun f (Int) Int)",
+                  "(assert (not (= (f (to_int %s)) (f (to_int %s)))))" % (first, second)]
+    elif compare == "is_int":
+        lines += ["(assert (not (= (is_int %s) (is_int %s))))" % (first, second)]
+    elif compare == "is_int_predicate":
+        lines += ["(declare-fun p (Bool) Bool)",
+                  "(assert (not (= (p (is_int %s)) (p (is_int %s)))))" % (first, second)]
+    elif compare == "real":
+        lines += ["(declare-const y Real)", "(assert (= y (to_real %s)))" % second,
+                  "(assert (not (= (to_real %s) y)))" % first]
+    elif compare == "function":
+        lines += ["(declare-fun f (Real) Real)",
+                  "(assert (not (= (f (to_real %s)) (f (to_real %s)))))" % (first, second)]
+    else:
+        lines += ["(declare-fun p (Bool) Bool)", "(assert (not (= (p (< %s 9)) (p (< %s 9)))))" % (first, second)]
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def random_mixed_instance(seed, variables=3, constraints=12, ites=0.0):
+    """A random QF_LIRA problem over Int and Real variables tied by Booleans, or None when it is satisfiable.
+
+    With ites, each variable of an atom is, with that probability, an ite
+    of it and another variable of its sort over an atom of the other sort.
+    Without, the generator draws as it did before the option existed.
+    """
     generator = random.Random(seed)
     lines = ["(set-logic QF_LIRA)"]
     lines += ["(declare-const n%d Int)" % i for i in range(variables)]
@@ -366,10 +464,17 @@ def random_mixed_instance(seed, variables=3, constraints=12):
         text = ("%d.%d" % (abs(value) // 2, 5 * (abs(value) % 2)) if real else "%d" % (abs(value) // 2))
         return text if value >= 0 else "(- %s)" % text
 
-    def atom(real):
+    def variable(real, index, nested):
+        name = "%s%d" % ("x" if real else "n", index)
+        if nested or not ites or generator.random() >= ites:
+            return name
+        other = "%s%d" % ("x" if real else "n", generator.randrange(variables))
+        return "(ite %s %s %s)" % (atom(not real, True), name, other)
+
+    def atom(real, nested=False):
         chosen = generator.sample(range(variables), generator.randint(1, 2))
-        terms = " ".join("(* %s %s%d)" % (numeral(2 * generator.choice([-3, -2, -1, 1, 2, 3]), False),
-                                          "x" if real else "n", v) for v in chosen)
+        terms = " ".join("(* %s %s)" % (numeral(2 * generator.choice([-3, -2, -1, 1, 2, 3]), False),
+                                        variable(real, v, nested)) for v in chosen)
         # Real bounds in halves, Int bounds whole, both within [-6, 6].
         bound = generator.randint(-12, 12) if real else 2 * generator.randint(-6, 6)
         return "(%s (+ %s) %s)" % (generator.choice(["<=", ">=", "<", ">", "="]), terms, numeral(bound, real))
@@ -434,6 +539,12 @@ def wide_mixed_rewrite_instance(variables=5, ites=False):
 # numerals included (see proof_clause_log._Terms.build), 17 has bound and
 # euf hints, 18 an Int cut, 21 a cnf lemma.
 MIXED_SEEDS = (12, 17, 18, 21)
+# Unsatisfiable seeds of random_mixed_instance with ites=0.3: on iteration
+# 87's macOS build each was rejected on both cores for an arithmetic step
+# over both Int and Real atoms (the atoms of an ite's condition) before
+# _lemma_numeric left conditions out. (The 35 unsatisfiable seeds in 1-150
+# then verify on both cores, 70 of 70 runs; 13 were rejected before.)
+CROSS_ITE_SEEDS = (6, 47, 129)
 
 
 def _export(source, core):
@@ -509,6 +620,26 @@ class TestMixedValidation(unittest.TestCase):
                                             "arithmetic step over both Int and Real atoms at node %d" % lemma):
                     check(graph, lemma)
 
+    def test_conditions_of_ites_are_not_atoms_of_the_step(self):
+        # An ite is an atom of the linear forms: a farkas lemma over it takes
+        # the ite's sort whatever its condition's atoms are.
+        for name, numeric in _OTHER_SORT_CONDITIONS.items():
+            source = LIRA_INPUTS[name]
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate = _export(source, core)
+                    graph = proof_to_lean._validate_graph(source, certificate)
+                    ites = {node for node in range(len(graph.nodes))
+                            if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)}
+                    self.assertTrue(ites)
+                    steps = [node for node in _th_lemma_nodes(certificate)
+                             if graph.decl(node).parameters[0] == "farkas"
+                             and ites & proof_to_lean._reachable(graph, graph.conclusion(node))[0]]
+                    self.assertTrue(steps)
+                    for step in steps:
+                        self.assertEqual(proof_to_lean._lemma_numeric(graph, step), numeric)
+                    proof_to_lean.reconstruct(source, certificate)
+
     def test_ites_of_one_table_keep_their_sort_in_normalized_rewrites(self):
         # (ite p 1 2) over Int and (ite p 1.0 2.0) over Real tabulate alike;
         # each atom's linear form must still range over the ite of its sort.
@@ -543,19 +674,11 @@ def _check_in_lean(test, source, core):
     """Export, reconstruct, and kernel-check a qf_lira input; return the certificate and the Lean text."""
     certificate = _export(source, core)
     test.assertEqual(certificate["fragment"], "qf_lira")
-    with tempfile.TemporaryDirectory() as directory:
-        output = Path(directory) / "checked.lean"
-        proof_to_lean.check_and_write(source, certificate, output)
-        text = output.read_text()
-        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-        test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-        test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
-        output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
-        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    text, report = lean_test_support.check(test, source, certificate)
+    statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+    test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+    test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
+    test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
     return certificate, text
 
 
@@ -571,6 +694,8 @@ class TestMixedLeanIntegration(unittest.TestCase):
         return _check_in_lean(self, source, core)[0]
 
     def test_documented_lira_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in LIRA_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints = set()
         for name, source in LIRA_INPUTS.items():
             for core in ("clause-log", "legacy"):
@@ -600,6 +725,18 @@ class TestMixedLeanIntegration(unittest.TestCase):
                 with self.subTest(seed=seed, core=core):
                     self.check(source, core)
 
+    def test_pinned_random_instances_with_ites_over_the_other_sort_verify_on_both_cores(self):
+        runs = []
+        for seed in CROSS_ITE_SEEDS:
+            source = random_mixed_instance(seed, ites=0.3)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            self.assertRegex(source, r"\(ite \([<>=]+ \(\+ \(\* \S+ x")
+            runs += [(seed, core, source, _export(source, core)) for core in ("clause-log", "legacy")]
+        lean_test_support.prefetch((source, certificate) for _, _, source, certificate in runs)
+        for seed, core, source, _ in runs:
+            with self.subTest(seed=seed, core=core):
+                self.check(source, core)
+
 
 class TestCastValidation(unittest.TestCase):
     """Validation without Lean of to_real: its encoding, the cast facts, and what stays rejected."""
@@ -621,12 +758,123 @@ class TestCastValidation(unittest.TestCase):
         for lemma in ("_int_cast_le", "_int_cast_lt", "_int_cast_eq"):
             self.assertIn("private theorem %s (s t : Int)" % lemma, text)
         # The farkas lemma over x = n, (not (<= n 0)), x < 1 transports the
-        # Int atom into Rat and pushes the casts before grind.
-        self.assertRegex(text, r"have _c\d+ := _int_cast_le \(_ivars 1\) \(\(\(0 : Int\)\)\)\n\s+push_cast at \*")
+        # Int atom into Rat and pushes the casts before grind. The fact is
+        # stated over the definitions of the atom's sides, folded, reverted
+        # before the lemma's unfold and introduced again after it.
+        self.assertRegex(text, r"have (_c\d+) := _int_cast_le \(term_(\d+) _atoms _vars _ivars\) "
+                               r"\(term_(\d+) _atoms _vars _ivars\)\n\s+revert \1\n\s+unfold [^\n]*\n\s+intro \1\n"
+                               r"\s+push_cast at \*")
+        self.assertIn("(_ivars : Nat -> Int) : Int := _ivars 1\n", text)
         # A certificate without to_real states none of this.
         text = proof_to_lean.reconstruct(LIRA_INPUTS["lira_ite"], _export(LIRA_INPUTS["lira_ite"], "clause-log"))
         self.assertNotIn("_int_cast_le", text)
         self.assertNotIn("push_cast", text)
+
+    def test_facts_over_nested_ites_are_stated_folded(self):
+        # The cast facts (_c), the integrality facts (_r, _q), and the
+        # excluded-middle facts of Boolean arguments (_b) of lemmas over two
+        # chains of eight nested Int ites are stated over the definitions,
+        # folded, reverted before the lemma's unfold, and introduced again
+        # after it, like the ite gates. Written out, they made 15.6 MB
+        # (real), 16.0 MB (function), and 8.2 MB (predicate) of Lean text;
+        # Lean ran out of memory or heartbeats.
+        # The fact prefixes each certificate must state. The legacy proofs of
+        # function and predicate reach none of these facts, so they are only
+        # held to the size bound and the shape of any fact they state. The
+        # floor bounds (_f, _u) are matched too; the structural _f names of
+        # uf certificates are stated with ":", the floor bounds with ":=".
+        expected = {("real", "clause-log"): {"_c"}, ("real", "legacy"): {"_c"},
+                    ("function", "clause-log"): {"_c", "_q", "_r"}, ("function", "legacy"): set(),
+                    ("predicate", "clause-log"): {"_b"}, ("predicate", "legacy"): set()}
+        fact = r"have (_[bcuqr]\d+|_f\d+(?= :=)) (?::|:=)"
+        for (compare, core), prefixes in expected.items():
+            with self.subTest(compare=compare, core=core):
+                source = cast_chains_instance(8, compare)
+                certificate = _export(source, core)
+                text = proof_to_lean.reconstruct(source, certificate)
+                cnf = ["private theorem th_lemma_%d " % node for node in _th_lemma_nodes(certificate)
+                       if _parameters(certificate, node) == ["cnf"]]
+                self.assertLess(len(text), 2000000)
+                facts = re.findall(r"^ *(?:\| \()?%s (.*)$" % fact, text, re.M)
+                self.assertLessEqual(prefixes, {name[:2] for name, _ in facts})
+                for name, statement in facts:
+                    self.assertNotIn("@ite", statement, name)
+                    self.assertNotRegex(statement, r"_[iv]?vars \d", name)
+                for block in [block for block in text.split("\n\n") if facts and "theorem" in block]:
+                    # A cnf lemma's structural attempt names its steps _f too
+                    # (theory clauses, propagations); the facts are the
+                    # fallback's. Other lemmas are checked whole.
+                    if any(header in block for header in cnf):
+                        block = "\n    | (".join(attempt for attempt in block.split("\n    | (")
+                                                 if "refine Classical.byContradiction ?_" not in attempt)
+                    names = re.findall(fact, block)
+                    if names:
+                        reverted = re.search(r"\n *revert ([\w ]+)\n *unfold [\w ]+\n *intro ([\w ]+)\n", block)
+                        self.assertIsNotNone(reverted, block[:300])
+                        self.assertEqual(reverted.group(1), reverted.group(2))
+                        self.assertLessEqual(set(names), set(reverted.group(1).split()))
+
+    def test_floors_of_nested_real_chains_are_related_level_by_level(self):
+        # The rewriter's normal form of (f (to_int a8)) floors another Real
+        # chain than the input's. to_int atoms are keyed by their argument
+        # (_real_atom_key), so the two floors get an equality of their own,
+        # proved from the equality of the floored chains (stated before it,
+        # level by level) with only the two floors unfolded. Keyed by node,
+        # nothing related them and the rewrite's fallback ran out of
+        # heartbeats over the unfolded chains. (The legacy proof relates the
+        # floors by congrArg through its monotonicity steps.)
+        source = cast_chains_instance(8, "floor")
+        text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
+        self.assertLess(len(text), 2000000)
+        floors = dict(re.findall(r"^noncomputable def term_(\d+) [^\n]*: Int := \(Rat\.floor \(term_(\d+) _atoms",
+                                 text, re.M))
+        related = 0
+        for block in text.split("\n\n"):
+            facts = re.findall(r"have _r(\d+)_(\d+) : [^\n]* := by unfold ([\w ]+);", block)
+            stated = {(left, right) for left, right, _ in facts}
+            for left, right, names in facts:
+                if left in floors and right in floors:
+                    self.assertEqual(set(names.split()), {"term_" + left, "term_" + right})
+                    self.assertIn((floors[left], floors[right]), stated)
+                    related += 1
+        self.assertGreater(related, 0)
+
+    def test_is_int_of_nested_real_chains_is_related_to_its_normal_form(self):
+        # The rewriter's normal form of (is_int a6) floors another Real chain
+        # than the input's is_int, which Lean states as the cast of the floor
+        # equal to the chain. The two chains get an equality of their own,
+        # proved level by level, from which grind relates the two formulas by
+        # congruence. Without it grind split both chains entirely and failed
+        # (55 s under the predicate, 47 s compared directly).
+        for compare in ("is_int", "is_int_predicate"):
+            with self.subTest(compare=compare):
+                source = cast_chains_instance(6, compare)
+                text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
+                self.assertLess(len(text), 2500000)
+                tested = set(re.findall(r"^def formula_\d+ [^\n]*: Prop := \(\(\(Rat\.floor \(term_(\d+) _atoms[^\n]*"
+                                        r"= \(term_\1 _atoms", text, re.M))
+                floored = set(re.findall(r"^noncomputable def term_\d+ [^\n]*: Int := \(Rat\.floor \(term_(\d+) _atoms",
+                                         text, re.M))
+                self.assertTrue(tested and floored)
+                related = {frozenset(pair) for pair in re.findall(r"have _r(\d+)_(\d+) : ", text)}
+                self.assertTrue(any(frozenset((one, other)) in related for one in tested for other in floored),
+                                (tested, floored))
+
+    def test_keys_of_nested_chains_are_linear_in_depth(self):
+        # Keying a floor keys its argument, and each level of a nested chain
+        # is reached from its condition and both branches: about 3^depth
+        # calls uncached, with keys nested as deep. Cached and interned
+        # (_InternedKey), each atom is keyed once and every key is short.
+        source = cast_chains_instance(16, "floor")
+        graph = proof_to_lean._validate_graph(source, _export(source, "clause-log"))
+        floors = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_TO_INT]
+        with mock.patch.object(proof_to_lean, "_ite_atom_key", wraps=proof_to_lean._ite_atom_key) as keyed:
+            keys = [proof_to_lean._real_atom_key(graph, node) for node in floors]
+        self.assertGreater(keyed.call_count, 16)
+        self.assertLessEqual(keyed.call_count, len(graph.nodes))
+        self.assertLess(max(len(repr(key)) for key in keys), 20)
+        # The input's floors and the rewriter's still share keys.
+        self.assertLess(len(set(keys)), len(floors))
 
     def test_real_atoms_over_int_terms_are_tied_to_int_atoms(self):
         # 2n = 2m + 1 over the casts is an integer constraint: the cut gets
@@ -635,8 +883,11 @@ class TestCastValidation(unittest.TestCase):
         certificate = _export(source, "clause-log")
         self.assertIn("cut", _hints(certificate))
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertRegex(text, r"have _r\d+ : .* <-> \(\(.*\) = \(\(0 : Int\)\)\) := "
-                               r"Iff\.trans \(by push_cast; grind\) Rat\.intCast_inj")
+        # Over the definitions, folded: the atom is unfolded down to the Int
+        # terms of its form to be proved.
+        self.assertRegex(text, r"have _r(\d+) : \(formula_\1 _atoms _vars _ivars\) <-> "
+                               r"\(\(.*\(term_\d+ _atoms _vars _ivars\).*\) = \(\(0 : Int\)\)\) := "
+                               r"Iff\.trans \(by unfold formula_\1 [^;]*; push_cast; grind\) Rat\.intCast_inj")
 
     def test_real_atoms_over_int_terms_key_by_their_meaning(self):
         # A Real atom over to_real alone is not tightened like an Int atom:
@@ -750,19 +1001,25 @@ class TestFloorValidation(unittest.TestCase):
         self.assertIn("(((Rat.floor (term_0 _atoms _vars _ivars) : Int) : Rat) = (term_0 _atoms _vars _ivars))",
                       text)
         self.assertIn(": Int := (Rat.floor (term_", text)
-        self.assertRegex(text, r"have _f\d+ := Rat\.floor_le \(_vars 0\)\n\s+have _u\d+ := "
-                               r"Rat\.lt_floor_add_one \(_vars 0\)")
+        self.assertRegex(text, r"have _f(\d+) := Rat\.floor_le \(term_\1 _atoms _vars _ivars\)\n\s+have _u\1 := "
+                               r"Rat\.lt_floor_add_one \(term_\1 _atoms _vars _ivars\)")
+        self.assertIn("(_ivars : Nat -> Int) : Rat := _vars 0\n", text)
         # The Real atom (<= 3.0 (to_real (to_int x))) is an Int atom, cast
-        # back into Rat to be tightened.
-        self.assertRegex(text, r"have _q\d+ := _int_cast_le \(.*Rat\.floor \(_vars 0\).*\) \(\(0 : Int\)\)")
+        # back into Rat to be tightened, over the floor's definition.
+        floor = re.search(r"have _q\d+ := _int_cast_le \(.*\(term_(\d+) _atoms _vars _ivars\).*\) "
+                          r"\(\(0 : Int\)\)", text)
+        self.assertIsNotNone(floor)
+        self.assertIn("def term_%s (_atoms : Nat -> Prop) (_vars : Nat -> Rat) (_ivars : Nat -> Int) : Int := "
+                      "(Rat.floor (term_0 _atoms _vars _ivars))" % floor.group(1), text)
 
     def test_floors_of_terms_differing_by_an_integer_are_related(self):
         source = random_floor_instance(FLOOR_SEEDS[1])
         self.assertIsNotNone(source)
         text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
-        self.assertRegex(text, r"have _d\d+_\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
-                               r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
-                               r"Rat\.floor_add_intCast\)")
+        # Between Int terms, and cast into Rat.
+        self.assertRegex(text, r"have _di(\d+_\d+) := \(congrArg Rat\.floor \(show .* by push_cast; grind\)\)"
+                               r"\.trans Rat\.floor_add_intCast\n\s+"
+                               r"have _d\1 := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) _di\1\n")
         # Of the floors of x, x + 1/2, and x + 2 (the legacy certificate
         # keeps the input's terms, and the rewritten 2 + x and 1/2 + x),
         # only those differing by an integer are related.
@@ -773,7 +1030,8 @@ class TestFloorValidation(unittest.TestCase):
                          if graph.kind(node) == z3.Z3_OP_TO_INT})
         self.assertGreaterEqual(len(floors), 3)
         indices = collections.defaultdict(int)  # every variable rendered as _vars 0
-        facts = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        facts, substitutions = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        self.assertEqual(substitutions, [])  # No floor of a constant.
         self.assertTrue(any("(((((2 : Int))) : Int) : Rat)" in fact for fact in facts), facts)
         for fact in facts:
             with self.subTest(fact=fact):
@@ -784,12 +1042,37 @@ class TestFloorValidation(unittest.TestCase):
         for core in ("clause-log", "legacy"):
             with self.subTest(core=core):
                 text = proof_to_lean.reconstruct(source, _export(source, core))
-                self.assertRegex(text, r"have _z\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
-                                       r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
-                                       r"\(Rat\.floor_intCast _\)\)")
+                self.assertRegex(text, r"have _zi(\d+) := \(congrArg Rat\.floor \(show .* by push_cast; grind\)\)"
+                                       r"\.trans \(Rat\.floor_intCast _\)\n\s+"
+                                       r"have _z\1 := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
+                                       r"_zi\1\n")
+                # The floor of n is not replaced by n: only a constant's is.
+                self.assertNotIn("generalize Rat.floor", text)
         # Floors of Real variables get none.
         text = proof_to_lean.reconstruct(self.source, self.certificate)
         self.assertNotIn("Rat.floor_intCast", text)
+
+    def test_is_int_of_a_constant_is_a_certificate_over_both_sorts(self):
+        # (is_int 0.5) alone: the certificate declares is_int and Real
+        # numerals only, labelled qf_lira; it was rejected as a certificate
+        # over one sort. The floor's value decides the rewrite to false.
+        for name, value in (("is_int_of_a_fraction", "0"), ("not_is_int_of_an_integer", "2")):
+            source = FLOOR_INPUTS[name]
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate = _export(source, core)
+                    self.assertEqual(certificate["fragment"], "qf_lira")
+                    self.assertEqual({declaration["range"] for declaration in certificate["declarations"]
+                                      if declaration["range"] in ("Int", "Real")}, {"Real"})
+                    text = proof_to_lean.reconstruct(source, certificate)
+                    self.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", text)
+                    self.assertRegex(text, r"have _zi\d+ .*\(\(%s : Int\)\)" % value)
+                    self.assertIn("try (generalize Rat.floor", text)
+                    relabelled = copy.deepcopy(certificate)
+                    relabelled["fragment"] = "qf_lra"
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                                "qf_lra certificates cannot mix Int and Real arithmetic"):
+                        proof_to_lean.reconstruct(source, relabelled)
 
     def test_floor_shift_pairs_are_capped(self):
         # 13 floors x + k/2: past the cap no pair is related, while the
@@ -803,10 +1086,10 @@ class TestFloorValidation(unittest.TestCase):
                          if graph.kind(node) == z3.Z3_OP_TO_INT})
         self.assertGreater(len(floors), proof_to_lean._FLOOR_SHIFT_LIMIT)
         indices = collections.defaultdict(int)
-        capped = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        capped, _ = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
         self.assertFalse([fact for fact in capped if fact.startswith("have _d")], capped)
         self.assertTrue([fact for fact in capped if fact.startswith("have _z")], capped)
-        below = proof_to_lean._floor_shift_facts(graph, floors[:proof_to_lean._FLOOR_SHIFT_LIMIT], indices, indices)
+        below, _ = proof_to_lean._floor_shift_facts(graph, floors[:proof_to_lean._FLOOR_SHIFT_LIMIT], indices, indices)
         self.assertTrue([fact for fact in below if fact.startswith("have _d")], below)
 
     def test_is_int_definition_axioms_are_arith_hints(self):
@@ -920,6 +1203,8 @@ class TestFloorLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_floor_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in FLOOR_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints, congruences = set(), 0
         for name, source in FLOOR_INPUTS.items():
             for core in ("clause-log", "legacy"):
@@ -954,6 +1239,8 @@ class TestCastLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_cast_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in CAST_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints = set()
         for name, source in CAST_INPUTS.items():
             for core in ("clause-log", "legacy"):
@@ -978,6 +1265,40 @@ class TestCastLeanIntegration(unittest.TestCase):
                         congruences += text.count("congrArg (fun (_t : Int) => ((_t : Int) : Rat))")
         self.assertIn("cut", hints)
         self.assertGreater(congruences, 0)
+
+    def test_nested_ite_chains_verify_through_folded_facts(self):
+        # Eight nested Int ites per chain. With the cast, integrality, and
+        # Boolean-argument facts written out, the clause-log certificates
+        # failed: real ran out of kernel memory (218 s, 11.2 GB), predicate
+        # out of heartbeats elaborating the facts (168 s). Folded, each
+        # checks in 3 to 20 s under 3.1 GB (see _cast_facts). floor (Real
+        # chains under to_int) ran out of heartbeats in a rewrite's fallback
+        # while its two floors were unrelated atoms; with their equality
+        # stated level by level it checks in about 15 s on each core.
+        fragments = {"real": "qf_lira", "function": "qf_uflira", "predicate": "qf_uflia", "floor": "qf_uflira"}
+        for compare, fragment in fragments.items():
+            source = cast_chains_instance(8, compare)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(compare=compare, core=core):
+                    certificate = _export(source, core)
+                    self.assertEqual(certificate["fragment"], fragment)
+                    _, report = lean_test_support.check(self, source, certificate)
+                    self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_is_int_of_nested_real_chains_verifies(self):
+        # Six nested Real ites per chain under is_int. The clause-log
+        # certificates failed (grind gave up after 47 to 55 s) while the
+        # input's chain and the rewriter's normal form were unrelated; with
+        # their equality stated level by level each checks in about 10 s.
+        fragments = {"is_int": "qf_lira", "is_int_predicate": "qf_uflira"}
+        for compare, fragment in fragments.items():
+            source = cast_chains_instance(6, compare)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(compare=compare, core=core):
+                    certificate = _export(source, core)
+                    self.assertEqual(certificate["fragment"], fragment)
+                    _, report = lean_test_support.check(self, source, certificate)
+                    self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
 
 
 if __name__ == "__main__":

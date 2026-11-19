@@ -13,6 +13,7 @@ type operator =
 type sort_view =
   | Base of string
   | Array of native_sort list * native_sort
+  | Applied of Z3AstTheory.sort_symbol * native_sort list
 
 type declaration = {
   id: Z.t;
@@ -91,19 +92,30 @@ let view_sort s =
   let kind = Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) in
   let name = symbol c (Z3native.get_sort_name c s) in
   match kind with
-  | Z3enums.BOOL_SORT -> Base "Bool"
-  | Z3enums.INT_SORT -> Base "Int"
-  | Z3enums.REAL_SORT -> Base "Real"
-  | Z3enums.BV_SORT -> Base (Printf.sprintf "BV%d" (Z3native.get_bv_sort_size c s))
-  | Z3enums.SEQ_SORT
-      when Z3enums.sort_kind_of_int
-             (Z3native.get_sort_kind c (Z3native.get_seq_sort_basis c s)) = Z3enums.INT_SORT ->
-      Base "SeqInt"
+  | Z3enums.BOOL_SORT -> Applied (Z3AstTheory.BoolSymbol, [])
+  | Z3enums.INT_SORT -> Applied (Z3AstTheory.IntSymbol, [])
+  | Z3enums.REAL_SORT -> Applied (Z3AstTheory.RealSymbol, [])
+  | Z3enums.CHAR_SORT ->
+      (match Z3native.global_param_get "encoding" with
+       | true, ("bmp" | "ascii") -> Base (unique "sort" (sort_id s) name)
+       | _ -> Applied (Z3AstTheory.CharSymbol, []))
+  | Z3enums.BV_SORT ->
+      Applied (Z3AstTheory.BvSymbol (Z.of_int (Z3native.get_bv_sort_size c s)), [])
+  | Z3enums.SEQ_SORT -> Applied (Z3AstTheory.SeqSymbol, [Z3native.get_seq_sort_basis c s])
+  | Z3enums.RE_SORT -> Applied (Z3AstTheory.ReSymbol, [Z3native.get_re_sort_basis c s])
+  | Z3enums.DATATYPE_SORT -> Applied (Z3AstTheory.DatatypeSymbol (sort_id s), [])
+  | Z3enums.FLOATING_POINT_SORT ->
+      Applied (Z3AstTheory.FloatSymbol
+        (Z.of_int (Z3native.fpa_get_ebits c s), Z.of_int (Z3native.fpa_get_sbits c s)), [])
+  | Z3enums.ROUNDING_MODE_SORT -> Applied (Z3AstTheory.RoundingModeSymbol, [])
   | Z3enums.ARRAY_SORT ->
       let domains = List.init (Z3native.get_array_arity c s)
           (Z3native.get_array_sort_domain_n c s) in
       Array (domains, Z3native.get_array_sort_range c s)
-  | Z3enums.FINITE_FIELD_SORT -> Base ("FF" ^ Z3native.get_finite_field_sort_size c s)
+  | Z3enums.FINITE_FIELD_SORT ->
+      Applied (Z3AstTheory.FiniteFieldSymbol (Z.of_string (Z3native.get_finite_field_sort_size c s)), [])
+  | _ when Z3native.is_finite_set_sort c s ->
+      Applied (Z3AstTheory.FiniteSetSymbol, [Z3native.get_finite_set_sort_basis c s])
   | _ -> Base (unique "sort" (sort_id s) name)
 
 let operator = function
@@ -192,7 +204,9 @@ let view_datatypes roots =
         let value = match view_sort s with
           | Base name -> A.BaseSort name
           | Array (domains, range) ->
-              A.ArraySort (List.map logical_sort domains, logical_sort range) in
+              A.ArraySort (List.map logical_sort domains, logical_sort range)
+          | Applied (symbol, arguments) ->
+              A.SortApp (symbol, List.map logical_sort arguments) in
         Hashtbl.add converted id value;
         value
   in

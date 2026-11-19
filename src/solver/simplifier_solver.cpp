@@ -168,12 +168,18 @@ class simplifier_solver : public solver {
         m_preprocess_state.replay(qhead, assumptions);   
 
         if (qhead < m_fmls.size()) {
+            if (m_factory && m.proofs_enabled() && !m_preprocess.supports_proofs())
+                throw default_exception("simplifier does not support proof generation");
             m_preprocess.reduce();
             if (!m.inc())
                 return;
             // Simplification may introduce definitions for expressions passed
             // as assumptions or consequence variables in this flush.
             m_preprocess_state.replay(qhead, assumptions);
+            if (m_factory && m.proofs_enabled())
+                for (unsigned i = qhead; i < m_fmls.size(); ++i)
+                    if (!m_fmls[i].pr() || m.get_fact(m_fmls[i].pr()) != m_fmls[i].fml())
+                        throw default_exception("simplifier did not produce a proof of its assertion");
             TRACE(solver, tout << "qhead " << qhead << "\n";
                   m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
@@ -230,6 +236,8 @@ public:
         if (fac) {
             m_factory = *fac;
             m_preprocess.add_simplifier(m_factory(m, s->get_params(), m_preprocess_state));
+            if (m.proofs_enabled() && !m_preprocess.supports_proofs())
+                throw default_exception("simplifier does not support proof generation");
         }
         else 
             init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
@@ -311,6 +319,8 @@ public:
             for (auto const& d : m_fmls) {
                 if (!d.pr())
                     continue;
+                if (m.get_fact(d.pr()) != d.fml())
+                    throw default_exception("simplifier proof does not match its assertion");
                 expr_ref fact(d.fml(), m);
                 proof_ref pr(d.pr(), m);
                 if (d.dep()) {

@@ -885,6 +885,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         sh(v, lam->get_num_decls(), e);
         e = m().mk_eq(lam->get_expr(), e);
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
+        result = m().update_quantifier_skid(to_quantifier(result), symbol("generated"));
         return BR_REWRITE2; 
     }
     // (= (lambda (x) s) (lambda (x) t))  ==>  (forall (x) (= s t))   (array extensionality)
@@ -898,6 +899,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
             if (same) {
                 expr_ref e(m().mk_eq(l1->get_expr(), l2->get_expr()), m());
                 result = m().update_quantifier(l1, quantifier_kind::forall_k, e);
+                result = m().update_quantifier_skid(to_quantifier(result), symbol("generated"));
                 return BR_REWRITE2;
             }
         }

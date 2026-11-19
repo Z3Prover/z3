@@ -1,0 +1,22 @@
+{
+  "pull_request": 11629,
+  "head_sha": "483c7398c29565a13d659f565985524b135294a3",
+  "base_sha": "d6c9b4fbb31cb76e35cc325dd7e64b7c26c7d70f",
+  "path_prefix": "fstar/audits/pr-11629/483c7398c29565a13d659f565985524b135294a3/",
+  "verdict": "inconclusive",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42764725769",
+  "files": [
+    {
+      "name": "PRClauseEqualityModel.fst",
+      "sha256": "3dedc11f774a46d974bf27e6ac99c8fdb2159b53ef4acb1d0b5e1bc10169bdf7"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "1bc37377b69245bcdbd3978da510729db0aac28868008681c3b3daa8e4303feb"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "700a6e175d0999baa339583027fbdba91422aaac7efa8b2313f6af9392805db5"
+    }
+  ]
+}

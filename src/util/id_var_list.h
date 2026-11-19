@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Association list from theory id -> var
-    where id in [0..255] and var is 24 bit.
+    Identifiers and variables are stored as full-width integers.
 
 Author:
 
@@ -25,8 +25,8 @@ Revision History:
 
 template <int null_id = -1, int null_var = -1>
 class id_var_list {
-    int               m_id:8;
-    int               m_var:24;
+    int               m_id;
+    int               m_var;
     id_var_list *     m_next;
     
 public:
@@ -169,8 +169,6 @@ public:
 };
 
 // 32 bit machine
-static_assert(sizeof(unsigned*) != 4 || sizeof(id_var_list<>) == sizeof(id_var_list<> *) + sizeof(int), "32 bit"); 
+static_assert(sizeof(unsigned*) != 4 || sizeof(id_var_list<>) == sizeof(id_var_list<> *) + 2 * sizeof(int), "32 bit");
 // 64 bit machine
 static_assert(sizeof(unsigned*) != 8 || sizeof(id_var_list<>) == sizeof(id_var_list<> *) + sizeof(int) + /* a structure must be aligned */ sizeof(int), "64 bit"); 
-
-

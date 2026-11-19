@@ -80,14 +80,14 @@ UNUSED_SKOLEM_CASES = (
 )
 
 # The arithmetic rewriter factors p REL 0 when a term divides every monomial of p
-# (factor_le_ge_eq). These are the first queries of z3test nl12, nl49, nl33, and nl57.
+# (factor_le_ge_eq). Queries from z3test nl12, nl33, and nl57, plus an equality
+# control that does not require nonlinear search to expose the common factor.
 FACTOR_SIGN_CASES = (
     ("int-le", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
      "(assert (and (> (+ (* x1 x2) x3) 0) (<= x1 (- 1)) (>= x1 (- 1)) (= x2 x3)))"),
-    ("int-eq", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
-     "(declare-const x4 Int)(declare-const x5 Int)"
-     "(assert (and (<= x4 x5) (<= x5 x4) (= x2 (+ x3 x5))"
-     " (not (= (* x1 x2) (+ (* x1 x3) (* x1 x4))))))"),
+    ("int-eq", "(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+     "(assert (= (+ (* x y) (* x z)) 0))"
+     "(assert (not (= x 0)))(assert (not (= (+ y z) 0)))"),
     ("real-ge", "(declare-const x Real)(assert (and (< 1.0 x) (not (< x (* x x)))))"),
     ("real-lt", "(declare-const x Real)(declare-const y Real)"
      "(assert (and (<= 0.0 x) (<= (- 1.0) y) (< (+ (* x y) x) 0.0)))"),
@@ -407,6 +407,108 @@ SORTED_LINEAR_SATISFIABLE_CASES = (
 # frontend does not decide the quantified prefix (UNKNOWN), which is not a checked result.
 FSTAR_INTEGER_INTERVALS_Q4 = "fstar-integer-intervals-q4.smt2"
 
+# Typed Real certificates on the Sorted route (--sorted-core, and a query whose datatype selects the
+# sorted-datatype semantics): the producer's Real Farkas weights replayed by the typed Int/Real check
+# (Real strict bounds stay strict, Int literals under to_real rounded as Int) and its premise-free Real
+# rewrite equations ((x > 0) = not (x <= 0), (to_real 0) = 0) proved by the Real normal forms.
+# Fixed-value equality propagation additionally reconstructs both bound certificates.
+SORTED_REAL_CASES = (
+    ("strict-conflict", "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))"),
+    ("strict-pair", "(declare-const x Real)(declare-const y Real)(assert (< x y))(assert (<= y x))"),
+    ("sum-of-positives", "(declare-const x Real)(declare-const y Real)"
+     "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"),
+    ("datatype-field", "(declare-datatype T ((C (field Real))))(declare-const t T)"
+     "(assert (> (field t) 0.0))(assert (<= (field t) 0.0))"),
+    ("reconstructed-equality", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
+     "(assert (>= x 1))(assert (<= x 1))(assert (>= y 0))(assert (<= y 0))"
+     "(assert (f 1))(assert (not (f (+ x y))))"),
+    ("nested-opposite-signs", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-const z Real)(declare-const d Real)"
+     "(assert (>= x 0))(assert (<= y 0))(assert (>= d 0))(assert (> z d))"
+     "(assert (<= (+ z (* (- 1) (* x y))) 0))"),
+)
+# Satisfiable Real inputs: no Int lattice reasoning at Real (0 < x < 1 holds at x = 1/2, the model the
+# producer returns), and equal non-strict bounds (x = y).
+SORTED_REAL_SATISFIABLE_CASES = (
+    ("between-zero-and-one", "(declare-const x Real)(assert (< 0.0 x))(assert (< x 1.0))"),
+    ("equal-bounds", "(declare-const x Real)(declare-const y Real)(assert (<= x y))(assert (<= y x))"),
+    ("loose-equality-bounds", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
+     "(assert (>= x 1))(assert (<= x 2))(assert (>= y 0))(assert (<= y 0))"
+     "(assert (f 1))(assert (not (f (+ x y))))"),
+    ("same-sign-product", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-const z Real)(declare-const d Real)"
+     "(assert (>= x 0))(assert (>= y 0))(assert (>= d 0))(assert (> z d))"
+     "(assert (<= (+ z (* (- 1) (* x y))) 0))"),
+)
+
+INTEGER_PRODUCT_HEADER = (
+    "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+    "(declare-const x Int)(declare-const y Int)(declare-const c Int)(declare-const d Int)"
+)
+SORTED_INTEGER_PRODUCT_CASES = (
+    ("direct", "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x y) c))"),
+    ("nested", "(assert (>= x 0))(assert (>= y 0))(assert (<= d 0))(assert (< c d))"
+     "(assert (<= (+ (* x y) (* (- 1) c)) 0))"),
+    ("opaque-bridge", "(declare-fun f (Int) Int)(assert (>= x 0))(assert (>= y 0))"
+     "(assert (< c 0))(assert (>= (f (* x y)) (* x y)))(assert (<= (f (* x y)) c))"),
+    ("strict-direct", "(assert (> x 0))(assert (> y 0))(assert (<= c 0))(assert (<= (* x y) c))"),
+    ("strict-nested", "(assert (> x 0))(assert (> y 0))(assert (<= d 0))(assert (<= c d))"
+     "(assert (<= (+ (* x y) (* (- 1) c)) 0))"),
+    ("strict-opaque-bridge", "(declare-fun f (Int) Int)(assert (> x 0))(assert (> y 0))"
+     "(assert (<= c 0))(assert (>= (f (* x y)) (* x y)))(assert (<= (f (* x y)) c))"),
+    ("both-nonpositive", "(assert (<= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))"),
+    ("opposite-signs", "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))(assert (>= (* x y) c))"),
+    ("opposite-signs-swapped", "(assert (<= x 0))(assert (>= y 0))(assert (> c 0))(assert (>= (* x y) c))"),
+    ("nested-opposite-signs", "(assert (>= x 0))(assert (<= y 0))(assert (>= d 0))(assert (> c d))"
+     "(assert (>= (+ (* x y) (* (- 1) c)) 0))"),
+    ("strict-both-negative", "(assert (< x 0))(assert (< y 0))(assert (<= c 0))(assert (<= (* x y) c))"),
+    ("strict-opposite-signs", "(assert (> x 0))(assert (< y 0))(assert (>= c 0))(assert (>= (* x y) c))"),
+    ("strict-opposite-signs-swapped", "(assert (< x 0))(assert (> y 0))(assert (>= c 0))(assert (>= (* x y) c))"),
+    ("strict-nested-opposite-signs", "(assert (> x 0))(assert (< y 0))(assert (>= d 0))(assert (>= c d))"
+     "(assert (>= (+ (* x y) (* (- 1) c)) 0))"),
+    ("strict-opposite-opaque-bridge", "(declare-fun f (Int) Int)(assert (> x 0))(assert (< y 0))"
+     "(assert (>= c 0))(assert (<= (f (* x y)) (* x y)))(assert (>= (f (* x y)) c))"),
+)
+
+# Sort-generic ITE laws on the Sorted route: the producer's premise-free closed `rewrite` steps
+# (ite c (ite d x y) y) = (ite (and c d) x y) and (ite c x (ite d x y)) = (ite (or c d) x y) (the direct
+# path Z3SortedProof.ite_rewrite) and the same laws as leaves of a `quant-intro` certificate, at an
+# uninterpreted sort, Int, Real and a datatype (whose metadata selects the sorted-datatype semantics on
+# the default route). The satisfiable mutants (`or` for `and` and back) stay SAT, and a valid merge
+# with a negated inner guard (not one of the laws) leaves its rewrite step pending.
+ITE_HEADER = "(declare-const c Bool)(declare-const d Bool)"
+ITE_UNINTERPRETED = "(declare-sort U 0)" + ITE_HEADER + "(declare-const x U)(declare-const y U)"
+ITE_DATATYPE = "(declare-datatypes ((B 0)) (((mk (f Int)))))" + ITE_HEADER
+SORTED_DIRECT_ITE_CASES = (
+    ("else-merge", ITE_UNINTERPRETED + "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("then-merge", ITE_UNINTERPRETED + "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))"),
+    ("not-swap", ITE_UNINTERPRETED + "(assert (not (= (ite (not c) x y) (ite c y x))))"),
+    ("real-else-merge", ITE_HEADER + "(declare-const x Real)(declare-const y Real)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("int-flattened-else-merge", ITE_HEADER + "(declare-const e Bool)(declare-const x Int)(declare-const y Int)"
+     "(assert (not (= (ite c (ite (and d e) x y) y) (ite (and c d e) x y))))"),
+    ("datatype-else-merge", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("datatype-then-merge", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))"),
+    ("quant-intro-then-merge", ITE_UNINTERPRETED + "(declare-fun P (U) Bool)"
+     "(assert (forall ((z U)) (P (ite c z (ite d z y)))))(assert (not (forall ((z U)) (P (ite (or c d) z y)))))"),
+    ("datatype-quant-intro-else-merge", ITE_DATATYPE + "(declare-const y B)(declare-fun P (B) Bool)"
+     "(assert (forall ((z B)) (P (ite c (ite d z y) y))))(assert (not (forall ((z B)) (P (ite (and c d) z y)))))"),
+)
+SORTED_DIRECT_ITE_SATISFIABLE_CASES = (
+    ("else-merge-by-or", ITE_UNINTERPRETED + "(assert (not (= (ite c (ite d x y) y) (ite (or c d) x y))))"),
+    ("then-merge-by-and", ITE_UNINTERPRETED + "(assert (not (= (ite c x (ite d x y)) (ite (and c d) x y))))"),
+    ("datatype-else-merge-by-or", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (or c d) x y))))"),
+    ("datatype-quant-intro-else-merge-by-or", ITE_DATATYPE + "(declare-const y B)(declare-fun P (B) Bool)"
+     "(assert (forall ((z B)) (P (ite c (ite d z y) y))))(assert (not (forall ((z B)) (P (ite (or c d) z y)))))"),
+)
+SORTED_ITE_NEGATED_GUARD_MERGE = (ITE_UNINTERPRETED +
+                                  "(assert (not (= (ite c (ite d x y) x) (ite (and c (not d)) y x))))")
+
 # Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
 # under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
 # an Int choice: `(or (not c) (= t (ite c t u)))` and `(or c (= u (ite c t u)))`, both
@@ -683,12 +785,12 @@ class DirectCheckerTests(unittest.TestCase):
         # is a full ACCEPT: the other rewrites and the bit-vector theory lemmas stay pending, so the checks are the
         # exact number of pending steps and the absence of the re-association fingerprints.
         repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
-        reassociation = "eq(bvadd:U(bvadd:U("
+        reassociation = "eq(bvadd:BV32(bvadd:BV32("
         for name, pending, families in (
                 ("egt-1513.smt2", 4, 4),
                 ("egt-4119.smt2", 3, 3),
                 ("egt-1341.smt2", 4, 4),
-                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 20)):
+                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 25)):
             with self.subTest(name=name):
                 source = (repair / name).read_text()
                 result = self.run_checker(source, "--diagnostics")
@@ -704,28 +806,56 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
 
     def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
-        source = (
+        # The solver may refute this input by instantiating only the third assertion at c = d = e = 1:
+        # a closed refutation that divides by the literal 1 and needs no division-by-zero alias, so
+        # either a full ACCEPT or a PARTIAL verdict is sound. The third assertion alone forces the
+        # alias-dependent rewrite 0 * (1 / 0) * (0 / 0) = 0 (c = 0), which must stay pending.
+        aliases = (
             "(declare-fun a () Real)"
             "(assert (< (/ 1 0 a) 1))"
-            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))"
+            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))")
+        third = (
             "(assert (forall ((c Real)) (forall ((d Real)) (forall ((e Real))"
             "  (>= (* e c) 2 (* d (/ 1 c) (/ 0 c)))))))")
+        partial_batch = r"^PARTIAL [1-9][0-9]*$"
+        partial_interactive = r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n"
+
+        def run(solver, source, interactive):
+            text = f"(set-option :smt.arith.solver {solver})" + source
+            args = ["--diagnostics", "--timeout-ms", "10000"]
+            if interactive:
+                text += "(check-sat)"
+                args.append("--interactive")
+            return self.run_checker(text, *args)
+
         for solver in (2, 6):
             for interactive in (False, True):
                 with self.subTest(solver=solver, interactive=interactive):
-                    text = f"(set-option :smt.arith.solver {solver})" + source
-                    args = ["--diagnostics", "--timeout-ms", "10000"]
-                    if interactive:
-                        text += "(check-sat)"
-                        args.append("--interactive")
-                    result = self.run_checker(text, *args)
-                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-                    if interactive:
-                        self.assertRegex(result.stdout,
-                                         r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+                    result = run(solver, aliases + third, interactive)
+                    if result.returncode == 0:
+                        if interactive:
+                            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        else:
+                            self.assertEqual(result.stdout.strip(), "ACCEPT")
+                        self.assertIn("diagnostic\tchecked\tpending=0\t", result.stderr)
                     else:
-                        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+                        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                        if interactive:
+                            self.assertRegex(result.stdout, partial_interactive)
+                        else:
+                            self.assertRegex(result.stdout.strip(), partial_batch)
                     self.assertNotIn("stage=open-root", result.stderr)
+        rewrite = re.escape("eq(*:Real(0/1:Real,/:Real(1/1:Real,0/1:Real),/:Real(0/1:Real,0/1:Real)) -> 0/1:Real)")
+        for interactive in (False, True):
+            with self.subTest(control="third-assertion-only", interactive=interactive):
+                result = run(6, third, interactive)
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                if interactive:
+                    self.assertIn("unsat\n; proof-check PARTIAL 1\n", result.stdout)
+                else:
+                    self.assertEqual(result.stdout.strip(), "PARTIAL 1")
+                self.assertRegex(result.stderr, r"obligation\trewrite\t1\t[0-9]+\t" + rewrite + "\n")
+                self.assertNotIn("stage=open-root", result.stderr)
 
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
@@ -802,8 +932,12 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
     def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
+        # The former input here, x + y <= 0 with x > 0 and y > 0, is now certified by the typed Real
+        # kernel of the Sorted route itself (SORTED_REAL_CASES "sum-of-positives"). This input keeps a
+        # Real step outside the Sorted fragment, the equation (x = y) = (x <= y and x >= y), so the
+        # sorted core still reports it as pending instead of falling back to the legacy arithmetic.
         source = ("(declare-const x Real)(declare-const y Real)"
-                  "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
+                  "(assert (<= x y))(assert (<= y x))(assert (not (= x y)))")
         result = self.run_checker(source, "--sorted-core", "--diagnostics", "--stats")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
@@ -812,6 +946,68 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
         self.assertIn("; proof-check PARTIAL ", interactive.stdout)
         self.assertIn("semantics=sorted-core", interactive.stdout)
+
+    def test_sorted_real_certificates_in_both_modes(self):
+        for name, source in SORTED_REAL_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats", "--sorted-core"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    semantics = "sorted-datatype" if "declare-datatype" in source else "sorted-core"
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=" + semantics, result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=" + semantics, result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_REAL_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--sorted-core", "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)(get-value (x))", "--interactive",
+                                               "--sorted-core", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+        between = self.run_checker(SORTED_REAL_SATISFIABLE_CASES[0][1] + "(check-sat)(get-value (x))",
+                                   "--interactive", "--sorted-core")
+        self.assertIn("((x (/ 1.0 2.0)))", between.stdout)
+
+    def test_sorted_integer_products_in_both_modes(self):
+        for name, body in SORTED_INTEGER_PRODUCT_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    source = INTEGER_PRODUCT_HEADER + body
+                    args = ["--sorted-core", "--diagnostics"]
+                    if interactive:
+                        source += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(source, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for body in (
+                "(assert (>= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))",
+                "(assert (= x 0))(assert (>= y 1))(assert (<= c 0))(assert (<= (* x y) c))",
+                "(assert (>= x 0))(assert (>= y 0))(assert (> c 0))(assert (>= (* x y) c))",
+                "(assert (> x 0))(assert (<= y 0))(assert (>= c 0))(assert (>= (* x y) c))",
+                "(assert (< x 0))(assert (<= y 0))(assert (<= c 0))(assert (<= (* x y) c))"):
+            with self.subTest(satisfiable=body):
+                source = INTEGER_PRODUCT_HEADER + body
+                result = self.run_checker(source, "--sorted-core", "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
         # Constructors with fields keep the producer on the datatype theory (the exhaustiveness
@@ -942,6 +1138,40 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("sat\n", interactive.stdout)
                 self.assertNotIn("unsat", interactive.stdout)
                 self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_direct_ite_rewrites_in_both_modes(self):
+        for name, source in SORTED_DIRECT_ITE_CASES:
+            routes = [("--sorted-core",)] + ([()] if "declare-datatypes" in source else [])
+            for route in routes:
+                for interactive in (False, True):
+                    with self.subTest(case=name, route=route, interactive=interactive):
+                        args = ["--diagnostics", "--stats", *route]
+                        text = source
+                        if interactive:
+                            text += "(check-sat)"
+                            args.append("--interactive")
+                        result = self.run_checker(text, *args)
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        semantics = "sorted-datatype" if "declare-datatypes" in source else "sorted-core"
+                        if interactive:
+                            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                            self.assertIn("semantics=" + semantics, result.stdout)
+                        else:
+                            self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                            self.assertIn("semantics=" + semantics, result.stderr)
+                        self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_DIRECT_ITE_SATISFIABLE_CASES:
+            for route in (("--sorted-core",), ()):
+                with self.subTest(case=name, route=route):
+                    result = self.run_checker(source, *route, "--diagnostics")
+                    self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                    interactive = self.run_checker(source + "(check-sat)", "--interactive", *route, "--diagnostics")
+                    self.assertIn("sat\n", interactive.stdout)
+                    self.assertNotIn("unsat", interactive.stdout)
+                    self.assertNotIn("proof-check", interactive.stdout)
+        result = self.run_checker(SORTED_ITE_NEGATED_GUARD_MERGE, "--sorted-core", "--diagnostics", "--stats")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        self.assertIn("obligation\trewrite\t", result.stderr)
 
     def test_sorted_term_choice_definition_axioms_in_both_modes(self):
         for name, source in SORTED_CHOICE_CASES:
@@ -1694,21 +1924,29 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                   "(assert (= (* (|and| t) (|and| t)) 2))(assert (= (* (|and| t) (|and| t) (|and| t)) 3))")
         result = self.run_checker(source, "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:T#\d+\)")
+        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:Datatype#\d+\)")
 
     def test_premises_come_from_the_document_node_of_the_obligation(self):
         source = ("(declare-const x Real)(assert (exists ((a Real)) (and (= (* a a) x) (> a 1))))"
                   "(assert (< (* x x) 1))")
         result = self.run_checker(source, "--readable")
         self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
-        family = re.search(r"(?m)^readable\tfamily=1/1\trule=arith/farkas\t.*\tnode=(\d+)\t", result.stderr)
+        family = re.search(r"(?m)^readable\tfamily=1/1\trule=(?:arith/farkas|th-lemma)\t.*\tnode=(\d+)\t",
+                           result.stderr)
         self.assertTrue(family, result.stderr)
-        node = re.search(r"(?m)^  node (\d+): premises: #(\d+) #(\d+)$", result.stderr)
+        node = re.search(r"(?m)^  node (\d+): premises:((?: #\d+){2,})$", result.stderr)
         self.assertTrue(node, result.stderr)
         self.assertEqual(node.group(1), family.group(1))
-        for premise in node.group(2, 3):
+        premises = re.findall(r"#(\d+)", node.group(2))
+        for premise in premises:
             self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(" % premise)
-        self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(\(not \(<= a!2#\d+:Real 1:Real\)\)\)$" % node.group(2))
+        skolem = re.search(
+            r"(?m)^  premise #(?:%s): holds\(\(not \(<= (a!\d+#\d+:Real) 1:Real\)\)\)$"
+            % "|".join(premises),
+            result.stderr)
+        self.assertIsNotNone(skolem, result.stderr)
+        self.assertRegex(result.stderr, r"(?m)^  premise #(?:%s): .*\(\* %s %s\)" %
+                         ("|".join(premises), re.escape(skolem.group(1)), re.escape(skolem.group(1))))
 
     def test_interactive_queries_are_numbered_like_proof_callbacks(self):
         script = ("(declare-const x Real)"
@@ -1791,10 +2029,10 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                     % (sort, term, term, term, term, term))
         result = self.run_checker(source("(Seq Int)"), "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:SeqInt\)")
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:\(Seq Int\)\)")
         result = self.run_checker(source("(Seq Real)"), "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:Seq#\d+\)")
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:\(Seq Real\)\)")
 
     @staticmethod
     def pigeonhole(n=20):
