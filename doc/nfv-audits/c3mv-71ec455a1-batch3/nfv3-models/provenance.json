@@ -1,0 +1,20 @@
+{
+  "status": "pass",
+  "scope": "exact source tags and metadata; not source equivalence, native safety or complete upstream admission gates",
+  "properties": [
+    {
+      "id": "P18",
+      "source_tags": 148,
+      "helpers": 8,
+      "requires": 4,
+      "sha256": "fef6a9e8c6d1774f4fcf8c3c82295bf1bf99df84ec5eedfa424c1763eb779710"
+    },
+    {
+      "id": "P19",
+      "source_tags": 78,
+      "helpers": 9,
+      "requires": 8,
+      "sha256": "200d8f0f19f683771d55076df0dcd943368057e7b5633d3dcfa793ad25cf6a3f"
+    }
+  ]
+}

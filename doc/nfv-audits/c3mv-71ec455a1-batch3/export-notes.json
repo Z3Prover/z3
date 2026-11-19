@@ -1,0 +1,119 @@
+{
+  "scope": "All checked Dafny inputs, provenance inputs, logs and JSON copied byte-exact. Only nonchecked documents/authoring scripts normalized to LF; one historical checked Python input retained as raw CRLF with a single-path -text attribute.",
+  "normalizations": [
+    {
+      "path": "nfv3-p12-source-trace.md",
+      "original_sha256": "93aa931c59654883e0ff6058c583600dee71909800787b8faec0ccf1bcbfc8c5",
+      "published_sha256": "e85328e5524ead9acf02712d88871714aa27463bfdcdda3428fa7189e22a709a",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "nfv3-coverage.md",
+      "original_sha256": "000dc9175f86c6fe021a24a85dafbda75512ed2e922495fd7eaba347b95cadf3",
+      "published_sha256": "8b4cb4b165fbd59abeaf1fa5d3f1af7d59a83674ed15c1baa666b67d988d4daf",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "nfv3-selection.md",
+      "original_sha256": "4d661c2fafe11f2afb0f998b18f1c51327dfbb62eaf4cede70eba3aa7bf05cc6",
+      "published_sha256": "b10d6a7c61843a603ac48efc32e9c925acaf9a74294fd6c8f13926295f2c6ea4",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "nfv3-modeling.md",
+      "original_sha256": "e8e7c0866fab1ed4d2091e167089830fd53986bea2c07b3073c859f5a0b12ed0",
+      "published_sha256": "8d7ec80ad2da7d6fd66ffd515f1e6543e0046d44ed935b17070d62495268ffce",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "nfv3-verification.md",
+      "original_sha256": "946c6248344a9eb5d61f9f03dd20566f0702edc9e5ba370c30cfe2e95d5b26b0",
+      "published_sha256": "1d1026f1ac7ae8df30762e9aeac704383eb94dca77996699e15440c1271c11fc",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "nfv-methodology.md",
+      "original_sha256": "fe007963beee57b3a1dc196b62ede81924b1346dbd135c3e6fe6b630bc601834",
+      "published_sha256": "f24baa592a98364b6b672f53756db532a4f638f0a894e05e224281c7bcf5e881",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\capture_nfv3_p12.py",
+      "original_sha256": "a435f74d0c2708e5ea2fe4f5dfe3c17d1158b9823fb7dde6edc3ac32d6094788",
+      "published_sha256": "e18ce09780ee784b971e5704c134be0eb1afc577596cd9a3f33c5798ef69012f",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\capture_nfv3_coverage.py",
+      "original_sha256": "119807fe49bd822aee3f136a4277cc366f9230d50020188d86a4370ae1e3f9ee",
+      "published_sha256": "55768f790130294e5076889a023520a010d0c8b3155e24ee38ed953a5c5b5ff8",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\select_nfv3.py",
+      "original_sha256": "fbfd2d30f618209a46ce151efd570c2a103b82b1ab5eb8f6467572683a784c88",
+      "published_sha256": "83bb9d57d52ad7d22f846efcc692365629e922190b7a27c93275362090bd9275",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\make_nfv3_models.py",
+      "original_sha256": "38dc423600c5c7646353a10fc8c32f59a42fc0ac9b9736aee21e88271d3a2b41",
+      "published_sha256": "730e610f681519c74be9e79c67e133ac050ec12bade604c16d63b2588a27c4c0",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\check_nfv3_models.py",
+      "original_sha256": "315d6fa11956bae35e6580306eb63f661c969c7490dfae144f882b73719a8e3c",
+      "published_sha256": "3bf0500844703a708aadf24c39fcf67749d536b62e87c405b2a9a56e1b81f54a",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\check_nfv3_provenance.py",
+      "original_sha256": "55a8ee9edfd6505a0f599ccedbccc4249eb7617b1d437985f6127d41a6eb1e6b",
+      "published_sha256": "b961edbf8bcdb501dc85af7d8c0b843a8d7a8152f91a1a682b6c7c56d678e5a1",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\freeze_nfv3_models.py",
+      "original_sha256": "284ddd7001dce916ca504cc88cf7931f82f3b623ed79a0501863145a06132f93",
+      "published_sha256": "3f2c925bd2befe51bc059bd5c3a1da8c2e3ae6b5b374d827ea35bcd7d354f37c",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\refresh_nfv3_annotations.py",
+      "original_sha256": "f2fda00d3a6581dce6f037c3c8e5becaffb675e514c4bfbe71bb55ce6aaa0025",
+      "published_sha256": "b7ec5b048a3168e4b78ef4e66c6d70db8d9596854d2aff31fb8f950902c2f316",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\verify_nfv3.py",
+      "original_sha256": "27aa890c109650c7ff8e4005c8a9d63aaab6ad628a90d32ba9f35b7d4bf7e2ed",
+      "published_sha256": "8dee598f5195f89923bef767ec46137b55d0cd2a184758471983c0ff3465500f",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\nfv3_followups.py",
+      "original_sha256": "5d4f30323c98f634314a5d60058fc7baceb619c5a9691e0cb96f241271c337a8",
+      "published_sha256": "10b7a15df2ddd326f18b588cbe1b5655e9619213b4dd9f92f984013fd65494bc",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\validate_nfv3_verification.py",
+      "original_sha256": "5fcdaecafc21e06368c74000f3033f0676350818394a9c525d963734add112bf",
+      "published_sha256": "baa05c691553a99a719d2ef95c7dbe65bb214b81b4e60a097effe60bac7d42d8",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "historical-tools\\export_nfv3_audit.py",
+      "original_sha256": "c79769ca6d0b57f41f637e98d43081ee2769fbda95cb5461625ab095e97b322b",
+      "published_sha256": "43cde491b1c1831eb929ecb5deb0e2f988bf88b5a6f5d858ee51a3683b3701b5",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    },
+    {
+      "path": "check_nfv3_provenance.py",
+      "original_sha256": "55a8ee9edfd6505a0f599ccedbccc4249eb7617b1d437985f6127d41a6eb1e6b",
+      "published_sha256": "b961edbf8bcdb501dc85af7d8c0b843a8d7a8152f91a1a682b6c7c56d678e5a1",
+      "change": "CRLF to LF only; no checked input/log/JSON modified"
+    }
+  ]
+}

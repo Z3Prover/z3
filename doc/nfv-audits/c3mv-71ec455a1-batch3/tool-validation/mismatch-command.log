@@ -1,0 +1,2 @@
+{"input": "checks\\009-P19-proof.dfy", "expected_exit": 0, "actual_exit": 4, "matched": false}
+{"input": "checks\\013-P19-visited-prefix-mbqi-refute.dfy", "expected_exit": 0, "actual_exit": 0, "matched": true}

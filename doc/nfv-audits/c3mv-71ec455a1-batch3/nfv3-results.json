@@ -1,0 +1,80 @@
+{
+  "batch": 3,
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "selection_sha256": "0beb5b435b99a07ee85fbc6830028ee477f8b79bbd243c1f254887ef9b0da13e",
+  "freeze_sha256": "ca334079f007f6b501d24135033fe077cf62f73ae341c04dfb334ab938f2ee74",
+  "checks": 18,
+  "successful_checks": 12,
+  "unsuccessful_checks": 6,
+  "timeout_checks": 1,
+  "proof_annotations": "One P19 visited-prefix loop invariant and a current final-return source-tag correction 707 to 706 only; computation/helper contracts/entry domains/original goals unchanged. Historical checked inputs are byte-exact.",
+  "outcomes": [
+    {
+      "id": "P18",
+      "nfv_outcome": "resources_exhausted",
+      "detail": "Property-free validity, eight independent domains and all eight nonvacuous admissions pass with MBQI; whole original word-identity proof times out at 30 seconds. No counterexample or native bug claim.",
+      "validity": "checks\\003-P18-mbqi-validity.dfy",
+      "domain": "checks\\005-P18-mbqi-domain.dfy",
+      "nonvacuity": "checks\\007-P18-mbqi-admission.dfy",
+      "proof": "checks\\008-P18-mbqi-proof.dfy"
+    },
+    {
+      "id": "P19",
+      "nfv_outcome": "refuted",
+      "classification": "Local semantic-rewatch return/state model contract, missed-hit/performance only",
+      "whole_refutation": "checks\\013-P19-visited-prefix-mbqi-refute.dfy",
+      "witness": {
+        "lits": [
+          0,
+          1
+        ],
+        "canonicalPointers": [
+          0,
+          1
+        ],
+        "pointeeValue": [
+          10,
+          20,
+          10,
+          20
+        ],
+        "activePointers": [
+          2,
+          3
+        ],
+        "oldWatch": 0,
+        "coreIdx": 0,
+        "bucketWidths": [
+          1,
+          0
+        ],
+        "bucketItems": [
+          0
+        ]
+      },
+      "shorter_implication": "checks\\014-P19-shorter-implied-free-inputs-and-outputs.dfy",
+      "shorter_refutation": "checks\\015-P19-shorter-refute.dfy",
+      "optional_restrictions": "none",
+      "entry_only_candidate": {
+        "validity": "checks\\016-P19-candidate-validity.dfy",
+        "domain": "checks\\017-P19-candidate-domain.dfy",
+        "full_original_property": "checks\\018-P19-candidate-proof.dfy",
+        "status": "verified translated model repair only; no native patch"
+      },
+      "native_solver_unsoundness": false,
+      "native_crash": false
+    }
+  ],
+  "limitations": [
+    "Local methodology audit, not the hosted NFV driver or complete upstream extraction/span gates.",
+    "All outcomes concern translated projections, not C++/Dafny equivalence or native solver correctness.",
+    "P18 missing-trigger warning retained; MBQI explicitly enabled only where recorded.",
+    "Every failed proof, domain/validity failure and timeout is retained. Failed proof alone was not treated as refutation.",
+    "P13 whole-property proof, C11 global acyclicity and semantic cache-core sufficiency remain open.",
+    "No production code execution, source patch, giant allocation or native crash reproduction."
+  ],
+  "history_sha256": "54a31b2781530d365cf78b02b84c9149803757f8cc9d2de9d3db2bb4e497ba55",
+  "metadata_sha256": "3d59a5dd3585ff049de548ec9ca7740da6867d62b6e687c10b198921419515ad",
+  "provenance_sha256": "c6cee5dbfaf8f047e90e345adbd33e12e715302d27c9a8ec19d23f0b70646a0b"
+}

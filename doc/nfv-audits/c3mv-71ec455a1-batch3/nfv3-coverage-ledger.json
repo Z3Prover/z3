@@ -1,0 +1,281 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "comparison_master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "previous_comparison_master": "d738f81eab9af1468394664a812fe4310ae8e1fa",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "previous_publication": "146f70d7ddf5507fdf731af2511edf4c5f669fc5",
+  "baseline_note": "Master advanced by two commits; prior published reports remain pinned to their old comparison. Audited production source and merge base unchanged.",
+  "master_only_new_changes": [
+    {
+      "status": "M",
+      "paths": [
+        "src/ast/simplifiers/bound_simplifier.cpp"
+      ]
+    },
+    {
+      "status": "M",
+      "paths": [
+        "src/smt/theory_finite_set_size.cpp"
+      ]
+    },
+    {
+      "status": "M",
+      "paths": [
+        "src/test/finite_set.cpp"
+      ]
+    },
+    {
+      "status": "M",
+      "paths": [
+        "src/test/smt_context.cpp"
+      ]
+    }
+  ],
+  "direct_master_to_head_file_count": 110,
+  "direct_master_to_head_src_count": 93,
+  "branch_introduced_file_count": 104,
+  "branch_introduced_src_count": 89,
+  "scope": "Incremental refinement only, not a repeated full file classification or intent selection",
+  "inventory_sha256": "d33911bd8dde877a572a5ad435e56574b46965c98e3a4836abc2e77392964824",
+  "broadcast_production_call_sites": [
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 263,
+      "text": "broadcast_subst(n, from, repl, eq_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 286,
+      "text": "broadcast_subst(n, tok, empty_repl, eq_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 304,
+      "text": "broadcast_subst(n, x, def, cur.m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 396,
+      "text": "broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 446,
+      "text": "broadcast_subst(n, var, repl, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 529,
+      "text": "broadcast_subst(n, var_tok, repl, eq_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 661,
+      "text": "broadcast_subst(n, first.var, first.repl, eq_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 712,
+      "text": "broadcast_subst(n, var, empty, eq_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1301,
+      "text": "broadcast_subst(n, var, tokens, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1379,
+      "text": "broadcast_subst(n, left, tokens, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1711,
+      "text": "broadcast_subst(n, c.var, c.tokens, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "line": 1030,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "line": 1055,
+      "text": "broadcast_subst(n, p.m_e, empty, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 124,
+      "text": "broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 138,
+      "text": "broadcast_subst(n, p.m_e.get(), repl, p.m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 200,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 212,
+      "text": "broadcast_subst(n, p.m_e, empty, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 508,
+      "text": "broadcast_subst(n, px.m_e, expr_ref_vector(m), dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 578,
+      "text": "broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 802,
+      "text": "broadcast_subst(n, p.m_e.get(), repl, dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 862,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 987,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 1007,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 1168,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "C10-apply-word-identity",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "power_trichotomy::apply",
+      "span": [
+        455,
+        579
+      ],
+      "status": "ready for intent selection, not selected or proved",
+      "whole_property": "For a selected nonempty branch f1/f2/f3/f4 under its actual equations and direction/length guards, interpreted Y^N equals X^M concatenated with the emitted residual z.",
+      "requirements": [
+        "Use body-defined word power with nonpositive exponents yielding epsilon, concatenation and slices, not unconstrained length/count proxies.",
+        "Preserve f1 N>=1; f2 M>=1 and conditional nonnegative residual inference only when the root is nonempty; an unconstrained fresh root may be empty and N is not explicitly bounded there.",
+        "Preserve f3 M,N>=2, symbolic k unbounded below, and distinguish period-param construction from fresh p1/p2 with its asserted X equation.",
+        "Preserve f4 M=1, q>=0, q+1<=N, and prefix/suffix orientation.",
+        "No claim of branch exhaustiveness, dependency/broadcast lifetime safety, or arithmetic-engine correspondence."
+      ]
+    },
+    {
+      "id": "C10-period-decomposition",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "power_trichotomy::enumerate / constant-period f3 preparation",
+      "span": [
+        439,
+        449
+      ],
+      "status": "possible supporting helper/whole obligation; avoid double counting",
+      "whole_property": "A valid period r and the actual suffix/slice construction yield X=(p1.p2)^floor(|X|/r).p1; period need not divide length.",
+      "requirements": [
+        "Read and preserve has_period body, r>0 and r<|X| from enumeration, and l1=|X| mod r.",
+        "Do not silently replace suffix p1 by a prefix without proving equality.",
+        "No full-trichotomy completeness claim; admit unsigned length-sum limits explicitly."
+      ]
+    },
+    {
+      "id": "C11-elimination-termination",
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "entry": "eq_facet::eliminate",
+      "span": [
+        128,
+        151
+      ],
+      "status": "deferred pending caller-justified global substitution invariant",
+      "observation": "on_stack.remove(t) precedes on_stack.contains(t); obj_hashtable uses pointer-set removal, so that test does not provide an ancestor-cycle guard.",
+      "requirements": [
+        "All 24 production broadcast call sites are enumerated, but representative occurs checks do not prove a global acyclic latest-binding graph.",
+        "The central broadcaster dispatches to every sink without a uniform occurs check; eq_facet::apply_subst appends newest bindings and does not normalize earlier substitution RHS vectors.",
+        "Do not invent fuel or assume acyclicity/rank as a proved caller fact; do not claim a reachable cycle, hang or crash."
+      ]
+    },
+    {
+      "id": "C12-rewatch-representation",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "try_rewatch",
+      "span": [
+        692,
+        708
+      ],
+      "status": "confirmed representation mismatch observation; primarily missed-hit/performance scope, not solver-unsoundness evidence",
+      "observation": "constraint_store interns via pointee hash/equals and owns clones; vector<constraint_i const*>::contains compares pointer identity. Equation clone() allocates a different live object.",
+      "requirements": [
+        "Current watched id can be semantically active through find(), while another canonical clone is absent by pointer comparison despite an equal live fact.",
+        "A small explicit identity-versus-value model could assess the documented rewatch iff contract, but must label a converse failure as missed-hit behavior, not unsound SAT/UNSAT.",
+        "No compiled execution, native cache-hit measurement or general cache correctness proof."
+      ]
+    },
+    {
+      "id": "C12-core-entailment",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "filter_by_conflict_dep / cache_insert",
+      "span": [
+        775,
+        846
+      ],
+      "status": "deferred semantic sufficiency/provenance proof",
+      "observation": "Leaf-subset filtering alone is not a proof that retained live facts semantically entail a contradiction.",
+      "requirements": [
+        "Need all conflict-dependency producers, excluded-facet meaning, substitution and derived-fact provenance, not an assumed unsat-core oracle.",
+        "A mechanical subset-filter proof must not replace the original semantic soundness goal or count it as closed."
+      ]
+    },
+    {
+      "id": "C12-eligibility-gate",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "cache_eligible",
+      "span": [
+        637,
+        646
+      ],
+      "status": "optional distinct whole-function control gate, not a replacement for cache soundness",
+      "whole_property": "Eligibility holds exactly when no present signature-excluded facet reports live unsatisfied state.",
+      "requirements": [
+        "Facet presence/signature/satisfaction are disclosed observations; preserve the complete actual loop and early return.",
+        "This proves only the admission gate, not that any cached core is unsatisfiable; select only if useful, not to fill quota."
+      ]
+    }
+  ],
+  "p13": "Complete queue property remains unresolved; not replaced by a weaker goal.",
+  "new_models": 0,
+  "new_verifier_attempts": 0,
+  "new_master_paths_overlapping_branch_delta": [
+    "src/test/smt_context.cpp"
+  ],
+  "validation_history": [
+    {
+      "check": "New master paths disjoint from entire branch delta",
+      "result": "failed source-coverage assertion, not a verifier check",
+      "exception": "AssertionError",
+      "overlap": [
+        "src/test/smt_context.cpp"
+      ],
+      "resolution": "Corrected the overbroad claim; require disjointness only from the nine currently captured candidate/source-trace files, and preserve the broader overlap explicitly."
+    },
+    {
+      "check": "Pinned Git blob hashes, worktree text, candidate spans, producer count, unchanged source tree and disjoint current-candidate paths",
+      "result": "passed"
+    }
+  ]
+}

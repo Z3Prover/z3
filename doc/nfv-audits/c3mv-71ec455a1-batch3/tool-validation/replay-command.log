@@ -1,0 +1,3 @@
+{"input": "checks\\009-P19-proof.dfy", "expected_exit": 4, "actual_exit": 4, "matched": true}
+{"input": "checks\\013-P19-visited-prefix-mbqi-refute.dfy", "expected_exit": 0, "actual_exit": 0, "matched": true}
+{"input": "checks\\018-P19-candidate-proof.dfy", "expected_exit": 0, "actual_exit": 0, "matched": true}

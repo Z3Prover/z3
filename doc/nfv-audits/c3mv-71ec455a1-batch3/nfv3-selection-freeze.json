@@ -1,0 +1,15 @@
+{
+  "selection_file": "nfv3-selection.json",
+  "sha256": "0beb5b435b99a07ee85fbc6830028ee477f8b79bbd243c1f254887ef9b0da13e",
+  "stage": "nfv3-select",
+  "state": "intent frozen before any batch-3 model implementation",
+  "selected_ids": [
+    "P18",
+    "P19"
+  ],
+  "selected_entries": [
+    "power_trichotomy::apply",
+    "try_rewatch"
+  ],
+  "policy": "Do not weaken goals/domains after modeling; draft translation repairs are disclosed, then seal computation and helper contracts before original checks."
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "P19",
+    "phase": "proof",
+    "started_utc": "2026-11-19T16:42:32.279199+00:00",
+    "seconds": 1.951,
+    "exit_code": 0,
+    "canonical_sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d",
+    "input_sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d",
+    "input": "checks\\009-P19-proof.dfy",
+    "log": "checks\\009-P19-proof.log",
+    "log_sha256": "c59df82a27ae35ccc303e24e5b6a9d65da6547e05d1b56e7c7055bc1f79b49ce",
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\checks\\009-P19-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "mbqi": false
+  },
+  {
+    "id": "P19",
+    "phase": "visited-prefix-mbqi-refute",
+    "started_utc": "2026-11-19T16:43:50.432188+00:00",
+    "seconds": 2.575,
+    "exit_code": 0,
+    "canonical_sha256": "10790ba1e5e3d155b3d8b06b807e72313edd5e35308b2c98fe838f7cd5bf5344",
+    "input_sha256": "a576e228df9349330a61da93522ff206e373ce61a7782596fcfd37b69c9e2adc",
+    "input": "checks\\013-P19-visited-prefix-mbqi-refute.dfy",
+    "log": "checks\\013-P19-visited-prefix-mbqi-refute.log",
+    "log_sha256": "8de1bf45feb220df23ee3b296f20175cfa9aa87e26106cea0b0005bfae82c11d",
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\checks\\013-P19-visited-prefix-mbqi-refute.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false",
+      "--solver-option",
+      "O:smt.mbqi=true"
+    ],
+    "mbqi": true
+  }
+]

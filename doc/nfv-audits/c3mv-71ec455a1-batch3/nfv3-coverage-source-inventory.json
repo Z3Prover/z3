@@ -1,0 +1,4963 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "scope": "Incremental C10/C11/C12 evidence and all 24 enumerated production broadcast call sites; not a complete caller-invariant proof or source execution",
+  "files": [
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "blob": "e6a0bc3961d17463a7ea8484e7a543709688e2dc",
+      "sha256": "1144ec712cdd427c2a6e6781afd98e5cf14d0c381100a83928f81db0a11556dc",
+      "line_count": 1721,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 35,
+          "text": "namespace seq {"
+        },
+        {
+          "line": 36,
+          "text": ""
+        },
+        {
+          "line": 37,
+          "text": "    void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl) {"
+        },
+        {
+          "line": 38,
+          "text": "        expr_ref_vector orig(ts);"
+        },
+        {
+          "line": 39,
+          "text": "        ts.reset();"
+        },
+        {
+          "line": 40,
+          "text": "        for (unsigned i = 0; i < orig.size(); ++i) {"
+        },
+        {
+          "line": 41,
+          "text": "            if (orig.get(i) == var)"
+        },
+        {
+          "line": 42,
+          "text": "                ts.append(repl);"
+        },
+        {
+          "line": 43,
+          "text": "            else"
+        },
+        {
+          "line": 44,
+          "text": "                ts.push_back(orig.get(i));"
+        },
+        {
+          "line": 45,
+          "text": "        }"
+        },
+        {
+          "line": 46,
+          "text": "    }"
+        },
+        {
+          "line": 47,
+          "text": ""
+        },
+        {
+          "line": 48,
+          "text": "    void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {"
+        },
+        {
+          "line": 49,
+          "text": "        m_subst.push_back(subst_entry(m, var, repl, subst_dep));"
+        },
+        {
+          "line": 50,
+          "text": "        m_trail.push(push_back_trail<subst_entry>(m_subst));"
+        },
+        {
+          "line": 51,
+          "text": "        for (unsigned i = 0; i < m_eqs.size(); ++i) {"
+        },
+        {
+          "line": 52,
+          "text": "            if (!m_eqs[i].active())"
+        },
+        {
+          "line": 53,
+          "text": "                continue;"
+        },
+        {
+          "line": 54,
+          "text": "            bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);"
+        },
+        {
+          "line": 55,
+          "text": "            bool touched_r = subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);"
+        },
+        {
+          "line": 56,
+          "text": "            if ((touched_l || touched_r) && subst_dep) {"
+        },
+        {
+          "line": 57,
+          "text": "                m_trail.push(vector_field_trail<equation, eq_tree::dep_tracker>(m_eqs, i, &equation::m_dep));"
+        },
+        {
+          "line": 58,
+          "text": "                m_eqs[i].m_dep = m_dm.mk_join(m_eqs[i].m_dep, subst_dep);"
+        },
+        {
+          "line": 59,
+          "text": "            }"
+        },
+        {
+          "line": 60,
+          "text": "        }"
+        },
+        {
+          "line": 61,
+          "text": "    }"
+        },
+        {
+          "line": 62,
+          "text": ""
+        },
+        {
+          "line": 63,
+          "text": "    stx::facet_i* eq_facet::clone(trail_stack& trail) const {"
+        },
+        {
+          "line": 64,
+          "text": "        eq_facet* f = alloc(eq_facet, trail, m, u, m_dm);"
+        },
+        {
+          "line": 65,
+          "text": "        f->m_eqs.append(m_eqs);"
+        },
+        {
+          "line": 66,
+          "text": "        f->m_subst.append(m_subst);"
+        },
+        {
+          "line": 67,
+          "text": "        return f;"
+        },
+        {
+          "line": 68,
+          "text": "    }"
+        },
+        {
+          "line": 109,
+          "text": "    bool eq_facet::get_subst(expr* var, expr_ref_vector& out, eq_tree::dep_tracker* dep) const {"
+        },
+        {
+          "line": 110,
+          "text": "        for (unsigned i = m_subst.size(); i-- > 0; ) {"
+        },
+        {
+          "line": 111,
+          "text": "            if (m_subst[i].m_var == var) {"
+        },
+        {
+          "line": 112,
+          "text": "                out.reset();"
+        },
+        {
+          "line": 113,
+          "text": "                out.append(m_subst[i].m_repl);"
+        },
+        {
+          "line": 114,
+          "text": "                if (dep)"
+        },
+        {
+          "line": 115,
+          "text": "                    *dep = m_dm.mk_join(*dep, m_subst[i].m_dep);"
+        },
+        {
+          "line": 116,
+          "text": "                return true;"
+        },
+        {
+          "line": 117,
+          "text": "            }"
+        },
+        {
+          "line": 118,
+          "text": "        }"
+        },
+        {
+          "line": 119,
+          "text": "        return false;"
+        },
+        {
+          "line": 120,
+          "text": "    }"
+        },
+        {
+          "line": 121,
+          "text": ""
+        },
+        {
+          "line": 122,
+          "text": "    void eq_facet::eliminate(expr* e, expr_ref_vector& out) const {"
+        },
+        {
+          "line": 123,
+          "text": "        expr_ref_vector in(m);"
+        },
+        {
+          "line": 124,
+          "text": "        u.str.get_concat_units(e, in);"
+        },
+        {
+          "line": 125,
+          "text": "        eliminate(in, out);"
+        },
+        {
+          "line": 126,
+          "text": "    }"
+        },
+        {
+          "line": 127,
+          "text": ""
+        },
+        {
+          "line": 128,
+          "text": "    void eq_facet::eliminate(expr_ref_vector const& in, expr_ref_vector& out, eq_tree::dep_tracker* dep) const {"
+        },
+        {
+          "line": 129,
+          "text": "        out.reset();"
+        },
+        {
+          "line": 130,
+          "text": "        ptr_vector<expr> todo;"
+        },
+        {
+          "line": 131,
+          "text": "        obj_hashtable<expr> on_stack;"
+        },
+        {
+          "line": 132,
+          "text": "        auto push_token = [&](expr* t) {"
+        },
+        {
+          "line": 133,
+          "text": "            todo.push_back(t);"
+        },
+        {
+          "line": 134,
+          "text": "            on_stack.insert(t);"
+        },
+        {
+          "line": 135,
+          "text": "        };"
+        },
+        {
+          "line": 136,
+          "text": "        for (unsigned i = in.size(); i-- > 0; )"
+        },
+        {
+          "line": 137,
+          "text": "            push_token(in.get(i));"
+        },
+        {
+          "line": 138,
+          "text": "        while (!todo.empty()) {"
+        },
+        {
+          "line": 139,
+          "text": "            expr* t = todo.back();"
+        },
+        {
+          "line": 140,
+          "text": "            todo.pop_back();"
+        },
+        {
+          "line": 141,
+          "text": "            on_stack.remove(t);"
+        },
+        {
+          "line": 142,
+          "text": "            expr_ref_vector repl(m);"
+        },
+        {
+          "line": 143,
+          "text": "            if (!on_stack.contains(t) && get_subst(t, repl, dep)) {"
+        },
+        {
+          "line": 144,
+          "text": "                for (unsigned i = repl.size(); i-- > 0; )"
+        },
+        {
+          "line": 145,
+          "text": "                    push_token(repl.get(i));"
+        },
+        {
+          "line": 146,
+          "text": "            }"
+        },
+        {
+          "line": 147,
+          "text": "            else {"
+        },
+        {
+          "line": 148,
+          "text": "                out.push_back(t);"
+        },
+        {
+          "line": 149,
+          "text": "            }"
+        },
+        {
+          "line": 150,
+          "text": "        }"
+        },
+        {
+          "line": 151,
+          "text": "    }"
+        },
+        {
+          "line": 255,
+          "text": "                        // Substitute whole unit tokens so other word equations"
+        },
+        {
+          "line": 256,
+          "text": "                        // and membership facets see the element equality."
+        },
+        {
+          "line": 257,
+          "text": "                        expr_ref from(lts.get(0), m);"
+        },
+        {
+          "line": 258,
+          "text": "                        expr_ref to(rts.get(0), m);"
+        },
+        {
+          "line": 259,
+          "text": "                        if (m.is_value(lch) && !m.is_value(rch))"
+        },
+        {
+          "line": 260,
+          "text": "                            std::swap(from, to);"
+        },
+        {
+          "line": 261,
+          "text": "                        expr_ref_vector repl(m);"
+        },
+        {
+          "line": 262,
+          "text": "                        repl.push_back(to);"
+        },
+        {
+          "line": 263,
+          "text": "                        broadcast_subst(n, from, repl, eq_dep);"
+        },
+        {
+          "line": 264,
+          "text": "                    }"
+        },
+        {
+          "line": 265,
+          "text": "                }"
+        },
+        {
+          "line": 266,
+          "text": "            }"
+        },
+        {
+          "line": 267,
+          "text": "            if (word_eq)"
+        },
+        {
+          "line": 268,
+          "text": "                add_equation(lts, rts, eq_dep);"
+        },
+        {
+          "line": 269,
+          "text": "        }"
+        },
+        {
+          "line": 270,
+          "text": ""
+        },
+        {
+          "line": 271,
+          "text": "        // If one side is empty, the other side must reduce to epsilon."
+        },
+        {
+          "line": 278,
+          "text": "            while (!side.empty()) {"
+        },
+        {
+          "line": 279,
+          "text": "                expr* tok = side.get(0);"
+        },
+        {
+          "line": 280,
+          "text": "                if (u.str.is_unit(tok)) {"
+        },
+        {
+          "line": 281,
+          "text": "                    conflict = true;"
+        },
+        {
+          "line": 282,
+          "text": "                    conflict_dep = eq_dep;"
+        },
+        {
+          "line": 283,
+          "text": "                    return false;"
+        },
+        {
+          "line": 284,
+          "text": "                }"
+        },
+        {
+          "line": 285,
+          "text": "                expr_ref_vector empty_repl(m);"
+        },
+        {
+          "line": 286,
+          "text": "                broadcast_subst(n, tok, empty_repl, eq_dep);"
+        },
+        {
+          "line": 287,
+          "text": "            }"
+        },
+        {
+          "line": 288,
+          "text": "        }"
+        },
+        {
+          "line": 289,
+          "text": ""
+        },
+        {
+          "line": 290,
+          "text": "        if (cur.m_lhs.empty() && cur.m_rhs.empty()) {"
+        },
+        {
+          "line": 291,
+          "text": "            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));"
+        },
+        {
+          "line": 292,
+          "text": "            m_eqs[idx].m_active = false;"
+        },
+        {
+          "line": 293,
+          "text": "        }"
+        },
+        {
+          "line": 294,
+          "text": ""
+        },
+        {
+          "line": 295,
+          "text": "        // If x = t and x does not occur in t, substitute x := t."
+        },
+        {
+          "line": 296,
+          "text": "        for (int side = 0; side < 2; ++side) {"
+        },
+        {
+          "line": 297,
+          "text": "            expr_ref_vector const& vs = side == 0 ? cur.m_lhs : cur.m_rhs;"
+        },
+        {
+          "line": 298,
+          "text": "            expr_ref_vector def(side == 0 ? cur.m_rhs : cur.m_lhs);"
+        },
+        {
+          "line": 299,
+          "text": "            if (vs.size() != 1 || !ac.is_var(vs.get(0)))"
+        },
+        {
+          "line": 300,
+          "text": "                continue;"
+        },
+        {
+          "line": 301,
+          "text": "            expr_ref x(vs.get(0), m);"
+        },
+        {
+          "line": 302,
+          "text": "            if (any_of(def, [&](expr* t) { return occurs(x, t); }))"
+        },
+        {
+          "line": 303,
+          "text": "                continue;"
+        },
+        {
+          "line": 304,
+          "text": "            broadcast_subst(n, x, def, cur.m_dep);"
+        },
+        {
+          "line": 305,
+          "text": "            changed = true;"
+        },
+        {
+          "line": 306,
+          "text": "            break;"
+        },
+        {
+          "line": 307,
+          "text": "        }"
+        },
+        {
+          "line": 308,
+          "text": "        return true;"
+        },
+        {
+          "line": 309,
+          "text": "    }"
+        },
+        {
+          "line": 310,
+          "text": ""
+        },
+        {
+          "line": 311,
+          "text": "    bool eq_facet::simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep) {"
+        },
+        {
+          "line": 312,
+          "text": "        conflict = false;"
+        },
+        {
+          "line": 373,
+          "text": "    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {"
+        },
+        {
+          "line": 374,
+          "text": "        for (unsigned id = 0; id < target.num_facets(); ++id) {"
+        },
+        {
+          "line": 375,
+          "text": "            if (!target.has_facet(id))"
+        },
+        {
+          "line": 376,
+          "text": "                continue;"
+        },
+        {
+          "line": 377,
+          "text": "            if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))"
+        },
+        {
+          "line": 378,
+          "text": "                sink->apply_subst(var, repl, subst_dep);"
+        },
+        {
+          "line": 379,
+          "text": "        }"
+        },
+        {
+          "line": 380,
+          "text": "        // Also assert the matching length equation for sequence-sorted"
+        },
+        {
+          "line": 381,
+          "text": "        // variables. Character-sorted substitutions have no len()."
+        },
+        {
+          "line": 382,
+          "text": "        auto ac = get_ambient(target);"
+        },
+        {
+          "line": 383,
+          "text": "        auto& sf = ac.solver_facet_ref();"
+        },
+        {
+          "line": 384,
+          "text": "        ast_manager& mgr = sf.get_arith_util().get_manager();"
+        },
+        {
+          "line": 385,
+          "text": "        if (var->get_sort()->get_family_id() != mgr.mk_family_id(\"seq\"))"
+        },
+        {
+          "line": 386,
+          "text": "            return;"
+        },
+        {
+          "line": 387,
+          "text": "        expr_ref_vector lhs(mgr);"
+        },
+        {
+          "line": 388,
+          "text": "        lhs.push_back(var);"
+        },
+        {
+          "line": 389,
+          "text": "        sf.add_length_constraint(lhs, repl, subst_dep);"
+        },
+        {
+          "line": 390,
+          "text": "    }"
+        },
+        {
+          "line": 391,
+          "text": ""
+        },
+        {
+          "line": 392,
+          "text": "    bool word_eq_split::iterator::next(eq_tree::edge& out) {"
+        },
+        {
+          "line": 393,
+          "text": "        if (m_pos >= m_pending.size())"
+        },
+        {
+          "line": 394,
+          "text": "            return false;"
+        },
+        {
+          "line": 395,
+          "text": "        auto& a = m_pending[m_pos++];"
+        },
+        {
+          "line": 396,
+          "text": "        broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);"
+        },
+        {
+          "line": 397,
+          "text": "        if (a.m_guard.get()) {"
+        },
+        {
+          "line": 398,
+          "text": "            auto ac = get_ambient(m_n);"
+        },
+        {
+          "line": 399,
+          "text": "            ac.solver_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);"
+        },
+        {
+          "line": 400,
+          "text": "        }"
+        },
+        {
+          "line": 401,
+          "text": "        out = eq_tree::edge(a.m_name, a.m_dep, a.m_progress, 0);"
+        },
+        {
+          "line": 402,
+          "text": "        return true;"
+        },
+        {
+          "line": 403,
+          "text": "    }"
+        },
+        {
+          "line": 404,
+          "text": ""
+        },
+        {
+          "line": 438,
+          "text": "                expr_ref same_length(m.mk_eq(llen, rlen), m);"
+        },
+        {
+          "line": 439,
+          "text": "                eq_tree::dep_tracker length_dep = nullptr;"
+        },
+        {
+          "line": 440,
+          "text": "                ++m_stats.m_num_length_checks;"
+        },
+        {
+          "line": 441,
+          "text": "                if (sf.implies(same_length, &length_dep) != l_true)"
+        },
+        {
+          "line": 442,
+          "text": "                    continue;"
+        },
+        {
+          "line": 443,
+          "text": "                auto dep = f.dm().mk_join(eq.m_dep, length_dep);"
+        },
+        {
+          "line": 444,
+          "text": "                expr_ref_vector repl(m);"
+        },
+        {
+          "line": 445,
+          "text": "                repl.push_back(value);"
+        },
+        {
+          "line": 446,
+          "text": "                broadcast_subst(n, var, repl, dep);"
+        },
+        {
+          "line": 447,
+          "text": "                out = eq_tree::edge(dir == 0 ? \"length-prefix\" : \"length-suffix\", dep, true, 0);"
+        },
+        {
+          "line": 448,
+          "text": "                has_more = committed = true;"
+        },
+        {
+          "line": 449,
+          "text": "                ++m_stats.m_num_length_alignments;"
+        },
+        {
+          "line": 450,
+          "text": "                return nullptr;"
+        },
+        {
+          "line": 451,
+          "text": "            }"
+        },
+        {
+          "line": 452,
+          "text": "            break;"
+        },
+        {
+          "line": 453,
+          "text": "        }"
+        },
+        {
+          "line": 454,
+          "text": "        unsigned preferred = f.equations().size(), width = UINT_MAX;"
+        },
+        {
+          "line": 521,
+          "text": "                    has_more = true;"
+        },
+        {
+          "line": 522,
+          "text": "                    // Prefer eliminating the non-constant side; otherwise"
+        },
+        {
+          "line": 523,
+          "text": "                    // eliminate the rhs token."
+        },
+        {
+          "line": 524,
+          "text": "                    bool elim_lh = !u.is_const_char(lch) && u.is_const_char(rch);"
+        },
+        {
+          "line": 525,
+          "text": "                    expr* var_tok = elim_lh ? lh : rh;"
+        },
+        {
+          "line": 526,
+          "text": "                    expr* val_tok = elim_lh ? rh : lh;"
+        },
+        {
+          "line": 527,
+          "text": "                    expr_ref_vector repl(m);"
+        },
+        {
+          "line": 528,
+          "text": "                    repl.push_back(val_tok);"
+        },
+        {
+          "line": 529,
+          "text": "                    broadcast_subst(n, var_tok, repl, eq_dep);"
+        },
+        {
+          "line": 530,
+          "text": "                    // Record the implied character equality alongside the"
+        },
+        {
+          "line": 531,
+          "text": "                    // substitution."
+        },
+        {
+          "line": 532,
+          "text": "                    ac.solver_facet_ref().add_constraint(eq_expr, eq_dep);"
+        },
+        {
+          "line": 533,
+          "text": "                    ac.assumption_facet_ref().add_assumption(eq_expr, ac.context());"
+        },
+        {
+          "line": 534,
+          "text": "                    out = eq_tree::edge(\"char-eq\", eq_dep, true, 0);"
+        },
+        {
+          "line": 535,
+          "text": "                    committed = true;"
+        },
+        {
+          "line": 536,
+          "text": "                    m_stats.m_num_splits++;"
+        },
+        {
+          "line": 537,
+          "text": "                    return nullptr;"
+        },
+        {
+          "line": 653,
+          "text": "                    for (unsigned i = 1; i < 5; ++i) {"
+        },
+        {
+          "line": 654,
+          "text": "                        branch& b = br[order[i]];"
+        },
+        {
+          "line": 655,
+          "text": "                        it->push_back(b.name, b.var, b.repl, eq_dep, b.guard, b.progress);"
+        },
+        {
+          "line": 656,
+          "text": "                    }"
+        },
+        {
+          "line": 657,
+          "text": ""
+        },
+        {
+          "line": 658,
+          "text": "                    // Materialize the chosen first branch now, in the"
+        },
+        {
+          "line": 659,
+          "text": "                    // scope the driver already pushed for this call."
+        },
+        {
+          "line": 660,
+          "text": "                    branch& first = br[order[0]];"
+        },
+        {
+          "line": 661,
+          "text": "                    broadcast_subst(n, first.var, first.repl, eq_dep);"
+        },
+        {
+          "line": 662,
+          "text": "                    if (first.guard) {"
+        },
+        {
+          "line": 663,
+          "text": "                        auto gc = get_ambient(n);"
+        },
+        {
+          "line": 664,
+          "text": "                        gc.solver_facet_ref().add_constraint(first.guard, eq_dep);"
+        },
+        {
+          "line": 665,
+          "text": "                    }"
+        },
+        {
+          "line": 666,
+          "text": "                    out = eq_tree::edge(first.name, eq_dep, first.progress, 0);"
+        },
+        {
+          "line": 667,
+          "text": "                    committed = true;"
+        },
+        {
+          "line": 668,
+          "text": "                    m_stats.m_num_splits++;"
+        },
+        {
+          "line": 669,
+          "text": "                    return it;"
+        },
+        {
+          "line": 704,
+          "text": "                    if (u.str.is_unit(next_tok, a) && u.str.is_unit(block.get(k), b) && m.are_distinct(a, b))"
+        },
+        {
+          "line": 705,
+          "text": "                        continue; // the token after v cannot match the block where v would end"
+        },
+        {
+          "line": 706,
+          "text": "                    it->push_back(\"v:=block-prefix\", var, prefix_repl(k, nullptr), eq_dep);"
+        },
+        {
+          "line": 707,
+          "text": "                }"
+        },
+        {
+          "line": 708,
+          "text": "                it->push_back(fwd ? \"v:=c.v'\" : \"v:=v'.c\", var, prefix_repl(block.size(), var2), eq_dep, nullptr, false);"
+        },
+        {
+          "line": 709,
+          "text": ""
+        },
+        {
+          "line": 710,
+          "text": "                // Materialize the first branch now in the caller's scope."
+        },
+        {
+          "line": 711,
+          "text": "                expr_ref_vector empty(m);"
+        },
+        {
+          "line": 712,
+          "text": "                broadcast_subst(n, var, empty, eq_dep);"
+        },
+        {
+          "line": 713,
+          "text": "                out = eq_tree::edge(\"v:=eps\", eq_dep, true, 0);"
+        },
+        {
+          "line": 714,
+          "text": "                committed = true;"
+        },
+        {
+          "line": 715,
+          "text": "                m_stats.m_num_splits++;"
+        },
+        {
+          "line": 716,
+          "text": "                return it;"
+        },
+        {
+          "line": 717,
+          "text": "            }"
+        },
+        {
+          "line": 718,
+          "text": "        }"
+        },
+        {
+          "line": 719,
+          "text": "        return nullptr;"
+        },
+        {
+          "line": 720,
+          "text": "    }"
+        },
+        {
+          "line": 1293,
+          "text": "                        rw(word, reduced);"
+        },
+        {
+          "line": 1294,
+          "text": "                        zstring value;"
+        },
+        {
+          "line": 1295,
+          "text": "                        if (!u.str.is_string(reduced, value))"
+        },
+        {
+          "line": 1296,
+          "text": "                            break;"
+        },
+        {
+          "line": 1297,
+          "text": "                        expr_ref assumption(m.mk_eq(var, reduced), m);"
+        },
+        {
+          "line": 1298,
+          "text": "                        auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());"
+        },
+        {
+          "line": 1299,
+          "text": "                        expr_ref_vector tokens(m);"
+        },
+        {
+          "line": 1300,
+          "text": "                        u.str.get_concat_units(reduced, tokens);"
+        },
+        {
+          "line": 1301,
+          "text": "                        broadcast_subst(n, var, tokens, dep);"
+        },
+        {
+          "line": 1302,
+          "text": "                        out = eq_tree::edge(\"regex-difference-completion\", dep, true, 0);"
+        },
+        {
+          "line": 1303,
+          "text": "                        m_stats.m_num_difference_splits++;"
+        },
+        {
+          "line": 1304,
+          "text": "                        return true;"
+        },
+        {
+          "line": 1305,
+          "text": "                    }"
+        },
+        {
+          "line": 1306,
+          "text": "                }"
+        },
+        {
+          "line": 1307,
+          "text": "            }"
+        },
+        {
+          "line": 1308,
+          "text": "        }"
+        },
+        {
+          "line": 1309,
+          "text": "        return false;"
+        },
+        {
+          "line": 1371,
+          "text": "                    continue;"
+        },
+        {
+          "line": 1372,
+          "text": "                rw(second, second_literal);"
+        },
+        {
+          "line": 1373,
+          "text": "                if (!u.str.is_string(second_literal, second_text) || first_text == second_text)"
+        },
+        {
+          "line": 1374,
+          "text": "                    break;"
+        },
+        {
+          "line": 1375,
+          "text": "                expr_ref assumption(m.mk_eq(left, first_literal), m);"
+        },
+        {
+          "line": 1376,
+          "text": "                auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());"
+        },
+        {
+          "line": 1377,
+          "text": "                expr_ref_vector tokens(m);"
+        },
+        {
+          "line": 1378,
+          "text": "                u.str.get_concat_units(first_literal, tokens);"
+        },
+        {
+          "line": 1379,
+          "text": "                broadcast_subst(n, left, tokens, dep);"
+        },
+        {
+          "line": 1380,
+          "text": "                out = eq_tree::edge(\"regex-pair-completion\", dep, true, 0);"
+        },
+        {
+          "line": 1381,
+          "text": "                m_stats.m_num_pair_splits++;"
+        },
+        {
+          "line": 1382,
+          "text": "                return true;"
+        },
+        {
+          "line": 1383,
+          "text": "            }"
+        },
+        {
+          "line": 1384,
+          "text": "        }"
+        },
+        {
+          "line": 1385,
+          "text": "        return false;"
+        },
+        {
+          "line": 1386,
+          "text": "    }"
+        },
+        {
+          "line": 1387,
+          "text": ""
+        },
+        {
+          "line": 1703,
+          "text": "            }"
+        },
+        {
+          "line": 1704,
+          "text": "        }"
+        },
+        {
+          "line": 1705,
+          "text": "        asf.block_model_completion();"
+        },
+        {
+          "line": 1706,
+          "text": "        eq_tree::dep_tracker joined = nullptr;"
+        },
+        {
+          "line": 1707,
+          "text": "        for (auto const& c : candidates) {"
+        },
+        {
+          "line": 1708,
+          "text": "            expr_ref assumption(m.mk_eq(c.var, c.value), m);"
+        },
+        {
+          "line": 1709,
+          "text": "            eq_tree::dep_tracker dep = asf.add_assumption(assumption, ac.context());"
+        },
+        {
+          "line": 1710,
+          "text": "            joined = ac.eq_facet_ref().dm().mk_join(joined, dep);"
+        },
+        {
+          "line": 1711,
+          "text": "            broadcast_subst(n, c.var, c.tokens, dep);"
+        },
+        {
+          "line": 1712,
+          "text": "        }"
+        },
+        {
+          "line": 1713,
+          "text": ""
+        },
+        {
+          "line": 1714,
+          "text": "        out = eq_tree::edge(name(), joined, true, 0);"
+        },
+        {
+          "line": 1715,
+          "text": "        has_more = true;"
+        },
+        {
+          "line": 1716,
+          "text": "        committed = true;"
+        },
+        {
+          "line": 1717,
+          "text": "        m_stats.m_num_splits++;"
+        },
+        {
+          "line": 1718,
+          "text": "        return alloc(iterator, n, *this);"
+        },
+        {
+          "line": 1719,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.h",
+      "blob": "0fbfb69356e3abdd356c9f3b0db9003b642a609d",
+      "sha256": "1e26079ed34c22fe57f5e91a3b083826fbe151ebb76a6b21f74a0212550138d6",
+      "line_count": 528,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 145,
+          "text": "            bool active() const { return m_active; }"
+        },
+        {
+          "line": 146,
+          "text": ""
+        },
+        {
+          "line": 147,
+          "text": "            // -- stx::constraint_i (unsat-cache identity) --"
+        },
+        {
+          "line": 148,
+          "text": "            // Canonicalize (lhs,rhs) so mirrored equations compare equal."
+        },
+        {
+          "line": 149,
+          "text": "            // clone() keeps only the value part of the constraint."
+        },
+        {
+          "line": 150,
+          "text": "            uint64_t hash() const override;"
+        },
+        {
+          "line": 151,
+          "text": "            bool equals(stx::constraint_i const& other) const override;"
+        },
+        {
+          "line": 152,
+          "text": "            stx::constraint_i* clone() const override { return alloc(equation, m_lhs, m_rhs); }"
+        },
+        {
+          "line": 153,
+          "text": "            // Expose the justification so conflict cores can be filtered."
+        },
+        {
+          "line": 154,
+          "text": "            void* dep_handle() const override { return m_dep; }"
+        },
+        {
+          "line": 155,
+          "text": "        };"
+        },
+        {
+          "line": 156,
+          "text": ""
+        },
+        {
+          "line": 190,
+          "text": "        }"
+        },
+        {
+          "line": 191,
+          "text": ""
+        },
+        {
+          "line": 192,
+          "text": "        vector<equation> const& equations() const { return m_eqs; }"
+        },
+        {
+          "line": 193,
+          "text": "        vector<subst_entry> const& substitutions() const { return m_subst; }"
+        },
+        {
+          "line": 194,
+          "text": ""
+        },
+        {
+          "line": 195,
+          "text": "        // Append-only substitution table used during model construction."
+        },
+        {
+          "line": 196,
+          "text": "        // Walking it backwards yields the newest active binding."
+        },
+        {
+          "line": 197,
+          "text": "        bool get_subst(expr* var, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;"
+        },
+        {
+          "line": 198,
+          "text": "        void eliminate(expr* e, expr_ref_vector& out) const;"
+        },
+        {
+          "line": 199,
+          "text": "        void eliminate(expr_ref_vector const& in, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;"
+        },
+        {
+          "line": 200,
+          "text": ""
+        },
+        {
+          "line": 201,
+          "text": "        // -- stx::facet_i --"
+        },
+        {
+          "line": 202,
+          "text": "        facet_i* clone(trail_stack& trail) const override;"
+        },
+        {
+          "line": 203,
+          "text": ""
+        },
+        {
+          "line": 204,
+          "text": "        bool is_satisfied() const override { return std::all_of(m_eqs.begin(), m_eqs.end(), [](equation const& e) { return !e.active(); }); }"
+        },
+        {
+          "line": 205,
+          "text": "        std::ostream& display(std::ostream& out) const override;"
+        },
+        {
+          "line": 206,
+          "text": ""
+        },
+        {
+          "line": 207,
+          "text": "        // -- unsat-cache signature --"
+        },
+        {
+          "line": 208,
+          "text": "        // Word equations directly determine (in)consistency in the"
+        },
+        {
+          "line": 209,
+          "text": "        // Nielsen transformation, so they always participate."
+        },
+        {
+          "line": 210,
+          "text": "        bool contributes_to_signature() const override { return true; }"
+        },
+        {
+          "line": 211,
+          "text": "        void append_constraints(vector<stx::constraint_i const*>& out) const override;"
+        },
+        {
+          "line": 212,
+          "text": ""
+        },
+        {
+          "line": 213,
+          "text": "        // Deterministic simplification pass over all active equations."
+        },
+        {
+          "line": 214,
+          "text": "        // On conflict, `conflict_dep` identifies the culprit equation."
+        },
+        {
+          "line": 215,
+          "text": "        bool simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep);"
+        },
+        {
+          "line": 216,
+          "text": "        ambient_context_i<eq_tree::dep_tracker>& ambient(eq_tree::node const& n) const;"
+        },
+        {
+          "line": 217,
+          "text": ""
+        },
+        {
+          "line": 218,
+          "text": "    private:"
+        },
+        {
+          "line": 219,
+          "text": "        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;"
+        },
+        {
+          "line": 220,
+          "text": ""
+        },
+        {
+          "line": 221,
+          "text": "        bool simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);"
+        },
+        {
+          "line": 222,
+          "text": "    };"
+        },
+        {
+          "line": 223,
+          "text": ""
+        },
+        {
+          "line": 224,
+          "text": "    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);"
+        },
+        {
+          "line": 225,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "blob": "9917d1aa73d52d8817c9b7c386a6ea7a2e2d507c",
+      "sha256": "35b13f0efc4c77c96833f309c9da43876f7cd6fa7bc64f09728eb5531143904a",
+      "line_count": 2000,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 1008,
+          "text": ""
+        },
+        {
+          "line": 1009,
+          "text": "        auto ac = get_ambient(m_n);"
+        },
+        {
+          "line": 1010,
+          "text": "        auto& f = ac.power_facet_ref();"
+        },
+        {
+          "line": 1011,
+          "text": "        auto& mf = ac.mem_facet_ref();"
+        },
+        {
+          "line": 1012,
+          "text": "        if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()"
+        },
+        {
+          "line": 1013,
+          "text": "            || m_mem_idx >= mf.memberships().size() || !mf.memberships()[m_mem_idx].active())"
+        },
+        {
+          "line": 1014,
+          "text": "            return false; // defensive; obligation/membership discharged by another route"
+        },
+        {
+          "line": 1015,
+          "text": ""
+        },
+        {
+          "line": 1016,
+          "text": "        str_power p = f.powers()[m_pow_idx]; // copy: broadcast_subst may reallocate m_pows"
+        },
+        {
+          "line": 1017,
+          "text": ""
+        },
+        {
+          "line": 1018,
+          "text": "        // Branch 2 (the remaining alternative once branch 1 - \"n<=0\","
+        },
+        {
+          "line": 1019,
+          "text": "        // materialized by split() itself - has been offered): n >= 1,"
+        },
+        {
+          "line": 1020,
+          "text": "        // peel one copy: U^n -> U . U^(n-1) (nested power, same"
+        },
+        {
+          "line": 1021,
+          "text": "        // directional end), broadcast to every occurrence of U^n."
+        },
+        {
+          "line": 1022,
+          "text": "        expr_ref n_minus_1(a.mk_sub(p.m_n, a.mk_int(1)), m);"
+        },
+        {
+          "line": 1023,
+          "text": "        expr_ref nested_pow(u.str.mk_power(p.m_s, n_minus_1), m);"
+        },
+        {
+          "line": 1024,
+          "text": "        expr_ref_vector base(m);"
+        },
+        {
+          "line": 1025,
+          "text": "        u.str.get_concat_units(p.m_s, base);"
+        },
+        {
+          "line": 1026,
+          "text": "        expr_ref_vector repl(m);"
+        },
+        {
+          "line": 1027,
+          "text": "        if (m_fwd) { repl.append(base); repl.push_back(nested_pow.get()); }"
+        },
+        {
+          "line": 1028,
+          "text": "        else       { repl.push_back(nested_pow.get()); repl.append(base); }"
+        },
+        {
+          "line": 1029,
+          "text": ""
+        },
+        {
+          "line": 1030,
+          "text": "        broadcast_subst(m_n, p.m_e, repl, m_dep);"
+        },
+        {
+          "line": 1031,
+          "text": "        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);"
+        },
+        {
+          "line": 1032,
+          "text": ""
+        },
+        {
+          "line": 1033,
+          "text": "        out = eq_tree::edge(\"power-peel-mem:n>=1\", m_dep, false, 0);"
+        },
+        {
+          "line": 1034,
+          "text": "        return true;"
+        },
+        {
+          "line": 1035,
+          "text": "    }"
+        },
+        {
+          "line": 1036,
+          "text": ""
+        },
+        {
+          "line": 1037,
+          "text": "    scoped_ptr<eq_tree::split_iterator_i> power_peel_mem::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {"
+        },
+        {
+          "line": 1038,
+          "text": "        has_more = false;"
+        },
+        {
+          "line": 1039,
+          "text": "        committed = false;"
+        },
+        {
+          "line": 1040,
+          "text": "        auto ac = get_ambient(n);"
+        },
+        {
+          "line": 1041,
+          "text": "        auto& f = ac.power_facet_ref();"
+        },
+        {
+          "line": 1042,
+          "text": "        auto& mf = ac.mem_facet_ref();"
+        },
+        {
+          "line": 1043,
+          "text": ""
+        },
+        {
+          "line": 1044,
+          "text": "        unsigned mem_idx, pow_idx;"
+        },
+        {
+          "line": 1045,
+          "text": "        bool fwd;"
+        },
+        {
+          "line": 1046,
+          "text": "        eq_tree::dep_tracker dep;"
+        },
+        {
+          "line": 1047,
+          "text": "        if (!find_peel_mem_trigger(f, mf, a, mem_idx, fwd, pow_idx, dep))"
+        },
+        {
+          "line": 1048,
+          "text": "            return nullptr;"
+        },
+        {
+          "line": 1049,
+          "text": "        has_more = true;"
+        },
+        {
+          "line": 1050,
+          "text": ""
+        },
+        {
+          "line": 1051,
+          "text": "        str_power p = f.powers()[pow_idx]; // copy: broadcast_subst may reallocate m_pows"
+        },
+        {
+          "line": 1052,
+          "text": ""
+        },
+        {
+          "line": 1053,
+          "text": "        // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon"
+        },
+        {
+          "line": 1054,
+          "text": "        expr_ref_vector empty(m);"
+        },
+        {
+          "line": 1055,
+          "text": "        broadcast_subst(n, p.m_e, empty, dep);"
+        },
+        {
+          "line": 1056,
+          "text": "        ac.solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);"
+        },
+        {
+          "line": 1057,
+          "text": ""
+        },
+        {
+          "line": 1058,
+          "text": "        iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);"
+        },
+        {
+          "line": 1059,
+          "text": "        out = eq_tree::edge(\"power-peel-mem:n<=0\", dep, true, 0);"
+        },
+        {
+          "line": 1060,
+          "text": "        committed = true;"
+        },
+        {
+          "line": 1061,
+          "text": "        m_stats.m_num_splits++;"
+        },
+        {
+          "line": 1062,
+          "text": "        return it;"
+        },
+        {
+          "line": 1063,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "blob": "a1b4edea553812863bded3e7e717a4ccf809df38",
+      "sha256": "5f6d25c2b3682437f3b68d14675056224f76cd14263419d3fe146fe94d220da4",
+      "line_count": 1260,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 94,
+          "text": "    static expr_ref mk_exp(ast_manager& m, expr* e) {"
+        },
+        {
+          "line": 95,
+          "text": "        th_rewriter rw(m);"
+        },
+        {
+          "line": 96,
+          "text": "        expr_ref r(e, m);"
+        },
+        {
+          "line": 97,
+          "text": "        rw(r);"
+        },
+        {
+          "line": 98,
+          "text": "        return r;"
+        },
+        {
+          "line": 99,
+          "text": "    }"
+        },
+        {
+          "line": 100,
+          "text": ""
+        },
+        {
+          "line": 101,
+          "text": "    static expr_ref mk_len_sum(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks, unsigned from, unsigned to) {"
+        },
+        {
+          "line": 102,
+          "text": "        expr_ref sum(a.mk_int(0), m);"
+        },
+        {
+          "line": 103,
+          "text": "        for (unsigned i = from; i < to; ++i)"
+        },
+        {
+          "line": 104,
+          "text": "            sum = expr_ref(a.mk_add(sum, u.str.is_unit(toks[i]) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(toks[i])), m);"
+        },
+        {
+          "line": 105,
+          "text": "        return sum;"
+        },
+        {
+          "line": 106,
+          "text": "    }"
+        },
+        {
+          "line": 107,
+          "text": ""
+        },
+        {
+          "line": 108,
+          "text": "    stx::simplify_result power_propagation::propagate(eq_tree::node& n) {"
+        },
+        {
+          "line": 110,
+          "text": "        auto& f = ac.power_facet_ref();"
+        },
+        {
+          "line": 111,
+          "text": "        auto& sf = ac.solver_facet_ref();"
+        },
+        {
+          "line": 112,
+          "text": "        m_stats.m_num_propagate++;"
+        },
+        {
+          "line": 113,
+          "text": ""
+        },
+        {
+          "line": 114,
+          "text": "        bool changed = false;"
+        },
+        {
+          "line": 115,
+          "text": "        // `m_pows` is append-only, so a plain forward scan suffices."
+        },
+        {
+          "line": 116,
+          "text": "        for (unsigned i = 0; i < f.powers().size(); ++i) {"
+        },
+        {
+          "line": 117,
+          "text": "            if (!f.powers()[i].active())"
+        },
+        {
+          "line": 118,
+          "text": "                continue;"
+        },
+        {
+          "line": 119,
+          "text": "            str_power const& p = f.powers()[i];"
+        },
+        {
+          "line": 120,
+          "text": "            rational v;"
+        },
+        {
+          "line": 121,
+          "text": ""
+        },
+        {
+          "line": 122,
+          "text": "            // `epsilon^n = epsilon`; otherwise power_peel unfolds it forever."
+        },
+        {
+          "line": 123,
+          "text": "            if (u.str.is_empty(p.m_s)) {"
+        },
+        {
+          "line": 124,
+          "text": "                broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep);"
+        },
+        {
+          "line": 125,
+          "text": "                changed = true;"
+        },
+        {
+          "line": 126,
+          "text": "                continue;"
+        },
+        {
+          "line": 127,
+          "text": "            }"
+        },
+        {
+          "line": 128,
+          "text": ""
+        },
+        {
+          "line": 129,
+          "text": "            // Large fixed powers remain tokens, including in extracted witnesses."
+        },
+        {
+          "line": 130,
+          "text": "            if (a.is_numeral(p.m_n, v) && v <= rational(1024)) {"
+        },
+        {
+          "line": 131,
+          "text": "                expr_ref rhs(m);"
+        },
+        {
+          "line": 132,
+          "text": "                if (!v.is_pos())"
+        },
+        {
+          "line": 133,
+          "text": "                    rhs = u.str.mk_empty(p.m_e.get()->get_sort());"
+        },
+        {
+          "line": 134,
+          "text": "                else"
+        },
+        {
+          "line": 135,
+          "text": "                    rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());"
+        },
+        {
+          "line": 136,
+          "text": "                expr_ref_vector repl(m);"
+        },
+        {
+          "line": 137,
+          "text": "                u.str.get_concat_units(rhs.get(), repl);"
+        },
+        {
+          "line": 138,
+          "text": "                broadcast_subst(n, p.m_e.get(), repl, p.m_dep);"
+        },
+        {
+          "line": 139,
+          "text": "                changed = true;"
+        },
+        {
+          "line": 140,
+          "text": "                continue;"
+        },
+        {
+          "line": 141,
+          "text": "            }"
+        },
+        {
+          "line": 142,
+          "text": ""
+        },
+        {
+          "line": 143,
+          "text": "            // Assert the length-only consequences once."
+        },
+        {
+          "line": 144,
+          "text": "            if (!p.m_axiomatized) {"
+        },
+        {
+          "line": 145,
+          "text": "                expr_ref len_e(u.str.mk_length(p.m_e.get()), m);"
+        },
+        {
+          "line": 146,
+          "text": "                // token-wise base length: the sub-solver has no sequence theory for len(\"ab\")"
+        },
+        {
+          "line": 192,
+          "text": "            f.mark(m_pow_index, &str_power::m_split_exhausted);"
+        },
+        {
+          "line": 193,
+          "text": "            out = eq_tree::edge(\"power:n>bound\", m_dep, false, 0);"
+        },
+        {
+          "line": 194,
+          "text": "            return true;"
+        },
+        {
+          "line": 195,
+          "text": "        }"
+        },
+        {
+          "line": 196,
+          "text": ""
+        },
+        {
+          "line": 197,
+          "text": "        expr_ref rhs = mk_power_unfold(u, m, p.m_s, j);"
+        },
+        {
+          "line": 198,
+          "text": "        expr_ref_vector repl(m);"
+        },
+        {
+          "line": 199,
+          "text": "        u.str.get_concat_units(rhs.get(), repl);"
+        },
+        {
+          "line": 200,
+          "text": "        broadcast_subst(m_n, p.m_e, repl, m_dep);"
+        },
+        {
+          "line": 201,
+          "text": "        ac.solver_facet_ref().add_constraint(m.mk_eq(p.m_n, a.mk_int(j)), m_dep);"
+        },
+        {
+          "line": 202,
+          "text": ""
+        },
+        {
+          "line": 203,
+          "text": "        out = eq_tree::edge(\"power:n=j\", m_dep, true, 0);"
+        },
+        {
+          "line": 204,
+          "text": "        return true;"
+        },
+        {
+          "line": 205,
+          "text": "    }"
+        },
+        {
+          "line": 206,
+          "text": ""
+        },
+        {
+          "line": 207,
+          "text": "    // `U^n := epsilon` under `n <= 0`."
+        },
+        {
+          "line": 208,
+          "text": "    static void unfold_empty(eq_tree::node& n, power_facet& f, unsigned idx, eq_tree::dep_tracker dep) {"
+        },
+        {
+          "line": 209,
+          "text": "        arith_util& a = f.get_arith_util();"
+        },
+        {
+          "line": 210,
+          "text": "        str_power p = f.powers()[idx]; // copy: broadcast_subst may reallocate m_pows"
+        },
+        {
+          "line": 211,
+          "text": "        expr_ref_vector empty(a.get_manager());"
+        },
+        {
+          "line": 212,
+          "text": "        broadcast_subst(n, p.m_e, empty, dep);"
+        },
+        {
+          "line": 213,
+          "text": "        get_ambient(n).solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);"
+        },
+        {
+          "line": 214,
+          "text": "    }"
+        },
+        {
+          "line": 215,
+          "text": ""
+        },
+        {
+          "line": 216,
+          "text": "    // `side` with `k` tokens removed from the chosen end, optionally"
+        },
+        {
+          "line": 217,
+          "text": "    // replaced by `repl`."
+        },
+        {
+          "line": 218,
+          "text": "    static expr_ref_vector replace_end(expr_ref_vector const& side, bool front, unsigned k, expr* repl) {"
+        },
+        {
+          "line": 219,
+          "text": "        expr_ref_vector r(side.get_manager());"
+        },
+        {
+          "line": 220,
+          "text": "        if (front && repl)"
+        },
+        {
+          "line": 271,
+          "text": "    static bool constant_word(seq_util& u, expr_ref_vector const& toks, zstring& s) {"
+        },
+        {
+          "line": 272,
+          "text": "        s.reset();"
+        },
+        {
+          "line": 273,
+          "text": "        for (expr* t : toks) {"
+        },
+        {
+          "line": 274,
+          "text": "            expr* ch = nullptr;"
+        },
+        {
+          "line": 275,
+          "text": "            unsigned c;"
+        },
+        {
+          "line": 276,
+          "text": "            if (!u.str.is_unit(t, ch) || !u.is_const_char(ch, c))"
+        },
+        {
+          "line": 277,
+          "text": "                return false;"
+        },
+        {
+          "line": 278,
+          "text": "            s += zstring(c);"
+        },
+        {
+          "line": 279,
+          "text": "        }"
+        },
+        {
+          "line": 280,
+          "text": "        return !s.empty();"
+        },
+        {
+          "line": 281,
+          "text": "    }"
+        },
+        {
+          "line": 282,
+          "text": ""
+        },
+        {
+          "line": 283,
+          "text": "    static bool has_period(zstring const& s, unsigned r) {"
+        },
+        {
+          "line": 284,
+          "text": "        for (unsigned i = 0; i + r < s.length(); ++i) {"
+        },
+        {
+          "line": 285,
+          "text": "            if (s[i] != s[i + r])"
+        },
+        {
+          "line": 286,
+          "text": "                return false;"
+        },
+        {
+          "line": 287,
+          "text": "        }"
+        },
+        {
+          "line": 288,
+          "text": "        return true;"
+        },
+        {
+          "line": 289,
+          "text": "    }"
+        },
+        {
+          "line": 290,
+          "text": ""
+        },
+        {
+          "line": 291,
+          "text": "    static zstring primitive_root(zstring const& s) {"
+        },
+        {
+          "line": 292,
+          "text": "        for (unsigned d = 1; d < s.length(); ++d) {"
+        },
+        {
+          "line": 293,
+          "text": "            if (s.length() % d == 0 && has_period(s, d))"
+        },
+        {
+          "line": 294,
+          "text": "                return s.extract(0, d);"
+        },
+        {
+          "line": 295,
+          "text": "        }"
+        },
+        {
+          "line": 296,
+          "text": "        return s;"
+        },
+        {
+          "line": 297,
+          "text": "    }"
+        },
+        {
+          "line": 298,
+          "text": ""
+        },
+        {
+          "line": 299,
+          "text": "    // Collect the ways the tokens `todo` (next token last) can begin. A power is"
+        },
+        {
+          "line": 300,
+          "text": "    // either empty or yields one copy of its base followed by an unknown rest."
+        },
+        {
+          "line": 301,
+          "text": "    static bool beginnings(power_facet const& f, seq_util& u, ast_manager& m, ptr_vector<expr>& todo,"
+        },
+        {
+          "line": 302,
+          "text": "                           svector<unsigned>& cur, vector<svector<unsigned>>& out, unsigned& budget) {"
+        },
+        {
+          "line": 303,
+          "text": "        if (budget == 0)"
+        },
+        {
+          "line": 304,
+          "text": "            return false;"
+        },
+        {
+          "line": 305,
+          "text": "        --budget;"
+        },
+        {
+          "line": 385,
+          "text": "    }"
+        },
+        {
+          "line": 386,
+          "text": ""
+        },
+        {
+          "line": 387,
+          "text": "    // Both sides start with powers of different bases, not both exponents numerals."
+        },
+        {
+          "line": 388,
+          "text": "    bool power_trichotomy::find_trigger(eq_tree::node& n, trigger& t) const {"
+        },
+        {
+          "line": 389,
+          "text": "        auto ac = get_ambient(n);"
+        },
+        {
+          "line": 390,
+          "text": "        auto& f = ac.power_facet_ref();"
+        },
+        {
+          "line": 391,
+          "text": "        for (auto const& eq : ac.eq_facet_ref().equations()) {"
+        },
+        {
+          "line": 392,
+          "text": "            unsigned xi, yi;"
+        },
+        {
+          "line": 393,
+          "text": "            if (!eq.active() || eq.m_lhs.empty() || eq.m_rhs.empty() ||"
+        },
+        {
+          "line": 394,
+          "text": "                !f.find_power(eq.m_lhs[0], xi) || !f.find_power(eq.m_rhs[0], yi))"
+        },
+        {
+          "line": 395,
+          "text": "                continue;"
+        },
+        {
+          "line": 396,
+          "text": "            str_power const& px = f.powers()[xi];"
+        },
+        {
+          "line": 397,
+          "text": "            str_power const& py = f.powers()[yi];"
+        },
+        {
+          "line": 398,
+          "text": "            if (px.m_s == py.m_s || (a.is_numeral(px.m_n) && a.is_numeral(py.m_n)))"
+        },
+        {
+          "line": 399,
+          "text": "                continue; // power_split_elim resp. power_propagation"
+        },
+        {
+          "line": 400,
+          "text": "            // A base starting with a power has no known first character yet; power_peel exposes it."
+        },
+        {
+          "line": 401,
+          "text": "            expr_ref_vector xs(m), ys(m);"
+        },
+        {
+          "line": 402,
+          "text": "            u.str.get_concat_units(px.m_s, xs);"
+        },
+        {
+          "line": 403,
+          "text": "            u.str.get_concat_units(py.m_s, ys);"
+        },
+        {
+          "line": 404,
+          "text": "            if (xs.empty() || ys.empty() || u.str.is_power(xs.get(0)) || u.str.is_power(ys.get(0)))"
+        },
+        {
+          "line": 405,
+          "text": "                continue;"
+        },
+        {
+          "line": 406,
+          "text": "            t = {xi, yi, eq.m_dep};"
+        },
+        {
+          "line": 407,
+          "text": "            return true;"
+        },
+        {
+          "line": 408,
+          "text": "        }"
+        },
+        {
+          "line": 409,
+          "text": "        return false;"
+        },
+        {
+          "line": 410,
+          "text": "    }"
+        },
+        {
+          "line": 411,
+          "text": ""
+        },
+        {
+          "line": 412,
+          "text": "    // Branches 0..4 for `|X^M| <= |Y^N|`, 5..9 mirrored. Constant bases give"
+        },
+        {
+          "line": 413,
+          "text": "    // direct witnesses: f2 its primitive root, f3 one branch per period `r`."
+        },
+        {
+          "line": 414,
+          "text": "    void power_trichotomy::enumerate(eq_tree::node& n, trigger const& t, branches& out) const {"
+        },
+        {
+          "line": 415,
+          "text": "        auto& f = get_ambient(n).power_facet_ref();"
+        },
+        {
+          "line": 416,
+          "text": "        expr* bases[2] = { f.powers()[t.m_x_idx].m_s, f.powers()[t.m_y_idx].m_s };"
+        },
+        {
+          "line": 417,
+          "text": "        // f1..f4 make one base a prefix of the other"
+        },
+        {
+          "line": 418,
+          "text": "        bool prefix = may_be_prefix(f, u, m, bases[0], bases[1]);"
+        },
+        {
+          "line": 419,
+          "text": "        // fits[d]: base d's letters may occur in the other base. f1 needs it"
+        },
+        {
+          "line": 420,
+          "text": "        // for X, f2..f4 need equal alphabets (f4 with q = 0 is f1)."
+        },
+        {
+          "line": 421,
+          "text": "        uint_set must[2], can[2];"
+        },
+        {
+          "line": 422,
+          "text": "        bool bounded[2];"
+        },
+        {
+          "line": 423,
+          "text": "        for (unsigned d = 0; d < 2; ++d) {"
+        },
+        {
+          "line": 424,
+          "text": "            bounded[d] = letters(f, u, m, bases[d], true, must[d], can[d]);"
+        },
+        {
+          "line": 425,
+          "text": "        }"
+        },
+        {
+          "line": 426,
+          "text": "        bool fits[2] = { !bounded[1] || must[0].subset_of(can[1]), !bounded[0] || must[1].subset_of(can[0]) };"
+        },
+        {
+          "line": 427,
+          "text": "        for (unsigned dir = 0; dir < 2; ++dir) {"
+        },
+        {
+          "line": 428,
+          "text": "            expr_ref_vector xs(m), ys(m);"
+        },
+        {
+          "line": 429,
+          "text": "            u.str.get_concat_units(bases[dir], xs);"
+        },
+        {
+          "line": 430,
+          "text": "            u.str.get_concat_units(bases[1 - dir], ys);"
+        },
+        {
+          "line": 431,
+          "text": "            zstring sx, sy;"
+        },
+        {
+          "line": 432,
+          "text": "            bool gx = constant_word(u, xs, sx), gy = constant_word(u, ys, sy);"
+        },
+        {
+          "line": 433,
+          "text": "            unsigned b = 5 * dir;"
+        },
+        {
+          "line": 434,
+          "text": "            out.push_back({b, 0});"
+        },
+        {
+          "line": 435,
+          "text": "            if (!prefix)"
+        },
+        {
+          "line": 436,
+          "text": "                continue;"
+        },
+        {
+          "line": 437,
+          "text": "            if (fits[dir] && !(gx && gy && !sx.prefixof(sy)))"
+        },
+        {
+          "line": 438,
+          "text": "                out.push_back({b + 1, 0});"
+        },
+        {
+          "line": 439,
+          "text": "            if (!fits[0] || !fits[1])"
+        },
+        {
+          "line": 440,
+          "text": "                continue;"
+        },
+        {
+          "line": 441,
+          "text": "            if (!(gx && gy && sx + sy != sy + sx))"
+        },
+        {
+          "line": 442,
+          "text": "                out.push_back({b + 2, 0});"
+        },
+        {
+          "line": 443,
+          "text": "            if (!gx)"
+        },
+        {
+          "line": 444,
+          "text": "                out.push_back({b + 3, 0});"
+        },
+        {
+          "line": 445,
+          "text": "            else {"
+        },
+        {
+          "line": 446,
+          "text": "                for (unsigned r = 1; r < sx.length(); ++r) {"
+        },
+        {
+          "line": 447,
+          "text": "                    if (has_period(sx, r) && (!gy || (sy.length() >= sx.length() + r && (sy.length() - r) % sx.length() == 0)))"
+        },
+        {
+          "line": 448,
+          "text": "                        out.push_back({b + 3, r});"
+        },
+        {
+          "line": 449,
+          "text": "                }"
+        },
+        {
+          "line": 450,
+          "text": "            }"
+        },
+        {
+          "line": 451,
+          "text": "            out.push_back({b + 4, 0});"
+        },
+        {
+          "line": 452,
+          "text": "        }"
+        },
+        {
+          "line": 453,
+          "text": "    }"
+        },
+        {
+          "line": 454,
+          "text": ""
+        },
+        {
+          "line": 455,
+          "text": "    void power_trichotomy::apply(eq_tree::node& n, trigger const& t, unsigned b, unsigned param) const {"
+        },
+        {
+          "line": 456,
+          "text": "        auto ac = get_ambient(n);"
+        },
+        {
+          "line": 457,
+          "text": "        auto& f = ac.power_facet_ref();"
+        },
+        {
+          "line": 458,
+          "text": "        auto& ef = ac.eq_facet_ref();"
+        },
+        {
+          "line": 459,
+          "text": "        auto& sf = ac.solver_facet_ref();"
+        },
+        {
+          "line": 460,
+          "text": "        bool dir_u = b < 5;"
+        },
+        {
+          "line": 461,
+          "text": "        // copies: add_power and broadcast_subst may reallocate m_pows"
+        },
+        {
+          "line": 462,
+          "text": "        str_power px = f.powers()[dir_u ? t.m_x_idx : t.m_y_idx]; // the shorter power X^M"
+        },
+        {
+          "line": 463,
+          "text": "        str_power py = f.powers()[dir_u ? t.m_y_idx : t.m_x_idx]; // the longer power Y^N"
+        },
+        {
+          "line": 464,
+          "text": "        eq_tree::dep_tracker dep = t.m_dep;"
+        },
+        {
+          "line": 465,
+          "text": "        expr* X = px.m_s, *M = px.m_n, *Y = py.m_s, *N = py.m_n;"
+        },
+        {
+          "line": 466,
+          "text": "        expr_ref_vector xs(m), ys(m);"
+        },
+        {
+          "line": 467,
+          "text": "        u.str.get_concat_units(X, xs);"
+        },
+        {
+          "line": 468,
+          "text": "        u.str.get_concat_units(Y, ys);"
+        },
+        {
+          "line": 469,
+          "text": "        zstring sx, sy;"
+        },
+        {
+          "line": 470,
+          "text": "        bool gx = constant_word(u, xs, sx), gy = constant_word(u, ys, sy);"
+        },
+        {
+          "line": 471,
+          "text": ""
+        },
+        {
+          "line": 472,
+          "text": "        auto constrain = [&](expr* c) { sf.add_constraint(c, dep); };"
+        },
+        {
+          "line": 473,
+          "text": "        auto mk_pow = [&](expr* base, expr* exp) {"
+        },
+        {
+          "line": 474,
+          "text": "            expr_ref e = mk_exp(m, exp);"
+        },
+        {
+          "line": 475,
+          "text": "            expr_ref tok(u.str.mk_power(base, e), m);"
+        },
+        {
+          "line": 476,
+          "text": "            f.add_power(tok, base, e, dep);"
+        },
+        {
+          "line": 477,
+          "text": "            return tok;"
+        },
+        {
+          "line": 478,
+          "text": "        };"
+        },
+        {
+          "line": 479,
+          "text": "        auto fresh_str = [&](char const* name) { return expr_ref(ac.mk_fresh_var(name, px.m_e->get_sort(), { px.m_e.get(), py.m_e.get() }), m); };"
+        },
+        {
+          "line": 480,
+          "text": "        auto fresh_int = [&](char const* name) { return expr_ref(ac.mk_fresh_var(name, a.mk_int(), { px.m_e.get(), py.m_e.get() }), m); };"
+        },
+        {
+          "line": 481,
+          "text": "        auto word = [&](zstring const& s) {"
+        },
+        {
+          "line": 482,
+          "text": "            expr_ref_vector r(m);"
+        },
+        {
+          "line": 483,
+          "text": "            u.str.get_concat_units(u.str.mk_string(s), r);"
+        },
+        {
+          "line": 484,
+          "text": "            return r;"
+        },
+        {
+          "line": 485,
+          "text": "        };"
+        },
+        {
+          "line": 486,
+          "text": "        auto one = [&](expr* e) {"
+        },
+        {
+          "line": 487,
+          "text": "            expr_ref_vector r(m);"
+        },
+        {
+          "line": 488,
+          "text": "            r.push_back(e);"
+        },
+        {
+          "line": 489,
+          "text": "            return r;"
+        },
+        {
+          "line": 490,
+          "text": "        };"
+        },
+        {
+          "line": 491,
+          "text": "        auto cat = [&](std::initializer_list<expr_ref_vector> parts) {"
+        },
+        {
+          "line": 492,
+          "text": "            expr_ref_vector r(m);"
+        },
+        {
+          "line": 493,
+          "text": "            for (auto const& p : parts) {"
+        },
+        {
+          "line": 494,
+          "text": "                r.append(p);"
+        },
+        {
+          "line": 495,
+          "text": "            }"
+        },
+        {
+          "line": 496,
+          "text": "            return r;"
+        },
+        {
+          "line": 497,
+          "text": "        };"
+        },
+        {
+          "line": 498,
+          "text": ""
+        },
+        {
+          "line": 499,
+          "text": "        constrain(dir_u ? a.mk_le(mk_len(u, m, px.m_e), mk_len(u, m, py.m_e))"
+        },
+        {
+          "line": 500,
+          "text": "                        : a.mk_lt(mk_len(u, m, px.m_e), mk_len(u, m, py.m_e)));"
+        },
+        {
+          "line": 501,
+          "text": ""
+        },
+        {
+          "line": 502,
+          "text": "        // Each case asserts exactly what its substitution `Y^N := X^M . z` needs."
+        },
+        {
+          "line": 503,
+          "text": "        expr_ref_vector z(m);"
+        },
+        {
+          "line": 504,
+          "text": "        switch (b % 5) {"
+        },
+        {
+          "line": 505,
+          "text": "        case 0:"
+        },
+        {
+          "line": 506,
+          "text": "            // X^M = epsilon"
+        },
+        {
+          "line": 507,
+          "text": "            constrain(m.mk_or(a.mk_le(M, a.mk_int(0)), m.mk_eq(mk_len_sum(u, a, m, xs, 0, xs.size()), a.mk_int(0))));"
+        },
+        {
+          "line": 508,
+          "text": "            broadcast_subst(n, px.m_e, expr_ref_vector(m), dep);"
+        },
+        {
+          "line": 509,
+          "text": "            return;"
+        },
+        {
+          "line": 510,
+          "text": "        case 1: {"
+        },
+        {
+          "line": 511,
+          "text": "            // Y = X^M y',  z = y' Y^(N-1)"
+        },
+        {
+          "line": 512,
+          "text": "            expr_ref y1 = fresh_str(\"power-trichotomy-f1-y\");"
+        },
+        {
+          "line": 513,
+          "text": "            constrain(a.mk_ge(N, a.mk_int(1)));"
+        },
+        {
+          "line": 514,
+          "text": "            ef.add_equation(ys, cat({one(px.m_e), one(y1)}), dep);"
+        },
+        {
+          "line": 515,
+          "text": "            z = cat({one(y1), one(mk_pow(Y, a.mk_sub(N, a.mk_int(1))))});"
+        },
+        {
+          "line": 516,
+          "text": "            break;"
+        },
+        {
+          "line": 517,
+          "text": "        }"
+        },
+        {
+          "line": 518,
+          "text": "        case 2: {"
+        },
+        {
+          "line": 519,
+          "text": "            // X = w^i, Y = w^j, M >= 1,  z = w^(jN - iM); `iM <= jN` follows from the length guard."
+        },
+        {
+          "line": 520,
+          "text": "            expr_ref w(m), i(m), j(m);"
+        },
+        {
+          "line": 521,
+          "text": "            constrain(a.mk_ge(M, a.mk_int(1)));"
+        },
+        {
+          "line": 522,
+          "text": "            if (gx || gy) {"
+        },
+        {
+          "line": 523,
+          "text": "                zstring root = primitive_root(gx ? sx : sy);"
+        },
+        {
+          "line": 524,
+          "text": "                w = u.str.mk_string(root);"
+        },
+        {
+          "line": 525,
+          "text": "                if (gx)"
+        },
+        {
+          "line": 526,
+          "text": "                    i = a.mk_int(sx.length() / root.length());"
+        },
+        {
+          "line": 527,
+          "text": "                if (gy)"
+        },
+        {
+          "line": 528,
+          "text": "                    j = a.mk_int(sy.length() / root.length());"
+        },
+        {
+          "line": 529,
+          "text": "            }"
+        },
+        {
+          "line": 530,
+          "text": "            else"
+        },
+        {
+          "line": 531,
+          "text": "                w = fresh_str(\"power-trichotomy-f2-w\");"
+        },
+        {
+          "line": 532,
+          "text": "            if (!i) {"
+        },
+        {
+          "line": 533,
+          "text": "                i = fresh_int(\"power-trichotomy-f2-i\");"
+        },
+        {
+          "line": 534,
+          "text": "                constrain(a.mk_ge(i, a.mk_int(1)));"
+        },
+        {
+          "line": 535,
+          "text": "                ef.add_equation(xs, one(mk_pow(w, i)), dep);"
+        },
+        {
+          "line": 536,
+          "text": "            }"
+        },
+        {
+          "line": 537,
+          "text": "            if (!j) {"
+        },
+        {
+          "line": 538,
+          "text": "                j = fresh_int(\"power-trichotomy-f2-j\");"
+        },
+        {
+          "line": 539,
+          "text": "                constrain(a.mk_ge(j, a.mk_int(1)));"
+        },
+        {
+          "line": 540,
+          "text": "                ef.add_equation(ys, one(mk_pow(w, j)), dep);"
+        },
+        {
+          "line": 541,
+          "text": "            }"
+        },
+        {
+          "line": 542,
+          "text": "            z = one(mk_pow(w, a.mk_sub(a.mk_mul(j, N), a.mk_mul(i, M))));"
+        },
+        {
+          "line": 543,
+          "text": "            break;"
+        },
+        {
+          "line": 544,
+          "text": "        }"
+        },
+        {
+          "line": 545,
+          "text": "        case 3: {"
+        },
+        {
+          "line": 546,
+          "text": "            // X = (p'p'')^k p', Y = X^(M-1) p'p'',  z = p'' p' X^(M-2) p'p'' Y^(N-2)"
+        },
+        {
+          "line": 547,
+          "text": "            expr_ref_vector p1(m), p2(m);"
+        },
+        {
+          "line": 548,
+          "text": "            constrain(a.mk_ge(M, a.mk_int(2)));"
+        },
+        {
+          "line": 549,
+          "text": "            constrain(a.mk_ge(N, a.mk_int(2)));"
+        },
+        {
+          "line": 550,
+          "text": "            if (param > 0) {"
+        },
+        {
+          "line": 551,
+          "text": "                // constant X with period r: p'p'' = X[0..r), p' = the last |X| mod r characters"
+        },
+        {
+          "line": 552,
+          "text": "                unsigned r = param, l1 = sx.length() % r;"
+        },
+        {
+          "line": 553,
+          "text": "                p1 = word(sx.extract(sx.length() - l1, l1));"
+        },
+        {
+          "line": 554,
+          "text": "                p2 = word(sx.extract(l1, r - l1));"
+        },
+        {
+          "line": 555,
+          "text": "            }"
+        },
+        {
+          "line": 556,
+          "text": "            else {"
+        },
+        {
+          "line": 557,
+          "text": "                expr_ref v1 = fresh_str(\"power-trichotomy-f3-p1\"), v2 = fresh_str(\"power-trichotomy-f3-p2\"), k = fresh_int(\"power-trichotomy-f3-k\");"
+        },
+        {
+          "line": 558,
+          "text": "                p1 = one(v1);"
+        },
+        {
+          "line": 559,
+          "text": "                p2 = one(v2);"
+        },
+        {
+          "line": 560,
+          "text": "                ef.add_equation(xs, cat({one(mk_pow(u.str.mk_concat(v1, v2), k)), p1}), dep);"
+        },
+        {
+          "line": 561,
+          "text": "            }"
+        },
+        {
+          "line": 562,
+          "text": "            ef.add_equation(ys, cat({one(mk_pow(X, a.mk_sub(M, a.mk_int(1)))), p1, p2}), dep);"
+        },
+        {
+          "line": 563,
+          "text": "            z = cat({p2, p1, one(mk_pow(X, a.mk_sub(M, a.mk_int(2)))), p1, p2, one(mk_pow(Y, a.mk_sub(N, a.mk_int(2))))});"
+        },
+        {
+          "line": 564,
+          "text": "            break;"
+        },
+        {
+          "line": 565,
+          "text": "        }"
+        },
+        {
+          "line": 566,
+          "text": "        default: {"
+        },
+        {
+          "line": 567,
+          "text": "            // M = 1, Y = y'y'', X = Y^q y', q+1 <= N,  z = y'' Y^(N-q-1)"
+        },
+        {
+          "line": 568,
+          "text": "            expr_ref y1 = fresh_str(\"power-trichotomy-f4-y1\"), y2 = fresh_str(\"power-trichotomy-f4-y2\"), q = fresh_int(\"power-trichotomy-f4-q\");"
+        },
+        {
+          "line": 569,
+          "text": "            constrain(m.mk_eq(M, a.mk_int(1)));"
+        },
+        {
+          "line": 570,
+          "text": "            constrain(a.mk_ge(q, a.mk_int(0)));"
+        },
+        {
+          "line": 571,
+          "text": "            constrain(a.mk_le(a.mk_add(q, a.mk_int(1)), N));"
+        },
+        {
+          "line": 572,
+          "text": "            ef.add_equation(ys, cat({one(y1), one(y2)}), dep);"
+        },
+        {
+          "line": 573,
+          "text": "            ef.add_equation(xs, cat({one(mk_pow(Y, q)), one(y1)}), dep);"
+        },
+        {
+          "line": 574,
+          "text": "            z = cat({one(y2), one(mk_pow(Y, a.mk_sub(a.mk_sub(N, q), a.mk_int(1))))});"
+        },
+        {
+          "line": 575,
+          "text": "            break;"
+        },
+        {
+          "line": 576,
+          "text": "        }"
+        },
+        {
+          "line": 577,
+          "text": "        }"
+        },
+        {
+          "line": 578,
+          "text": "        broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep);"
+        },
+        {
+          "line": 579,
+          "text": "    }"
+        },
+        {
+          "line": 580,
+          "text": ""
+        },
+        {
+          "line": 581,
+          "text": "    static char const* const trichotomy_labels[10] = {"
+        },
+        {
+          "line": 582,
+          "text": "        \"trichotomy:u:empty\", \"trichotomy:u:f1\", \"trichotomy:u:f2\", \"trichotomy:u:f3\", \"trichotomy:u:f4\","
+        },
+        {
+          "line": 583,
+          "text": "        \"trichotomy:v:empty\", \"trichotomy:v:f1\", \"trichotomy:v:f2\", \"trichotomy:v:f3\", \"trichotomy:v:f4\","
+        },
+        {
+          "line": 584,
+          "text": "    };"
+        },
+        {
+          "line": 585,
+          "text": ""
+        },
+        {
+          "line": 586,
+          "text": "    // Resumption restores the node state of the split, so `m_t` stays valid."
+        },
+        {
+          "line": 794,
+          "text": "                continue;"
+        },
+        {
+          "line": 795,
+          "text": "            eq_tree::dep_tracker core = nullptr;"
+        },
+        {
+          "line": 796,
+          "text": "            if (sf.implies(m.mk_eq(p.m_n, a.mk_numeral(v, true)), &core) != l_true)"
+        },
+        {
+          "line": 797,
+          "text": "                continue;"
+        },
+        {
+          "line": 798,
+          "text": "            eq_tree::dep_tracker dep = f.dm().mk_join(p.m_dep, core);"
+        },
+        {
+          "line": 799,
+          "text": "            expr_ref_vector repl(m);"
+        },
+        {
+          "line": 800,
+          "text": "            if (v.is_pos())"
+        },
+        {
+          "line": 801,
+          "text": "                u.str.get_concat_units(mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned()), repl);"
+        },
+        {
+          "line": 802,
+          "text": "            broadcast_subst(n, p.m_e.get(), repl, dep);"
+        },
+        {
+          "line": 803,
+          "text": "            has_more = true;"
+        },
+        {
+          "line": 804,
+          "text": "            committed = true;"
+        },
+        {
+          "line": 805,
+          "text": "            m_stats.m_num_splits++;"
+        },
+        {
+          "line": 806,
+          "text": "            out = eq_tree::edge(\"power-fixed-exp\", dep, true, 0);"
+        },
+        {
+          "line": 807,
+          "text": "            return nullptr;"
+        },
+        {
+          "line": 808,
+          "text": "        }"
+        },
+        {
+          "line": 809,
+          "text": "        return nullptr;"
+        },
+        {
+          "line": 810,
+          "text": "    }"
+        },
+        {
+          "line": 854,
+          "text": ""
+        },
+        {
+          "line": 855,
+          "text": "        // Branch 2: `n >= 1`, so `U^n := U . U^(n-1)`."
+        },
+        {
+          "line": 856,
+          "text": "        expr_ref n_minus_1 = mk_exp(m, a.mk_sub(p.m_n, a.mk_int(1)));"
+        },
+        {
+          "line": 857,
+          "text": "        expr_ref nested_pow(u.str.mk_power(p.m_s, n_minus_1), m);"
+        },
+        {
+          "line": 858,
+          "text": "        expr_ref_vector base(m), repl(m);"
+        },
+        {
+          "line": 859,
+          "text": "        u.str.get_concat_units(p.m_s, base);"
+        },
+        {
+          "line": 860,
+          "text": "        if (m_fwd) { repl.append(base); repl.push_back(nested_pow); }"
+        },
+        {
+          "line": 861,
+          "text": "        else       { repl.push_back(nested_pow); repl.append(base); }"
+        },
+        {
+          "line": 862,
+          "text": "        broadcast_subst(m_n, p.m_e, repl, m_dep);"
+        },
+        {
+          "line": 863,
+          "text": "        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);"
+        },
+        {
+          "line": 864,
+          "text": ""
+        },
+        {
+          "line": 865,
+          "text": "        out = eq_tree::edge(\"power-peel:n>=1\", m_dep, false, 0);"
+        },
+        {
+          "line": 866,
+          "text": "        return true;"
+        },
+        {
+          "line": 867,
+          "text": "    }"
+        },
+        {
+          "line": 868,
+          "text": ""
+        },
+        {
+          "line": 869,
+          "text": "    scoped_ptr<eq_tree::split_iterator_i> power_peel::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {"
+        },
+        {
+          "line": 870,
+          "text": "        has_more = false;"
+        },
+        {
+          "line": 979,
+          "text": "            } else {"
+        },
+        {
+          "line": 980,
+          "text": "                if (fresh_inner_m) repl.push_back(suffix_tok.get());"
+        },
+        {
+          "line": 981,
+          "text": "                for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());"
+        },
+        {
+          "line": 982,
+          "text": "                repl.push_back(pow_m.get());"
+        },
+        {
+          "line": 983,
+          "text": "            }"
+        },
+        {
+          "line": 984,
+          "text": "            // In the plain-token case the current token is absorbed into the"
+        },
+        {
+          "line": 985,
+          "text": "            // repeated base and is not appended again literally."
+        },
+        {
+          "line": 986,
+          "text": ""
+        },
+        {
+          "line": 987,
+          "text": "            broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+        },
+        {
+          "line": 988,
+          "text": "            sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);"
+        },
+        {
+          "line": 989,
+          "text": "            sf.add_constraint(a.mk_ge(n_exp, a.mk_add(m_fresh_m.get(), a.mk_int(1))), m_dep); // v is a proper prefix of U^n"
+        },
+        {
+          "line": 990,
+          "text": "            if (fresh_inner_m) {"
+        },
+        {
+          "line": 991,
+          "text": "                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);"
+        },
+        {
+          "line": 992,
+          "text": "                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);"
+        },
+        {
+          "line": 993,
+          "text": "            }"
+        },
+        {
+          "line": 994,
+          "text": "            out = eq_tree::edge(\"power-var-decompose:pos\", m_dep, true, 0);"
+        },
+        {
+          "line": 995,
+          "text": "            return true;"
+        },
+        {
+          "line": 999,
+          "text": "            m_extend_done = true;"
+        },
+        {
+          "line": 1000,
+          "text": "            // Final non-progress branch: `v` extends past the whole power."
+        },
+        {
+          "line": 1001,
+          "text": "            sort* s = m_var.get()->get_sort();"
+        },
+        {
+          "line": 1002,
+          "text": "            expr* vp = ac.mk_fresh_var(m_fwd ? \"power-var-decompose-forward-tail\" : \"power-var-decompose-backward-tail\","
+        },
+        {
+          "line": 1003,
+          "text": "                                       s, { m_var.get(), m_pow_e.get() });"
+        },
+        {
+          "line": 1004,
+          "text": "            expr_ref_vector repl(m);"
+        },
+        {
+          "line": 1005,
+          "text": "            if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }"
+        },
+        {
+          "line": 1006,
+          "text": "            else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }"
+        },
+        {
+          "line": 1007,
+          "text": "            broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+        },
+        {
+          "line": 1008,
+          "text": "            sf.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);"
+        },
+        {
+          "line": 1009,
+          "text": "            out = eq_tree::edge(\"power-var-decompose:extend\", m_dep, false, 0);"
+        },
+        {
+          "line": 1010,
+          "text": "            return true;"
+        },
+        {
+          "line": 1011,
+          "text": "        }"
+        },
+        {
+          "line": 1012,
+          "text": "        return false;"
+        },
+        {
+          "line": 1013,
+          "text": "    }"
+        },
+        {
+          "line": 1014,
+          "text": ""
+        },
+        {
+          "line": 1015,
+          "text": "    scoped_ptr<eq_tree::split_iterator_i> power_var_decompose::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {"
+        },
+        {
+          "line": 1160,
+          "text": "                for (unsigned j = 0; j < prefix.size(); ++j) repl.push_back(prefix[j].get());"
+        },
+        {
+          "line": 1161,
+          "text": "                if (fresh_inner_m) repl.push_back(suffix_tok.get());"
+        },
+        {
+          "line": 1162,
+          "text": "            } else {"
+        },
+        {
+          "line": 1163,
+          "text": "                if (fresh_inner_m) repl.push_back(suffix_tok.get());"
+        },
+        {
+          "line": 1164,
+          "text": "                for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());"
+        },
+        {
+          "line": 1165,
+          "text": "                repl.push_back(m_pow_e.get());"
+        },
+        {
+          "line": 1166,
+          "text": "            }"
+        },
+        {
+          "line": 1167,
+          "text": ""
+        },
+        {
+          "line": 1168,
+          "text": "            broadcast_subst(m_n, m_var.get(), repl, m_dep);"
+        },
+        {
+          "line": 1169,
+          "text": "            sf.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);"
+        },
+        {
+          "line": 1170,
+          "text": "            if (fresh_inner_m) {"
+        },
+        {
+          "line": 1171,
+          "text": "                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);"
+        },
+        {
+          "line": 1172,
+          "text": "                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);"
+        },
+        {
+          "line": 1173,
+          "text": "            }"
+        },
+        {
+          "line": 1174,
+          "text": "            out = eq_tree::edge(\"power-gpower-intro:pos\", m_dep, true, 0);"
+        },
+        {
+          "line": 1175,
+          "text": "            return true;"
+        },
+        {
+          "line": 1176,
+          "text": "        }"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq_decl_plugin.h",
+      "blob": "1f4f58f3dbbe64902b46a94ef4e43da52222aa45",
+      "sha256": "fe43bb0d6b1a77530fdb76673e86890f1fd3cb563c820e3f998d80dba487c2ef",
+      "line_count": 719,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 60,
+          "text": "    OP_SEQ_MAP,            // Array[A,B] -> Seq[A] -> Seq[B]"
+        },
+        {
+          "line": 61,
+          "text": "    OP_SEQ_MAPI,           // Array[Int,A,B] -> Int -> Seq[A] -> Seq[B]"
+        },
+        {
+          "line": 62,
+          "text": "    OP_SEQ_FOLDL,          // Array[B,A,B] -> B -> Seq[A] -> B"
+        },
+        {
+          "line": 63,
+          "text": "    OP_SEQ_FOLDLI,         // Array[Int,B,A,B] -> Int -> B -> Seq[A] -> B"
+        },
+        {
+          "line": 64,
+          "text": "    OP_SEQ_POWER,          // Seq -> Int -> Seq, s^n"
+        },
+        {
+          "line": 65,
+          "text": " "
+        },
+        {
+          "line": 66,
+          "text": "    OP_RE_PLUS,"
+        },
+        {
+          "line": 67,
+          "text": "    OP_RE_STAR,"
+        },
+        {
+          "line": 315,
+          "text": "        app* mk_mapi(expr* f, expr* i, expr* s) const { expr* es[3] = { f, i, s }; return m.mk_app(m_fid, OP_SEQ_MAPI, 3, es); }"
+        },
+        {
+          "line": 316,
+          "text": "        app* mk_foldl(expr* f, expr* b, expr* s) const { expr* es[3] = { f, b, s }; return m.mk_app(m_fid, OP_SEQ_FOLDL, 3, es); }"
+        },
+        {
+          "line": 317,
+          "text": "        app* mk_foldli(expr* f, expr* i, expr* b, expr* s) const { expr* es[4] = { f, i, b, s }; return m.mk_app(m_fid, OP_SEQ_FOLDLI, 4, es); }"
+        },
+        {
+          "line": 318,
+          "text": "        app* mk_power(expr* s, expr* n) const { expr* es[2] = { s, n }; return m.mk_app(m_fid, OP_SEQ_POWER, 2, es); }"
+        },
+        {
+          "line": 319,
+          "text": ""
+        },
+        {
+          "line": 320,
+          "text": "        app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }"
+        }
+      ]
+    },
+    {
+      "path": "src/util/hashtable.h",
+      "blob": "4bd37179539c40ae42a83fe309ff9a4002972f49",
+      "sha256": "3b223ae29e3d1f5f7b0c226a9963b1e1e6d6697ade4ab3399c39e5f3446ffd2c",
+      "line_count": 772,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 514,
+          "text": "    bool contains(data const & e) const { "
+        },
+        {
+          "line": 515,
+          "text": "        return find_core(e) != nullptr;"
+        },
+        {
+          "line": 516,
+          "text": "    }"
+        },
+        {
+          "line": 541,
+          "text": "    void remove(data const & e) {"
+        },
+        {
+          "line": 542,
+          "text": "        unsigned hash = get_hash(e);"
+        },
+        {
+          "line": 543,
+          "text": "        unsigned mask = m_capacity - 1;"
+        },
+        {
+          "line": 544,
+          "text": "        unsigned idx  = hash & mask;"
+        },
+        {
+          "line": 545,
+          "text": "        entry * begin = m_table + idx;"
+        },
+        {
+          "line": 546,
+          "text": "        entry * end   = m_table + m_capacity;"
+        },
+        {
+          "line": 547,
+          "text": "        entry * curr  = begin;"
+        },
+        {
+          "line": 548,
+          "text": "        for (; curr != end; ++curr) {"
+        },
+        {
+          "line": 549,
+          "text": "            REMOVE_LOOP_BODY();"
+        },
+        {
+          "line": 550,
+          "text": "        }"
+        },
+        {
+          "line": 551,
+          "text": "        for (curr = m_table; curr != begin; ++curr) {"
+        },
+        {
+          "line": 552,
+          "text": "            REMOVE_LOOP_BODY();"
+        },
+        {
+          "line": 553,
+          "text": "        }"
+        },
+        {
+          "line": 554,
+          "text": "        SASSERT(!contains(e));"
+        },
+        {
+          "line": 555,
+          "text": "        return; // node is not in the table"
+        },
+        {
+          "line": 556,
+          "text": "    end_remove:"
+        },
+        {
+          "line": 557,
+          "text": "        entry * next = curr + 1;                                      "
+        },
+        {
+          "line": 558,
+          "text": "        if (next == end) {"
+        },
+        {
+          "line": 559,
+          "text": "            next = m_table;                          "
+        },
+        {
+          "line": 560,
+          "text": "        }"
+        },
+        {
+          "line": 561,
+          "text": "        if (next->is_free()) {"
+        },
+        {
+          "line": 562,
+          "text": "            curr->mark_as_free();                                       "
+        },
+        {
+          "line": 563,
+          "text": "            m_size--;                                                "
+        },
+        {
+          "line": 564,
+          "text": "        }                                                            "
+        },
+        {
+          "line": 565,
+          "text": "        else {"
+        },
+        {
+          "line": 566,
+          "text": "            curr->mark_as_deleted();                                    "
+        },
+        {
+          "line": 567,
+          "text": "            m_num_deleted++;"
+        },
+        {
+          "line": 568,
+          "text": "            m_size--;"
+        },
+        {
+          "line": 569,
+          "text": "            if (m_num_deleted > m_size && m_num_deleted > SMALL_TABLE_CAPACITY) {"
+        },
+        {
+          "line": 570,
+          "text": "                remove_deleted_entries();"
+        },
+        {
+          "line": 571,
+          "text": "            }"
+        },
+        {
+          "line": 572,
+          "text": "        }"
+        },
+        {
+          "line": 573,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/util/obj_hashtable.h",
+      "blob": "0b39163ea13c3bd612dc7f44d587f1796b62803f",
+      "sha256": "078ef7a44054208582f62919f9c4163b4eda90783dbd350e9f16d4fe1537a274",
+      "line_count": 241,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 25,
+          "text": "/**"
+        },
+        {
+          "line": 26,
+          "text": "   \\brief Special entry for a hashtable of obj pointers (i.e.,"
+        },
+        {
+          "line": 27,
+          "text": "   objects that have a hash() method)."
+        },
+        {
+          "line": 28,
+          "text": "   This entry uses 0x0 and 0x1 to represent HT_FREE and HT_DELETED."
+        },
+        {
+          "line": 29,
+          "text": "*/"
+        },
+        {
+          "line": 30,
+          "text": "template<typename T>"
+        },
+        {
+          "line": 31,
+          "text": "class obj_hash_entry {"
+        },
+        {
+          "line": 32,
+          "text": "    T * m_ptr = nullptr;"
+        },
+        {
+          "line": 33,
+          "text": "public:"
+        },
+        {
+          "line": 34,
+          "text": "    typedef T * data;"
+        },
+        {
+          "line": 35,
+          "text": "    unsigned get_hash() const { return m_ptr->hash(); }"
+        },
+        {
+          "line": 36,
+          "text": "    bool is_free() const { return m_ptr == nullptr; }"
+        },
+        {
+          "line": 37,
+          "text": "    bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }"
+        },
+        {
+          "line": 38,
+          "text": "    bool is_used() const { return m_ptr != nullptr && m_ptr != reinterpret_cast<T *>(1); }"
+        },
+        {
+          "line": 39,
+          "text": "    T * get_data() const { return m_ptr; }"
+        },
+        {
+          "line": 40,
+          "text": "    T * & get_data() { return m_ptr; }"
+        },
+        {
+          "line": 41,
+          "text": "    void set_data(T * d) { m_ptr = d; }"
+        },
+        {
+          "line": 42,
+          "text": "    void set_hash(unsigned h) { SASSERT(h == m_ptr->hash()); }"
+        },
+        {
+          "line": 43,
+          "text": "    void mark_as_deleted() { m_ptr = reinterpret_cast<T *>(1); }"
+        },
+        {
+          "line": 44,
+          "text": "    void mark_as_free() { m_ptr = nullptr; }"
+        },
+        {
+          "line": 45,
+          "text": "};"
+        },
+        {
+          "line": 46,
+          "text": ""
+        },
+        {
+          "line": 47,
+          "text": "template<typename T>"
+        },
+        {
+          "line": 48,
+          "text": "class obj_hashtable : public core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> > {"
+        },
+        {
+          "line": 49,
+          "text": "public:"
+        },
+        {
+          "line": 50,
+          "text": "    obj_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):"
+        },
+        {
+          "line": 51,
+          "text": "        core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}"
+        },
+        {
+          "line": 52,
+          "text": ""
+        },
+        {
+          "line": 53,
+          "text": "    obj_hashtable(const obj_hashtable & source) = default;"
+        },
+        {
+          "line": 54,
+          "text": "    obj_hashtable(obj_hashtable && source) noexcept = default;"
+        },
+        {
+          "line": 55,
+          "text": "    obj_hashtable& operator=(const obj_hashtable & other) = delete;"
+        },
+        {
+          "line": 56,
+          "text": "    obj_hashtable& operator=(obj_hashtable && other) noexcept = default;"
+        },
+        {
+          "line": 57,
+          "text": "};"
+        },
+        {
+          "line": 58,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/util/stx_search_tree.h",
+      "blob": "4827ccd4011ebfe52673f4ce0973ce996708e804",
+      "sha256": "a503e6ace5552f0049155168cd9873771104f9006eb18143802eae24a8cadf78",
+      "line_count": 1397,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 119,
+          "text": "     * unsat cache."
+        },
+        {
+          "line": 120,
+          "text": "     */"
+        },
+        {
+          "line": 121,
+          "text": "    class constraint_i {"
+        },
+        {
+          "line": 122,
+          "text": "        unsigned m_store_id = UINT_MAX; // index assigned by constraint_store::intern(), once interned"
+        },
+        {
+          "line": 123,
+          "text": "    public:"
+        },
+        {
+          "line": 124,
+          "text": "        virtual ~constraint_i() = default;"
+        },
+        {
+          "line": 125,
+          "text": "        virtual uint64_t hash() const = 0;"
+        },
+        {
+          "line": 126,
+          "text": "        virtual bool equals(constraint_i const& other) const = 0;"
+        },
+        {
+          "line": 127,
+          "text": "        virtual constraint_i* clone() const = 0;"
+        },
+        {
+          "line": 128,
+          "text": ""
+        },
+        {
+          "line": 129,
+          "text": "        unsigned store_id() const { return m_store_id; }"
+        },
+        {
+          "line": 130,
+          "text": "        void set_store_id(unsigned id) { m_store_id = id; }"
+        },
+        {
+          "line": 131,
+          "text": ""
+        },
+        {
+          "line": 132,
+          "text": "        // Opaque pointer to this live fact's justification object"
+        },
+        {
+          "line": 133,
+          "text": "        virtual void* dep_handle() const { return nullptr; }"
+        },
+        {
+          "line": 134,
+          "text": "    };"
+        },
+        {
+          "line": 135,
+          "text": ""
+        },
+        {
+          "line": 136,
+          "text": "    /**"
+        },
+        {
+          "line": 137,
+          "text": "     * Domain-opaque base class for an ambient-context handle stored on a"
+        },
+        {
+          "line": 570,
+          "text": "        // constraint (never a borrowed pointer into a facet's live,"
+        },
+        {
+          "line": 571,
+          "text": "        // about-to-be-backtracked container). `solve()` reseeds this"
+        },
+        {
+          "line": 572,
+          "text": "        // fresh on every call with the root node's constraints (`init()`);"
+        },
+        {
+          "line": 573,
+          "text": "        // later facts are interned lazily by `cache_insert()`."
+        },
+        {
+          "line": 574,
+          "text": "        // `cache_lookup()` only ever queries (`find()`), never interns."
+        },
+        {
+          "line": 575,
+          "text": "        class constraint_store {"
+        },
+        {
+          "line": 576,
+          "text": "            // Dispatch through the pointee's own hash()/equals(), so"
+        },
+        {
+          "line": 577,
+          "text": "            // lookups keyed by a transient, facet-owned pointer match"
+        },
+        {
+          "line": 578,
+          "text": "            // buckets keyed by this store's own permanent clones."
+        },
+        {
+          "line": 579,
+          "text": "            struct ptr_hash {"
+        },
+        {
+          "line": 580,
+          "text": "                unsigned operator()(constraint_i* c) const { return static_cast<unsigned>(c->hash()); }"
+        },
+        {
+          "line": 581,
+          "text": "            };"
+        },
+        {
+          "line": 582,
+          "text": "            struct ptr_eq {"
+        },
+        {
+          "line": 583,
+          "text": "                bool operator()(constraint_i* a, constraint_i* b) const { return a == b || a->equals(*b); }"
+        },
+        {
+          "line": 584,
+          "text": "            };"
+        },
+        {
+          "line": 585,
+          "text": "            hashtable<constraint_i*, ptr_hash, ptr_eq> m_ids;"
+        },
+        {
+          "line": 586,
+          "text": "            scoped_ptr_vector<constraint_i>            m_owned; // id -> owned canonical clone"
+        },
+        {
+          "line": 587,
+          "text": "        public:"
+        },
+        {
+          "line": 588,
+          "text": "            void clear() { m_ids.reset(); m_owned.reset(); }"
+        },
+        {
+          "line": 589,
+          "text": "            void init(vector<constraint_i const*> const& cs) {"
+        },
+        {
+          "line": 590,
+          "text": "                for (constraint_i const* c : cs)"
+        },
+        {
+          "line": 591,
+          "text": "                    intern(*c);"
+        },
+        {
+          "line": 592,
+          "text": "            }"
+        },
+        {
+          "line": 593,
+          "text": "            bool find(constraint_i const& c, unsigned& id) const {"
+        },
+        {
+          "line": 594,
+          "text": "                constraint_i* key = const_cast<constraint_i*>(&c);"
+        },
+        {
+          "line": 595,
+          "text": "                constraint_i* found = nullptr;"
+        },
+        {
+          "line": 596,
+          "text": "                if (!m_ids.find(key, found))"
+        },
+        {
+          "line": 597,
+          "text": "                    return false;"
+        },
+        {
+          "line": 598,
+          "text": "                id = found->store_id();"
+        },
+        {
+          "line": 599,
+          "text": "                return true;"
+        },
+        {
+          "line": 600,
+          "text": "            }"
+        },
+        {
+          "line": 601,
+          "text": "            unsigned intern(constraint_i const& c) {"
+        },
+        {
+          "line": 602,
+          "text": "                unsigned id;"
+        },
+        {
+          "line": 603,
+          "text": "                if (find(c, id))"
+        },
+        {
+          "line": 604,
+          "text": "                    return id;"
+        },
+        {
+          "line": 605,
+          "text": "                constraint_i* owned = c.clone();"
+        },
+        {
+          "line": 606,
+          "text": "                id = m_owned.size();"
+        },
+        {
+          "line": 607,
+          "text": "                owned->set_store_id(id);"
+        },
+        {
+          "line": 608,
+          "text": "                m_owned.push_back(owned);"
+        },
+        {
+          "line": 609,
+          "text": "                m_ids.insert(owned);"
+        },
+        {
+          "line": 610,
+          "text": "                return id;"
+        },
+        {
+          "line": 611,
+          "text": "            }"
+        },
+        {
+          "line": 612,
+          "text": "            constraint_i const* operator[](unsigned id) const {"
+        },
+        {
+          "line": 613,
+          "text": "                return m_owned[id];"
+        },
+        {
+          "line": 614,
+          "text": "            }"
+        },
+        {
+          "line": 615,
+          "text": "            unsigned size() const { return m_owned.size(); }"
+        },
+        {
+          "line": 616,
+          "text": "        };"
+        },
+        {
+          "line": 617,
+          "text": "        constraint_store                       m_constraint_store;"
+        },
+        {
+          "line": 618,
+          "text": ""
+        },
+        {
+          "line": 619,
+          "text": "        struct unsat_core_entry {"
+        },
+        {
+          "line": 620,
+          "text": "            vector<unsigned> lits;   // over-approximate unsat core, as constraint-store ids"
+        },
+        {
+          "line": 621,
+          "text": "            unsigned         watch;  // index into lits currently registered in m_watch_list"
+        },
+        {
+          "line": 622,
+          "text": "        };"
+        },
+        {
+          "line": 623,
+          "text": "        vector<unsat_core_entry>                          m_unsat_cores;"
+        },
+        {
+          "line": 624,
+          "text": "        // constraint-store id -> indices (into m_unsat_cores) of cores"
+        },
+        {
+          "line": 625,
+          "text": "        // currently watching it. Grown (via watch()) on demand as new ids"
+        },
+        {
+          "line": 626,
+          "text": "        // are interned; an id past the current size simply has no cores"
+        },
+        {
+          "line": 627,
+          "text": "        // watching it yet."
+        },
+        {
+          "line": 628,
+          "text": "        vector<vector<unsigned>>                          m_watch_list;"
+        },
+        {
+          "line": 629,
+          "text": ""
+        },
+        {
+          "line": 630,
+          "text": "        // True iff every facet NOT contributing to the signature currently"
+        },
+        {
+          "line": 631,
+          "text": "        // holds no live content (is_satisfied()). This is the soundness"
+        },
+        {
+          "line": 632,
+          "text": "        // gate: if some excluded facet (e.g. the arithmetic backend) has"
+        },
+        {
+          "line": 633,
+          "text": "        // live, non-vacuous state, this node's UNSAT-ness (if any) might"
+        },
+        {
+          "line": 634,
+          "text": "        // depend on that excluded state, so it must not be cached or used"
+        },
+        {
+          "line": 635,
+          "text": "        // to prune via the cache - the node simply opts out, forfeiting"
+        },
+        {
+          "line": 636,
+          "text": "        // its own caching benefit without risking an unsound hit elsewhere."
+        },
+        {
+          "line": 637,
+          "text": "        bool cache_eligible(node const& n) const {"
+        },
+        {
+          "line": 638,
+          "text": "            for (facet_id id = 0; id < n.num_facets(); ++id) {"
+        },
+        {
+          "line": 639,
+          "text": "                if (!n.has_facet(id))"
+        },
+        {
+          "line": 640,
+          "text": "                    continue;"
+        },
+        {
+          "line": 641,
+          "text": "                facet_i const& f = n.facet(id);"
+        },
+        {
+          "line": 642,
+          "text": "                if (!f.contributes_to_signature() && !f.is_satisfied())"
+        },
+        {
+          "line": 643,
+          "text": "                    return false;"
+        },
+        {
+          "line": 644,
+          "text": "            }"
+        },
+        {
+          "line": 645,
+          "text": "            return true;"
+        },
+        {
+          "line": 646,
+          "text": "        }"
+        },
+        {
+          "line": 647,
+          "text": ""
+        },
+        {
+          "line": 648,
+          "text": "        // Canonical constraint list: concatenate every contributing"
+        },
+        {
+          "line": 649,
+          "text": "        // facet's own append_constraints() output (borrowed pointers into"
+        },
+        {
+          "line": 650,
+          "text": "        // the facet's own live, active elements), in ascending facet_id"
+        },
+        {
+          "line": 651,
+          "text": "        // order."
+        },
+        {
+          "line": 652,
+          "text": "        static vector<constraint_i const*> compute_constraints(node const& n) {"
+        },
+        {
+          "line": 653,
+          "text": "            vector<constraint_i const*> cs;"
+        },
+        {
+          "line": 654,
+          "text": "            for (facet_id id = 0; id < n.num_facets(); ++id)"
+        },
+        {
+          "line": 655,
+          "text": "                if (n.has_facet(id) && n.facet(id).contributes_to_signature())"
+        },
+        {
+          "line": 656,
+          "text": "                    n.facet(id).append_constraints(cs);"
+        },
+        {
+          "line": 657,
+          "text": "            return cs;"
+        },
+        {
+          "line": 658,
+          "text": "        }"
+        },
+        {
+          "line": 659,
+          "text": ""
+        },
+        {
+          "line": 660,
+          "text": "        // Register `core_idx` as watching constraint-store id `id`,"
+        },
+        {
+          "line": 661,
+          "text": "        // growing `m_watch_list` on demand (ids are assigned densely from"
+        },
+        {
+          "line": 662,
+          "text": "        // 0 by `constraint_store`, so a plain resize-then-index keeps this"
+        },
+        {
+          "line": 663,
+          "text": "        // O(1) amortized, same as `vector::push_back`)."
+        },
+        {
+          "line": 664,
+          "text": "        void watch(unsigned id, unsigned core_idx) {"
+        },
+        {
+          "line": 665,
+          "text": "            if (id >= m_watch_list.size())"
+        },
+        {
+          "line": 666,
+          "text": "                m_watch_list.resize(id + 1);"
+        },
+        {
+          "line": 667,
+          "text": "            m_watch_list[id].push_back(core_idx);"
+        },
+        {
+          "line": 668,
+          "text": "        }"
+        },
+        {
+          "line": 669,
+          "text": ""
+        },
+        {
+          "line": 670,
+          "text": "        // Remove one occurrence of `core_idx` from the watch bucket for"
+        },
+        {
+          "line": 671,
+          "text": "        // `id` (the core's watch is always moved away from `id` right"
+        },
+        {
+          "line": 672,
+          "text": "        // before this is called, so the bucket is left consistent)."
+        },
+        {
+          "line": 673,
+          "text": "        void unwatch(unsigned id, unsigned core_idx) {"
+        },
+        {
+          "line": 674,
+          "text": "            if (id >= m_watch_list.size())"
+        },
+        {
+          "line": 675,
+          "text": "                return;"
+        },
+        {
+          "line": 676,
+          "text": "            auto& bucket = m_watch_list[id];"
+        },
+        {
+          "line": 677,
+          "text": "            auto pos = std::find(bucket.begin(), bucket.end(), core_idx);"
+        },
+        {
+          "line": 678,
+          "text": "            if (pos != bucket.end())"
+        },
+        {
+          "line": 679,
+          "text": "                bucket.erase(pos);"
+        },
+        {
+          "line": 680,
+          "text": "        }"
+        },
+        {
+          "line": 681,
+          "text": ""
+        },
+        {
+          "line": 682,
+          "text": "        // Precondition: m_unsat_cores[core_idx]'s watch literal is"
+        },
+        {
+          "line": 683,
+          "text": "        // currently `active` (that's the only reason cache_lookup() is"
+        },
+        {
+          "line": 684,
+          "text": "        // inspecting it at all). Looks for another of the core's literals"
+        },
+        {
+          "line": 685,
+          "text": "        // that is NOT active and moves the watch there."
+        },
+        {
+          "line": 686,
+          "text": "        // Returns true  - watch moved, core has not fired (still some"
+        },
+        {
+          "line": 687,
+          "text": "        //                 absent literal, just a different one now)."
+        },
+        {
+          "line": 688,
+          "text": "        // Returns false - no absent literal exists anywhere in the core:"
+        },
+        {
+          "line": 689,
+          "text": "        //                 every one of its literals is active right now,"
+        },
+        {
+          "line": 690,
+          "text": "        //                 so the core is fully contained in the current"
+        },
+        {
+          "line": 691,
+          "text": "        //                 node, which is therefore unsat."
+        },
+        {
+          "line": 692,
+          "text": "        bool try_rewatch(unsigned core_idx, vector<constraint_i const*> const& active) {"
+        },
+        {
+          "line": 693,
+          "text": "            unsat_core_entry& e = m_unsat_cores[core_idx];"
+        },
+        {
+          "line": 694,
+          "text": "            unsigned old_id = e.lits[e.watch];"
+        },
+        {
+          "line": 695,
+          "text": "            for (unsigned i = 0; i < e.lits.size(); ++i) {"
+        },
+        {
+          "line": 696,
+          "text": "                if (i == e.watch)"
+        },
+        {
+          "line": 697,
+          "text": "                    continue;"
+        },
+        {
+          "line": 698,
+          "text": "                auto c = m_constraint_store[e.lits[i]];"
+        },
+        {
+          "line": 699,
+          "text": "                if (!active.contains(c)) {             "
+        },
+        {
+          "line": 700,
+          "text": "                    unwatch(old_id, core_idx);"
+        },
+        {
+          "line": 701,
+          "text": "                    e.watch = i;"
+        },
+        {
+          "line": 702,
+          "text": "                    watch(e.lits[i], core_idx);"
+        },
+        {
+          "line": 703,
+          "text": "                    return true;"
+        },
+        {
+          "line": 704,
+          "text": "                }"
+        },
+        {
+          "line": 705,
+          "text": "            }"
+        },
+        {
+          "line": 706,
+          "text": "            return false;"
+        },
+        {
+          "line": 707,
+          "text": "        }"
+        },
+        {
+          "line": 708,
+          "text": ""
+        },
+        {
+          "line": 709,
+          "text": "        // Lookup: true iff this node's current (post-propagation) active"
+        },
+        {
+          "line": 710,
+          "text": "        // constraint set fully contains (as a superset) some previously-"
+        },
+        {
+          "line": 711,
+          "text": "        // cached unsat core - not merely an exact match against a past"
+        },
+        {
+          "line": 712,
+          "text": "        // node's full constraint set (see the watch-list comment above"
+        },
+        {
+          "line": 713,
+          "text": "        // `m_unsat_cache_enabled`). Ineligible/trivial (empty) nodes never"
+        },
+        {
+          "line": 714,
+          "text": "        // hit."
+        },
+        {
+          "line": 715,
+          "text": "        bool cache_lookup(node const& n) {"
+        },
+        {
+          "line": 716,
+          "text": "            if (!m_unsat_cache_enabled || !cache_eligible(n))"
+        },
+        {
+          "line": 717,
+          "text": "                return false;"
+        },
+        {
+          "line": 718,
+          "text": "            vector<constraint_i const*> cs = compute_constraints(n);"
+        },
+        {
+          "line": 719,
+          "text": "            if (cs.empty())"
+        },
+        {
+          "line": 720,
+          "text": "                return false;"
+        },
+        {
+          "line": 721,
+          "text": "            // Only constraints the store already knows about (i.e. that"
+        },
+        {
+          "line": 722,
+          "text": "            // some previously-inserted core actually mentions) can"
+        },
+        {
+          "line": 723,
+          "text": "            // possibly be contained in any cached core - every core's own"
+        },
+        {
+          "line": 724,
+          "text": "            // literals are themselves store-assigned ids - so this is a"
+        },
+        {
+          "line": 725,
+          "text": "            // pure query (find(), never intern()): a brand-new fact this"
+        },
+        {
+          "line": 726,
+          "text": "            // node happens to hold never grows the store on its own."
+        },
+        {
+          "line": 727,
+          "text": "            unsigned id;"
+        },
+        {
+          "line": 728,
+          "text": "            for (constraint_i const* c : cs) {"
+        },
+        {
+          "line": 729,
+          "text": "                if (!m_constraint_store.find(*c, id))"
+        },
+        {
+          "line": 730,
+          "text": "                    continue;"
+        },
+        {
+          "line": 731,
+          "text": "                if (id >= m_watch_list.size())"
+        },
+        {
+          "line": 732,
+          "text": "                    continue;"
+        },
+        {
+          "line": 733,
+          "text": "                for (unsigned j = 0; j < m_watch_list[id].size(); ++j) {"
+        },
+        {
+          "line": 734,
+          "text": "                    auto core_idx = m_watch_list[id][j];"
+        },
+        {
+          "line": 735,
+          "text": "                    if (!try_rewatch(core_idx, cs)) {"
+        },
+        {
+          "line": 736,
+          "text": "                        ++m_stats.m_num_cache_hits;"
+        },
+        {
+          "line": 737,
+          "text": "                        return true;"
+        },
+        {
+          "line": 738,
+          "text": "                    }"
+        },
+        {
+          "line": 739,
+          "text": "                }                "
+        },
+        {
+          "line": 740,
+          "text": "            }"
+        },
+        {
+          "line": 741,
+          "text": "            return false;"
+        },
+        {
+          "line": 742,
+          "text": "        }"
+        },
+        {
+          "line": 743,
+          "text": ""
+        },
+        {
+          "line": 744,
+          "text": "        // Narrow `cs` (the node's full active, signature-contributing set,"
+        },
+        {
+          "line": 745,
+          "text": "        // as gathered by compute_constraints()) down to just the facts"
+        },
+        {
+          "line": 746,
+          "text": "        // that could actually have contributed to deriving THIS"
+        },
+        {
+          "line": 747,
+          "text": "        // conflict - a cheap, sound alternative to full minimal-unsat-"
+        },
+        {
+          "line": 748,
+          "text": "        // core extraction, using dependency information the engine"
+        },
+        {
+          "line": 749,
+          "text": "        // already tracks for its own conflict-explanation purposes at"
+        },
+        {
+          "line": 750,
+          "text": "        // zero extra propagation cost. `conflict_dep` is the closing"
+        },
+        {
+          "line": 751,
+          "text": "        // node's own `conflict_dep()` (already set by the caller before"
+        },
+        {
+          "line": 752,
+          "text": "        // cache_insert() runs - see dfs()'s three call sites)."
+        },
+        {
+          "line": 753,
+          "text": "        //"
+        },
+        {
+          "line": 754,
+          "text": "        // Soundness: every `node::set_conflict()` call site builds its"
+        },
+        {
+          "line": 755,
+          "text": "        // dependency purely by joining (via `dep_manager_t::mk_join()`,"
+        },
+        {
+          "line": 756,
+          "text": "        // which forms a leaf-value join-tree without ever inventing new"
+        },
+        {
+          "line": 757,
+          "text": "        // leaves) the `m_dep`/`dep_handle()` of exactly the fact(s) that"
+        },
+        {
+          "line": 758,
+          "text": "        // participated in that specific conflict/derivation (see e.g."
+        },
+        {
+          "line": 759,
+          "text": "        // `eq_facet::simplify_equation`'s `conflict_dep = eq.m_dep` /"
+        },
+        {
+          "line": 760,
+          "text": "        // `mk_join(parent_dep, false_dep)`), so a fact that genuinely"
+        },
+        {
+          "line": 761,
+          "text": "        // participated always has its own leaf set as a SUBSET of"
+        },
+        {
+          "line": 762,
+          "text": "        // `conflict_dep`'s leaf set. A fact whose own leaf set is NOT a"
+        },
+        {
+          "line": 763,
+          "text": "        // subset - it depends on at least one leaf this conflict's"
+        },
+        {
+          "line": 764,
+          "text": "        // derivation never needed - provably did not contribute to"
+        },
+        {
+          "line": 765,
+          "text": "        // producing THIS conflict via THIS derivation path, so dropping"
+        },
+        {
+          "line": 766,
+          "text": "        // it cannot make the recorded core insufficient (any future node"
+        },
+        {
+          "line": 767,
+          "text": "        // containing the remaining, smaller set still deterministically"
+        },
+        {
+          "line": 768,
+          "text": "        // reaches the same conflict the same way)."
+        },
+        {
+          "line": 769,
+          "text": "        //"
+        },
+        {
+          "line": 770,
+          "text": "        // Not a minimal core: multiple still-included facts may share"
+        },
+        {
+          "line": 771,
+          "text": "        // enough overlapping leaves that, on closer (unattempted) proof-"
+        },
+        {
+          "line": 772,
+          "text": "        // theoretic inspection, some of them would also turn out to be"
+        },
+        {
+          "line": 773,
+          "text": "        // unnecessary - this only ever removes facts that are PROVABLY"
+        },
+        {
+          "line": 774,
+          "text": "        // irrelevant by the subset test above, nothing more."
+        },
+        {
+          "line": 775,
+          "text": "        //"
+        },
+        {
+          "line": 776,
+          "text": "        // A fact with no dependency handle (`dep_handle() == nullptr` -"
+        },
+        {
+          "line": 777,
+          "text": "        // the default; e.g. a purely definitional/derived fact with no"
+        },
+        {
+          "line": 778,
+          "text": "        // independent leaf justification of its own, or `conflict_dep`"
+        },
+        {
+          "line": 779,
+          "text": "        // itself being null, which should not normally happen for a real"
+        },
+        {
+          "line": 780,
+          "text": "        // conflict) is always kept: there is no dependency information"
+        },
+        {
+          "line": 781,
+          "text": "        // available to safely rule it out."
+        },
+        {
+          "line": 782,
+          "text": "        void filter_by_conflict_dep(vector<constraint_i const*>& cs, dep_tracker conflict_dep) {"
+        },
+        {
+          "line": 783,
+          "text": "            if (!conflict_dep)"
+        },
+        {
+          "line": 784,
+          "text": "                return;"
+        },
+        {
+          "line": 785,
+          "text": "            vector<constraint_i const*> kept;"
+        },
+        {
+          "line": 786,
+          "text": "            vector<dep_source_t, false> fact_leaves;"
+        },
+        {
+          "line": 787,
+          "text": "            for (constraint_i const* c : cs) {"
+        },
+        {
+          "line": 788,
+          "text": "                dep_tracker fd = static_cast<dep_tracker>(c->dep_handle());"
+        },
+        {
+          "line": 789,
+          "text": "                if (!fd) {"
+        },
+        {
+          "line": 790,
+          "text": "                    kept.push_back(c);"
+        },
+        {
+          "line": 791,
+          "text": "                    continue;"
+        },
+        {
+          "line": 792,
+          "text": "                }"
+        },
+        {
+          "line": 793,
+          "text": "                fact_leaves.reset();"
+        },
+        {
+          "line": 794,
+          "text": "                m_dep_mgr.linearize(fd, fact_leaves);"
+        },
+        {
+          "line": 795,
+          "text": "                bool all_contained = true;"
+        },
+        {
+          "line": 796,
+          "text": "                for (auto const& v : fact_leaves) {"
+        },
+        {
+          "line": 797,
+          "text": "                    if (!m_dep_mgr.contains(conflict_dep, v)) {"
+        },
+        {
+          "line": 798,
+          "text": "                        all_contained = false;"
+        },
+        {
+          "line": 799,
+          "text": "                        break;"
+        },
+        {
+          "line": 800,
+          "text": "                    }"
+        },
+        {
+          "line": 801,
+          "text": "                }"
+        },
+        {
+          "line": 802,
+          "text": "                if (all_contained)"
+        },
+        {
+          "line": 803,
+          "text": "                    kept.push_back(c);"
+        },
+        {
+          "line": 804,
+          "text": "            }"
+        },
+        {
+          "line": 805,
+          "text": "            cs = std::move(kept);"
+        },
+        {
+          "line": 806,
+          "text": "        }"
+        },
+        {
+          "line": 807,
+          "text": ""
+        },
+        {
+          "line": 808,
+          "text": "        // Insert: memoize this node's current state as an (over-"
+        },
+        {
+          "line": 809,
+          "text": "        // approximate) unsat core, and register it in the watch list."
+        },
+        {
+          "line": 810,
+          "text": "        // Only called at closure points the caller has already determined"
+        },
+        {
+          "line": 811,
+          "text": "        // are a pure function of the signature-contributing facets (see"
+        },
+        {
+          "line": 812,
+          "text": "        // dfs()); cache_eligible() is re-checked here regardless, as a"
+        },
+        {
+          "line": 813,
+          "text": "        // second, cheap safety net."
+        },
+        {
+          "line": 814,
+          "text": "        //"
+        },
+        {
+          "line": 815,
+          "text": "        // The initial watch is picked arbitrarily (lits[0]): the \"watch is"
+        },
+        {
+          "line": 816,
+          "text": "        // absent\" invariant need not hold yet - this very node's active set"
+        },
+        {
+          "line": 817,
+          "text": "        // is exactly (a superset of) the core being inserted, so every"
+        },
+        {
+          "line": 818,
+          "text": "        // literal is present right now. It self-repairs the first time"
+        },
+        {
+          "line": 819,
+          "text": "        // cache_lookup() visits some other node containing lits[0]: if"
+        },
+        {
+          "line": 820,
+          "text": "        // every other literal is also active there, the core fires"
+        },
+        {
+          "line": 821,
+          "text": "        // immediately (correctly - that node is unsat too); otherwise"
+        },
+        {
+          "line": 822,
+          "text": "        // try_rewatch() moves the watch to a literal that is genuinely"
+        },
+        {
+          "line": 823,
+          "text": "        // absent there, restoring the invariant for future checks."
+        },
+        {
+          "line": 824,
+          "text": "        void cache_insert(node const& n) {"
+        },
+        {
+          "line": 825,
+          "text": "            if (!m_unsat_cache_enabled || !cache_eligible(n))"
+        },
+        {
+          "line": 826,
+          "text": "                return;"
+        },
+        {
+          "line": 827,
+          "text": "            vector<constraint_i const*> cs = compute_constraints(n);"
+        },
+        {
+          "line": 828,
+          "text": "            if (cs.empty())"
+        },
+        {
+          "line": 829,
+          "text": "                return;"
+        },
+        {
+          "line": 830,
+          "text": "            // Narrow the over-approximate active set down to just the"
+        },
+        {
+          "line": 831,
+          "text": "            // facts that could have contributed to THIS conflict (see"
+        },
+        {
+          "line": 832,
+          "text": "            // filter_by_conflict_dep()'s comment) before interning"
+        },
+        {
+          "line": 833,
+          "text": "            // anything: a smaller recorded core matches (as a subset)"
+        },
+        {
+          "line": 834,
+          "text": "            // more future nodes, so this only ever helps the cache's hit"
+        },
+        {
+          "line": 835,
+          "text": "            // rate, never hurts its soundness."
+        },
+        {
+          "line": 836,
+          "text": "            filter_by_conflict_dep(cs, n.conflict_dep());"
+        },
+        {
+          "line": 837,
+          "text": "            if (cs.empty())"
+        },
+        {
+          "line": 838,
+          "text": "                return;"
+        },
+        {
+          "line": 839,
+          "text": "            vector<unsigned> ids;"
+        },
+        {
+          "line": 840,
+          "text": "            for (constraint_i const* c : cs)"
+        },
+        {
+          "line": 841,
+          "text": "                ids.push_back(m_constraint_store.intern(*c));"
+        },
+        {
+          "line": 842,
+          "text": "            unsigned idx = m_unsat_cores.size();"
+        },
+        {
+          "line": 843,
+          "text": "            unsigned watch_id = ids[0];"
+        },
+        {
+          "line": 844,
+          "text": "            m_unsat_cores.push_back({ std::move(ids), 0 });"
+        },
+        {
+          "line": 845,
+          "text": "            watch(watch_id, idx);"
+        },
+        {
+          "line": 846,
+          "text": "        }"
+        },
+        {
+          "line": 847,
+          "text": ""
+        },
+        {
+          "line": 848,
+          "text": "        unsigned unsat_cache_size() const {"
+        },
+        {
+          "line": 849,
+          "text": "            return m_unsat_cores.size();"
+        },
+        {
+          "line": 850,
+          "text": "        }"
+        },
+        {
+          "line": 1070,
+          "text": "            on_scope_exit dot_pop([&]() { dot_trace_pop(dot_id); });"
+        },
+        {
+          "line": 1071,
+          "text": ""
+        },
+        {
+          "line": 1072,
+          "text": "            search_result result;"
+        },
+        {
+          "line": 1073,
+          "text": "            n.clear_status();"
+        },
+        {
+          "line": 1074,
+          "text": "            simplify_result sr = propagate_to_fixpoint(n);"
+        },
+        {
+          "line": 1075,
+          "text": ""
+        },
+        {
+          "line": 1076,
+          "text": "            bool cache_hit = false;"
+        },
+        {
+          "line": 1077,
+          "text": "            if (sr != simplify_result::conflict && sr != simplify_result::satisfied &&"
+        },
+        {
+          "line": 1078,
+          "text": "                cache_lookup(n)) {"
+        },
+        {
+          "line": 1079,
+          "text": "                n.set_conflict(br_children_failed, nullptr);"
+        },
+        {
+          "line": 1080,
+          "text": "                sr = simplify_result::conflict;"
+        },
+        {
+          "line": 1081,
+          "text": "                cache_hit = true;"
+        },
+        {
+          "line": 1082,
+          "text": "            }"
+        },
+        {
+          "line": 1083,
+          "text": ""
+        },
+        {
+          "line": 1084,
+          "text": "            dot_trace_snapshot(dot_id, n);"
+        },
+        {
+          "line": 1085,
+          "text": ""
+        },
+        {
+          "line": 1086,
+          "text": "            if (sr == simplify_result::conflict) {"
+        },
+        {
+          "line": 1087,
+          "text": "                result = search_result::unsat;"
+        },
+        {
+          "line": 1088,
+          "text": "                pure_out = cache_eligible(n);"
+        },
+        {
+          "line": 1089,
+          "text": "                if (pure_out && !cache_hit)"
+        },
+        {
+          "line": 1090,
+          "text": "                    cache_insert(n);"
+        },
+        {
+          "line": 1091,
+          "text": "            }"
+        },
+        {
+          "line": 1092,
+          "text": "            else if (sr == simplify_result::satisfied) {"
+        },
+        {
+          "line": 1093,
+          "text": "                result = search_result::sat;"
+        },
+        {
+          "line": 1094,
+          "text": "                m_sat_snapshot = n.clone(m_trail);"
+        },
+        {
+          "line": 1095,
+          "text": "            }"
+        },
+        {
+          "line": 1096,
+          "text": "            else if (depth >= m_depth_bound) {"
+        },
+        {
+          "line": 1097,
+          "text": "                result = search_result::depth_cutoff;"
+        },
+        {
+          "line": 1098,
+          "text": "            }"
+        },
+        {
+          "line": 1099,
+          "text": "            else {"
+        },
+        {
+          "line": 1100,
+          "text": "                edge first_edge;"
+        },
+        {
+          "line": 1101,
+          "text": "                bool has_children = extend_node(n, frame, first_edge);"
+        },
+        {
+          "line": 1102,
+          "text": ""
+        },
+        {
+          "line": 1103,
+          "text": "                if (!has_children) {"
+        },
+        {
+          "line": 1104,
+          "text": "                    if (n.is_conflict()) {"
+        },
+        {
+          "line": 1105,
+          "text": "                        result = search_result::unsat;"
+        },
+        {
+          "line": 1106,
+          "text": "                        pure_out = cache_eligible(n);"
+        }
+      ]
+    },
+    {
+      "path": "src/util/vector.h",
+      "blob": "41f81fc95305d08c0245a5a727a486dabaf17c13",
+      "sha256": "7834274c3083352b55c7d020cae7070752546086e6e0f3fcfa9e3f9a696da454",
+      "line_count": 714,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 579,
+          "text": "    bool contains(T const & elem) const {"
+        },
+        {
+          "line": 580,
+          "text": "        const_iterator it  = begin();"
+        },
+        {
+          "line": 581,
+          "text": "        const_iterator e = end();"
+        },
+        {
+          "line": 582,
+          "text": "        for (; it != e; ++it) {"
+        },
+        {
+          "line": 583,
+          "text": "            if (*it == elem) {"
+        },
+        {
+          "line": 584,
+          "text": "                return true;"
+        },
+        {
+          "line": 585,
+          "text": "            }"
+        },
+        {
+          "line": 586,
+          "text": "        }"
+        },
+        {
+          "line": 587,
+          "text": "        return false;"
+        },
+        {
+          "line": 588,
+          "text": "    }"
+        },
+        {
+          "line": 589,
+          "text": ""
+        }
+      ]
+    }
+  ]
+}

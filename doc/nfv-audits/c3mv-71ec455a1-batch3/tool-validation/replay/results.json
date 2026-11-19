@@ -1,0 +1,75 @@
+[
+  {
+    "input": "checks\\009-P19-proof.dfy",
+    "input_sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d",
+    "expected_exit": 4,
+    "actual_exit": 4,
+    "matched": true,
+    "seconds": 4.256,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch3\\nfv3-models\\checks\\009-P19-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "009-P19-proof.log"
+  },
+  {
+    "input": "checks\\013-P19-visited-prefix-mbqi-refute.dfy",
+    "input_sha256": "a576e228df9349330a61da93522ff206e373ce61a7782596fcfd37b69c9e2adc",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "matched": true,
+    "seconds": 2.553,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch3\\nfv3-models\\checks\\013-P19-visited-prefix-mbqi-refute.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false",
+      "--solver-option",
+      "O:smt.mbqi=true"
+    ],
+    "log": "013-P19-visited-prefix-mbqi-refute.log"
+  },
+  {
+    "input": "checks\\018-P19-candidate-proof.dfy",
+    "input_sha256": "20dba0d94c65a4157a1b68376b9392799d1d2a6bf173380f51b51c7ec83842a4",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "matched": true,
+    "seconds": 1.91,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch3\\nfv3-models\\checks\\018-P19-candidate-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false",
+      "--solver-option",
+      "O:smt.mbqi=true"
+    ],
+    "log": "018-P19-candidate-proof.log"
+  }
+]

@@ -1,0 +1,879 @@
+{
+  "batch": 3,
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "previous_master": "d738f81eab9af1468394664a812fe4310ae8e1fa",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "nfv_upstream": "599726579274cfeb1c0915414b911371527a9870",
+  "scope": "Manual source-only selection of two new whole-function model obligations, not outcomes or hosted-driver output",
+  "properties": [
+    {
+      "id": "P18",
+      "coverage_candidate": "C10-apply-word-identity",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "power_trichotomy::apply",
+      "span": [
+        455,
+        579
+      ],
+      "intent_origin": "source-inferred hypothesis from the changed function and its enumerator, not PR intent or source-confirmed correctness",
+      "quote_line": 502,
+      "grounding_quote": "        // Each case asserts exactly what its substitution `Y^N := X^M . z` needs.",
+      "inputs": {
+        "b": "int: branch selector 0..9, including source direction",
+        "param": "int: enumerated constant period, otherwise 0",
+        "A": "seq<int>: original first base valuation",
+        "B": "seq<int>: original second base valuation",
+        "aBounds": "seq<int>: flattened token boundaries for A",
+        "bBounds": "seq<int>: flattened token boundaries for B",
+        "aLiteral": "seq<bool>: observed per-token is-unit-and-constant-character classification for A",
+        "bLiteral": "seq<bool>: corresponding classification for B",
+        "expA": "int: valuation of original first exponent",
+        "expB": "int: valuation of original second exponent",
+        "y1": "seq<int>: fresh f1/f4 word valuation",
+        "y2": "seq<int>: fresh f4 word valuation",
+        "wFresh": "seq<int>: fresh f2 root valuation",
+        "iFresh": "int: fresh f2 exponent valuation",
+        "jFresh": "int: fresh f2 exponent valuation",
+        "p1Fresh": "seq<int>: fresh f3 first word valuation",
+        "p2Fresh": "seq<int>: fresh f3 second word valuation",
+        "kFresh": "int: fresh f3 exponent valuation",
+        "qFresh": "int: fresh f4 exponent valuation"
+      },
+      "outputs": {
+        "constraints_ok": "bool: conjunction of interpreted side conditions actually added by this branch",
+        "fromWord": "seq<int>: interpreted substituted term",
+        "toWord": "seq<int>: interpreted replacement"
+      },
+      "semantics": [
+        "Words are seq<int> over an uninterpreted equality alphabet. Power(word,k) is empty for k<=0 and repeated concatenation otherwise. Integer exponents are unbounded mathematical integers, not unsigned.",
+        "Input token boundaries begin at 0, end at word length, are nondecreasing, and have one more element than classification flags. A true literal flag requires a one-character segment. False allows any segment length, including zero; it does not assert inequality of word values.",
+        "Body-defined ConstantWord follows the source reset/loop/early-return/append/nonempty-return behavior using the observed literal flags and corresponding one-character segments. Its flags are abstract syntactic observations, not guessed from word valuations.",
+        "Compute direction exactly from b<5; select X,M,Y,N and the associated token views by swapping original inputs in the mirrored direction. Apply the source <= or strict < guard to the lengths of truncated word powers, not to M*|X| for negative M.",
+        "Fresh values are universally free input valuations; constraints_ok accumulates the actual arithmetic constraints and word equations instead of assuming they are always true. It does not assert native solver reachability.",
+        "f0 adds M<=0 OR X empty and emits X^M -> epsilon. f1 adds N>=1 and Y=X^M.y1, with residual y1.Y^(N-1).",
+        "f2 adds M>=1; use primitive_root(gx?X:Y) when either ConstantWord succeeds, derive existing i/j by the actual length division, otherwise use fresh root. For each missing i/j add >=1 and the respective base=root^exponent equation. Residual is root^(j*N-i*M). Never assume j*N-i*M>=0 when root is empty.",
+        "f3 adds M,N>=2. param>0 uses l1=|X| mod param, p1=suffix(X,l1), p2=X[l1..param). Otherwise use fresh p1,p2 and add X=(p1.p2)^kFresh with a trailing p1. Do not restrict kFresh>=0. Add Y=X^(M-1).p1.p2 and preserve the complete residual p2.p1.X^(M-2).p1.p2.Y^(N-2).",
+        "f4 adds M=1,qFresh>=0,qFresh+1<=N, Y=y1.y2 and X=Y^qFresh.y1. Preserve residual y2.Y^(N-qFresh-1).",
+        "All nonzero cases emit Y^N -> X^M.residual. Preserve every branch computation, including both constant and fresh-root variants; do not select separate properties per case."
+      ],
+      "domain": [
+        {
+          "predicate": "0<=b<10; 0<=param<4294967296; valid token boundary/classification views; each token-vector length <4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:414-451; unsigned selector/period/vector lengths and flattened token value projection"
+        },
+        {
+          "predicate": "Non-f3 branches have param=0. In f3, ConstantWord(X) iff param>0; when param>0, 0<param<|X| and body-defined HasPeriod(X,param).",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:443-448: constant X produces period-param branches; nonconstant X produces param=0"
+        },
+        {
+          "predicate": "For f2 with both bases constant, X.Y==Y.X.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:441-442 rejects noncommuting constant bases; omitting this caller guard would invent invalid common-root behavior"
+        },
+        {
+          "predicate": "For constant f3 with constant Y: |Y|>=U32(|X|+param) and U32(|Y|-param) mod |X|==0, where U32(v)=v mod 4294967296.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:447 unsigned additions/subtractions retained, not silently lifted to nonwrapping mathematics"
+        },
+        {
+          "predicate": "Every successful ConstantWord output has length <4294967296.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "unsigned zstring length and one-character-per-successful-token representation; not a bound on arbitrary opaque-word valuations"
+        }
+      ],
+      "whole_positive_property": "!constraints_ok || fromWord == toWord",
+      "required_helpers": [
+        {
+          "name": "Power",
+          "contract": "Truncated signed word exponentiation by recursive concatenation with a body; algebraic lemmas must be verified, not assumed.",
+          "source": "src/ast/seq/seq_power_facet.cpp:110-142; src/ast/seq_decl_plugin.h:60-67,315-320"
+        },
+        {
+          "name": "ConstantWord",
+          "contract": "Exact partial accumulation/early-return semantics on the projected flattened token view; successful output equals the complete base and is nonempty.",
+          "source": "src/ast/seq/seq_power_facet.cpp:271-281"
+        },
+        {
+          "name": "HasPeriod",
+          "contract": "Actual pairwise-offset scan, with checked index/unsigned domains.",
+          "source": "src/ast/seq/seq_power_facet.cpp:283-289"
+        },
+        {
+          "name": "PrimitiveRoot",
+          "contract": "Actual least-divisor/has_period loop and fallback. Prove any repetition/common-root facts required by the original whole goal; no bodyless common-root oracle.",
+          "source": "src/ast/seq/seq_power_facet.cpp:291-297"
+        },
+        {
+          "name": "Word/slice/power construction",
+          "contract": "Actual branch concatenation order and constant suffix/subslice, with all index domains established. Arithmetic normalization is interpreted mathematically, not asserted as a native rewriter theorem.",
+          "source": "src/ast/seq/seq_power_facet.cpp:94-108,476-497,510-579"
+        }
+      ],
+      "omitted_effects": [
+        "No proof of full arithmetic-rewriter/AST equivalence, tokenization equivalence or C++/Dafny correspondence; flattened token values and syntactic literal flags are explicit input observations.",
+        "Freshness, AST identities/sorts, add_power registration, dependency propagation, callback lifetime/reallocation effects, allocations and later solver search are outside this word-semantic projection.",
+        "The enumerator prefix/alphabet feasibility filters and trigger eligibility are not reconstructed; only necessary constant-root/period caller guards are retained. The model admits additional branches, not fewer. At least one source exponent expression may be syntactically symbolic even when its independent valuation is a numeral.",
+        "No branch exhaustiveness/completeness claim, no native reachability claim, and no source-confirmed crash/result. An unresolved complete proof stays unresolved rather than becoming scalar-count success."
+      ],
+      "domain_examples": [
+        {
+          "label": "f0 negative exponent",
+          "inputs": {
+            "b": 0,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              1
+            ],
+            "aLiteral": [
+              true
+            ],
+            "bLiteral": [
+              true
+            ],
+            "expA": -1,
+            "expB": 1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f1 residual",
+          "inputs": {
+            "b": 1,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              1,
+              2
+            ],
+            "aLiteral": [
+              true
+            ],
+            "bLiteral": [
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 2,
+            "y1": [
+              98
+            ],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f2 empty fresh root and negative N",
+          "inputs": {
+            "b": 2,
+            "param": 0,
+            "A": [],
+            "B": [],
+            "aBounds": [
+              0,
+              0
+            ],
+            "bBounds": [
+              0,
+              0
+            ],
+            "aLiteral": [
+              false
+            ],
+            "bLiteral": [
+              false
+            ],
+            "expA": 2,
+            "expB": -1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 1,
+            "jFresh": 1,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f2 two commuting constants with different powers",
+          "inputs": {
+            "b": 2,
+            "param": 0,
+            "A": [
+              97,
+              97
+            ],
+            "B": [
+              97,
+              97,
+              97
+            ],
+            "aBounds": [
+              0,
+              1,
+              2
+            ],
+            "bBounds": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "aLiteral": [
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f3 symbolic decomposition with negative k",
+          "inputs": {
+            "b": 3,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              97,
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              3
+            ],
+            "aLiteral": [
+              false
+            ],
+            "bLiteral": [
+              false
+            ],
+            "expA": 2,
+            "expB": 2,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [
+              97
+            ],
+            "p2Fresh": [
+              98
+            ],
+            "kFresh": -1,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f3 constant period not dividing length",
+          "inputs": {
+            "b": 3,
+            "param": 2,
+            "A": [
+              97,
+              98,
+              97,
+              98,
+              97
+            ],
+            "B": [
+              97,
+              98,
+              97,
+              98,
+              97,
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "bBounds": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "aLiteral": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "expA": 2,
+            "expB": 2,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f4 split residual",
+          "inputs": {
+            "b": 4,
+            "param": 0,
+            "A": [
+              97,
+              98,
+              97
+            ],
+            "B": [
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "bBounds": [
+              0,
+              1,
+              2
+            ],
+            "aLiteral": [
+              true,
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 2,
+            "y1": [
+              97
+            ],
+            "y2": [
+              98
+            ],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 1
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "mirrored f1 strict length guard",
+          "inputs": {
+            "b": 6,
+            "param": 0,
+            "A": [
+              97,
+              98
+            ],
+            "B": [
+              97
+            ],
+            "aBounds": [
+              0,
+              1,
+              2
+            ],
+            "bBounds": [
+              0,
+              1
+            ],
+            "aLiteral": [
+              true,
+              true
+            ],
+            "bLiteral": [
+              true
+            ],
+            "expA": 2,
+            "expB": 1,
+            "y1": [
+              98
+            ],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        }
+      ],
+      "outcome": "not modeled or checked",
+      "source_blob": "a1b4edea553812863bded3e7e717a4ccf809df38",
+      "original_positive_property_frozen": true,
+      "changed_anchors": [
+        455,
+        456,
+        457,
+        458,
+        459,
+        460,
+        461,
+        462,
+        463,
+        464,
+        465,
+        466,
+        467,
+        468,
+        469,
+        470,
+        471,
+        472,
+        473,
+        474,
+        475,
+        476,
+        477,
+        478,
+        479,
+        480,
+        481,
+        482,
+        483,
+        484,
+        485,
+        486,
+        487,
+        488,
+        489,
+        490,
+        491,
+        492,
+        493,
+        494,
+        495,
+        496,
+        497,
+        498,
+        499,
+        500,
+        501,
+        502,
+        503,
+        504,
+        505,
+        506,
+        507,
+        508,
+        509,
+        510,
+        511,
+        512,
+        513,
+        514,
+        515,
+        516,
+        517,
+        518,
+        519,
+        520,
+        521,
+        522,
+        523,
+        524,
+        525,
+        526,
+        527,
+        528,
+        529,
+        530,
+        531,
+        532,
+        533,
+        534,
+        535,
+        536,
+        537,
+        538,
+        539,
+        540,
+        541,
+        542,
+        543,
+        544,
+        545,
+        546,
+        547,
+        548,
+        549,
+        550,
+        551,
+        552,
+        553,
+        554,
+        555,
+        556,
+        557,
+        558,
+        559,
+        560,
+        561,
+        562,
+        563,
+        564,
+        565,
+        566,
+        567,
+        568,
+        569,
+        570,
+        571,
+        572,
+        573,
+        574,
+        575,
+        576,
+        577,
+        578,
+        579
+      ]
+    },
+    {
+      "id": "P19",
+      "coverage_candidate": "C12-rewatch-representation",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "try_rewatch",
+      "span": [
+        681,
+        708
+      ],
+      "intent_origin": "source-inferred documented local return/state contract, NOT unsat-core semantic soundness",
+      "quote_line": 688,
+      "grounding_quote": "        // Returns false - no absent literal exists anywhere in the core:",
+      "inputs": {
+        "lits": "seq<int>: current core store IDs",
+        "canonicalPointers": "seq<int>: store-ID-to-canonical-pointer identity table",
+        "pointeeValue": "seq<int>: pointer-identity-to-semantic-equivalence-class table",
+        "activePointers": "seq<int>: currently active live pointer identities",
+        "oldWatch": "int: original index into lits",
+        "coreIdx": "int: this core ID",
+        "bucketWidths": "seq<int>: watch-list bucket lengths",
+        "bucketItems": "seq<int>: concatenated bucket core IDs"
+      },
+      "outputs": {
+        "moved": "bool: source return value",
+        "newWatch": "int: updated core watch index",
+        "widthsOut": "seq<int>: resulting bucket lengths",
+        "itemsOut": "seq<int>: resulting flattened bucket core IDs"
+      },
+      "domain": [
+        {
+          "predicate": "0<|lits|<4294967296; 0<=oldWatch<|lits|; every lits[i] indexes canonicalPointers; every canonical pointer and active pointer indexes pointeeValue; all vector lengths and represented IDs are unsigned-32 values.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "core/store/vector indexing and unsigned source representations"
+        },
+        {
+          "predicate": "SemanticActive(canonicalPointers[lits[oldWatch]],activePointers,pointeeValue).",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "source precondition comment:681-683; cache_lookup uses semantic find:716-735"
+        },
+        {
+          "predicate": "Canonical pointer identities are pairwise distinct, and their pointeeValue classes are pairwise distinct.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "constraint_store::intern clones only after semantic find fails:600-610; one canonical owner per class"
+        },
+        {
+          "predicate": "Each bucket width is nonnegative; widths sum to |bucketItems|; bucket lengths, each item and coreIdx fit unsigned-32. No requirement that canonical pointers equal their live semantic aliases; old watch bucket may be absent as handled by unwatch.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "value-state projection of the vector-of-vectors and source guarded unwatch/resize operations:664-678"
+        }
+      ],
+      "semantics": [
+        "Pointer equality is identity equality. SemanticActive is existence of an active pointer with equal pointeeValue, not membership of canonical identity.",
+        "Read old_id=lits[oldWatch]; scan i from 0, skipping oldWatch. Test actual identity membership canonicalPointers[lits[i]] in activePointers, without substituting semantic equality.",
+        "On first identity-absent other entry: unwatch(old_id,coreIdx), assign newWatch=i, watch(lits[i],coreIdx), return true. Otherwise preserve old state and return false.",
+        "Unwatch removes the first matching coreIdx in the specified bucket if present, or is a no-op if bucket out of range or core absent. Watch grows buckets with empty rows then appends one coreIdx. Preserve order and all unaffected rows.",
+        "The flattened representation uses bucketWidths plus concatenated bucketItems, with body-defined prefix offsets/slice/delete/append helpers, not an unconstrained state-update oracle."
+      ],
+      "whole_positive_property": "(moved == (exists i :: 0<=i<|lits| && !SemanticActive(canonicalPointers[lits[i]],activePointers,pointeeValue))) AND (0<=newWatch<|lits|) AND (if moved then newWatch!=oldWatch AND !SemanticActive(canonicalPointers[lits[newWatch]],activePointers,pointeeValue) AND (widthsOut,itemsOut)==Watch(Unwatch(bucketWidths,bucketItems,lits[oldWatch],coreIdx),lits[newWatch],coreIdx) else newWatch==oldWatch AND widthsOut==bucketWidths AND itemsOut==bucketItems)",
+      "required_helpers": [
+        {
+          "name": "IdentityContains",
+          "contract": "Body-defined equality scan over actual pointer identities.",
+          "source": "src/util/vector.h:579-589"
+        },
+        {
+          "name": "SemanticActive",
+          "contract": "Body-defined existence/scan of equal pointeeValue classes; explicit equivalence-class abstraction, not a proof of arbitrary constraint_i::equals semantics.",
+          "source": "src/util/stx_search_tree.h:575-610,716-735"
+        },
+        {
+          "name": "Watch and Unwatch",
+          "contract": "Body-defined exact bucket resize/append and first-match removal; no assumed helper effects.",
+          "source": "src/util/stx_search_tree.h:664-678"
+        },
+        {
+          "name": "Bucket offsets and slice updates",
+          "contract": "Bodies preserve the explicit flattened value representation and unaffected row order; bounds require independent verification.",
+          "source": "src/util/stx_search_tree.h:667-668,676-678"
+        }
+      ],
+      "omitted_effects": [
+        "This is a documented semantic-presence return contract plus complete local watch updates, not a proof that any cached core is unsatisfiable or that filtering conflict dependencies is sound.",
+        "Container updates describe successful normal-return mathematical value-state resize/erase/append. Native allocation failure, capacity growth/counter overflow and memory safety are not modeled or proved.",
+        "The source interface calls arbitrary constraint equals/hash; pointeeValue abstracts their semantic equivalence classes for consistent equation-like objects, with no native alias/lifetime, hash-table implementation, global cache-lookup or caller scheduling proof.",
+        "A verified violation of the semantic-presence converse is a missed-hit/control-contract result only. Do not label it false SAT/UNSAT, a native crash, an exploitable vulnerability or an executed C++ counterexample.",
+        "The input-example alias pattern is a candidate diagnostic, not a claimed counterexample until the complete conjunction is mechanically negated and independently verified with all inputs pinned."
+      ],
+      "domain_examples": [
+        {
+          "label": "two semantically active live aliases with distinct canonical identities",
+          "inputs": {
+            "lits": [
+              0,
+              1
+            ],
+            "canonicalPointers": [
+              0,
+              1
+            ],
+            "pointeeValue": [
+              10,
+              20,
+              10,
+              20
+            ],
+            "activePointers": [
+              2,
+              3
+            ],
+            "oldWatch": 0,
+            "coreIdx": 0,
+            "bucketWidths": [
+              1,
+              0
+            ],
+            "bucketItems": [
+              0
+            ]
+          },
+          "status": "unverified candidate domain; not yet a counterexample"
+        },
+        {
+          "label": "genuinely absent other literal and missing destination bucket",
+          "inputs": {
+            "lits": [
+              0,
+              1
+            ],
+            "canonicalPointers": [
+              0,
+              1
+            ],
+            "pointeeValue": [
+              10,
+              20,
+              10
+            ],
+            "activePointers": [
+              2
+            ],
+            "oldWatch": 0,
+            "coreIdx": 0,
+            "bucketWidths": [
+              1
+            ],
+            "bucketItems": [
+              0
+            ]
+          },
+          "status": "unverified candidate domain"
+        },
+        {
+          "label": "singleton semantically active via alias",
+          "inputs": {
+            "lits": [
+              0
+            ],
+            "canonicalPointers": [
+              0
+            ],
+            "pointeeValue": [
+              10,
+              10
+            ],
+            "activePointers": [
+              1
+            ],
+            "oldWatch": 0,
+            "coreIdx": 7,
+            "bucketWidths": [],
+            "bucketItems": []
+          },
+          "status": "unverified candidate domain"
+        }
+      ],
+      "outcome": "not modeled or checked",
+      "source_blob": "4827ccd4011ebfe52673f4ce0973ce996708e804",
+      "original_positive_property_frozen": true,
+      "changed_anchors": [
+        681,
+        682,
+        683,
+        684,
+        685,
+        686,
+        687,
+        688,
+        689,
+        690,
+        691,
+        692,
+        693,
+        694,
+        695,
+        696,
+        697,
+        698,
+        699,
+        700,
+        701,
+        702,
+        703,
+        704,
+        705,
+        706,
+        707,
+        708
+      ]
+    }
+  ],
+  "selection_policy": "Two meaningful distinct changed entries, no quota, no branch/conjunct splitting. P18 spans all apply cases and both constant/fresh forms. P19 preserves the documented return contract AND local watch-state effects.",
+  "deferred": [
+    "P13 complete request-queue proof remains unresolved",
+    "C11 caller-justified global substitution-DAG/termination proof",
+    "C12 semantic sufficiency of cached dependency-filtered cores",
+    "Power branch completeness/exhaustiveness",
+    "Native reachability/allocation of the P12 giant-pattern witness"
+  ],
+  "not_selected": [
+    "Duplicate primitive_root property already covered by first-batch P5",
+    "Separate f1/f2/f3/f4 identity properties for the same selected apply entry",
+    "Eligibility-only predicate as a substitute for complete cache soundness",
+    "Fuel-bounded elimination success as a substitute for termination",
+    "Extra small properties to fill a ten-property quota"
+  ],
+  "evidence": {
+    "coverage_inventory_sha256": "d33911bd8dde877a572a5ad435e56574b46965c98e3a4836abc2e77392964824",
+    "coverage_ledger_sha256": "3fcf15513e5ff70ce7d0829cf9974a4f0f352f0e79b405fd54b7e1ed4e920ef3",
+    "p12_trace_sha256": "93aa931c59654883e0ff6058c583600dee71909800787b8faec0ccf1bcbfc8c5"
+  },
+  "pre_freeze_validation_history": [
+    {
+      "result": "failed selection-span assertion, not a verifier check",
+      "exception": "AssertionError",
+      "cause": "try_rewatch intent quote is an attached precondition/return-contract comment outside its initial body-only span",
+      "correction": "Extend the faithful source slice to lines 681-708, covering the attached contract and whole body; both entry body and quote are independently changed. No property/domain was weakened; no model existed."
+    }
+  ],
+  "new_models": 0,
+  "new_verifier_attempts": 0
+}

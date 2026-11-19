@@ -1,0 +1,11 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(227,44): Error: a precondition for this call could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(165,25): Related location: this is the precondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(22,2): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(233,44): Error: a precondition for this call could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(165,25): Related location: this is the precondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(22,2): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(239,44): Error: a precondition for this call could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(165,25): Related location: this is the precondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/004-P19-domain.dfy(22,2): Related location: this proposition could not be proved
+
+Dafny program verifier finished with 11 verified, 3 errors

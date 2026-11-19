@@ -1,0 +1,90 @@
+[
+  {
+    "id": "all",
+    "phase": "provenance",
+    "recorded_utc": "2026-11-19T16:35:33.162723+00:00",
+    "seconds": 0.257,
+    "exit_code": 0,
+    "command": [
+      "C:\\Users\\nbjorner\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\drafts\\001-provenance\\check_nfv3_provenance.py",
+      "--models",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\drafts\\001-provenance",
+      "--inventory",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\drafts\\001-provenance\\nfv3-coverage-source-inventory.json"
+    ],
+    "input": "001-provenance",
+    "inputs": [
+      {
+        "path": "drafts\\001-provenance\\check_nfv3_provenance.py",
+        "sha256": "55a8ee9edfd6505a0f599ccedbccc4249eb7617b1d437985f6127d41a6eb1e6b"
+      },
+      {
+        "path": "drafts\\001-provenance\\nfv3-coverage-source-inventory.json",
+        "sha256": "d33911bd8dde877a572a5ad435e56574b46965c98e3a4836abc2e77392964824"
+      },
+      {
+        "path": "drafts\\001-provenance\\P18.dfy",
+        "sha256": "fef6a9e8c6d1774f4fcf8c3c82295bf1bf99df84ec5eedfa424c1763eb779710"
+      },
+      {
+        "path": "drafts\\001-provenance\\P19.dfy",
+        "sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d"
+      },
+      {
+        "path": "drafts\\001-provenance\\properties.json",
+        "sha256": "5a9f51d7c489d20626421e80b0919daf1ff1d86e6d47c432d21c804f3997f192"
+      }
+    ],
+    "log": "drafts\\001-provenance.log",
+    "log_sha256": "e3fab994864750736b1ec90d51da285c42050c31fcc7ca9cd3922819d178fa0f"
+  },
+  {
+    "id": "P18",
+    "phase": "resolve",
+    "recorded_utc": "2026-11-19T16:35:35.720094+00:00",
+    "seconds": 2.541,
+    "exit_code": 0,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "resolve",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\drafts\\002-P18-resolve.dfy",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "input": "002-P18-resolve",
+    "inputs": [
+      {
+        "path": "drafts\\002-P18-resolve.dfy",
+        "sha256": "fef6a9e8c6d1774f4fcf8c3c82295bf1bf99df84ec5eedfa424c1763eb779710"
+      }
+    ],
+    "log": "drafts\\002-P18-resolve.log",
+    "log_sha256": "4ed2a56d3f649be14987e86930bedcd26aa8f439b8c180b2a223d32415798c4e"
+  },
+  {
+    "id": "P19",
+    "phase": "resolve",
+    "recorded_utc": "2026-11-19T16:35:36.491146+00:00",
+    "seconds": 0.756,
+    "exit_code": 0,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "resolve",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv3-models\\drafts\\003-P19-resolve.dfy",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "input": "003-P19-resolve",
+    "inputs": [
+      {
+        "path": "drafts\\003-P19-resolve.dfy",
+        "sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d"
+      }
+    ],
+    "log": "drafts\\003-P19-resolve.log",
+    "log_sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54"
+  }
+]

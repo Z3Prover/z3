@@ -1,0 +1,14 @@
+{
+  "src/ast/seq/seq_power_facet.cpp": {
+    "blob": "a1b4edea553812863bded3e7e717a4ccf809df38",
+    "line_count": 1260
+  },
+  "src/util/stx_search_tree.h": {
+    "blob": "4827ccd4011ebfe52673f4ce0973ce996708e804",
+    "line_count": 1397
+  },
+  "src/util/vector.h": {
+    "blob": "41f81fc95305d08c0245a5a727a486dabaf17c13",
+    "line_count": 714
+  }
+}

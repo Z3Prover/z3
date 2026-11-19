@@ -1,0 +1,4 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/012-P19-visited-prefix-refute.dfy(191,0): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/012-P19-visited-prefix-refute.dfy(189,10): Related location: this is the postcondition that could not be proved
+
+Dafny program verifier finished with 11 verified, 1 error

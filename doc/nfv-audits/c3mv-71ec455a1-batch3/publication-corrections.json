@@ -1,0 +1,16 @@
+{
+  "source_tag": {
+    "path": "nfv3-models/P19.dfy and P19-candidate.dfy",
+    "old_line": 707,
+    "old_quote": "}",
+    "corrected_line": 706,
+    "corrected_quote": "return false;",
+    "effect": "Source-comment correction only; all historical verifier inputs and frozen baselines retained byte-exact. No changed computation, domain, helper contract or whole goal."
+  },
+  "current_model_sha256": "200d8f0f19f683771d55076df0dcd943368057e7b5633d3dcfa793ad25cf6a3f",
+  "current_candidate_sha256": "a3b5189de88d678ac7a5caa180d54fe152cb3df5ce8039d41ce1ebed46e0e23c",
+  "verified_full_refutation_sha256": "a576e228df9349330a61da93522ff206e373ce61a7782596fcfd37b69c9e2adc",
+  "verified_candidate_sha256": "20dba0d94c65a4157a1b68376b9392799d1d2a6bf173380f51b51c7ec83842a4",
+  "pre_freeze_events": "Coverage broad path-disjointness assertion and selection attached-comment span assertion were corrected before modeling; retained in the respective ledger/selection. Neither is a verifier check.",
+  "raw_crlf_exception": "nfv3-models/drafts/001-provenance/check_nfv3_provenance.py"
+}

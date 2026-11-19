@@ -1,0 +1,2 @@
+* text eol=lf
+nfv3-models/drafts/001-provenance/check_nfv3_provenance.py -text

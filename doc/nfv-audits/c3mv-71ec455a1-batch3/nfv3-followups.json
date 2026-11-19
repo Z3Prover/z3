@@ -1,0 +1,21 @@
+{
+  "property": "P19",
+  "optional_restrictions": [],
+  "optional_removal": "not applicable: no optional requires in frozen property",
+  "shorter": "!moved || HasAbsent(lits,canonicalPointers,pointeeValue,activePointers)",
+  "shorter_implication": true,
+  "shorter_refutation": true,
+  "implication_inputs_outputs": "all free; no witness pins",
+  "candidate": {
+    "path": "P19-candidate.dfy",
+    "sha256": "a3b5189de88d678ac7a5caa180d54fe152cb3df5ce8039d41ce1ebed46e0e23c",
+    "change": "Entry guard uses the existing SemanticActive helper instead of IdentityContains; only the proof invariant is adapted to the new guard.",
+    "helpers_and_original_contracts_unchanged": true,
+    "validity": true,
+    "domain": true,
+    "whole_original_property": true,
+    "verified_input_sha256": "20dba0d94c65a4157a1b68376b9392799d1d2a6bf173380f51b51c7ec83842a4",
+    "provenance_correction": "Current final-false source tag corrected from closing brace 707 to return statement 706; verified historical input retained byte-exact. No computation/contract change."
+  },
+  "limits": "Entry-only mathematical model repair, not a native C++ patch, compiled test, full cache-core proof or production-correctness result."
+}

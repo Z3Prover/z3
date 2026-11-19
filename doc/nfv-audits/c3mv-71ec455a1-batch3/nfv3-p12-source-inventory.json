@@ -1,0 +1,3837 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "scope": "Bounded immutable API/parser/literal/buffer/caller/VERIFY source tracing; not native reachability or execution evidence",
+  "files": [
+    {
+      "path": "src/api/api_context.cpp",
+      "blob": "ff58bb1ea3b9bd70b82675800246fd2ab56e5edc",
+      "sha256": "126cf20d509884ad3c5b11ecfe91125569bb4348532c482b6208b858932ecc3d",
+      "line_count": 576,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 406,
+          "text": "    "
+        },
+        {
+          "line": 407,
+          "text": "    Z3_context Z3_API Z3_mk_context(Z3_config c) {"
+        },
+        {
+          "line": 408,
+          "text": "        Z3_TRY;"
+        },
+        {
+          "line": 409,
+          "text": "        LOG_Z3_mk_context(c);"
+        },
+        {
+          "line": 410,
+          "text": "        memory::initialize(UINT_MAX);"
+        },
+        {
+          "line": 411,
+          "text": "        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context_params*>(c), false));"
+        },
+        {
+          "line": 412,
+          "text": "        RETURN_Z3(r);"
+        },
+        {
+          "line": 413,
+          "text": "        Z3_CATCH_RETURN_NO_HANDLE(nullptr);"
+        },
+        {
+          "line": 414,
+          "text": "    }"
+        },
+        {
+          "line": 415,
+          "text": ""
+        },
+        {
+          "line": 416,
+          "text": "    Z3_context Z3_API Z3_mk_context_rc(Z3_config c) {"
+        },
+        {
+          "line": 417,
+          "text": "        Z3_TRY;"
+        },
+        {
+          "line": 418,
+          "text": "        LOG_Z3_mk_context_rc(c);"
+        },
+        {
+          "line": 419,
+          "text": "        memory::initialize(UINT_MAX);"
+        },
+        {
+          "line": 420,
+          "text": "        set_default_exit_action(exit_action::throw_exception);"
+        },
+        {
+          "line": 421,
+          "text": "        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context_params*>(c), true));"
+        },
+        {
+          "line": 422,
+          "text": "        RETURN_Z3(r);"
+        },
+        {
+          "line": 423,
+          "text": "        Z3_CATCH_RETURN_NO_HANDLE(nullptr);"
+        },
+        {
+          "line": 424,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/api/api_seq.cpp",
+      "blob": "bf5165bbe0ad095879c190a3227d0b928a3fff92",
+      "sha256": "926e9dc969c14b1ed8b52388c87a5258176ed74dd3baed2bdd55f23bc40ebd19",
+      "line_count": 378,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 48,
+          "text": "    Z3_ast Z3_API Z3_mk_string(Z3_context c, Z3_string str) {"
+        },
+        {
+          "line": 49,
+          "text": "        Z3_TRY;"
+        },
+        {
+          "line": 50,
+          "text": "        LOG_Z3_mk_string(c, str);"
+        },
+        {
+          "line": 51,
+          "text": "        RESET_ERROR_CODE();"
+        },
+        {
+          "line": 52,
+          "text": "        if (!str) {"
+        },
+        {
+          "line": 53,
+          "text": "            SET_ERROR_CODE(Z3_INVALID_ARG, \"null string\");"
+        },
+        {
+          "line": 54,
+          "text": "            RETURN_Z3(nullptr);"
+        },
+        {
+          "line": 55,
+          "text": "        }"
+        },
+        {
+          "line": 56,
+          "text": "        zstring s(str);"
+        },
+        {
+          "line": 57,
+          "text": "        app* a = mk_c(c)->sutil().str.mk_string(s);"
+        },
+        {
+          "line": 58,
+          "text": "        mk_c(c)->save_ast_trail(a);"
+        },
+        {
+          "line": 59,
+          "text": "        RETURN_Z3(of_ast(a));"
+        },
+        {
+          "line": 60,
+          "text": "        Z3_CATCH_RETURN(nullptr);"
+        },
+        {
+          "line": 61,
+          "text": "    }"
+        },
+        {
+          "line": 62,
+          "text": ""
+        },
+        {
+          "line": 63,
+          "text": "    Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned sz, Z3_string str) {"
+        },
+        {
+          "line": 64,
+          "text": "        Z3_TRY;"
+        },
+        {
+          "line": 65,
+          "text": "        LOG_Z3_mk_lstring(c, sz, str);"
+        },
+        {
+          "line": 66,
+          "text": "        RESET_ERROR_CODE();"
+        },
+        {
+          "line": 67,
+          "text": "        if (sz > 0 && !str) {"
+        },
+        {
+          "line": 68,
+          "text": "            SET_ERROR_CODE(Z3_INVALID_ARG, \"null string buffer\");"
+        },
+        {
+          "line": 69,
+          "text": "            RETURN_Z3(nullptr);"
+        },
+        {
+          "line": 70,
+          "text": "        }"
+        },
+        {
+          "line": 71,
+          "text": "        unsigned_vector chs;"
+        },
+        {
+          "line": 72,
+          "text": "        for (unsigned i = 0; i < sz; ++i) chs.push_back((unsigned char)str[i]);"
+        },
+        {
+          "line": 73,
+          "text": "        zstring s(sz, chs.data());"
+        },
+        {
+          "line": 74,
+          "text": "        app* a = mk_c(c)->sutil().str.mk_string(s);"
+        },
+        {
+          "line": 75,
+          "text": "        mk_c(c)->save_ast_trail(a);"
+        },
+        {
+          "line": 76,
+          "text": "        RETURN_Z3(of_ast(a));"
+        },
+        {
+          "line": 77,
+          "text": "        Z3_CATCH_RETURN(nullptr);"
+        },
+        {
+          "line": 78,
+          "text": "    }"
+        },
+        {
+          "line": 79,
+          "text": ""
+        },
+        {
+          "line": 80,
+          "text": "    Z3_ast Z3_API Z3_mk_u32string(Z3_context c, unsigned sz, unsigned const chars[]) {"
+        },
+        {
+          "line": 81,
+          "text": "        Z3_TRY;"
+        },
+        {
+          "line": 82,
+          "text": "        LOG_Z3_mk_u32string(c, sz, chars);"
+        },
+        {
+          "line": 83,
+          "text": "        RESET_ERROR_CODE();"
+        },
+        {
+          "line": 84,
+          "text": "        zstring s(sz, chars);"
+        },
+        {
+          "line": 85,
+          "text": "        app* a = mk_c(c)->sutil().str.mk_string(s);"
+        },
+        {
+          "line": 86,
+          "text": "        mk_c(c)->save_ast_trail(a);"
+        },
+        {
+          "line": 87,
+          "text": "        RETURN_Z3(of_ast(a));"
+        },
+        {
+          "line": 88,
+          "text": "        Z3_CATCH_RETURN(nullptr);"
+        },
+        {
+          "line": 89,
+          "text": "    }"
+        },
+        {
+          "line": 90,
+          "text": ""
+        },
+        {
+          "line": 91,
+          "text": "    Z3_ast Z3_API Z3_mk_char(Z3_context c, unsigned ch) {"
+        },
+        {
+          "line": 300,
+          "text": "    MK_BINARY(Z3_mk_str_le, mk_c(c)->get_seq_fid(), OP_STRING_LE, SKIP);"
+        },
+        {
+          "line": 301,
+          "text": "    MK_UNARY(Z3_mk_string_to_code, mk_c(c)->get_seq_fid(), OP_STRING_TO_CODE, SKIP);"
+        },
+        {
+          "line": 302,
+          "text": "    MK_UNARY(Z3_mk_string_from_code, mk_c(c)->get_seq_fid(), OP_STRING_FROM_CODE, SKIP);"
+        },
+        {
+          "line": 303,
+          "text": ""
+        },
+        {
+          "line": 304,
+          "text": "    MK_TERNARY(Z3_mk_seq_extract, mk_c(c)->get_seq_fid(), OP_SEQ_EXTRACT, SKIP);"
+        },
+        {
+          "line": 305,
+          "text": "    MK_TERNARY(Z3_mk_seq_replace, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE, SKIP);"
+        },
+        {
+          "line": 306,
+          "text": "    MK_TERNARY(Z3_mk_seq_replace_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_ALL, SKIP);"
+        },
+        {
+          "line": 307,
+          "text": "    MK_TERNARY(Z3_mk_seq_replace_re, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE, SKIP);"
+        },
+        {
+          "line": 308,
+          "text": "    MK_TERNARY(Z3_mk_seq_replace_re_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE_ALL, SKIP);"
+        },
+        {
+          "line": 309,
+          "text": "    MK_BINARY(Z3_mk_seq_at, mk_c(c)->get_seq_fid(), OP_SEQ_AT, SKIP);"
+        }
+      ]
+    },
+    {
+      "path": "src/api/z3_api.h",
+      "blob": "8a602b3ebf6362a152291572cbb8883310976a14",
+      "sha256": "d00554cb1d449f8bfee43bf0890f584d3d85e28f9dab45475d3b3cbb2d838a59",
+      "line_count": 7919,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 3928,
+          "text": "    /**"
+        },
+        {
+          "line": 3929,
+          "text": "       \\brief Create a string constant out of the string that is passed in"
+        },
+        {
+          "line": 3930,
+          "text": "       It takes the length of the string as well to take into account"
+        },
+        {
+          "line": 3931,
+          "text": "       0 characters. The string is treated as if it is unescaped so a sequence"
+        },
+        {
+          "line": 3932,
+          "text": "       of characters \\\\u{0} is treated as 5 characters and not the character 0."
+        },
+        {
+          "line": 3933,
+          "text": ""
+        },
+        {
+          "line": 3934,
+          "text": "       def_API('Z3_mk_lstring', AST, (_in(CONTEXT), _in(UINT), _in(STRING)))"
+        },
+        {
+          "line": 3935,
+          "text": "     */"
+        },
+        {
+          "line": 3936,
+          "text": "    Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned len, Z3_string s);"
+        },
+        {
+          "line": 3937,
+          "text": ""
+        },
+        {
+          "line": 3938,
+          "text": "    /**"
+        },
+        {
+          "line": 3939,
+          "text": "       \\brief Create a string constant out of the string that is passed in"
+        },
+        {
+          "line": 3940,
+          "text": "       It takes the length of the string as well to take into account"
+        },
+        {
+          "line": 3941,
+          "text": "       0 characters. The string is unescaped."
+        },
+        {
+          "line": 3942,
+          "text": ""
+        },
+        {
+          "line": 3943,
+          "text": "       def_API('Z3_mk_u32string', AST, (_in(CONTEXT), _in(UINT), _in_array(1, UINT)))"
+        },
+        {
+          "line": 3944,
+          "text": "     */"
+        },
+        {
+          "line": 3945,
+          "text": "    Z3_ast Z3_API Z3_mk_u32string(Z3_context c, unsigned len, unsigned const chars[]);"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/ast.h",
+      "blob": "22fddc9343cbd350ac5907ff05c68819b0e3d227",
+      "sha256": "d17a7fb2a4cd0cdda91b12ca9c4c42b6ee77e48a100dc49dbbe271e4394040d0",
+      "line_count": 2805,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 125,
+          "text": "        int,       // for PARAM_INT"
+        },
+        {
+          "line": 126,
+          "text": "        ast*,      // for PARAM_AST"
+        },
+        {
+          "line": 127,
+          "text": "        symbol,    // for PARAM_SYMBOL"
+        },
+        {
+          "line": 128,
+          "text": "        zstring*,  // for PARAM_ZSTRING"
+        },
+        {
+          "line": 129,
+          "text": "        rational,  // for PARAM_RATIONAL"
+        },
+        {
+          "line": 130,
+          "text": "        double,    // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)"
+        },
+        {
+          "line": 131,
+          "text": "        unsigned   // for PARAM_EXTERNAL"
+        },
+        {
+          "line": 132,
+          "text": "    > m_val = 0;"
+        },
+        {
+          "line": 133,
+          "text": ""
+        },
+        {
+          "line": 134,
+          "text": "public:"
+        },
+        {
+          "line": 135,
+          "text": ""
+        },
+        {
+          "line": 136,
+          "text": "    parameter() noexcept = default;"
+        },
+        {
+          "line": 137,
+          "text": "    explicit parameter(int val): m_val(val) {}"
+        },
+        {
+          "line": 138,
+          "text": "    explicit parameter(unsigned val): m_val((int)val) {}"
+        },
+        {
+          "line": 139,
+          "text": "    explicit parameter(ast * p): m_val(p) {}"
+        },
+        {
+          "line": 140,
+          "text": "    explicit parameter(symbol const & s): m_val(s) {}"
+        },
+        {
+          "line": 141,
+          "text": "    explicit parameter(rational const & r): m_val(r) {}"
+        },
+        {
+          "line": 142,
+          "text": "    explicit parameter(rational && r) : m_val(std::move(r)) {} "
+        },
+        {
+          "line": 143,
+          "text": "    explicit parameter(zstring const& s): m_val(alloc(zstring, s)) {}"
+        },
+        {
+          "line": 144,
+          "text": "    explicit parameter(zstring && s): m_val(alloc(zstring, std::move(s))) {}"
+        },
+        {
+          "line": 145,
+          "text": "    explicit parameter(double d): m_val(d) {}"
+        },
+        {
+          "line": 146,
+          "text": "    explicit parameter(const char *s): m_val(symbol(s)) {}"
+        },
+        {
+          "line": 147,
+          "text": "    explicit parameter(const std::string &s): m_val(symbol(s)) {}"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/rewriter/seq_rewriter.cpp",
+      "blob": "08417e31754fca8c292dd08622eb57186a8d1d14",
+      "sha256": "6f8ccb6fa459915cfc691a8e04f4d62a1eb967191b5709f3356310c8313ac7eb",
+      "line_count": 5969,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 2295,
+          "text": "br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result) {"
+        },
+        {
+          "line": 2296,
+          "text": "    if (str().is_empty(b) || b == c) {"
+        },
+        {
+          "line": 2297,
+          "text": "        result = a;"
+        },
+        {
+          "line": 2298,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 2299,
+          "text": "    } "
+        },
+        {
+          "line": 2300,
+          "text": "    if (a == b) {        "
+        },
+        {
+          "line": 2301,
+          "text": "        auto _seq1814_0 = str().mk_is_empty(b);"
+        },
+        {
+          "line": 2302,
+          "text": "        auto _seq1814_1 = str().mk_empty(a->get_sort());"
+        },
+        {
+          "line": 2303,
+          "text": "        result = m().mk_ite(_seq1814_0, _seq1814_1, c);        "
+        },
+        {
+          "line": 2304,
+          "text": "        return BR_REWRITE2;"
+        },
+        {
+          "line": 2305,
+          "text": "    }"
+        },
+        {
+          "line": 2306,
+          "text": "    if (str().is_empty(a) && str().is_empty(c)) {"
+        },
+        {
+          "line": 2307,
+          "text": "        result = a;"
+        },
+        {
+          "line": 2308,
+          "text": "        return BR_DONE;"
+        },
+        {
+          "line": 2309,
+          "text": "    }"
+        },
+        {
+          "line": 2310,
+          "text": "    zstring s1, s2;"
+        },
+        {
+          "line": 2311,
+          "text": "    expr_ref_vector strs(m());"
+        },
+        {
+          "line": 2312,
+          "text": "    if (str().is_string(a, s1) && str().is_string(b, s2)) {"
+        },
+        {
+          "line": 2313,
+          "text": "        SASSERT(s2.length() > 0);"
+        },
+        {
+          "line": 2314,
+          "text": "        if (s1.length() < s2.length()) {"
+        },
+        {
+          "line": 2315,
+          "text": "            result = a;"
+        },
+        {
+          "line": 2316,
+          "text": "            return BR_DONE;"
+        },
+        {
+          "line": 2317,
+          "text": "        }"
+        },
+        {
+          "line": 2318,
+          "text": "        for (unsigned i = 0; i < s1.length(); ++i) {"
+        },
+        {
+          "line": 2319,
+          "text": "            if (s1.length() >= s2.length() + i && "
+        },
+        {
+          "line": 2320,
+          "text": "                s2 == s1.extract(i, s2.length())) {"
+        },
+        {
+          "line": 2321,
+          "text": "                strs.push_back(c);"
+        },
+        {
+          "line": 2322,
+          "text": "                i += s2.length() - 1;"
+        },
+        {
+          "line": 2323,
+          "text": "            }"
+        },
+        {
+          "line": 2324,
+          "text": "            else "
+        },
+        {
+          "line": 2325,
+          "text": "                strs.push_back(str().mk_unit(str().mk_char(s1, i)));"
+        },
+        {
+          "line": 2326,
+          "text": "        }"
+        },
+        {
+          "line": 2327,
+          "text": "        result = str().mk_concat(strs, a->get_sort());"
+        },
+        {
+          "line": 2328,
+          "text": "        return BR_REWRITE_FULL;"
+        },
+        {
+          "line": 2329,
+          "text": "    }"
+        },
+        {
+          "line": 2330,
+          "text": "    expr_ref_vector a_vals(m());"
+        },
+        {
+          "line": 2331,
+          "text": "    expr_ref_vector b_vals(m());"
+        },
+        {
+          "line": 2332,
+          "text": "    if (try_get_unit_values(a, a_vals) && try_get_unit_values(b, b_vals)) {"
+        },
+        {
+          "line": 2333,
+          "text": "        replace_all_subvectors(a_vals, b_vals, c, strs);"
+        },
+        {
+          "line": 2334,
+          "text": "        result = str().mk_concat(strs, a->get_sort());"
+        },
+        {
+          "line": 2335,
+          "text": "        return BR_REWRITE_FULL;"
+        },
+        {
+          "line": 2336,
+          "text": "    }"
+        },
+        {
+          "line": 2337,
+          "text": ""
+        },
+        {
+          "line": 2338,
+          "text": "    //TODO: the case when a is a unit or concatenation of units while b is a string "
+        },
+        {
+          "line": 2339,
+          "text": "    //or the other way around -- if that situation is possible at all -- is similar to the above"
+        },
+        {
+          "line": 2340,
+          "text": "    return BR_FAILED;"
+        },
+        {
+          "line": 2341,
+          "text": "}"
+        },
+        {
+          "line": 2573,
+          "text": "bool seq_rewriter::try_get_unit_values(expr* s, expr_ref_vector& vals) {"
+        },
+        {
+          "line": 2574,
+          "text": "    expr* h, * t, * v;"
+        },
+        {
+          "line": 2575,
+          "text": "    t = s;"
+        },
+        {
+          "line": 2576,
+          "text": "    //collect all unit values from s, if not all elements are unit-values then fail"
+        },
+        {
+          "line": 2577,
+          "text": "    while (str().is_concat(t, h, t))"
+        },
+        {
+          "line": 2578,
+          "text": "        if (str().is_unit(h, v) && m().is_value(v))"
+        },
+        {
+          "line": 2579,
+          "text": "            vals.push_back(h);"
+        },
+        {
+          "line": 2580,
+          "text": "        else"
+        },
+        {
+          "line": 2581,
+          "text": "            return false;"
+        },
+        {
+          "line": 2582,
+          "text": "    //add the last element"
+        },
+        {
+          "line": 2583,
+          "text": "    if (str().is_unit(t, v) && m().is_value(v))"
+        },
+        {
+          "line": 2584,
+          "text": "        vals.push_back(t);"
+        },
+        {
+          "line": 2585,
+          "text": "    else"
+        },
+        {
+          "line": 2586,
+          "text": "        return false;"
+        },
+        {
+          "line": 2587,
+          "text": "    return true;"
+        },
+        {
+          "line": 2588,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "blob": "e2911ff7f490d420a6040267a60ba818f2a4025d",
+      "sha256": "69f637c15e22e0b499343b488134ec505bcf41453b410911b2b9cbe3a452eea6",
+      "line_count": 290,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 24,
+          "text": "    void replace_all_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {"
+        },
+        {
+          "line": 25,
+          "text": "        for (unsigned i = 0; i < m_ras.size(); ++i) {"
+        },
+        {
+          "line": 26,
+          "text": "            if (!m_ras[i].active())"
+        },
+        {
+          "line": 27,
+          "text": "                continue;"
+        },
+        {
+          "line": 28,
+          "text": "            bool touched = subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_result, var, repl);"
+        },
+        {
+          "line": 29,
+          "text": "            touched |= subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_input, var, repl);"
+        },
+        {
+          "line": 30,
+          "text": "            touched |= subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_repl, var, repl);"
+        },
+        {
+          "line": 31,
+          "text": "            if (touched && subst_dep) {"
+        },
+        {
+          "line": 32,
+          "text": "                m_trail.push(vector_field_trail<str_replace_all, eq_tree::dep_tracker>(m_ras, i, &str_replace_all::m_dep));"
+        },
+        {
+          "line": 33,
+          "text": "                m_ras[i].m_dep = m_dm.mk_join(m_ras[i].m_dep, subst_dep);"
+        },
+        {
+          "line": 34,
+          "text": "            }"
+        },
+        {
+          "line": 35,
+          "text": "        }"
+        },
+        {
+          "line": 36,
+          "text": "    }"
+        },
+        {
+          "line": 37,
+          "text": ""
+        },
+        {
+          "line": 38,
+          "text": "    stx::facet_i* replace_all_facet::clone(trail_stack& trail) const {"
+        },
+        {
+          "line": 39,
+          "text": "        replace_all_facet* f = alloc(replace_all_facet, trail, m, m_dm);"
+        },
+        {
+          "line": 40,
+          "text": "        f->m_ras.append(m_ras);"
+        },
+        {
+          "line": 41,
+          "text": "        return f;"
+        },
+        {
+          "line": 132,
+          "text": ""
+        },
+        {
+          "line": 133,
+          "text": "    stx::simplify_result replace_all_propagation::propagate(eq_tree::node& n) {"
+        },
+        {
+          "line": 134,
+          "text": "        auto ac = get_ambient(n);"
+        },
+        {
+          "line": 135,
+          "text": "        auto& f = ac.replace_all_facet_ref();"
+        },
+        {
+          "line": 136,
+          "text": "        auto& ef = ac.eq_facet_ref();"
+        },
+        {
+          "line": 137,
+          "text": "        bool changed = false;"
+        },
+        {
+          "line": 138,
+          "text": "        for (unsigned idx = 0; idx < f.obligations().size(); ++idx) {"
+        },
+        {
+          "line": 139,
+          "text": "            if (!f.obligations()[idx].active())"
+        },
+        {
+          "line": 140,
+          "text": "                continue;"
+        },
+        {
+          "line": 141,
+          "text": "            // Copies: adding obligations may reallocate the vector."
+        },
+        {
+          "line": 142,
+          "text": "            str_replace_all const& ra = f.obligations()[idx];"
+        },
+        {
+          "line": 143,
+          "text": "            expr_ref_vector result(ra.m_result), input(ra.m_input), repl(ra.m_repl);"
+        },
+        {
+          "line": 144,
+          "text": "            expr_ref pattern(ra.m_pattern);"
+        },
+        {
+          "line": 145,
+          "text": "            eq_tree::dep_tracker dep = ra.m_dep;"
+        },
+        {
+          "line": 146,
+          "text": "            zstring p;"
+        },
+        {
+          "line": 147,
+          "text": "            VERIFY(u.str.is_string(pattern, p));"
+        },
+        {
+          "line": 148,
+          "text": "            expr_ref_vector out(m);"
+        },
+        {
+          "line": 149,
+          "text": "            unsigned c;"
+        },
+        {
+          "line": 150,
+          "text": ""
+        },
+        {
+          "line": 151,
+          "text": "            if (p.length() == 1) {"
+        },
+        {
+          "line": 152,
+          "text": "                // Homomorphism: every token is handled on its own."
+        },
+        {
+          "line": 153,
+          "text": "                if (input.size() == 1 && !is_const_unit(u, input.get(0), c))"
+        },
+        {
+          "line": 154,
+          "text": "                    continue;"
+        },
+        {
+          "line": 155,
+          "text": "                f.remove(idx);"
+        },
+        {
+          "line": 156,
+          "text": "                for (expr* t : input) {"
+        },
+        {
+          "line": 157,
+          "text": "                    if (!is_const_unit(u, t, c))"
+        },
+        {
+          "line": 158,
+          "text": "                        add_rest(ac, pattern, repl, dep, 1, &t, out);"
+        },
+        {
+          "line": 159,
+          "text": "                    else if (c == p[0])"
+        },
+        {
+          "line": 160,
+          "text": "                        out.append(repl);"
+        },
+        {
+          "line": 161,
+          "text": "                    else"
+        },
+        {
+          "line": 162,
+          "text": "                        out.push_back(t);"
+        },
+        {
+          "line": 163,
+          "text": "                }"
+        },
+        {
+          "line": 164,
+          "text": "                ef.add_equation(result, out, dep);"
+        },
+        {
+          "line": 165,
+          "text": "                changed = true;"
+        },
+        {
+          "line": 166,
+          "text": "                ++m_stats.m_num_eval;"
+        },
+        {
+          "line": 167,
+          "text": "                continue;"
+        },
+        {
+          "line": 168,
+          "text": "            }"
+        },
+        {
+          "line": 169,
+          "text": ""
+        },
+        {
+          "line": 170,
+          "text": "            unsigned pos = 0;"
+        },
+        {
+          "line": 171,
+          "text": "            while (pos < input.size()) {"
+        },
+        {
+          "line": 172,
+          "text": "                lbool r = match_at(u, input, pos, p);"
+        },
+        {
+          "line": 173,
+          "text": "                if (r == l_undef)"
+        },
+        {
+          "line": 174,
+          "text": "                    break;"
+        },
+        {
+          "line": 175,
+          "text": "                if (r == l_true) {"
+        },
+        {
+          "line": 176,
+          "text": "                    out.append(repl);"
+        },
+        {
+          "line": 177,
+          "text": "                    pos += p.length();"
+        },
+        {
+          "line": 178,
+          "text": "                }"
+        },
+        {
+          "line": 179,
+          "text": "                else"
+        },
+        {
+          "line": 180,
+          "text": "                    out.push_back(input.get(pos++));"
+        },
+        {
+          "line": 181,
+          "text": "            }"
+        },
+        {
+          "line": 182,
+          "text": "            if (pos > 0 || input.empty()) {"
+        },
+        {
+          "line": 183,
+          "text": "                f.remove(idx);"
+        },
+        {
+          "line": 184,
+          "text": "                add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out);"
+        },
+        {
+          "line": 185,
+          "text": "                ef.add_equation(result, out, dep);"
+        },
+        {
+          "line": 186,
+          "text": "                changed = true;"
+        },
+        {
+          "line": 187,
+          "text": "                ++m_stats.m_num_eval;"
+        },
+        {
+          "line": 188,
+          "text": "                continue;"
+        },
+        {
+          "line": 189,
+          "text": "            }"
+        },
+        {
+          "line": 190,
+          "text": ""
+        },
+        {
+          "line": 191,
+          "text": "            if (!is_unbordered(p))"
+        },
+        {
+          "line": 192,
+          "text": "                continue;"
+        },
+        {
+          "line": 193,
+          "text": "            pos = 1;"
+        },
+        {
+          "line": 194,
+          "text": "            while (pos < input.size() && match_at(u, input, pos, p) != l_true) {"
+        },
+        {
+          "line": 195,
+          "text": "                ++pos;"
+        },
+        {
+          "line": 196,
+          "text": "            }"
+        },
+        {
+          "line": 197,
+          "text": "            if (pos >= input.size())"
+        },
+        {
+          "line": 198,
+          "text": "                continue;"
+        },
+        {
+          "line": 199,
+          "text": "            f.remove(idx);"
+        },
+        {
+          "line": 200,
+          "text": "            add_rest(ac, pattern, repl, dep, pos, input.data(), out);"
+        },
+        {
+          "line": 201,
+          "text": "            out.append(repl);"
+        },
+        {
+          "line": 202,
+          "text": "            pos += p.length();"
+        },
+        {
+          "line": 203,
+          "text": "            add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out);"
+        },
+        {
+          "line": 204,
+          "text": "            ef.add_equation(result, out, dep);"
+        },
+        {
+          "line": 205,
+          "text": "            changed = true;"
+        },
+        {
+          "line": 206,
+          "text": "            ++m_stats.m_num_cut;"
+        },
+        {
+          "line": 207,
+          "text": "        }"
+        },
+        {
+          "line": 208,
+          "text": "        if (!changed)"
+        },
+        {
+          "line": 209,
+          "text": "            return stx::simplify_result::noop;"
+        },
+        {
+          "line": 210,
+          "text": "        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;"
+        },
+        {
+          "line": 213,
+          "text": "    // Case c for input V: 1: V = \"\", 2: V = p.w, and with k = c/2 - 1"
+        },
+        {
+          "line": 214,
+          "text": "    // even c > 2: V = p[0..k), odd c > 2: V = p[0..k).y.w with y != p[k]."
+        },
+        {
+          "line": 215,
+          "text": "    bool replace_all_split::apply_case(eq_tree::node& n, unsigned idx, unsigned c, eq_tree::edge& out) {"
+        },
+        {
+          "line": 216,
+          "text": "        auto ac = get_ambient(n);"
+        },
+        {
+          "line": 217,
+          "text": "        auto& f = ac.replace_all_facet_ref();"
+        },
+        {
+          "line": 218,
+          "text": "        auto& ef = ac.eq_facet_ref();"
+        },
+        {
+          "line": 219,
+          "text": "        str_replace_all const& ra = f.obligations()[idx];"
+        },
+        {
+          "line": 220,
+          "text": "        expr_ref_vector result(ra.m_result), input(ra.m_input), repl(ra.m_repl);"
+        },
+        {
+          "line": 221,
+          "text": "        expr_ref pattern(ra.m_pattern);"
+        },
+        {
+          "line": 222,
+          "text": "        eq_tree::dep_tracker dep = ra.m_dep;"
+        },
+        {
+          "line": 223,
+          "text": "        zstring p;"
+        },
+        {
+          "line": 224,
+          "text": "        VERIFY(u.str.is_string(pattern, p));"
+        },
+        {
+          "line": 225,
+          "text": "        if (c >= 2 * p.length() + 2)"
+        },
+        {
+          "line": 226,
+          "text": "            return false;"
+        },
+        {
+          "line": 227,
+          "text": "        bool match = c == 2;"
+        },
+        {
+          "line": 228,
+          "text": "        bool ends = c == 1 || (c > 2 && c % 2 == 0);"
+        },
+        {
+          "line": 229,
+          "text": "        unsigned k = match ? p.length() : c < 3 ? 0 : c / 2 - 1;"
+        },
+        {
+          "line": 230,
+          "text": "        sort* srt = pattern->get_sort();"
+        },
+        {
+          "line": 231,
+          "text": "        expr_ref_vector pat(m), in_rhs(m), out_rhs(m), rest_in(m);"
+        },
+        {
+          "line": 232,
+          "text": "        u.str.get_concat_units(pattern, pat);"
+        },
+        {
+          "line": 233,
+          "text": "        in_rhs.append(k, pat.data());"
+        },
+        {
+          "line": 234,
+          "text": "        f.remove(idx);"
+        },
+        {
+          "line": 235,
+          "text": "        if (ends) {"
+        },
+        {
+          "line": 236,
+          "text": "            ef.add_equation(input, in_rhs, dep);"
+        },
+        {
+          "line": 237,
+          "text": "            ef.add_equation(result, in_rhs, dep);"
+        },
+        {
+          "line": 238,
+          "text": "            out = eq_tree::edge(\"replace-all end\", dep, true, 0);"
+        },
+        {
+          "line": 239,
+          "text": "            return true;"
+        },
+        {
+          "line": 240,
+          "text": "        }"
+        },
+        {
+          "line": 241,
+          "text": "        expr_ref input_expr(u.str.mk_concat(input, srt), m);"
+        },
+        {
+          "line": 242,
+          "text": "        expr_ref prefix(u.str.mk_concat(in_rhs, srt), m);"
+        },
+        {
+          "line": 243,
+          "text": "        if (match)"
+        },
+        {
+          "line": 244,
+          "text": "            out_rhs.append(repl);"
+        },
+        {
+          "line": 245,
+          "text": "        else {"
+        },
+        {
+          "line": 246,
+          "text": "            expr_ref y(ac.mk_fresh_var(\"replace-all-copy-char\", srt, { input_expr, pattern, prefix }), m);"
+        },
+        {
+          "line": 247,
+          "text": "            auto& sf = ac.solver_facet_ref();"
+        },
+        {
+          "line": 248,
+          "text": "            sf.add_constraint(expr_ref(m.mk_eq(u.str.mk_length(y), sf.get_arith_util().mk_int(1)), m), dep);"
+        },
+        {
+          "line": 249,
+          "text": "            sort* re_sort = u.re.mk_re(srt);"
+        },
+        {
+          "line": 250,
+          "text": "            expr_ref other(u.re.mk_inter(u.re.mk_full_char(re_sort), u.re.mk_complement(u.re.mk_to_re(u.str.mk_string(zstring(p[k]))))), m);"
+        },
+        {
+          "line": 251,
+          "text": "            expr_ref_vector yv(m);"
+        },
+        {
+          "line": 252,
+          "text": "            yv.push_back(y);"
+        },
+        {
+          "line": 253,
+          "text": "            ac.mem_facet_ref().add(str_mem(m, yv, view::membership(other, m), dep));"
+        },
+        {
+          "line": 254,
+          "text": "            in_rhs.push_back(y);"
+        },
+        {
+          "line": 255,
+          "text": "            // Only the first character is copied, scanning resumes after it."
+        },
+        {
+          "line": 256,
+          "text": "            out_rhs.push_back(in_rhs.get(0));"
+        },
+        {
+          "line": 257,
+          "text": "            rest_in.append(in_rhs.size() - 1, in_rhs.data() + 1);"
+        },
+        {
+          "line": 258,
+          "text": "        }"
+        },
+        {
+          "line": 259,
+          "text": "        expr_ref rest(ac.mk_fresh_var(match ? \"replace-all-match-tail\" : \"replace-all-copy-tail\","
+        },
+        {
+          "line": 260,
+          "text": "                                     srt, { input_expr, pattern, prefix }), m);"
+        },
+        {
+          "line": 261,
+          "text": "        in_rhs.push_back(rest);"
+        },
+        {
+          "line": 262,
+          "text": "        rest_in.push_back(rest);"
+        },
+        {
+          "line": 263,
+          "text": "        ef.add_equation(input, in_rhs, dep);"
+        },
+        {
+          "line": 264,
+          "text": "        add_rest(ac, pattern, repl, dep, rest_in.size(), rest_in.data(), out_rhs);"
+        },
+        {
+          "line": 265,
+          "text": "        ef.add_equation(result, out_rhs, dep);"
+        },
+        {
+          "line": 266,
+          "text": "        // The input is not bounded, so this does not count as progress."
+        },
+        {
+          "line": 267,
+          "text": "        out = eq_tree::edge(match ? \"replace-all match\" : \"replace-all copy\", dep, false, 0);"
+        },
+        {
+          "line": 268,
+          "text": "        return true;"
+        },
+        {
+          "line": 269,
+          "text": "    }"
+        },
+        {
+          "line": 270,
+          "text": ""
+        },
+        {
+          "line": 271,
+          "text": "    scoped_ptr<eq_tree::split_iterator_i> replace_all_split::split(eq_tree::node& n, unsigned, eq_tree::edge& out, bool& has_more, bool& committed) {"
+        },
+        {
+          "line": 272,
+          "text": "        has_more = false;"
+        },
+        {
+          "line": 273,
+          "text": "        committed = false;"
+        },
+        {
+          "line": 274,
+          "text": "        auto& f = get_ambient(n).replace_all_facet_ref();"
+        },
+        {
+          "line": 275,
+          "text": "        for (unsigned idx = 0; idx < f.obligations().size(); ++idx) {"
+        },
+        {
+          "line": 276,
+          "text": "            if (!f.obligations()[idx].active())"
+        },
+        {
+          "line": 277,
+          "text": "                continue;"
+        },
+        {
+          "line": 278,
+          "text": "            VERIFY(apply_case(n, idx, 1, out));"
+        },
+        {
+          "line": 279,
+          "text": "            committed = true;"
+        },
+        {
+          "line": 280,
+          "text": "            ++m_stats.m_num_splits;"
+        },
+        {
+          "line": 281,
+          "text": "            return alloc(iterator, *this, n, idx);"
+        },
+        {
+          "line": 282,
+          "text": "        }"
+        },
+        {
+          "line": 283,
+          "text": "        return nullptr;"
+        },
+        {
+          "line": 284,
+          "text": "    }"
+        },
+        {
+          "line": 285,
+          "text": ""
+        },
+        {
+          "line": 286,
+          "text": "    bool replace_all_split::iterator::next(eq_tree::edge& out) {"
+        },
+        {
+          "line": 287,
+          "text": "        return m_owner.apply_case(m_n, m_idx, ++m_next_case, out);"
+        },
+        {
+          "line": 288,
+          "text": "    }"
+        },
+        {
+          "line": 289,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_replace_all_facet.h",
+      "blob": "5754aa2a7d9b635be27918c8d5ab29ac846a2e4d",
+      "sha256": "c5bc8adbf8c8739091759e504b17b94bd280484c3a9d6f1fcdfe17f66a5dbc2c",
+      "line_count": 122,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 30,
+          "text": "    struct str_replace_all {"
+        },
+        {
+          "line": 31,
+          "text": "        expr_ref_vector      m_result;"
+        },
+        {
+          "line": 32,
+          "text": "        expr_ref_vector      m_input;"
+        },
+        {
+          "line": 33,
+          "text": "        expr_ref_vector      m_repl;"
+        },
+        {
+          "line": 34,
+          "text": "        expr_ref             m_pattern; // non-empty string literal"
+        },
+        {
+          "line": 35,
+          "text": "        eq_tree::dep_tracker m_dep;"
+        },
+        {
+          "line": 36,
+          "text": "        bool                 m_active = true;"
+        },
+        {
+          "line": 37,
+          "text": "        str_replace_all(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep) :"
+        },
+        {
+          "line": 38,
+          "text": "            m_result(r), m_input(i), m_repl(t), m_pattern(p, r.get_manager()), m_dep(dep) {}"
+        },
+        {
+          "line": 39,
+          "text": "        bool active() const { return m_active; }"
+        },
+        {
+          "line": 40,
+          "text": "    };"
+        },
+        {
+          "line": 41,
+          "text": ""
+        },
+        {
+          "line": 42,
+          "text": "    // len(result) vs. len(input) for a constant replacement, null otherwise."
+        },
+        {
+          "line": 43,
+          "text": "    expr_ref replace_all_length_relation(seq_util& u, arith_util& a, expr* result, expr* input, expr* pattern, expr_ref_vector const& repl);"
+        },
+        {
+          "line": 44,
+          "text": ""
+        },
+        {
+          "line": 45,
+          "text": "    class replace_all_facet : public stx::facet_i, public subst_sink_i {"
+        },
+        {
+          "line": 46,
+          "text": "        ast_manager& m;"
+        },
+        {
+          "line": 47,
+          "text": "        eq_tree::dep_manager_t& m_dm;"
+        },
+        {
+          "line": 48,
+          "text": "        vector<str_replace_all> m_ras;"
+        },
+        {
+          "line": 49,
+          "text": ""
+        },
+        {
+          "line": 50,
+          "text": "    public:"
+        },
+        {
+          "line": 51,
+          "text": "        replace_all_facet(trail_stack& trail, ast_manager& m, eq_tree::dep_manager_t& dm) :"
+        },
+        {
+          "line": 52,
+          "text": "            facet_i(trail), m(m), m_dm(dm) {}"
+        },
+        {
+          "line": 53,
+          "text": ""
+        },
+        {
+          "line": 54,
+          "text": "        void add(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep) {"
+        },
+        {
+          "line": 55,
+          "text": "            m_ras.push_back(str_replace_all(r, i, p, t, dep));"
+        },
+        {
+          "line": 56,
+          "text": "            m_trail.push(push_back_trail<str_replace_all>(m_ras));"
+        },
+        {
+          "line": 57,
+          "text": "        }"
+        },
+        {
+          "line": 58,
+          "text": ""
+        },
+        {
+          "line": 59,
+          "text": "        void remove(unsigned idx) {"
+        },
+        {
+          "line": 60,
+          "text": "            m_trail.push(vector_field_trail<str_replace_all, bool>(m_ras, idx, &str_replace_all::m_active));"
+        },
+        {
+          "line": 61,
+          "text": "            m_ras[idx].m_active = false;"
+        },
+        {
+          "line": 62,
+          "text": "        }"
+        },
+        {
+          "line": 63,
+          "text": ""
+        },
+        {
+          "line": 64,
+          "text": "        vector<str_replace_all> const& obligations() const { return m_ras; }"
+        },
+        {
+          "line": 65,
+          "text": ""
+        },
+        {
+          "line": 66,
+          "text": "        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;"
+        },
+        {
+          "line": 67,
+          "text": ""
+        },
+        {
+          "line": 68,
+          "text": "        stx::facet_i* clone(trail_stack& trail) const override;"
+        },
+        {
+          "line": 69,
+          "text": "        bool is_satisfied() const override { return std::all_of(m_ras.begin(), m_ras.end(), [](str_replace_all const& ra) { return !ra.active(); }); }"
+        },
+        {
+          "line": 70,
+          "text": "        std::ostream& display(std::ostream& out) const override;"
+        },
+        {
+          "line": 94,
+          "text": "    class replace_all_split : public eq_tree::split_plugin_i {"
+        },
+        {
+          "line": 95,
+          "text": "        ast_manager& m;"
+        },
+        {
+          "line": 96,
+          "text": "        seq_util&    u;"
+        },
+        {
+          "line": 97,
+          "text": "        struct stats {"
+        },
+        {
+          "line": 98,
+          "text": "            unsigned m_num_splits = 0;"
+        },
+        {
+          "line": 99,
+          "text": "            void reset() { *this = stats(); }"
+        },
+        {
+          "line": 100,
+          "text": "        };"
+        },
+        {
+          "line": 101,
+          "text": "        stats m_stats;"
+        },
+        {
+          "line": 102,
+          "text": ""
+        },
+        {
+          "line": 103,
+          "text": "        class iterator : public eq_tree::split_iterator_i {"
+        },
+        {
+          "line": 104,
+          "text": "            replace_all_split& m_owner;"
+        },
+        {
+          "line": 105,
+          "text": "            eq_tree::node&     m_n;"
+        },
+        {
+          "line": 106,
+          "text": "            unsigned           m_idx;"
+        },
+        {
+          "line": 107,
+          "text": "            unsigned           m_next_case = 1;"
+        },
+        {
+          "line": 108,
+          "text": "        public:"
+        },
+        {
+          "line": 109,
+          "text": "            iterator(replace_all_split& owner, eq_tree::node& n, unsigned idx) : m_owner(owner), m_n(n), m_idx(idx) {}"
+        },
+        {
+          "line": 110,
+          "text": "            bool next(eq_tree::edge& out) override;"
+        },
+        {
+          "line": 111,
+          "text": "        };"
+        },
+        {
+          "line": 112,
+          "text": ""
+        },
+        {
+          "line": 113,
+          "text": "        bool apply_case(eq_tree::node& n, unsigned idx, unsigned c, eq_tree::edge& out);"
+        },
+        {
+          "line": 114,
+          "text": "    public:"
+        },
+        {
+          "line": 115,
+          "text": "        replace_all_split(ast_manager& m, seq_util& u) : m(m), u(u) {}"
+        },
+        {
+          "line": 116,
+          "text": "        char const* name() const override { return \"replace-all-split\"; }"
+        },
+        {
+          "line": 117,
+          "text": "        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;"
+        },
+        {
+          "line": 118,
+          "text": "        void collect_statistics(::statistics& st) const override { st.update(\"seq-replace-all num splits\", m_stats.m_num_splits); }"
+        },
+        {
+          "line": 119,
+          "text": "        void reset_statistics() override { m_stats.reset(); }"
+        },
+        {
+          "line": 120,
+          "text": "    };"
+        }
+      ]
+    },
+    {
+      "path": "src/ast/seq_decl_plugin.cpp",
+      "blob": "4d21b159b97af09bb31c78766e22803f899a2948",
+      "sha256": "51b6b11e2624db41100c860eeb417ff9def4ea9ebca366e4ecb4921b3c3216c5",
+      "line_count": 2082,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 502,
+          "text": "    case OP_STRING_CONST:"
+        },
+        {
+          "line": 503,
+          "text": "        if (!(num_parameters == 1 && arity == 0 && parameters[0].is_zstring())) {"
+        },
+        {
+          "line": 504,
+          "text": "            m.raise_exception(\"invalid string declaration\");"
+        },
+        {
+          "line": 505,
+          "text": "        }"
+        },
+        {
+          "line": 506,
+          "text": "        return m.mk_const_decl(m_stringc_sym, m_string,"
+        },
+        {
+          "line": 507,
+          "text": "                               func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));"
+        },
+        {
+          "line": 508,
+          "text": ""
+        },
+        {
+          "line": 714,
+          "text": "app* seq_decl_plugin::mk_string(zstring const& s) {"
+        },
+        {
+          "line": 715,
+          "text": "    parameter param(s);"
+        },
+        {
+          "line": 716,
+          "text": "    func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,"
+        },
+        {
+          "line": 717,
+          "text": "                                            func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));"
+        },
+        {
+          "line": 718,
+          "text": "    return m_manager->mk_const(f);"
+        },
+        {
+          "line": 719,
+          "text": "}"
+        },
+        {
+          "line": 720,
+          "text": ""
+        },
+        {
+          "line": 920,
+          "text": "bool seq_util::str::is_string(func_decl const* f, zstring& s) const {"
+        },
+        {
+          "line": 921,
+          "text": "    if (is_string(f)) {"
+        },
+        {
+          "line": 922,
+          "text": "        s = f->get_parameter(0).get_zstring();"
+        },
+        {
+          "line": 923,
+          "text": "        return true;"
+        },
+        {
+          "line": 924,
+          "text": "    }"
+        },
+        {
+          "line": 925,
+          "text": "    else {"
+        },
+        {
+          "line": 926,
+          "text": "        return false;"
+        },
+        {
+          "line": 927,
+          "text": "    }"
+        },
+        {
+          "line": 928,
+          "text": "}"
+        },
+        {
+          "line": 929,
+          "text": ""
+        },
+        {
+          "line": 930,
+          "text": "bool seq_util::str::is_string(expr const* n, zstring& s) const {"
+        },
+        {
+          "line": 931,
+          "text": "    return is_app(n) && is_string(to_app(n)->get_decl(), s);"
+        },
+        {
+          "line": 932,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/parsers/smt2/smt2parser.cpp",
+      "blob": "ea3a47907dc4809317f2eeb659d482723acd4d10",
+      "sha256": "ad55e59557294886e3bcfe4f8191645affd499df24a7e446f2c54009fc07c4ff",
+      "line_count": 3403,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 1268,
+          "text": "        void parse_string_const() {"
+        },
+        {
+          "line": 1269,
+          "text": "            SASSERT(curr() == scanner::STRING_TOKEN);"
+        },
+        {
+          "line": 1270,
+          "text": "            zstring zs(m_scanner.get_string());"
+        },
+        {
+          "line": 1271,
+          "text": "            expr_stack().push_back(sutil().str.mk_string(zs));"
+        },
+        {
+          "line": 1272,
+          "text": "            TRACE(smt2parser, tout << \"new string: \" << mk_pp(expr_stack().back(), m()) << \"\\n\";);"
+        },
+        {
+          "line": 1273,
+          "text": "            next();"
+        },
+        {
+          "line": 1274,
+          "text": "        }"
+        },
+        {
+          "line": 1275,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/parsers/smt2/smt2scanner.cpp",
+      "blob": "bd0bec9a3f4360ba045bbdc32f459ff9bba88550",
+      "sha256": "cc7da0e01614b4c3fe8349d72785a13f83c3c37c7ef809564fc3558c2c3681c9",
+      "line_count": 414,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 194,
+          "text": "    scanner::token scanner::read_string() {"
+        },
+        {
+          "line": 195,
+          "text": "        SASSERT(curr() == '\\\"');"
+        },
+        {
+          "line": 196,
+          "text": "        next();"
+        },
+        {
+          "line": 197,
+          "text": "        m_string.reset();"
+        },
+        {
+          "line": 198,
+          "text": "        while (true) {"
+        },
+        {
+          "line": 199,
+          "text": "            char c = curr();"
+        },
+        {
+          "line": 200,
+          "text": "            if (m_at_eof)"
+        },
+        {
+          "line": 201,
+          "text": "                throw scanner_exception(\"unexpected end of string\", m_line, m_spos);"
+        },
+        {
+          "line": 202,
+          "text": "            if (c == '\\n') {"
+        },
+        {
+          "line": 203,
+          "text": "                new_line();"
+        },
+        {
+          "line": 204,
+          "text": "            }"
+        },
+        {
+          "line": 205,
+          "text": "            else if (c == '\\\"') {"
+        },
+        {
+          "line": 206,
+          "text": "                next();"
+        },
+        {
+          "line": 207,
+          "text": "                if (curr() != '\\\"') {"
+        },
+        {
+          "line": 208,
+          "text": "                    m_string.push_back(0);"
+        },
+        {
+          "line": 209,
+          "text": "                    return STRING_TOKEN;"
+        },
+        {
+          "line": 210,
+          "text": "                }"
+        },
+        {
+          "line": 211,
+          "text": "            }"
+        },
+        {
+          "line": 212,
+          "text": "            m_string.push_back(c);"
+        },
+        {
+          "line": 213,
+          "text": "            next();"
+        },
+        {
+          "line": 214,
+          "text": "        }"
+        },
+        {
+          "line": 215,
+          "text": "    }"
+        },
+        {
+          "line": 216,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/parsers/smt2/smt2scanner.h",
+      "blob": "fa37870ae36f1a15d459eb2adb1dbe222f21d58a",
+      "sha256": "d2c0e02ac2b86cc07c5085cf66d8b21ed8b7a761aa6a5d7c679222b410f66e6c",
+      "line_count": 109,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 40,
+          "text": "        int                m_pos;   // start position of the token"
+        },
+        {
+          "line": 41,
+          "text": "        // data"
+        },
+        {
+          "line": 42,
+          "text": "        symbol             m_id;"
+        },
+        {
+          "line": 43,
+          "text": "        rational           m_number;"
+        },
+        {
+          "line": 44,
+          "text": "        unsigned           m_bv_size;"
+        },
+        {
+          "line": 45,
+          "text": "        // end of data"
+        },
+        {
+          "line": 46,
+          "text": "        signed char        m_normalized[256];"
+        },
+        {
+          "line": 47,
+          "text": "#define SCANNER_BUFFER_SIZE 1024"
+        },
+        {
+          "line": 48,
+          "text": "        char               m_buffer[SCANNER_BUFFER_SIZE];"
+        },
+        {
+          "line": 49,
+          "text": "        unsigned           m_bpos;"
+        },
+        {
+          "line": 50,
+          "text": "        unsigned           m_bend;"
+        },
+        {
+          "line": 51,
+          "text": "        svector<char>      m_string;"
+        },
+        {
+          "line": 52,
+          "text": "        std::istream*      m_stream;"
+        },
+        {
+          "line": 53,
+          "text": "        "
+        },
+        {
+          "line": 54,
+          "text": "        bool               m_cache_input;"
+        },
+        {
+          "line": 55,
+          "text": "        svector<char>      m_cache;"
+        },
+        {
+          "line": 56,
+          "text": "        svector<char>      m_cache_result;"
+        }
+      ]
+    },
+    {
+      "path": "src/smt/theory_nseq.cpp",
+      "blob": "0b527dc3204d6cc9797d35fc986615a987c7fbcd",
+      "sha256": "d3692a82168873e26e230d25ad13c7ffda47e6eff3c940fccc1f36826bcf0d0d",
+      "line_count": 1479,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 205,
+          "text": "        m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));"
+        },
+        {
+          "line": 206,
+          "text": "        m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));"
+        },
+        {
+          "line": 207,
+          "text": ""
+        },
+        {
+          "line": 208,
+          "text": "        // Split plugins are owned by m_tree. Regex-membership splitting"
+        },
+        {
+          "line": 209,
+          "text": "        // is tried before word-equation splitting."
+        },
+        {
+          "line": 210,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));"
+        },
+        {
+          "line": 211,
+          "text": "        m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));"
+        },
+        {
+          "line": 212,
+          "text": "        m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));"
+        },
+        {
+          "line": 213,
+          "text": "        m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);"
+        },
+        {
+          "line": 214,
+          "text": "        m_tree.add_split_plugin(m_mem_leaf);"
+        },
+        {
+          "line": 215,
+          "text": "        m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, m_rewriter));"
+        },
+        {
+          "line": 216,
+          "text": "        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));"
+        },
+        {
+          "line": 217,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));"
+        },
+        {
+          "line": 218,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_trichotomy, m, m_seq, m_autil));"
+        },
+        {
+          "line": 219,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));"
+        },
+        {
+          "line": 220,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_peel, m, m_seq, m_autil));"
+        },
+        {
+          "line": 221,
+          "text": "        m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));"
+        },
+        {
+          "line": 222,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));"
+        },
+        {
+          "line": 223,
+          "text": "        m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));"
+        },
+        {
+          "line": 224,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));"
+        },
+        {
+          "line": 225,
+          "text": "        m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));"
+        },
+        {
+          "line": 226,
+          "text": "        m_tree.add_split_plugin(alloc(seq::replace_all_split, m, m_seq));"
+        },
+        {
+          "line": 227,
+          "text": "        m_tree.add_split_plugin(alloc(seq::ncontains_split, m, m_seq));"
+        },
+        {
+          "line": 228,
+          "text": "        m_tree.add_split_plugin(alloc(seq::lex_split, m, m_seq));"
+        },
+        {
+          "line": 229,
+          "text": "        m_tree.add_split_plugin(alloc(seq::model_completion_split, m, m_seq, true));"
+        },
+        {
+          "line": 230,
+          "text": "        m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));"
+        },
+        {
+          "line": 231,
+          "text": "        m_tree.add_completion_plugin(alloc(seq::mem_witness_split, m, m_seq, m_rewriter));"
+        },
+        {
+          "line": 232,
+          "text": "        m_tree.add_completion_plugin(alloc(seq::model_completion_split, m, m_seq));"
+        },
+        {
+          "line": 592,
+          "text": "        expr* ra_in = nullptr, *ra_pat = nullptr, *ra_repl = nullptr;"
+        },
+        {
+          "line": 593,
+          "text": "        zstring ra_str;"
+        },
+        {
+          "line": 594,
+          "text": "        if (m_seq.str.is_replace_all(n, ra_in, ra_pat, ra_repl) && m_seq.str.is_string(ra_pat, ra_str) && ra_str.length() > 0) {"
+        },
+        {
+          "line": 595,
+          "text": "            seq::eq_tree::dep_tracker dep = nullptr;"
+        },
+        {
+          "line": 596,
+          "text": "            expr_ref_vector result = tokenize(dep, n);"
+        },
+        {
+          "line": 597,
+          "text": "            expr_ref_vector input = tokenize(dep, ra_in);"
+        },
+        {
+          "line": 598,
+          "text": "            expr_ref_vector repl = tokenize(dep, ra_repl);"
+        },
+        {
+          "line": 599,
+          "text": "            m_ambient->replace_all_facet(*m_root).add(result, input, ra_pat, repl, dep);"
+        },
+        {
+          "line": 600,
+          "text": "            // Untokenized: the root substitution would make the axiom conditional."
+        },
+        {
+          "line": 601,
+          "text": "            expr_ref_vector units(m);"
+        },
+        {
+          "line": 602,
+          "text": "            m_seq.str.get_concat_units(ra_repl, units);"
+        },
+        {
+          "line": 603,
+          "text": "            expr_ref rel = seq::replace_all_length_relation(m_seq, m_autil, n, ra_in, ra_pat, units);"
+        },
+        {
+          "line": 604,
+          "text": "            if (rel) {"
+        },
+        {
+          "line": 605,
+          "text": "                expr_ref_vector clause(m);"
+        },
+        {
+          "line": 606,
+          "text": "                clause.push_back(rel);"
+        },
+        {
+          "line": 607,
+          "text": "                m_ax.add_axiom_clause(clause);"
+        },
+        {
+          "line": 608,
+          "text": "            }"
+        },
+        {
+          "line": 609,
+          "text": "        }"
+        },
+        {
+          "line": 610,
+          "text": "        else if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {"
+        },
+        {
+          "line": 611,
+          "text": "            ctx.push_trail(value_trail<unsigned>(m_num_unhandled));"
+        },
+        {
+          "line": 612,
+          "text": "            ++m_num_unhandled;"
+        },
+        {
+          "line": 613,
+          "text": "        }"
+        }
+      ]
+    },
+    {
+      "path": "src/util/buffer.h",
+      "blob": "de12b0f34c96b4f70d7fa56238ff3b453f31db8c",
+      "sha256": "6fc579b7fd6dc4063959c707480426241ce76eb03586d1c480b979b94cebc8d7",
+      "line_count": 289,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 26,
+          "text": "#include \"util/memory_manager.h\""
+        },
+        {
+          "line": 27,
+          "text": ""
+        },
+        {
+          "line": 28,
+          "text": "template<typename T, bool CallDestructors=true, unsigned INITIAL_SIZE=16>"
+        },
+        {
+          "line": 29,
+          "text": "class buffer {"
+        },
+        {
+          "line": 30,
+          "text": "protected:"
+        },
+        {
+          "line": 31,
+          "text": "    T *      m_buffer = reinterpret_cast<T*>(m_initial_buffer);"
+        },
+        {
+          "line": 32,
+          "text": "    unsigned m_pos = 0;"
+        },
+        {
+          "line": 33,
+          "text": "    unsigned m_capacity = INITIAL_SIZE;"
+        },
+        {
+          "line": 34,
+          "text": "    alignas(T) std::byte m_initial_buffer[INITIAL_SIZE * sizeof(T)];"
+        },
+        {
+          "line": 35,
+          "text": ""
+        },
+        {
+          "line": 36,
+          "text": "    void free_memory() {"
+        },
+        {
+          "line": 37,
+          "text": "        if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {"
+        },
+        {
+          "line": 38,
+          "text": "            dealloc_svect(m_buffer);"
+        },
+        {
+          "line": 39,
+          "text": "        }"
+        },
+        {
+          "line": 40,
+          "text": "    }"
+        },
+        {
+          "line": 41,
+          "text": ""
+        },
+        {
+          "line": 42,
+          "text": "    void expand() {"
+        },
+        {
+          "line": 43,
+          "text": "        static_assert(std::is_nothrow_move_constructible<T>::value);"
+        },
+        {
+          "line": 44,
+          "text": "        unsigned new_capacity = m_capacity << 1;"
+        },
+        {
+          "line": 45,
+          "text": "        T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));"
+        },
+        {
+          "line": 46,
+          "text": "        for (unsigned i = 0; i < m_pos; ++i) {"
+        },
+        {
+          "line": 47,
+          "text": "            new (&new_buffer[i]) T(std::move(m_buffer[i]));"
+        },
+        {
+          "line": 48,
+          "text": "            if (CallDestructors) {"
+        },
+        {
+          "line": 49,
+          "text": "                m_buffer[i].~T();"
+        },
+        {
+          "line": 50,
+          "text": "            }"
+        },
+        {
+          "line": 51,
+          "text": "        }"
+        },
+        {
+          "line": 52,
+          "text": "        free_memory();"
+        },
+        {
+          "line": 53,
+          "text": "        m_buffer              = new_buffer;"
+        },
+        {
+          "line": 54,
+          "text": "        m_capacity            = new_capacity;"
+        },
+        {
+          "line": 55,
+          "text": "    }"
+        },
+        {
+          "line": 56,
+          "text": "    "
+        },
+        {
+          "line": 57,
+          "text": "    void destroy_elements() {"
+        },
+        {
+          "line": 58,
+          "text": "        iterator it = begin();"
+        },
+        {
+          "line": 59,
+          "text": "        iterator e  = end();"
+        },
+        {
+          "line": 60,
+          "text": "        for (; it != e; ++it) {"
+        },
+        {
+          "line": 61,
+          "text": "            it->~T();"
+        },
+        {
+          "line": 62,
+          "text": "        }"
+        },
+        {
+          "line": 63,
+          "text": "    }"
+        },
+        {
+          "line": 64,
+          "text": ""
+        },
+        {
+          "line": 65,
+          "text": "    void destroy() {"
+        },
+        {
+          "line": 66,
+          "text": "        if (CallDestructors) {"
+        },
+        {
+          "line": 67,
+          "text": "            destroy_elements(); "
+        },
+        {
+          "line": 68,
+          "text": "        }"
+        },
+        {
+          "line": 69,
+          "text": "        free_memory();"
+        },
+        {
+          "line": 70,
+          "text": "    }"
+        },
+        {
+          "line": 71,
+          "text": ""
+        },
+        {
+          "line": 72,
+          "text": "public:"
+        },
+        {
+          "line": 73,
+          "text": "    typedef T data_t;"
+        },
+        {
+          "line": 74,
+          "text": "    typedef T * iterator;"
+        },
+        {
+          "line": 75,
+          "text": "    typedef const T * const_iterator;"
+        },
+        {
+          "line": 76,
+          "text": ""
+        },
+        {
+          "line": 77,
+          "text": "    buffer() = default;"
+        },
+        {
+          "line": 137,
+          "text": "    iterator end() { "
+        },
+        {
+          "line": 138,
+          "text": "        return m_buffer + size();"
+        },
+        {
+          "line": 139,
+          "text": "    }"
+        },
+        {
+          "line": 140,
+          "text": ""
+        },
+        {
+          "line": 141,
+          "text": "    void set_end(iterator it) {"
+        },
+        {
+          "line": 142,
+          "text": "        m_pos = static_cast<unsigned>(it - m_buffer);"
+        },
+        {
+          "line": 143,
+          "text": "        if (CallDestructors) {"
+        },
+        {
+          "line": 144,
+          "text": "            iterator e  = end();"
+        },
+        {
+          "line": 145,
+          "text": "            for (; it != e; ++it) {"
+        },
+        {
+          "line": 146,
+          "text": "                it->~T();"
+        },
+        {
+          "line": 147,
+          "text": "            }"
+        },
+        {
+          "line": 148,
+          "text": "        }"
+        },
+        {
+          "line": 149,
+          "text": "    }"
+        },
+        {
+          "line": 150,
+          "text": "    "
+        },
+        {
+          "line": 151,
+          "text": "    const_iterator begin() const { "
+        },
+        {
+          "line": 152,
+          "text": "        return m_buffer; "
+        },
+        {
+          "line": 153,
+          "text": "    }"
+        },
+        {
+          "line": 154,
+          "text": "    "
+        },
+        {
+          "line": 155,
+          "text": "    const_iterator end() const { "
+        },
+        {
+          "line": 156,
+          "text": "        return m_buffer + size(); "
+        },
+        {
+          "line": 157,
+          "text": "    }"
+        },
+        {
+          "line": 158,
+          "text": "    "
+        },
+        {
+          "line": 159,
+          "text": "    void push_back(const T & elem) {"
+        },
+        {
+          "line": 160,
+          "text": "        if (m_pos >= m_capacity)"
+        },
+        {
+          "line": 161,
+          "text": "            expand();"
+        },
+        {
+          "line": 162,
+          "text": "        new (m_buffer + m_pos) T(elem);"
+        },
+        {
+          "line": 163,
+          "text": "        m_pos++;"
+        },
+        {
+          "line": 164,
+          "text": "    }"
+        },
+        {
+          "line": 165,
+          "text": ""
+        },
+        {
+          "line": 166,
+          "text": "    void push_back(T && elem) {"
+        },
+        {
+          "line": 193,
+          "text": ""
+        },
+        {
+          "line": 194,
+          "text": "    void append(std::span<T const> elems) {"
+        },
+        {
+          "line": 195,
+          "text": "        for (auto const& elem : elems) {"
+        },
+        {
+          "line": 196,
+          "text": "            push_back(elem);"
+        },
+        {
+          "line": 197,
+          "text": "        }"
+        },
+        {
+          "line": 198,
+          "text": "    }"
+        },
+        {
+          "line": 199,
+          "text": ""
+        },
+        {
+          "line": 200,
+          "text": "    // Backward compatibility overload"
+        },
+        {
+          "line": 201,
+          "text": "    void append(unsigned n, T const * elems) {"
+        },
+        {
+          "line": 202,
+          "text": "        append(std::span<T const>(elems, n));"
+        },
+        {
+          "line": 203,
+          "text": "    }"
+        },
+        {
+          "line": 204,
+          "text": ""
+        },
+        {
+          "line": 205,
+          "text": "    void append(const buffer& source) {"
+        },
+        {
+          "line": 206,
+          "text": "        append(source.size(), source.data());"
+        },
+        {
+          "line": 207,
+          "text": "    }"
+        },
+        {
+          "line": 208,
+          "text": ""
+        },
+        {
+          "line": 209,
+          "text": "    T & operator[](unsigned idx) { "
+        },
+        {
+          "line": 210,
+          "text": "        SASSERT(idx < size()); "
+        },
+        {
+          "line": 211,
+          "text": "        return m_buffer[idx]; "
+        }
+      ]
+    },
+    {
+      "path": "src/util/debug.cpp",
+      "blob": "a8b2f8409ea45cf29a8c6a71d0e104c6279c6cb7",
+      "sha256": "9e5f4829b35d08f4617de80abec263fdd20b631188a091fed55219f77fe8aaff",
+      "line_count": 238,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 74,
+          "text": ""
+        },
+        {
+          "line": 75,
+          "text": "void notify_assertion_violation(const char * fileName, int line, const char * condition) {"
+        },
+        {
+          "line": 76,
+          "text": "    std::cerr << \"ASSERTION VIOLATION\\n\""
+        },
+        {
+          "line": 77,
+          "text": "                 \"File: \" << fileName << \"\\n\""
+        },
+        {
+          "line": 78,
+          "text": "                 \"Line: \" << line << '\\n'"
+        },
+        {
+          "line": 79,
+          "text": "              << condition << '\\n';"
+        },
+        {
+          "line": 80,
+          "text": "#if defined(_WINDOWS)"
+        },
+        {
+          "line": 81,
+          "text": "    print_windows_backtrace();"
+        },
+        {
+          "line": 82,
+          "text": "#endif"
+        },
+        {
+          "line": 83,
+          "text": "#ifndef Z3DEBUG"
+        },
+        {
+          "line": 84,
+          "text": "    std::cerr << Z3_FULL_VERSION \"\\n\""
+        },
+        {
+          "line": 85,
+          "text": "                 \"Please file an issue with this message and more detail about how you encountered it at https://github.com/Z3Prover/z3/issues/new\\n\";"
+        },
+        {
+          "line": 86,
+          "text": "#endif"
+        },
+        {
+          "line": 87,
+          "text": "}"
+        },
+        {
+          "line": 88,
+          "text": ""
+        },
+        {
+          "line": 117,
+          "text": "atomic<exit_action> g_default_exit_action(exit_action::exit);"
+        },
+        {
+          "line": 118,
+          "text": ""
+        },
+        {
+          "line": 119,
+          "text": "exit_action get_default_exit_action() {"
+        },
+        {
+          "line": 120,
+          "text": "    return g_default_exit_action;"
+        },
+        {
+          "line": 121,
+          "text": "}"
+        },
+        {
+          "line": 122,
+          "text": ""
+        },
+        {
+          "line": 123,
+          "text": "void set_default_exit_action(exit_action a) {"
+        },
+        {
+          "line": 124,
+          "text": "    g_default_exit_action = a;"
+        },
+        {
+          "line": 125,
+          "text": "}"
+        },
+        {
+          "line": 126,
+          "text": ""
+        },
+        {
+          "line": 127,
+          "text": "[[noreturn]] void invoke_exit_action(unsigned int code) {"
+        },
+        {
+          "line": 128,
+          "text": "    exit_action a = get_default_exit_action();"
+        },
+        {
+          "line": 129,
+          "text": "    switch (a) {"
+        },
+        {
+          "line": 130,
+          "text": "    case exit_action::exit:"
+        },
+        {
+          "line": 131,
+          "text": "        exit(code);"
+        },
+        {
+          "line": 132,
+          "text": "    case exit_action::throw_exception:"
+        },
+        {
+          "line": 133,
+          "text": "        switch (code) {"
+        },
+        {
+          "line": 134,
+          "text": "            case ERR_INTERNAL_FATAL:"
+        },
+        {
+          "line": 135,
+          "text": "                throw default_exception(\"internal fatal\");"
+        },
+        {
+          "line": 136,
+          "text": "            case ERR_UNREACHABLE:"
+        },
+        {
+          "line": 137,
+          "text": "                throw default_exception(\"unreachable\");"
+        },
+        {
+          "line": 138,
+          "text": "            case ERR_NOT_IMPLEMENTED_YET:"
+        },
+        {
+          "line": 139,
+          "text": "                throw default_exception(\"not implemented yet\");"
+        },
+        {
+          "line": 140,
+          "text": "            default:"
+        },
+        {
+          "line": 141,
+          "text": "                throw default_exception(\"unknown\");"
+        },
+        {
+          "line": 142,
+          "text": "        }"
+        },
+        {
+          "line": 143,
+          "text": "        exit(code);"
+        },
+        {
+          "line": 144,
+          "text": "    }"
+        },
+        {
+          "line": 145,
+          "text": "    abort();"
+        },
+        {
+          "line": 146,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/util/debug.h",
+      "blob": "cc638b8128b6051bd76a5fd38a9a3ba24683bcd8",
+      "sha256": "e49230553875718759bd9e15442863e6962bc4bf276295778f3883923ccbc3af",
+      "line_count": 124,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 83,
+          "text": ""
+        },
+        {
+          "line": 84,
+          "text": ""
+        },
+        {
+          "line": 85,
+          "text": "#define SASSERT(COND) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })"
+        },
+        {
+          "line": 86,
+          "text": "#define CASSERT(TAG, COND) DEBUG_CODE(if (assertions_enabled() && is_debug_enabled(TAG) && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })"
+        },
+        {
+          "line": 87,
+          "text": "#define XASSERT(COND, EXTRA_CODE) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); { EXTRA_CODE } INVOKE_DEBUGGER(); })"
+        },
+        {
+          "line": 88,
+          "text": ""
+        },
+        {
+          "line": 89,
+          "text": "#define SASSERT_EQ(LHS, RHS)                                                     \\"
+        },
+        {
+          "line": 90,
+          "text": "    DEBUG_CODE(if (assertions_enabled() && !((LHS) == (RHS))) {                  \\"
+        },
+        {
+          "line": 91,
+          "text": "        notify_assertion_violation(__FILE__, __LINE__, #LHS \" == \" #RHS);        \\"
+        },
+        {
+          "line": 92,
+          "text": "        std::cerr << \"LHS value: \" << (LHS) << \"\\nRHS value: \" << (RHS) << \"\\n\"; \\"
+        },
+        {
+          "line": 93,
+          "text": "        INVOKE_DEBUGGER();                                                       \\"
+        },
+        {
+          "line": 94,
+          "text": "    })"
+        },
+        {
+          "line": 95,
+          "text": ""
+        },
+        {
+          "line": 96,
+          "text": "#ifdef Z3DEBUG"
+        },
+        {
+          "line": 97,
+          "text": "# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, \"UNEXPECTED CODE WAS REACHED.\"); INVOKE_DEBUGGER();)"
+        },
+        {
+          "line": 98,
+          "text": "#else"
+        },
+        {
+          "line": 99,
+          "text": "# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, \"UNEXPECTED CODE WAS REACHED.\"); invoke_exit_action(ERR_UNREACHABLE); } ((void) 0)"
+        },
+        {
+          "line": 100,
+          "text": "#endif"
+        },
+        {
+          "line": 101,
+          "text": ""
+        },
+        {
+          "line": 102,
+          "text": "#ifdef Z3DEBUG"
+        },
+        {
+          "line": 103,
+          "text": "# define NOT_IMPLEMENTED_YET() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, \"NOT IMPLEMENTED YET!\"); INVOKE_DEBUGGER();)"
+        },
+        {
+          "line": 104,
+          "text": "#else"
+        },
+        {
+          "line": 105,
+          "text": "# define NOT_IMPLEMENTED_YET() { notify_assertion_violation(__FILE__, __LINE__, \"NOT IMPLEMENTED YET!\"); invoke_exit_action(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)"
+        },
+        {
+          "line": 106,
+          "text": "#endif"
+        },
+        {
+          "line": 107,
+          "text": ""
+        },
+        {
+          "line": 108,
+          "text": "#define VERIFY(_x_) if (!(_x_)) {                                                       \\"
+        },
+        {
+          "line": 109,
+          "text": "        notify_assertion_violation(__FILE__, __LINE__, \"Failed to verify: \" #_x_ \"\\n\"); \\"
+        },
+        {
+          "line": 110,
+          "text": "        invoke_exit_action(ERR_UNREACHABLE);                                                          \\"
+        },
+        {
+          "line": 111,
+          "text": "    }"
+        }
+      ]
+    },
+    {
+      "path": "src/util/error_codes.h",
+      "blob": "4f65311157a541b9a31ecea65fbc436bf1cf640e",
+      "sha256": "f635c7fb29f4d32717c1e9ebd14cfede7b5bbec868509a38740b48f86432372d",
+      "line_count": 37,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 23,
+          "text": "#define ERR_TIMEOUT             102"
+        },
+        {
+          "line": 24,
+          "text": "#define ERR_PARSER              103"
+        },
+        {
+          "line": 25,
+          "text": "#define ERR_UNSOUNDNESS         104"
+        },
+        {
+          "line": 26,
+          "text": "#define ERR_INCOMPLETENESS      105"
+        },
+        {
+          "line": 27,
+          "text": "#define ERR_INI_FILE            106 "
+        },
+        {
+          "line": 28,
+          "text": "#define ERR_NOT_IMPLEMENTED_YET 107 "
+        },
+        {
+          "line": 29,
+          "text": "#define ERR_OPEN_FILE           108"
+        },
+        {
+          "line": 30,
+          "text": "#define ERR_CMD_LINE            109"
+        },
+        {
+          "line": 31,
+          "text": "#define ERR_INTERNAL_FATAL      110"
+        },
+        {
+          "line": 32,
+          "text": "#define ERR_TYPE_CHECK          111"
+        },
+        {
+          "line": 33,
+          "text": "#define ERR_UNKNOWN_RESULT      112"
+        },
+        {
+          "line": 34,
+          "text": "#define ERR_ALLOC_EXCEEDED      113"
+        },
+        {
+          "line": 35,
+          "text": "#define ERR_UNREACHABLE         114"
+        },
+        {
+          "line": 36,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "path": "src/util/memory_manager.cpp",
+      "blob": "c7766fa6555e20217a587963847aa35a41626833",
+      "sha256": "5aaa741a874be73349cf30f113302225ed782394c0bfcd227444ccadcb357e51",
+      "line_count": 452,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 70,
+          "text": "static DECLARE_INIT_MUTEX(g_memory_mux);"
+        },
+        {
+          "line": 71,
+          "text": "static atomic<bool> g_memory_out_of_memory(false);"
+        },
+        {
+          "line": 72,
+          "text": "static bool       g_memory_initialized       = false;"
+        },
+        {
+          "line": 73,
+          "text": "static long long  g_memory_alloc_size        = 0;"
+        },
+        {
+          "line": 74,
+          "text": "static long long  g_memory_max_size          = 0;"
+        },
+        {
+          "line": 75,
+          "text": "static long long  g_memory_max_used_size     = 0;"
+        },
+        {
+          "line": 76,
+          "text": "static long long  g_memory_watermark         = 0;"
+        },
+        {
+          "line": 77,
+          "text": "static long long  g_memory_alloc_count       = 0;"
+        },
+        {
+          "line": 78,
+          "text": "static long long  g_memory_max_alloc_count   = 0;"
+        },
+        {
+          "line": 79,
+          "text": "static bool       g_exit_when_out_of_memory  = false;"
+        },
+        {
+          "line": 80,
+          "text": "static char const * g_out_of_memory_msg      = \"ERROR: out of memory\";"
+        },
+        {
+          "line": 81,
+          "text": ""
+        },
+        {
+          "line": 120,
+          "text": "void memory::initialize(size_t max_size) {"
+        },
+        {
+          "line": 121,
+          "text": "    static mutex init_mux;"
+        },
+        {
+          "line": 122,
+          "text": "    lock_guard lock(init_mux);"
+        },
+        {
+          "line": 123,
+          "text": ""
+        },
+        {
+          "line": 124,
+          "text": "    // only update the maximum size if max_size != UINT_MAX"
+        },
+        {
+          "line": 125,
+          "text": "    if (max_size != UINT_MAX)"
+        },
+        {
+          "line": 126,
+          "text": "        g_memory_max_size = max_size;"
+        },
+        {
+          "line": 127,
+          "text": ""
+        },
+        {
+          "line": 128,
+          "text": "    if (g_memory_initialized)"
+        },
+        {
+          "line": 129,
+          "text": "        return;"
+        },
+        {
+          "line": 130,
+          "text": ""
+        },
+        {
+          "line": 268,
+          "text": ""
+        },
+        {
+          "line": 269,
+          "text": "static void synchronize_counters(bool allocating) {"
+        },
+        {
+          "line": 270,
+          "text": "#ifdef PROFILE_MEMORY"
+        },
+        {
+          "line": 271,
+          "text": "    g_synch_counter++;"
+        },
+        {
+          "line": 272,
+          "text": "#endif"
+        },
+        {
+          "line": 273,
+          "text": ""
+        },
+        {
+          "line": 274,
+          "text": "    bool out_of_mem = false;"
+        },
+        {
+          "line": 275,
+          "text": "    bool counts_exceeded = false;"
+        },
+        {
+          "line": 276,
+          "text": "    {"
+        },
+        {
+          "line": 277,
+          "text": "        lock_guard lock(*g_memory_mux);"
+        },
+        {
+          "line": 278,
+          "text": "        g_memory_alloc_size += g_memory_thread_alloc_size;"
+        },
+        {
+          "line": 279,
+          "text": "        g_memory_alloc_count += g_memory_thread_alloc_count;"
+        },
+        {
+          "line": 280,
+          "text": "        if (g_memory_alloc_size > g_memory_max_used_size)"
+        },
+        {
+          "line": 281,
+          "text": "            g_memory_max_used_size = g_memory_alloc_size;"
+        },
+        {
+          "line": 282,
+          "text": "        if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)"
+        },
+        {
+          "line": 283,
+          "text": "            out_of_mem = true;"
+        },
+        {
+          "line": 284,
+          "text": "        if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)"
+        },
+        {
+          "line": 285,
+          "text": "            counts_exceeded = true;"
+        },
+        {
+          "line": 286,
+          "text": "    }"
+        },
+        {
+          "line": 287,
+          "text": "    g_memory_thread_alloc_size = 0;"
+        },
+        {
+          "line": 288,
+          "text": "    if (out_of_mem && allocating) {"
+        },
+        {
+          "line": 289,
+          "text": "        throw_out_of_memory();"
+        },
+        {
+          "line": 290,
+          "text": "    }"
+        },
+        {
+          "line": 312,
+          "text": "void * memory::allocate(size_t s) {"
+        },
+        {
+          "line": 313,
+          "text": "#ifndef HAS_MALLOC_USABLE_SIZE"
+        },
+        {
+          "line": 314,
+          "text": "    s = s + SIZE_T_ALIGN * sizeof(size_t); // we allocate an extra field!"
+        },
+        {
+          "line": 315,
+          "text": "#endif"
+        },
+        {
+          "line": 316,
+          "text": "    g_memory_thread_alloc_size += s;"
+        },
+        {
+          "line": 317,
+          "text": "    g_memory_thread_alloc_count += 1;"
+        },
+        {
+          "line": 318,
+          "text": "    if (g_memory_thread_alloc_size > SYNCH_THRESHOLD) {"
+        },
+        {
+          "line": 319,
+          "text": "        synchronize_counters(true);"
+        },
+        {
+          "line": 320,
+          "text": "    }"
+        },
+        {
+          "line": 321,
+          "text": "    void * r = malloc(s);"
+        },
+        {
+          "line": 322,
+          "text": "    if (r == nullptr) {"
+        },
+        {
+          "line": 323,
+          "text": "        throw_out_of_memory();"
+        },
+        {
+          "line": 324,
+          "text": "        return nullptr;"
+        },
+        {
+          "line": 325,
+          "text": "    }"
+        },
+        {
+          "line": 326,
+          "text": "#ifdef HAS_MALLOC_USABLE_SIZE"
+        },
+        {
+          "line": 327,
+          "text": "    g_memory_thread_alloc_size += malloc_usable_size(r) - s;"
+        },
+        {
+          "line": 328,
+          "text": "    return r;"
+        },
+        {
+          "line": 329,
+          "text": "#else"
+        },
+        {
+          "line": 330,
+          "text": "    *(static_cast<size_t*>(r)) = s;"
+        },
+        {
+          "line": 331,
+          "text": "    return static_cast<size_t*>(r) + SIZE_T_ALIGN; // we return a pointer to the location after the extra field"
+        },
+        {
+          "line": 332,
+          "text": "#endif"
+        },
+        {
+          "line": 333,
+          "text": "}"
+        },
+        {
+          "line": 389,
+          "text": "void * memory::allocate(size_t s) {"
+        },
+        {
+          "line": 390,
+          "text": "#ifndef HAS_MALLOC_USABLE_SIZE"
+        },
+        {
+          "line": 391,
+          "text": "    s = s + SIZE_T_ALIGN * sizeof(size_t); // we allocate an extra field!"
+        },
+        {
+          "line": 392,
+          "text": "#endif"
+        },
+        {
+          "line": 393,
+          "text": "    g_memory_alloc_size += s;"
+        },
+        {
+          "line": 394,
+          "text": "    g_memory_alloc_count += 1;"
+        },
+        {
+          "line": 395,
+          "text": "    if (g_memory_alloc_size > g_memory_max_used_size)"
+        },
+        {
+          "line": 396,
+          "text": "        g_memory_max_used_size = g_memory_alloc_size;"
+        },
+        {
+          "line": 397,
+          "text": "    if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)"
+        },
+        {
+          "line": 398,
+          "text": "        throw_out_of_memory();"
+        },
+        {
+          "line": 399,
+          "text": "    if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)"
+        },
+        {
+          "line": 400,
+          "text": "        throw_alloc_counts_exceeded();"
+        },
+        {
+          "line": 401,
+          "text": ""
+        },
+        {
+          "line": 402,
+          "text": "    void * r = malloc(s);"
+        },
+        {
+          "line": 403,
+          "text": "    if (r == nullptr) {"
+        },
+        {
+          "line": 404,
+          "text": "        throw_out_of_memory();"
+        },
+        {
+          "line": 405,
+          "text": "        return nullptr;"
+        },
+        {
+          "line": 406,
+          "text": "    }"
+        },
+        {
+          "line": 407,
+          "text": "#ifdef HAS_MALLOC_USABLE_SIZE"
+        },
+        {
+          "line": 408,
+          "text": "    g_memory_alloc_size += malloc_usable_size(r) - s;"
+        },
+        {
+          "line": 409,
+          "text": "    return r;"
+        },
+        {
+          "line": 410,
+          "text": "#else"
+        },
+        {
+          "line": 411,
+          "text": "    *(static_cast<size_t*>(r)) = s;"
+        },
+        {
+          "line": 412,
+          "text": "    return static_cast<size_t*>(r) + SIZE_T_ALIGN; // we return a pointer to the location after the extra field"
+        },
+        {
+          "line": 413,
+          "text": "#endif"
+        },
+        {
+          "line": 414,
+          "text": "}"
+        }
+      ]
+    },
+    {
+      "path": "src/util/zstring.cpp",
+      "blob": "f60b8d946d9b2c0cb5b27008eca238614fbc43ac",
+      "sha256": "bc830102d2b5e882a95502aaa2be81db3f9cb0457288a0f204cfc9c300e6ceca",
+      "line_count": 288,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 74,
+          "text": "zstring::zstring(char const* s) {"
+        },
+        {
+          "line": 75,
+          "text": "    while (*s) {"
+        },
+        {
+          "line": 76,
+          "text": "        unsigned ch = 0;"
+        },
+        {
+          "line": 77,
+          "text": "        if (is_escape_char(s, ch)) {"
+        },
+        {
+          "line": 78,
+          "text": "            m_buffer.push_back(ch);"
+        },
+        {
+          "line": 79,
+          "text": "        }"
+        },
+        {
+          "line": 80,
+          "text": "        else {"
+        },
+        {
+          "line": 81,
+          "text": "            m_buffer.push_back((unsigned char)*s);"
+        },
+        {
+          "line": 82,
+          "text": "            ++s;"
+        },
+        {
+          "line": 83,
+          "text": "        }"
+        },
+        {
+          "line": 84,
+          "text": "    }"
+        },
+        {
+          "line": 85,
+          "text": "    SASSERT(well_formed());"
+        },
+        {
+          "line": 86,
+          "text": "}"
+        },
+        {
+          "line": 87,
+          "text": ""
+        },
+        {
+          "line": 88,
+          "text": "string_encoding zstring::get_encoding() {"
+        },
+        {
+          "line": 89,
+          "text": "    if (gparams::get_value(\"encoding\") == \"unicode\") "
+        },
+        {
+          "line": 90,
+          "text": "        return string_encoding::unicode;"
+        },
+        {
+          "line": 91,
+          "text": "    if (gparams::get_value(\"encoding\") == \"bmp\") "
+        },
+        {
+          "line": 92,
+          "text": "        return string_encoding::bmp;"
+        },
+        {
+          "line": 93,
+          "text": "    if (gparams::get_value(\"encoding\") == \"ascii\") "
+        },
+        {
+          "line": 94,
+          "text": "        return string_encoding::ascii;"
+        },
+        {
+          "line": 95,
+          "text": "    return string_encoding::unicode;"
+        },
+        {
+          "line": 96,
+          "text": "}"
+        },
+        {
+          "line": 97,
+          "text": ""
+        },
+        {
+          "line": 98,
+          "text": "bool zstring::well_formed() const {"
+        },
+        {
+          "line": 99,
+          "text": "    for (unsigned ch : m_buffer) {"
+        },
+        {
+          "line": 100,
+          "text": "        if (ch > max_char()) {"
+        },
+        {
+          "line": 101,
+          "text": "            IF_VERBOSE(0, verbose_stream() << \"large character: \" << ch << \"\\n\";);"
+        },
+        {
+          "line": 102,
+          "text": "            return false;"
+        },
+        {
+          "line": 103,
+          "text": "        }"
+        },
+        {
+          "line": 104,
+          "text": "    }"
+        },
+        {
+          "line": 105,
+          "text": "    return true;"
+        },
+        {
+          "line": 106,
+          "text": "}"
+        },
+        {
+          "line": 107,
+          "text": ""
+        },
+        {
+          "line": 108,
+          "text": "zstring::zstring(unsigned ch) {"
+        }
+      ]
+    },
+    {
+      "path": "src/util/zstring.h",
+      "blob": "44dfcd36c7a54965ddf0fd8a816e9719323c108e",
+      "sha256": "c9f64a754aabd3b04813ba0a8d3e76fc83cf395d356c0429fb1f79aaa8e1d5ee",
+      "line_count": 95,
+      "worktree_matches": true,
+      "excerpts": [
+        {
+          "line": 30,
+          "text": "class zstring {"
+        },
+        {
+          "line": 31,
+          "text": "private:"
+        },
+        {
+          "line": 32,
+          "text": "    buffer<uint32_t> m_buffer;"
+        },
+        {
+          "line": 33,
+          "text": "    bool well_formed() const;"
+        },
+        {
+          "line": 34,
+          "text": "    bool is_escape_char(char const *& s, unsigned& result);"
+        },
+        {
+          "line": 35,
+          "text": "public:"
+        },
+        {
+          "line": 36,
+          "text": "    static unsigned unicode_max_char() { return 196607; }"
+        },
+        {
+          "line": 37,
+          "text": "    static unsigned unicode_num_bits() { return 18; }"
+        },
+        {
+          "line": 38,
+          "text": "    static unsigned bmp_max_char() { return 65535; }"
+        },
+        {
+          "line": 39,
+          "text": "    static unsigned bmp_num_bits() { return 16; }"
+        },
+        {
+          "line": 40,
+          "text": "    static unsigned ascii_max_char() { return 255; }"
+        },
+        {
+          "line": 41,
+          "text": "    static unsigned ascii_num_bits() { return 8; }"
+        },
+        {
+          "line": 42,
+          "text": "    static unsigned max_char() {"
+        },
+        {
+          "line": 43,
+          "text": "      switch (get_encoding()) {"
+        },
+        {
+          "line": 44,
+          "text": "      case string_encoding::unicode:"
+        },
+        {
+          "line": 45,
+          "text": "          return unicode_max_char();"
+        },
+        {
+          "line": 46,
+          "text": "      case string_encoding::bmp:"
+        },
+        {
+          "line": 47,
+          "text": "          return bmp_max_char();"
+        },
+        {
+          "line": 48,
+          "text": "      case string_encoding::ascii:"
+        },
+        {
+          "line": 49,
+          "text": "          return ascii_max_char();"
+        },
+        {
+          "line": 50,
+          "text": "      }"
+        },
+        {
+          "line": 51,
+          "text": "      return unicode_max_char();"
+        },
+        {
+          "line": 52,
+          "text": "    }"
+        },
+        {
+          "line": 53,
+          "text": "    static unsigned num_bits() {"
+        },
+        {
+          "line": 54,
+          "text": "      switch (get_encoding()) {"
+        },
+        {
+          "line": 55,
+          "text": "      case string_encoding::unicode:"
+        },
+        {
+          "line": 56,
+          "text": "          return unicode_num_bits();"
+        },
+        {
+          "line": 57,
+          "text": "      case string_encoding::bmp:"
+        },
+        {
+          "line": 58,
+          "text": "          return bmp_num_bits();"
+        },
+        {
+          "line": 59,
+          "text": "      case string_encoding::ascii:"
+        },
+        {
+          "line": 60,
+          "text": "          return ascii_num_bits();"
+        },
+        {
+          "line": 61,
+          "text": "      }"
+        },
+        {
+          "line": 62,
+          "text": "      return unicode_num_bits();"
+        },
+        {
+          "line": 63,
+          "text": "    }"
+        },
+        {
+          "line": 64,
+          "text": "    static string_encoding get_encoding();"
+        },
+        {
+          "line": 65,
+          "text": "    zstring() = default;"
+        },
+        {
+          "line": 66,
+          "text": "    zstring(char const* s);"
+        },
+        {
+          "line": 67,
+          "text": "    zstring(const std::string &str) : zstring(str.c_str()) {}"
+        },
+        {
+          "line": 68,
+          "text": "    zstring(rational const& r): zstring(r.to_string()) {}"
+        },
+        {
+          "line": 69,
+          "text": "    zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }"
+        },
+        {
+          "line": 70,
+          "text": "    zstring(unsigned ch);"
+        },
+        {
+          "line": 71,
+          "text": "    zstring replace(zstring const& src, zstring const& dst) const;"
+        },
+        {
+          "line": 72,
+          "text": "    zstring reverse() const;"
+        },
+        {
+          "line": 73,
+          "text": "    std::string encode() const;"
+        },
+        {
+          "line": 74,
+          "text": "    unsigned length() const { return m_buffer.size(); }"
+        },
+        {
+          "line": 75,
+          "text": "    unsigned operator[](unsigned i) const { return m_buffer[i]; }"
+        },
+        {
+          "line": 76,
+          "text": "    bool empty() const { return m_buffer.empty(); }"
+        },
+        {
+          "line": 77,
+          "text": "    bool suffixof(zstring const& other) const;"
+        },
+        {
+          "line": 78,
+          "text": "    bool prefixof(zstring const& other) const;"
+        },
+        {
+          "line": 79,
+          "text": "    bool contains(zstring const& other) const;"
+        },
+        {
+          "line": 80,
+          "text": "    int  indexofu(zstring const& other, unsigned offset) const;"
+        },
+        {
+          "line": 81,
+          "text": "    int  last_indexof(zstring const& other) const;"
+        },
+        {
+          "line": 82,
+          "text": "    zstring extract(unsigned offset, unsigned length) const;"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "P19",
+    "before_sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d",
+    "after_sha256": "10790ba1e5e3d155b3d8b06b807e72313edd5e35308b2c98fe838f7cd5bf5344",
+    "scope": "Proof annotation only; frozen computation/contracts text unchanged after stripping standalone assert/invariant/decreases. Exact frozen file and all previous checked inputs retained."
+  },
+  {
+    "id": "P19",
+    "before_sha256": "10790ba1e5e3d155b3d8b06b807e72313edd5e35308b2c98fe838f7cd5bf5344",
+    "after_sha256": "200d8f0f19f683771d55076df0dcd943368057e7b5633d3dcfa793ad25cf6a3f",
+    "scope": "Proof annotation only; frozen computation/contracts text unchanged after stripping standalone assert/invariant/decreases. Exact frozen file and all previous checked inputs retained."
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "live_verifier_invocations": 5,
+  "audit_verifier_attempts_unchanged": 18,
+  "replay_exit": 0,
+  "mismatch_exit": 1,
+  "replay_checks": [
+    "009 expected failed full property",
+    "013 accepted complete refutation",
+    "018 complete candidate property"
+  ],
+  "mismatch_test": "A separate fixture changes only the first expected exit to zero; its real failed proof must make replay fail despite a later real successful proof. This is orchestration test data, not audit evidence.",
+  "no_production_source_execution": true
+}

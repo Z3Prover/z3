@@ -1,0 +1,2079 @@
+[
+  {
+    "id": "P18",
+    "title": "!constraints_ok || fromWord == toWord",
+    "path": "src/ast/seq/seq_power_facet.cpp",
+    "entry_point": "PowerRewriteEntry",
+    "origin": "source-inferred hypothesis",
+    "quote": "// Each case asserts exactly what its substitution `Y^N := X^M . z` needs.",
+    "original_ensures": [
+      "!constraints_ok || fromWord == toWord"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 <= b < 10 && 0 <= param < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "TokenView(A,aBounds,aLiteral) && TokenView(B,bBounds,bLiteral)",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "|aLiteral| < 4294967296 && |bLiteral| < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "EnumerationDomain(b,param,A,B,aBounds,bBounds,aLiteral,bLiteral)",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      }
+    ],
+    "source_span": [
+      455,
+      579
+    ],
+    "source_lines": [
+      131,
+      132,
+      135,
+      271,
+      273,
+      276,
+      277,
+      278,
+      280,
+      283,
+      284,
+      285,
+      286,
+      288,
+      291,
+      292,
+      293,
+      294,
+      296,
+      414,
+      431,
+      441,
+      442,
+      443,
+      444,
+      446,
+      447,
+      448,
+      455,
+      456,
+      457,
+      458,
+      459,
+      460,
+      462,
+      463,
+      464,
+      465,
+      466,
+      467,
+      468,
+      469,
+      470,
+      472,
+      473,
+      474,
+      475,
+      476,
+      483,
+      484,
+      485,
+      487,
+      489,
+      490,
+      491,
+      492,
+      493,
+      499,
+      500,
+      503,
+      504,
+      507,
+      508,
+      509,
+      510,
+      512,
+      513,
+      514,
+      515,
+      518,
+      520,
+      521,
+      522,
+      523,
+      524,
+      525,
+      526,
+      527,
+      528,
+      530,
+      531,
+      532,
+      533,
+      534,
+      535,
+      537,
+      538,
+      539,
+      540,
+      542,
+      545,
+      547,
+      548,
+      549,
+      550,
+      552,
+      553,
+      554,
+      556,
+      558,
+      559,
+      560,
+      562,
+      563,
+      566,
+      568,
+      569,
+      570,
+      571,
+      572,
+      573,
+      574,
+      578
+    ],
+    "required_context": [
+      "src/ast/seq/seq_power_facet.cpp"
+    ],
+    "source_tags": {
+      "src/ast/seq/seq_power_facet.cpp": [
+        131,
+        132,
+        135,
+        271,
+        273,
+        276,
+        277,
+        278,
+        280,
+        283,
+        284,
+        285,
+        286,
+        288,
+        291,
+        292,
+        293,
+        294,
+        296,
+        414,
+        431,
+        441,
+        442,
+        443,
+        444,
+        446,
+        447,
+        448,
+        455,
+        456,
+        457,
+        458,
+        459,
+        460,
+        462,
+        463,
+        464,
+        465,
+        466,
+        467,
+        468,
+        469,
+        470,
+        472,
+        473,
+        474,
+        475,
+        476,
+        483,
+        484,
+        485,
+        487,
+        489,
+        490,
+        491,
+        492,
+        493,
+        499,
+        500,
+        503,
+        504,
+        507,
+        508,
+        509,
+        510,
+        512,
+        513,
+        514,
+        515,
+        518,
+        520,
+        521,
+        522,
+        523,
+        524,
+        525,
+        526,
+        527,
+        528,
+        530,
+        531,
+        532,
+        533,
+        534,
+        535,
+        537,
+        538,
+        539,
+        540,
+        542,
+        545,
+        547,
+        548,
+        549,
+        550,
+        552,
+        553,
+        554,
+        556,
+        558,
+        559,
+        560,
+        562,
+        563,
+        566,
+        568,
+        569,
+        570,
+        571,
+        572,
+        573,
+        574,
+        578
+      ]
+    },
+    "environment": [
+      {
+        "name": "Power",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 131
+          },
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 132
+          },
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 135
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "TokenView",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 466
+          },
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 467
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "ConstantWord",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 271
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [
+          "TokenView(word,bounds,flags) && 0 <= i <= |flags|",
+          "acc == word[..bounds[i]]"
+        ],
+        "ensures": [
+          "ConstantWord(word,bounds,flags,i,acc).0 ==> ConstantWord(word,bounds,flags,i,acc).1 == word && 0 < |word|"
+        ],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "PeriodScan",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 283
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [
+          "r > 0 && i >= 0"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "RootScan",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 291
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [
+          "0 < |word| && 1 <= d <= |word|"
+        ],
+        "ensures": [
+          "0 < |RootScan(word,d)| <= |word|"
+        ],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "PrimitiveRoot",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 291
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [
+          "0 < |word|"
+        ],
+        "ensures": [
+          "0 < |PrimitiveRoot(word)| <= |word|"
+        ],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "U32",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 447
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "EnumerationDomain",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 414
+          },
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 431
+          },
+          {
+            "path": "src/ast/seq/seq_power_facet.cpp",
+            "line": 443
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+        "requires": [
+          "0 <= b < 10",
+          "TokenView(A,aBounds,aLiteral) && TokenView(B,bBounds,bLiteral)"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      }
+    ],
+    "witnesses": [
+      {
+        "label": "f0 negative exponent",
+        "inputs": {
+          "b": 0,
+          "param": 0,
+          "A": [
+            97
+          ],
+          "B": [
+            98
+          ],
+          "aBounds": [
+            0,
+            1
+          ],
+          "bBounds": [
+            0,
+            1
+          ],
+          "aLiteral": [
+            true
+          ],
+          "bLiteral": [
+            true
+          ],
+          "expA": -1,
+          "expB": 1,
+          "y1": [],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f1 residual",
+        "inputs": {
+          "b": 1,
+          "param": 0,
+          "A": [
+            97
+          ],
+          "B": [
+            97,
+            98
+          ],
+          "aBounds": [
+            0,
+            1
+          ],
+          "bBounds": [
+            0,
+            1,
+            2
+          ],
+          "aLiteral": [
+            true
+          ],
+          "bLiteral": [
+            true,
+            true
+          ],
+          "expA": 1,
+          "expB": 2,
+          "y1": [
+            98
+          ],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f2 empty fresh root and negative N",
+        "inputs": {
+          "b": 2,
+          "param": 0,
+          "A": [],
+          "B": [],
+          "aBounds": [
+            0,
+            0
+          ],
+          "bBounds": [
+            0,
+            0
+          ],
+          "aLiteral": [
+            false
+          ],
+          "bLiteral": [
+            false
+          ],
+          "expA": 2,
+          "expB": -1,
+          "y1": [],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 1,
+          "jFresh": 1,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f2 two commuting constants with different powers",
+        "inputs": {
+          "b": 2,
+          "param": 0,
+          "A": [
+            97,
+            97
+          ],
+          "B": [
+            97,
+            97,
+            97
+          ],
+          "aBounds": [
+            0,
+            1,
+            2
+          ],
+          "bBounds": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "aLiteral": [
+            true,
+            true
+          ],
+          "bLiteral": [
+            true,
+            true,
+            true
+          ],
+          "expA": 1,
+          "expB": 1,
+          "y1": [],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f3 symbolic decomposition with negative k",
+        "inputs": {
+          "b": 3,
+          "param": 0,
+          "A": [
+            97
+          ],
+          "B": [
+            97,
+            97,
+            98
+          ],
+          "aBounds": [
+            0,
+            1
+          ],
+          "bBounds": [
+            0,
+            3
+          ],
+          "aLiteral": [
+            false
+          ],
+          "bLiteral": [
+            false
+          ],
+          "expA": 2,
+          "expB": 2,
+          "y1": [],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [
+            97
+          ],
+          "p2Fresh": [
+            98
+          ],
+          "kFresh": -1,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f3 constant period not dividing length",
+        "inputs": {
+          "b": 3,
+          "param": 2,
+          "A": [
+            97,
+            98,
+            97,
+            98,
+            97
+          ],
+          "B": [
+            97,
+            98,
+            97,
+            98,
+            97,
+            97,
+            98
+          ],
+          "aBounds": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "bBounds": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "aLiteral": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "bLiteral": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "expA": 2,
+          "expB": 2,
+          "y1": [],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "f4 split residual",
+        "inputs": {
+          "b": 4,
+          "param": 0,
+          "A": [
+            97,
+            98,
+            97
+          ],
+          "B": [
+            97,
+            98
+          ],
+          "aBounds": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "bBounds": [
+            0,
+            1,
+            2
+          ],
+          "aLiteral": [
+            true,
+            true,
+            true
+          ],
+          "bLiteral": [
+            true,
+            true
+          ],
+          "expA": 1,
+          "expB": 2,
+          "y1": [
+            97
+          ],
+          "y2": [
+            98
+          ],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 1
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      },
+      {
+        "label": "mirrored f1 strict length guard",
+        "inputs": {
+          "b": 6,
+          "param": 0,
+          "A": [
+            97,
+            98
+          ],
+          "B": [
+            97
+          ],
+          "aBounds": [
+            0,
+            1,
+            2
+          ],
+          "bBounds": [
+            0,
+            1
+          ],
+          "aLiteral": [
+            true,
+            true
+          ],
+          "bLiteral": [
+            true
+          ],
+          "expA": 2,
+          "expB": 1,
+          "y1": [
+            98
+          ],
+          "y2": [],
+          "wFresh": [],
+          "iFresh": 0,
+          "jFresh": 0,
+          "p1Fresh": [],
+          "p2Fresh": [],
+          "kFresh": 0,
+          "qFresh": 0
+        },
+        "status": "unverified independent domain candidate; no model outcome"
+      }
+    ],
+    "frozen_selection_sha256": "0beb5b435b99a07ee85fbc6830028ee477f8b79bbd243c1f254887ef9b0da13e",
+    "frozen_intent": {
+      "id": "P18",
+      "coverage_candidate": "C10-apply-word-identity",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "power_trichotomy::apply",
+      "span": [
+        455,
+        579
+      ],
+      "intent_origin": "source-inferred hypothesis from the changed function and its enumerator, not PR intent or source-confirmed correctness",
+      "quote_line": 502,
+      "grounding_quote": "        // Each case asserts exactly what its substitution `Y^N := X^M . z` needs.",
+      "inputs": {
+        "b": "int: branch selector 0..9, including source direction",
+        "param": "int: enumerated constant period, otherwise 0",
+        "A": "seq<int>: original first base valuation",
+        "B": "seq<int>: original second base valuation",
+        "aBounds": "seq<int>: flattened token boundaries for A",
+        "bBounds": "seq<int>: flattened token boundaries for B",
+        "aLiteral": "seq<bool>: observed per-token is-unit-and-constant-character classification for A",
+        "bLiteral": "seq<bool>: corresponding classification for B",
+        "expA": "int: valuation of original first exponent",
+        "expB": "int: valuation of original second exponent",
+        "y1": "seq<int>: fresh f1/f4 word valuation",
+        "y2": "seq<int>: fresh f4 word valuation",
+        "wFresh": "seq<int>: fresh f2 root valuation",
+        "iFresh": "int: fresh f2 exponent valuation",
+        "jFresh": "int: fresh f2 exponent valuation",
+        "p1Fresh": "seq<int>: fresh f3 first word valuation",
+        "p2Fresh": "seq<int>: fresh f3 second word valuation",
+        "kFresh": "int: fresh f3 exponent valuation",
+        "qFresh": "int: fresh f4 exponent valuation"
+      },
+      "outputs": {
+        "constraints_ok": "bool: conjunction of interpreted side conditions actually added by this branch",
+        "fromWord": "seq<int>: interpreted substituted term",
+        "toWord": "seq<int>: interpreted replacement"
+      },
+      "semantics": [
+        "Words are seq<int> over an uninterpreted equality alphabet. Power(word,k) is empty for k<=0 and repeated concatenation otherwise. Integer exponents are unbounded mathematical integers, not unsigned.",
+        "Input token boundaries begin at 0, end at word length, are nondecreasing, and have one more element than classification flags. A true literal flag requires a one-character segment. False allows any segment length, including zero; it does not assert inequality of word values.",
+        "Body-defined ConstantWord follows the source reset/loop/early-return/append/nonempty-return behavior using the observed literal flags and corresponding one-character segments. Its flags are abstract syntactic observations, not guessed from word valuations.",
+        "Compute direction exactly from b<5; select X,M,Y,N and the associated token views by swapping original inputs in the mirrored direction. Apply the source <= or strict < guard to the lengths of truncated word powers, not to M*|X| for negative M.",
+        "Fresh values are universally free input valuations; constraints_ok accumulates the actual arithmetic constraints and word equations instead of assuming they are always true. It does not assert native solver reachability.",
+        "f0 adds M<=0 OR X empty and emits X^M -> epsilon. f1 adds N>=1 and Y=X^M.y1, with residual y1.Y^(N-1).",
+        "f2 adds M>=1; use primitive_root(gx?X:Y) when either ConstantWord succeeds, derive existing i/j by the actual length division, otherwise use fresh root. For each missing i/j add >=1 and the respective base=root^exponent equation. Residual is root^(j*N-i*M). Never assume j*N-i*M>=0 when root is empty.",
+        "f3 adds M,N>=2. param>0 uses l1=|X| mod param, p1=suffix(X,l1), p2=X[l1..param). Otherwise use fresh p1,p2 and add X=(p1.p2)^kFresh with a trailing p1. Do not restrict kFresh>=0. Add Y=X^(M-1).p1.p2 and preserve the complete residual p2.p1.X^(M-2).p1.p2.Y^(N-2).",
+        "f4 adds M=1,qFresh>=0,qFresh+1<=N, Y=y1.y2 and X=Y^qFresh.y1. Preserve residual y2.Y^(N-qFresh-1).",
+        "All nonzero cases emit Y^N -> X^M.residual. Preserve every branch computation, including both constant and fresh-root variants; do not select separate properties per case."
+      ],
+      "domain": [
+        {
+          "predicate": "0<=b<10; 0<=param<4294967296; valid token boundary/classification views; each token-vector length <4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:414-451; unsigned selector/period/vector lengths and flattened token value projection"
+        },
+        {
+          "predicate": "Non-f3 branches have param=0. In f3, ConstantWord(X) iff param>0; when param>0, 0<param<|X| and body-defined HasPeriod(X,param).",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:443-448: constant X produces period-param branches; nonconstant X produces param=0"
+        },
+        {
+          "predicate": "For f2 with both bases constant, X.Y==Y.X.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:441-442 rejects noncommuting constant bases; omitting this caller guard would invent invalid common-root behavior"
+        },
+        {
+          "predicate": "For constant f3 with constant Y: |Y|>=U32(|X|+param) and U32(|Y|-param) mod |X|==0, where U32(v)=v mod 4294967296.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "enumerate:447 unsigned additions/subtractions retained, not silently lifted to nonwrapping mathematics"
+        },
+        {
+          "predicate": "Every successful ConstantWord output has length <4294967296.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "unsigned zstring length and one-character-per-successful-token representation; not a bound on arbitrary opaque-word valuations"
+        }
+      ],
+      "whole_positive_property": "!constraints_ok || fromWord == toWord",
+      "required_helpers": [
+        {
+          "name": "Power",
+          "contract": "Truncated signed word exponentiation by recursive concatenation with a body; algebraic lemmas must be verified, not assumed.",
+          "source": "src/ast/seq/seq_power_facet.cpp:110-142; src/ast/seq_decl_plugin.h:60-67,315-320"
+        },
+        {
+          "name": "ConstantWord",
+          "contract": "Exact partial accumulation/early-return semantics on the projected flattened token view; successful output equals the complete base and is nonempty.",
+          "source": "src/ast/seq/seq_power_facet.cpp:271-281"
+        },
+        {
+          "name": "HasPeriod",
+          "contract": "Actual pairwise-offset scan, with checked index/unsigned domains.",
+          "source": "src/ast/seq/seq_power_facet.cpp:283-289"
+        },
+        {
+          "name": "PrimitiveRoot",
+          "contract": "Actual least-divisor/has_period loop and fallback. Prove any repetition/common-root facts required by the original whole goal; no bodyless common-root oracle.",
+          "source": "src/ast/seq/seq_power_facet.cpp:291-297"
+        },
+        {
+          "name": "Word/slice/power construction",
+          "contract": "Actual branch concatenation order and constant suffix/subslice, with all index domains established. Arithmetic normalization is interpreted mathematically, not asserted as a native rewriter theorem.",
+          "source": "src/ast/seq/seq_power_facet.cpp:94-108,476-497,510-579"
+        }
+      ],
+      "omitted_effects": [
+        "No proof of full arithmetic-rewriter/AST equivalence, tokenization equivalence or C++/Dafny correspondence; flattened token values and syntactic literal flags are explicit input observations.",
+        "Freshness, AST identities/sorts, add_power registration, dependency propagation, callback lifetime/reallocation effects, allocations and later solver search are outside this word-semantic projection.",
+        "The enumerator prefix/alphabet feasibility filters and trigger eligibility are not reconstructed; only necessary constant-root/period caller guards are retained. The model admits additional branches, not fewer. At least one source exponent expression may be syntactically symbolic even when its independent valuation is a numeral.",
+        "No branch exhaustiveness/completeness claim, no native reachability claim, and no source-confirmed crash/result. An unresolved complete proof stays unresolved rather than becoming scalar-count success."
+      ],
+      "domain_examples": [
+        {
+          "label": "f0 negative exponent",
+          "inputs": {
+            "b": 0,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              1
+            ],
+            "aLiteral": [
+              true
+            ],
+            "bLiteral": [
+              true
+            ],
+            "expA": -1,
+            "expB": 1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f1 residual",
+          "inputs": {
+            "b": 1,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              1,
+              2
+            ],
+            "aLiteral": [
+              true
+            ],
+            "bLiteral": [
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 2,
+            "y1": [
+              98
+            ],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f2 empty fresh root and negative N",
+          "inputs": {
+            "b": 2,
+            "param": 0,
+            "A": [],
+            "B": [],
+            "aBounds": [
+              0,
+              0
+            ],
+            "bBounds": [
+              0,
+              0
+            ],
+            "aLiteral": [
+              false
+            ],
+            "bLiteral": [
+              false
+            ],
+            "expA": 2,
+            "expB": -1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 1,
+            "jFresh": 1,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f2 two commuting constants with different powers",
+          "inputs": {
+            "b": 2,
+            "param": 0,
+            "A": [
+              97,
+              97
+            ],
+            "B": [
+              97,
+              97,
+              97
+            ],
+            "aBounds": [
+              0,
+              1,
+              2
+            ],
+            "bBounds": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "aLiteral": [
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 1,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f3 symbolic decomposition with negative k",
+          "inputs": {
+            "b": 3,
+            "param": 0,
+            "A": [
+              97
+            ],
+            "B": [
+              97,
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1
+            ],
+            "bBounds": [
+              0,
+              3
+            ],
+            "aLiteral": [
+              false
+            ],
+            "bLiteral": [
+              false
+            ],
+            "expA": 2,
+            "expB": 2,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [
+              97
+            ],
+            "p2Fresh": [
+              98
+            ],
+            "kFresh": -1,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f3 constant period not dividing length",
+          "inputs": {
+            "b": 3,
+            "param": 2,
+            "A": [
+              97,
+              98,
+              97,
+              98,
+              97
+            ],
+            "B": [
+              97,
+              98,
+              97,
+              98,
+              97,
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "bBounds": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "aLiteral": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "expA": 2,
+            "expB": 2,
+            "y1": [],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "f4 split residual",
+          "inputs": {
+            "b": 4,
+            "param": 0,
+            "A": [
+              97,
+              98,
+              97
+            ],
+            "B": [
+              97,
+              98
+            ],
+            "aBounds": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "bBounds": [
+              0,
+              1,
+              2
+            ],
+            "aLiteral": [
+              true,
+              true,
+              true
+            ],
+            "bLiteral": [
+              true,
+              true
+            ],
+            "expA": 1,
+            "expB": 2,
+            "y1": [
+              97
+            ],
+            "y2": [
+              98
+            ],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 1
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        },
+        {
+          "label": "mirrored f1 strict length guard",
+          "inputs": {
+            "b": 6,
+            "param": 0,
+            "A": [
+              97,
+              98
+            ],
+            "B": [
+              97
+            ],
+            "aBounds": [
+              0,
+              1,
+              2
+            ],
+            "bBounds": [
+              0,
+              1
+            ],
+            "aLiteral": [
+              true,
+              true
+            ],
+            "bLiteral": [
+              true
+            ],
+            "expA": 2,
+            "expB": 1,
+            "y1": [
+              98
+            ],
+            "y2": [],
+            "wFresh": [],
+            "iFresh": 0,
+            "jFresh": 0,
+            "p1Fresh": [],
+            "p2Fresh": [],
+            "kFresh": 0,
+            "qFresh": 0
+          },
+          "status": "unverified independent domain candidate; no model outcome"
+        }
+      ],
+      "outcome": "not modeled or checked",
+      "source_blob": "a1b4edea553812863bded3e7e717a4ccf809df38",
+      "original_positive_property_frozen": true,
+      "changed_anchors": [
+        455,
+        456,
+        457,
+        458,
+        459,
+        460,
+        461,
+        462,
+        463,
+        464,
+        465,
+        466,
+        467,
+        468,
+        469,
+        470,
+        471,
+        472,
+        473,
+        474,
+        475,
+        476,
+        477,
+        478,
+        479,
+        480,
+        481,
+        482,
+        483,
+        484,
+        485,
+        486,
+        487,
+        488,
+        489,
+        490,
+        491,
+        492,
+        493,
+        494,
+        495,
+        496,
+        497,
+        498,
+        499,
+        500,
+        501,
+        502,
+        503,
+        504,
+        505,
+        506,
+        507,
+        508,
+        509,
+        510,
+        511,
+        512,
+        513,
+        514,
+        515,
+        516,
+        517,
+        518,
+        519,
+        520,
+        521,
+        522,
+        523,
+        524,
+        525,
+        526,
+        527,
+        528,
+        529,
+        530,
+        531,
+        532,
+        533,
+        534,
+        535,
+        536,
+        537,
+        538,
+        539,
+        540,
+        541,
+        542,
+        543,
+        544,
+        545,
+        546,
+        547,
+        548,
+        549,
+        550,
+        551,
+        552,
+        553,
+        554,
+        555,
+        556,
+        557,
+        558,
+        559,
+        560,
+        561,
+        562,
+        563,
+        564,
+        565,
+        566,
+        567,
+        568,
+        569,
+        570,
+        571,
+        572,
+        573,
+        574,
+        575,
+        576,
+        577,
+        578,
+        579
+      ]
+    },
+    "correspondence": "Word-semantic projection with explicit token observations and actual guard equations; no native equivalence, reachability, allocation or dependency proof. Signed powers truncate nonpositive exponents; root word algebra must be proved, not assumed.",
+    "provenance": "Exact tags and local metadata only; no source equivalence or full upstream extraction/span gates.",
+    "sha256": "fef6a9e8c6d1774f4fcf8c3c82295bf1bf99df84ec5eedfa424c1763eb779710"
+  },
+  {
+    "id": "P19",
+    "title": "(moved == (exists i :: 0<=i<|lits| && !SemanticActive(canonicalPointers[lits[i]],activePointers,pointeeValue))) AND (0<=newWatch<|lits|) AND (if moved then newWatch!=oldWatch AND !SemanticActive(canonicalPointers[lits[newWatch]],activePointers,pointeeValue) AND (widthsOut,itemsOut)==Watch(Unwatch(bucketWidths,bucketItems,lits[oldWatch],coreIdx),lits[newWatch],coreIdx) else newWatch==oldWatch AND widthsOut==bucketWidths AND itemsOut==bucketItems)",
+    "path": "src/util/stx_search_tree.h",
+    "entry_point": "RewatchEntry",
+    "origin": "source-inferred hypothesis",
+    "quote": "// Returns false - no absent literal exists anywhere in the core:",
+    "original_ensures": [
+      "WholeRewatch(lits,canonicalPointers,pointeeValue,activePointers,oldWatch,coreIdx,bucketWidths,bucketItems,moved,newWatch,widthsOut,itemsOut)"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 < |lits| < 4294967296 && 0 <= oldWatch < |lits|",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "PointerView(lits,canonicalPointers,pointeeValue,activePointers)",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "|canonicalPointers| < 4294967296 && |pointeeValue| < 4294967296 && |activePointers| < 4294967296 && |bucketWidths| < 4294967296 && |bucketItems| < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "forall j,k :: 0 <= j < k < |canonicalPointers| ==> canonicalPointers[j] != canonicalPointers[k] && pointeeValue[canonicalPointers[j]] != pointeeValue[canonicalPointers[k]]",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "SemanticActive(canonicalPointers[lits[oldWatch]],activePointers,pointeeValue)",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "BucketShape(bucketWidths,bucketItems) && 0 <= coreIdx < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "forall j :: 0 <= j < |bucketWidths| ==> bucketWidths[j] < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      },
+      {
+        "clause": "forall j :: 0 <= j < |bucketItems| ==> 0 <= bucketItems[j] < 4294967296",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Frozen source applicability or projected representation invariant, not a proved global/native caller fact; see frozen intent domains and limits."
+      }
+    ],
+    "source_span": [
+      681,
+      708
+    ],
+    "source_lines": [
+      583,
+      589,
+      600,
+      610,
+      664,
+      665,
+      666,
+      667,
+      668,
+      672,
+      673,
+      674,
+      675,
+      676,
+      677,
+      678,
+      685,
+      688,
+      689,
+      692,
+      693,
+      694,
+      695,
+      696,
+      697,
+      698,
+      699,
+      700,
+      701,
+      702,
+      703,
+      707
+    ],
+    "required_context": [
+      "src/util/stx_search_tree.h",
+      "src/util/vector.h"
+    ],
+    "source_tags": {
+      "src/util/stx_search_tree.h": [
+        583,
+        589,
+        600,
+        610,
+        664,
+        665,
+        666,
+        667,
+        668,
+        672,
+        673,
+        674,
+        675,
+        676,
+        677,
+        678,
+        685,
+        688,
+        689,
+        692,
+        693,
+        694,
+        695,
+        696,
+        697,
+        698,
+        699,
+        700,
+        701,
+        702,
+        703,
+        707
+      ],
+      "src/util/vector.h": [
+        579,
+        581,
+        582,
+        583,
+        584,
+        586
+      ]
+    },
+    "environment": [
+      {
+        "name": "PointerView",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 600
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 610
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "SemanticActive",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 583
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 589
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "0 <= pointer < |pointeeValue|",
+          "forall j :: 0 <= j < |activePointers| ==> 0 <= activePointers[j] < |pointeeValue|"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "IdentityContains",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/util/vector.h",
+            "line": 579
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "0 <= start <= |active|"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "BucketShape",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 665
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 675
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "RemoveFirst",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 676
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 678
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "Unwatch",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 672
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "BucketShape(widths,items) && id >= 0"
+        ],
+        "ensures": [
+          "BucketShape(Unwatch(widths,items,id,core).0,Unwatch(widths,items,id,core).1)"
+        ],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "Watch",
+        "kind": "function",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 664
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "BucketShape(widths,items) && id >= 0"
+        ],
+        "ensures": [
+          "BucketShape(Watch(widths,items,id,core).0,Watch(widths,items,id,core).1)"
+        ],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "HasAbsent",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 685
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 688
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 689
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "PointerView(lits,canonicalPointers,pointeeValue,activePointers)"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      },
+      {
+        "name": "WholeRewatch",
+        "kind": "predicate",
+        "source": [
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 685
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 688
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 689
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 700
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 701
+          },
+          {
+            "path": "src/util/stx_search_tree.h",
+            "line": 702
+          }
+        ],
+        "description": "Body-defined source-tagged projected behavior/specification; Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+        "requires": [
+          "PointerView(lits,canonicalPointers,pointeeValue,activePointers)",
+          "0 <= oldWatch < |lits| && BucketShape(bucketWidths,bucketItems)"
+        ],
+        "ensures": [],
+        "contract_status": "Must verify body; not a trusted axiom or assumed helper effect"
+      }
+    ],
+    "witnesses": [
+      {
+        "label": "two semantically active live aliases with distinct canonical identities",
+        "inputs": {
+          "lits": [
+            0,
+            1
+          ],
+          "canonicalPointers": [
+            0,
+            1
+          ],
+          "pointeeValue": [
+            10,
+            20,
+            10,
+            20
+          ],
+          "activePointers": [
+            2,
+            3
+          ],
+          "oldWatch": 0,
+          "coreIdx": 0,
+          "bucketWidths": [
+            1,
+            0
+          ],
+          "bucketItems": [
+            0
+          ]
+        },
+        "status": "unverified candidate domain; not yet a counterexample"
+      },
+      {
+        "label": "genuinely absent other literal and missing destination bucket",
+        "inputs": {
+          "lits": [
+            0,
+            1
+          ],
+          "canonicalPointers": [
+            0,
+            1
+          ],
+          "pointeeValue": [
+            10,
+            20,
+            10
+          ],
+          "activePointers": [
+            2
+          ],
+          "oldWatch": 0,
+          "coreIdx": 0,
+          "bucketWidths": [
+            1
+          ],
+          "bucketItems": [
+            0
+          ]
+        },
+        "status": "unverified candidate domain"
+      },
+      {
+        "label": "singleton semantically active via alias",
+        "inputs": {
+          "lits": [
+            0
+          ],
+          "canonicalPointers": [
+            0
+          ],
+          "pointeeValue": [
+            10,
+            10
+          ],
+          "activePointers": [
+            1
+          ],
+          "oldWatch": 0,
+          "coreIdx": 7,
+          "bucketWidths": [],
+          "bucketItems": []
+        },
+        "status": "unverified candidate domain"
+      }
+    ],
+    "frozen_selection_sha256": "0beb5b435b99a07ee85fbc6830028ee477f8b79bbd243c1f254887ef9b0da13e",
+    "frozen_intent": {
+      "id": "P19",
+      "coverage_candidate": "C12-rewatch-representation",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "try_rewatch",
+      "span": [
+        681,
+        708
+      ],
+      "intent_origin": "source-inferred documented local return/state contract, NOT unsat-core semantic soundness",
+      "quote_line": 688,
+      "grounding_quote": "        // Returns false - no absent literal exists anywhere in the core:",
+      "inputs": {
+        "lits": "seq<int>: current core store IDs",
+        "canonicalPointers": "seq<int>: store-ID-to-canonical-pointer identity table",
+        "pointeeValue": "seq<int>: pointer-identity-to-semantic-equivalence-class table",
+        "activePointers": "seq<int>: currently active live pointer identities",
+        "oldWatch": "int: original index into lits",
+        "coreIdx": "int: this core ID",
+        "bucketWidths": "seq<int>: watch-list bucket lengths",
+        "bucketItems": "seq<int>: concatenated bucket core IDs"
+      },
+      "outputs": {
+        "moved": "bool: source return value",
+        "newWatch": "int: updated core watch index",
+        "widthsOut": "seq<int>: resulting bucket lengths",
+        "itemsOut": "seq<int>: resulting flattened bucket core IDs"
+      },
+      "domain": [
+        {
+          "predicate": "0<|lits|<4294967296; 0<=oldWatch<|lits|; every lits[i] indexes canonicalPointers; every canonical pointer and active pointer indexes pointeeValue; all vector lengths and represented IDs are unsigned-32 values.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "core/store/vector indexing and unsigned source representations"
+        },
+        {
+          "predicate": "SemanticActive(canonicalPointers[lits[oldWatch]],activePointers,pointeeValue).",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "source precondition comment:681-683; cache_lookup uses semantic find:716-735"
+        },
+        {
+          "predicate": "Canonical pointer identities are pairwise distinct, and their pointeeValue classes are pairwise distinct.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "constraint_store::intern clones only after semantic find fails:600-610; one canonical owner per class"
+        },
+        {
+          "predicate": "Each bucket width is nonnegative; widths sum to |bucketItems|; bucket lengths, each item and coreIdx fit unsigned-32. No requirement that canonical pointers equal their live semantic aliases; old watch bucket may be absent as handled by unwatch.",
+          "origin": "inferred",
+          "optional": false,
+          "justification": "value-state projection of the vector-of-vectors and source guarded unwatch/resize operations:664-678"
+        }
+      ],
+      "semantics": [
+        "Pointer equality is identity equality. SemanticActive is existence of an active pointer with equal pointeeValue, not membership of canonical identity.",
+        "Read old_id=lits[oldWatch]; scan i from 0, skipping oldWatch. Test actual identity membership canonicalPointers[lits[i]] in activePointers, without substituting semantic equality.",
+        "On first identity-absent other entry: unwatch(old_id,coreIdx), assign newWatch=i, watch(lits[i],coreIdx), return true. Otherwise preserve old state and return false.",
+        "Unwatch removes the first matching coreIdx in the specified bucket if present, or is a no-op if bucket out of range or core absent. Watch grows buckets with empty rows then appends one coreIdx. Preserve order and all unaffected rows.",
+        "The flattened representation uses bucketWidths plus concatenated bucketItems, with body-defined prefix offsets/slice/delete/append helpers, not an unconstrained state-update oracle."
+      ],
+      "whole_positive_property": "(moved == (exists i :: 0<=i<|lits| && !SemanticActive(canonicalPointers[lits[i]],activePointers,pointeeValue))) AND (0<=newWatch<|lits|) AND (if moved then newWatch!=oldWatch AND !SemanticActive(canonicalPointers[lits[newWatch]],activePointers,pointeeValue) AND (widthsOut,itemsOut)==Watch(Unwatch(bucketWidths,bucketItems,lits[oldWatch],coreIdx),lits[newWatch],coreIdx) else newWatch==oldWatch AND widthsOut==bucketWidths AND itemsOut==bucketItems)",
+      "required_helpers": [
+        {
+          "name": "IdentityContains",
+          "contract": "Body-defined equality scan over actual pointer identities.",
+          "source": "src/util/vector.h:579-589"
+        },
+        {
+          "name": "SemanticActive",
+          "contract": "Body-defined existence/scan of equal pointeeValue classes; explicit equivalence-class abstraction, not a proof of arbitrary constraint_i::equals semantics.",
+          "source": "src/util/stx_search_tree.h:575-610,716-735"
+        },
+        {
+          "name": "Watch and Unwatch",
+          "contract": "Body-defined exact bucket resize/append and first-match removal; no assumed helper effects.",
+          "source": "src/util/stx_search_tree.h:664-678"
+        },
+        {
+          "name": "Bucket offsets and slice updates",
+          "contract": "Bodies preserve the explicit flattened value representation and unaffected row order; bounds require independent verification.",
+          "source": "src/util/stx_search_tree.h:667-668,676-678"
+        }
+      ],
+      "omitted_effects": [
+        "This is a documented semantic-presence return contract plus complete local watch updates, not a proof that any cached core is unsatisfiable or that filtering conflict dependencies is sound.",
+        "Container updates describe successful normal-return mathematical value-state resize/erase/append. Native allocation failure, capacity growth/counter overflow and memory safety are not modeled or proved.",
+        "The source interface calls arbitrary constraint equals/hash; pointeeValue abstracts their semantic equivalence classes for consistent equation-like objects, with no native alias/lifetime, hash-table implementation, global cache-lookup or caller scheduling proof.",
+        "A verified violation of the semantic-presence converse is a missed-hit/control-contract result only. Do not label it false SAT/UNSAT, a native crash, an exploitable vulnerability or an executed C++ counterexample.",
+        "The input-example alias pattern is a candidate diagnostic, not a claimed counterexample until the complete conjunction is mechanically negated and independently verified with all inputs pinned."
+      ],
+      "domain_examples": [
+        {
+          "label": "two semantically active live aliases with distinct canonical identities",
+          "inputs": {
+            "lits": [
+              0,
+              1
+            ],
+            "canonicalPointers": [
+              0,
+              1
+            ],
+            "pointeeValue": [
+              10,
+              20,
+              10,
+              20
+            ],
+            "activePointers": [
+              2,
+              3
+            ],
+            "oldWatch": 0,
+            "coreIdx": 0,
+            "bucketWidths": [
+              1,
+              0
+            ],
+            "bucketItems": [
+              0
+            ]
+          },
+          "status": "unverified candidate domain; not yet a counterexample"
+        },
+        {
+          "label": "genuinely absent other literal and missing destination bucket",
+          "inputs": {
+            "lits": [
+              0,
+              1
+            ],
+            "canonicalPointers": [
+              0,
+              1
+            ],
+            "pointeeValue": [
+              10,
+              20,
+              10
+            ],
+            "activePointers": [
+              2
+            ],
+            "oldWatch": 0,
+            "coreIdx": 0,
+            "bucketWidths": [
+              1
+            ],
+            "bucketItems": [
+              0
+            ]
+          },
+          "status": "unverified candidate domain"
+        },
+        {
+          "label": "singleton semantically active via alias",
+          "inputs": {
+            "lits": [
+              0
+            ],
+            "canonicalPointers": [
+              0
+            ],
+            "pointeeValue": [
+              10,
+              10
+            ],
+            "activePointers": [
+              1
+            ],
+            "oldWatch": 0,
+            "coreIdx": 7,
+            "bucketWidths": [],
+            "bucketItems": []
+          },
+          "status": "unverified candidate domain"
+        }
+      ],
+      "outcome": "not modeled or checked",
+      "source_blob": "4827ccd4011ebfe52673f4ce0973ce996708e804",
+      "original_positive_property_frozen": true,
+      "changed_anchors": [
+        681,
+        682,
+        683,
+        684,
+        685,
+        686,
+        687,
+        688,
+        689,
+        690,
+        691,
+        692,
+        693,
+        694,
+        695,
+        696,
+        697,
+        698,
+        699,
+        700,
+        701,
+        702,
+        703,
+        704,
+        705,
+        706,
+        707,
+        708
+      ]
+    },
+    "correspondence": "Documented semantic rewatch converse and complete local updates, not global UNSAT-core correctness. Semantic classes and flattened watch buckets are disclosed projections; actual scan uses identity. Normal-return container effects exclude native resource/overflow/lifetime behavior.",
+    "provenance": "Exact tags and local metadata only; no source equivalence or full upstream extraction/span gates.",
+    "sha256": "2c12cde3e9f090433180e8468abd65e55b0d7def6268aaf0c0721cfdb640be6d"
+  }
+]

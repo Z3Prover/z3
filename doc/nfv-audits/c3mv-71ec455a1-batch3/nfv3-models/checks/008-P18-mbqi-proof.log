@@ -1,0 +1,4 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/008-P18-mbqi-proof.dfy(21,77): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv3-models/checks/008-P18-mbqi-proof.dfy(139,7): Error: Verification of 'PowerRewriteEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 9 verified, 0 errors, 1 time out
