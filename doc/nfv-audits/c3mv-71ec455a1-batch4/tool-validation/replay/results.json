@@ -1,0 +1,77 @@
+[
+  {
+    "sequence": 1,
+    "input": "checks\\001-P20-validity.dfy",
+    "input_sha256": "b0db42ab07748d0f6d82f80e0c041e64e5186e1a609084a72046ee28a924f07a",
+    "expected_exit": 4,
+    "actual_exit": 4,
+    "matched": true,
+    "seconds": 2.762,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch4\\nfv4-models\\checks\\001-P20-validity.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "001-P20-validity.log",
+    "log_sha256": "83a05c46ab729a01c731dc311d0f3324ec2095ec774bf13a3f7ec2e1431a11fe"
+  },
+  {
+    "sequence": 2,
+    "input": "checks\\002-P21-validity.dfy",
+    "input_sha256": "90585ffed484688e67a5a7199f269ce64267db55059b6aaa1ba1055f49450ddf",
+    "expected_exit": 4,
+    "actual_exit": 4,
+    "matched": true,
+    "seconds": 2.466,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch4\\nfv4-models\\checks\\002-P21-validity.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "002-P21-validity.log",
+    "log_sha256": "416b7ca491b6bebcd367c2270b25f711c8f9f0078baca3b73217a675a1983711"
+  },
+  {
+    "sequence": 3,
+    "input": "checks\\003-P22-validity.dfy",
+    "input_sha256": "3fcbdb40e46b55209913c0c8db89bd8061a615fc1cb4de48d7a43d262e26be89",
+    "expected_exit": 4,
+    "actual_exit": 4,
+    "matched": true,
+    "seconds": 1.819,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch4\\nfv4-models\\checks\\003-P22-validity.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "003-P22-validity.log",
+    "log_sha256": "de12144f6796dd0924fbbd6c1d7226825bcca2ba8781ea8017145f7453a42554"
+  }
+]

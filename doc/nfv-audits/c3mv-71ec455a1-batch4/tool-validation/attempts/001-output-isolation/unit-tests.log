@@ -1,0 +1,9 @@
+test_later_match_does_not_mask_mismatch (__main__.ReplayTests.test_later_match_does_not_mask_mismatch) ... {"sequence": 1, "expected_exit": 4, "actual_exit": 0, "matched": false}
+{"sequence": 2, "expected_exit": 4, "actual_exit": 4, "matched": true}
+ok
+test_modified_input_hash_rejected_before_execution (__main__.ReplayTests.test_modified_input_hash_rejected_before_execution) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.052s
+
+OK

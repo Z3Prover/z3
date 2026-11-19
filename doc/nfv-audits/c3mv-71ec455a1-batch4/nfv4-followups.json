@@ -1,0 +1,28 @@
+{
+  "batch": 4,
+  "reason": "All three sealed translations failed the first validity gate.",
+  "next_stage": "nfv4-publish",
+  "after_publication": {
+    "batch": 5,
+    "work": "New translation revision, not new source-property coverage.",
+    "retained_intents": [
+      "P20",
+      "P21",
+      "P22"
+    ],
+    "required": [
+      "Preserve batch4 sealed models, every failure and all old report evidence.",
+      "Use a distinct workspace and explicitly freeze the same complete intents; do not disguise a retry as three newly audited entries.",
+      "Correct constructor-lambda well-definedness without changing values on the constructor evaluation indices; disclose every textual change.",
+      "Keep all original input signatures/contracts, complete positive goals and thirteen example values. Do not weaken graph or semantic-cache claims.",
+      "Recheck property-free validity and independent domains before attempting entire positives; maintain all-input pinning/full-conjunction refutation protocol."
+    ]
+  },
+  "remaining_source_questions": [
+    "Native gpower-producer reachability/current-base cycle consequences remain unproved.",
+    "Temporary-length premise sufficiency, actual conflict/core production, insertion and later cache hit remain unproved.",
+    "P13 and P18 retain earlier unresolved status."
+  ],
+  "schedule_id": 2,
+  "stop_schedule": false
+}

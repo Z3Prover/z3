@@ -1,0 +1,34 @@
+{
+  "stage": "nfv4-verify",
+  "status": "done",
+  "recorded_utc": "2026-11-19T17:48:21.932521+00:00",
+  "summary": {
+    "whole_properties": 3,
+    "verified": 0,
+    "refuted": 0,
+    "type_check_or_audit_failure": 3,
+    "resources_exhausted": 0,
+    "verifier_attempts": 3,
+    "successful_attempts": 0,
+    "failed_attempts": 3,
+    "domain_attempts": 0,
+    "whole_positive_attempts": 0,
+    "refutation_attempts": 0,
+    "construction_checks": 20,
+    "construction_failures": 3,
+    "native_executions": 0,
+    "subprocess_wall_seconds": 6.808
+  },
+  "files": {
+    "nfv4-verification.md": "59c1a40f8f2bef90651d4422f22e33c486c4b993e68c0666969558d87ca482f1",
+    "nfv4-results.json": "f2b3fe2aa48cdc9dc1bb2f490453d55ecd5aa11ca82fedb0312b0b07cdf6e48b",
+    "nfv4-followups.json": "c143d4a24a8e70941b561f608a5d8f8698ca4a8257a2ce0064cda422f25f3181",
+    "verify_nfv4.py": "43fa14be59924a1b53f62139253e78ec7b52e29fe10b83eef2c483a92ee1d382",
+    "finish_nfv4_verification.py": "fcf3a1284636109fa1d6d03a6fd07a4f50860f13f3b2a4a96a1b99a430e1d8ba"
+  },
+  "checks_sha256": "c3afabce07a52c840eb5d88def2d362bd26e53b76db02d235abf799d049779a8",
+  "freeze_sha256": "7e3fcc0f8d139aa3d05605b8ab62582d60737bb8523ffef7b54bf6e1df241e3e",
+  "next_stage": "nfv4-publish",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

@@ -1,0 +1,21 @@
+{
+  "status": "frozen_before_modeling",
+  "selection_sha256": "7d7e9ff5bc259460e5dfc9b6892f7ccadc1fd8378fd10e970a585b07029bb4ce",
+  "selection_source_sha256": "11fc576a66bfbc1b709e0bb0a554e9bf92afbfd2bbe45fabd7f4229cc77928c2",
+  "report_sha256": "afefdf1eeea23a2d9566e9f7925ec88ce7338deb9bf275c215b8e2b543173668",
+  "source_handoffs": {
+    "nfv4-subst-handoff.json": "caea281691e4f3aa45a0c645a89a09c1e02b7dc44c074e45d921ad671b72c2fb",
+    "nfv4-core-handoff.json": "a1c172a2f50cdeba4b943ae5d40fffcff438e6eaa0058787bddc71c71e0ebfa2"
+  },
+  "property_ids": [
+    "P20",
+    "P21",
+    "P22"
+  ],
+  "entry_count": 3,
+  "whole_property_count": 3,
+  "concrete_example_count": 13,
+  "next_stage": "nfv4-model",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

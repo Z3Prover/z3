@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\z3seq\doc\nfv-audits\c3mv-71ec455a1-batch4\replay_nfv4_checks.py", line 53, in <module>
+    raise SystemExit(run_checks(args.bundle,chosen,args.dafny,args.solver,args.output))
+                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\z3seq\doc\nfv-audits\c3mv-71ec455a1-batch4\replay_nfv4_checks.py", line 19, in run_checks
+    assert not output.is_relative_to(bundle),'Use output outside immutable bundle'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Use output outside immutable bundle

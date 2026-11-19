@@ -1,0 +1,14 @@
+{
+  "stage": "nfv4-subst-invariants",
+  "status": "done",
+  "inventory_sha256": "c7d61d859516fda9b404441c625429b0111dc76fec10872beb8602306ddb7456",
+  "extra_source_sha256": "1a5a00310fbe4ab47f1ad00fb4efa34e21a152b50e81fe0c0afacc9d4ffb40cb",
+  "producer_ledger_sha256": "9d3667dba4555d3585da70f5f3213a40700f83d1b88afb5217e22db31ea6f8f1",
+  "report_sha256": "f7f5e39fa5a2b187d9ddbd49a44830354995c8821f92eeeee81bd2a48b82611a",
+  "producer_calls": 24,
+  "producer_scopes": 16,
+  "concrete_chain_attempts": 3,
+  "next_stage": "nfv4-core-provenance",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

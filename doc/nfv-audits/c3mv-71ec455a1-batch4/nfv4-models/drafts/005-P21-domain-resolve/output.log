@@ -1,0 +1,13 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1381,28): Warning: unusual indentation in right-hand operand of ==> (which ends at line 1401, column 141); do you perhaps need parentheses?
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1716,45): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1729,45): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1742,45): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1764,11): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1764,19): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1764,27): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1764,79): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1764,130): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1768,11): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1768,18): Error: the type of this expression is underspecified
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/drafts/005-P21-domain-resolve/P21.dfy(1768,39): Error: the type of this expression is underspecified
+11 resolution/type errors detected in P21.dfy

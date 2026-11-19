@@ -1,0 +1,447 @@
+{
+  "recorded_utc": "2026-11-19T17:43:25.930886+00:00",
+  "phase": "Modeling complete; local provenance and resolution only, no verification or proved domain admission yet.",
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "selection_sha256": "7d7e9ff5bc259460e5dfc9b6892f7ccadc1fd8378fd10e970a585b07029bb4ce",
+  "selection_freeze_sha256": "fbcf7507cd3bf3f6c45cfd9dc6151f93dcba4c18cf5f6afba01d146a1c5ca178",
+  "files": [
+    {
+      "path": "nfv4-models\\frozen\\properties.json",
+      "sha256": "a2eb0bf29cd9e5ffd93be6a83592c943a9954337a21a3b07f8e569fde18c15e1"
+    },
+    {
+      "path": "nfv4-models\\frozen\\sources.json",
+      "sha256": "f78054a8c5520ed674b3b9715397080cf4e465868dd4223b0565c96dfe1879d6"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P20.dfy",
+      "sha256": "ee5e6fc5b77fffebccf7db733006df3a1fbdec286596635756437a4fac24e4d5"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P20-domain.dfy",
+      "sha256": "f4444ba8085552a1b0ac9851d683d785495828141c1688d3496096f1db585177"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P21.dfy",
+      "sha256": "9367ed338a6fd2617eaa162c212c0b03885891edd4bfe998e2e90d299c6db3ac"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P21-domain.dfy",
+      "sha256": "f81fa365f993e597dcc134110a5d1bbb1f5573993293088077db9b9ae50061c0"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P22.dfy",
+      "sha256": "4ace7c15f5035cfe9033dd3cc72acc6314d5f391ea92cdb6e5a1c8c0823fe1c4"
+    },
+    {
+      "path": "nfv4-models\\frozen\\P22-domain.dfy",
+      "sha256": "8517831ed1fd909607a40e7f67f3d973cc123a8b121a4170001c62efd981e3ed"
+    },
+    {
+      "path": "nfv4-models\\frozen\\make_nfv4_models.py",
+      "sha256": "dcf64a5b6c22d5769952b0870be40cdeb90ae199c6f84ae8d3788c788631d8aa"
+    },
+    {
+      "path": "nfv4-models\\frozen\\check_nfv4_models.py",
+      "sha256": "28552faa54ab4b2063e0e51b82694b995f3669eb3ca3d730220e3699c2602e32"
+    },
+    {
+      "path": "nfv4-models\\frozen\\freeze_nfv4_models.py",
+      "sha256": "b9acc0f7c3e507dd3a7056f41d4e96a6c230db824d78d0c2acfaf25cb8ab35f1"
+    }
+  ],
+  "properties": [
+    {
+      "id": "P20",
+      "raw_sha256": "ee5e6fc5b77fffebccf7db733006df3a1fbdec286596635756437a4fac24e4d5",
+      "domain_driver_sha256": "f4444ba8085552a1b0ac9851d683d785495828141c1688d3496096f1db585177",
+      "computation_and_contract_sha256": "2b3122de0ff6ab5c753718c16522366f9065b005c0ed79e9c793965372637407",
+      "original_ensures": [
+        "Partition(widthsOut,itemsOut) && PowerStateWellFormed(syntaxPower,syntaxExps,keysOut,Rows(widthsOut,itemsOut),activeOut,expsOut,depsOut,flagsOut)",
+        "PowerUpdateExact(syntaxPower,syntaxWidths,syntaxItems,syntaxExps,keys,Rows(widths,items),active,exps,deps,flags,fromTok,repl,keysOut,widthsOut,itemsOut,activeOut,expsOut,depsOut,flagsOut)",
+        "CurrentBaseAcyclic(keys,Rows(widths,items),active) ==> CurrentBaseAcyclic(keysOut,Rows(widthsOut,itemsOut),activeOut)"
+      ],
+      "requires": [
+        "Catalog(syntaxPower,syntaxWidths,syntaxItems,syntaxExps)",
+        "Partition(widths,items) && PowerStateWellFormed(syntaxPower,syntaxExps,keys,Rows(widths,items),active,exps,deps,flags)",
+        "0<=fromTok<|syntaxPower| && (forall t :: t in repl ==> 0<=t<|syntaxPower|) && substDep>=0",
+        "|keys|+|repl|<4294967296 && (forall n :: n in widths+syntaxWidths ==> 0<=n<4294967296) && (forall r :: r in Rows(widths,items)+Rows(syntaxWidths,syntaxItems) ==> |Substitute(r,fromTok,repl)|<4294967296)"
+      ],
+      "helper_contracts": [
+        {
+          "name": "I",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "B",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "R",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Index",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Count",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Pick",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Rows",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Widths",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Flat",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Partition",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Unique",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "FindActive",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Deactivate",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Substitute",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Register",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Rebase",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "PowerExpected",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Edge",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CurrentBaseAcyclic",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "PowerStateWellFormed",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Catalog",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "PowerUpdateExact",
+          "requires": [],
+          "ensures": []
+        }
+      ]
+    },
+    {
+      "id": "P21",
+      "raw_sha256": "9367ed338a6fd2617eaa162c212c0b03885891edd4bfe998e2e90d299c6db3ac",
+      "domain_driver_sha256": "f81fa365f993e597dcc134110a5d1bbb1f5573993293088077db9b9ae50061c0",
+      "computation_and_contract_sha256": "cefdb354808559bf648ed9319e86af13a0ce2f8ed93546bde050f0b930c77d47",
+      "original_ensures": [
+        "Partition(coreWidthsOut,coreIdsOut) && Partition(bucketWidthsOut,bucketItemsOut) && CacheStateWellFormed(storeOut,Rows(coreWidthsOut,coreIdsOut),coreWatchOut,Rows(bucketWidthsOut,bucketItemsOut),|langWidths|)",
+        "CacheInsertExact(enabled,facetContrib,facetSatisfied,facetWidths,facetValues,factHasDep,factDepWidths,factDepItems,conflictHasDep,conflictLeaves,store,Rows(coreWidths,coreIds),coreWatch,Rows(bucketWidths,bucketItems),inserted,storeOut,coreWidthsOut,coreIdsOut,coreWatchOut,bucketWidthsOut,bucketItemsOut)",
+        "AllCoresUnsat(store,Rows(coreWidths,coreIds),Rows(wordWidths,wordChars),Rows(langWidths,langWords),backgroundAny,backgroundLengths) ==> AllCoresUnsat(storeOut,Rows(coreWidthsOut,coreIdsOut),Rows(wordWidths,wordChars),Rows(langWidths,langWords),backgroundAny,backgroundLengths)"
+      ],
+      "requires": [
+        "|facetContrib|==|facetSatisfied|==|facetWidths| && Partition(facetWidths,facetValues) && (forall f :: 0<=f<|facetWidths| && !facetContrib[f] ==> facetWidths[f]==0)",
+        "|factHasDep|==|factDepWidths|==|facetValues| && Partition(factDepWidths,factDepItems) && (forall p :: 0<=p<|factHasDep| && !factHasDep[p] ==> factDepWidths[p]==0) && (!conflictHasDep ==> conflictLeaves==[])",
+        "Partition(wordWidths,wordChars) && Partition(langWidths,langWords) && (forall w :: w in langWords ==> 0<=w<|wordWidths|) && (forall v :: v in facetValues ==> 0<=v<|langWidths|)",
+        "(forall c :: c in wordChars ==> 0<=c<=196607) && (forall n :: n in backgroundLengths ==> n>=0)",
+        "Partition(coreWidths,coreIds) && Partition(bucketWidths,bucketItems) && CacheStateWellFormed(store,Rows(coreWidths,coreIds),coreWatch,Rows(bucketWidths,bucketItems),|langWidths|)",
+        "|facetContrib|<4294967296 && |store|+|facetValues|<4294967296 && |coreWidths|+1<4294967296 && (forall w :: w in facetWidths+factDepWidths+wordWidths+langWidths+coreWidths+bucketWidths ==> 0<=w<4294967296) && (forall x :: x in factDepItems+conflictLeaves+[guessLeaf] ==> 0<=x<4294967296)",
+        "!(enabled && Eligible(facetContrib,facetSatisfied,0) && |Filter(Collect(facetContrib,facetWidths,0,0),factHasDep,factDepWidths,factDepItems,conflictHasDep,conflictLeaves)|>0) || ClosingCertificate(facetContrib,facetWidths,facetValues,factHasDep,factDepWidths,factDepItems,conflictHasDep,conflictLeaves,Rows(wordWidths,wordChars),Rows(langWidths,langWords),backgroundAny,backgroundLengths,guessPresent,guessLength,guessLeaf,proofPositions)"
+      ],
+      "helper_contracts": [
+        {
+          "name": "I",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "B",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "R",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Index",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Count",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Pick",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Rows",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Widths",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Flat",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Partition",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Unique",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Eligible",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Collect",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Subset",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Filter",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "InternList",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "WatchAdd",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CacheExpected",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "AcceptWord",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "BackgroundAllows",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "JointSatisfiable",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "ClosingCertificate",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CacheStateWellFormed",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "AllCoresUnsat",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CacheInsertExact",
+          "requires": [],
+          "ensures": []
+        }
+      ]
+    },
+    {
+      "id": "P22",
+      "raw_sha256": "4ace7c15f5035cfe9033dd3cc72acc6314d5f391ea92cdb6e5a1c8c0823fe1c4",
+      "domain_driver_sha256": "8517831ed1fd909607a40e7f67f3d973cc123a8b121a4170001c62efd981e3ed",
+      "computation_and_contract_sha256": "0c98b480f72a9b18353c5a0405a6f963013d75e3280919a2060934d0055fe833",
+      "original_ensures": [
+        "CanonicalStoreWellFormed(ownedOut,valuesOut,hashesOut,idsOut)",
+        "InternTransitionExact(query,owned,heapValues,heapHashes,heapIds,id,ownedOut,valuesOut,hashesOut,idsOut)",
+        "CanonicalClassPreserved(query,owned,heapValues,id,ownedOut,valuesOut)"
+      ],
+      "requires": [
+        "CanonicalStoreWellFormed(owned,heapValues,heapHashes,heapIds) && 0<=query<|heapValues|",
+        "(forall j :: 0<=j<|heapHashes| ==> 0<=heapHashes[j]<18446744073709551616 && 0<=heapIds[j]<4294967296)",
+        "(forall j,k :: 0<=j<|heapValues| && 0<=k<|heapValues| && heapValues[j]==heapValues[k] ==> heapHashes[j]%4294967296==heapHashes[k]%4294967296) && |owned|+1<4294967296"
+      ],
+      "helper_contracts": [
+        {
+          "name": "I",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "B",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "R",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Index",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Count",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Pick",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Rows",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Widths",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Flat",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Partition",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "Unique",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "FindIntern",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CanonicalStoreWellFormed",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "InternTransitionExact",
+          "requires": [],
+          "ensures": []
+        },
+        {
+          "name": "CanonicalClassPreserved",
+          "requires": [],
+          "ensures": []
+        }
+      ]
+    }
+  ],
+  "report_sha256": "061da437afaed194d83e111cc938ef6dccd8baf7e87dff965b23d19403353405",
+  "draft_history_sha256": "6bd11f60e2c953608941cd529df460cf88b9295b09c4ee4f3ec9e622e32ad647",
+  "draft_checks": 20,
+  "draft_failures": 3,
+  "provenance_checks": 4,
+  "resolve_checks": 16,
+  "body_defined_helpers": 62,
+  "concrete_examples": 13,
+  "new_verifier_attempts": 0,
+  "native_executions": 0,
+  "draft_failures_note": "Three initial domain-resolve failures from untyped empty literals in substituted assertions; corrected only in the harness with typed concrete locals. Initial warning and all exact inputs/logs retained.",
+  "construction_notes": [
+    "Initial model computations and goals resolved without errors; final models were not formally verified in this stage.",
+    "Per-helper source anchors were added to metadata without changing model bytes; only provenance was repeated for that edit.",
+    "Before sealing, P20 original/current base-width bounds and P21 facet-count bound were made explicit as already selected unsigned representation conditions; only those two model/domain pairs were re-resolved. No positive goal or witness changed.",
+    "Totalization outside well-formed domains, successful allocation, mathematical tuple/row encodings, finite-language and canonical ADT abstractions remain disclosed; no correspondence theorem or official admission claimed.",
+    "Exact-transition conjuncts stay frozen even if they prevent an entry-only repair. Do not remove them to make a fix pass."
+  ],
+  "policy": "Keep raw frozen files immutable. Computation, every entry/helper contract, all named inputs, complete conjunctions and thirteen examples are sealed. Later model edits may only add sound disclosed proof annotations; fingerprint is an extra textual guard, not a proof of source correctness or annotation-only equivalence.",
+  "next_stage": "nfv4-verify",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

@@ -1,0 +1,404 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "comparison_master": "c2460a558fc6fee3cf15cfebd2d3f642ebf77770",
+  "previous_publication": "13cfdf0d3f046886dd16ae6aef2c9853679b4877",
+  "stage": "nfv4-subst-invariants",
+  "classification": "source-only",
+  "source_inventory_sha256": "c7d61d859516fda9b404441c625429b0111dc76fec10872beb8602306ddb7456",
+  "extra_source_sha256": "1a5a00310fbe4ab47f1ad00fb4efa34e21a152b50e81fe0c0afacc9d4ffb40cb",
+  "producers": [
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 263,
+      "text": "broadcast_subst(n, from, repl, eq_dep);",
+      "function": "eq_facet::simplify_equation",
+      "first": 189,
+      "last": 309,
+      "guard": "Reduced element equality; normalized singleton units; distinct values and false ambient equality conflict; unequal characters; orient away from a value.",
+      "replacement": "unit(lch) -> [unit(rch)], possibly swapped",
+      "normalization": "Reduced sides explicitly eliminate latest bindings before this branch.",
+      "dependency_and_activity": "Parent/equality dependency plus elimination dependencies; ambient equality assumption recorded.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 286,
+      "text": "broadcast_subst(n, tok, empty_repl, eq_dep);",
+      "function": "eq_facet::simplify_equation",
+      "first": 189,
+      "last": 309,
+      "guard": "Exactly one current side empty; leading unit conflicts; consume leading nonunit token.",
+      "replacement": "leading nonunit -> []",
+      "normalization": "Reads currently rewritten active equation; no RHS.",
+      "dependency_and_activity": "Current equation dependency; repeated broadcast must shrink the referenced side.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 304,
+      "text": "broadcast_subst(n, x, def, cur.m_dep);",
+      "function": "eq_facet::simplify_equation",
+      "first": 189,
+      "last": 309,
+      "guard": "Singleton side classified as variable; reject every syntactic occurs(x,t) in copied opposite side.",
+      "replacement": "x -> opposite token vector",
+      "normalization": "Active equation rewritten by broadcasts; local syntactic occurs check is not transitive latest-binding closure.",
+      "dependency_and_activity": "Current equation dependency; changed flag set.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 396,
+      "text": "broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);",
+      "function": "word_eq_split::iterator::next",
+      "first": 392,
+      "last": 403,
+      "guard": "Pending alternative exists; consume next saved alternative.",
+      "replacement": "saved variable -> saved replacement",
+      "normalization": "No normalization at emission; parent-state restoration for saved alternatives is a separate driver obligation.",
+      "dependency_and_activity": "Saved dependency; optional saved guard asserted after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 446,
+      "text": "broadcast_subst(n, var, repl, dep);",
+      "function": "word_eq_split::split",
+      "first": 405,
+      "last": 720,
+      "guard": "Active normalized equation, both widths >=2; one boundary unit; other uninterpreted constant; occurs exclusion; model lengths agree and positive; solver actually implies equal length.",
+      "replacement": "uninterpreted constant -> [boundary unit]",
+      "normalization": "Uses current active equation and direct occurs exclusion.",
+      "dependency_and_activity": "Join equation and implication dependencies; committed return.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 529,
+      "text": "broadcast_subst(n, var_tok, repl, eq_dep);",
+      "function": "word_eq_split::split",
+      "first": 405,
+      "last": 720,
+      "guard": "Distinct unit characters, not known distinct and not ambient-false; orient toward a constant character if possible.",
+      "replacement": "unit token -> [other unit token]",
+      "normalization": "Current active equation; exact characters unequal; no latest-binding closure at call.",
+      "dependency_and_activity": "Equation dependency; solver constraint and outer assumption also recorded.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 661,
+      "text": "broadcast_subst(n, first.var, first.repl, eq_dep);",
+      "function": "word_eq_split::split",
+      "first": 405,
+      "last": 720,
+      "guard": "Distinct nonunit, nonpower end tokens; choose one of five Nielsen alternatives, reordered but not removed by bounds.",
+      "replacement": "v1/v2 -> empty, peer, or peer with keyed fresh remainder",
+      "normalization": "Current equation; no explicit transitive occurs guard; keyed freshness is not a new symbol on every invocation.",
+      "dependency_and_activity": "Equation dependency; optional nonempty guard asserted after broadcast; remaining branches saved.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 712,
+      "text": "broadcast_subst(n, var, empty, eq_dep);",
+      "function": "word_eq_split::split",
+      "first": 405,
+      "last": 720,
+      "guard": "One variable-like boundary versus a nonempty unit block; construct saved prefix/extension alternatives.",
+      "replacement": "variable-like token -> []",
+      "normalization": "Current equation; first branch has no RHS; saved alternatives use units and a keyed fresh remainder.",
+      "dependency_and_activity": "Equation dependency; committed first branch.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1301,
+      "text": "broadcast_subst(n, var, tokens, dep);",
+      "function": "model_completion_split::split_regex_difference",
+      "first": 1251,
+      "last": 1310,
+      "guard": "Active disequation/memberships; qualifying peer star; bounded product witness succeeds and rewrites to a string literal.",
+      "replacement": "endpoint -> concrete literal units",
+      "normalization": "Literal RHS; helper does not locally enforce uninterpreted endpoint; parent/iterator eligibility still matters.",
+      "dependency_and_activity": "New reversible completion equality assumption dependency.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1379,
+      "text": "broadcast_subst(n, left, tokens, dep);",
+      "function": "model_completion_split::split_regex_pair",
+      "first": 1312,
+      "last": 1386,
+      "guard": "Active disequation; same nonempty view sets; positive unsigned bounded model length; two different longer literal witnesses.",
+      "replacement": "left endpoint -> first concrete literal units",
+      "normalization": "Literal RHS; no global substitution closure or local endpoint-kind check.",
+      "dependency_and_activity": "New reversible completion equality assumption dependency.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "line": 1711,
+      "text": "broadcast_subst(n, c.var, c.tokens, dep);",
+      "function": "model_completion_split::split",
+      "first": 1407,
+      "last": 1719,
+      "guard": "Completion not blocked; collected nonvalue candidate; candidate concrete elements/literal or empty; optional negative-assumption rejection; block repeat completion.",
+      "replacement": "candidate token -> model value units/empty",
+      "normalization": "Candidate terms include symbolic units/selectors; dependent terms rewritten from selected model values; no get_subst at emission.",
+      "dependency_and_activity": "Each candidate gets an equality assumption; join dependencies for returned edge.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "line": 1030,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);",
+      "function": "power_peel_mem::iterator::next",
+      "first": 1004,
+      "last": 1035,
+      "guard": "Saved membership/power indices in bounds and active; positive peel alternative.",
+      "replacement": "power token -> current base plus power(current base,n-1), directionally",
+      "normalization": "Copies mutable current base; exponent subtraction not normalized here; no self-base exclusion.",
+      "dependency_and_activity": "Saved membership dependency; n>=1 asserted after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "line": 1055,
+      "text": "broadcast_subst(n, p.m_e, empty, dep);",
+      "function": "power_peel_mem::split",
+      "first": 1037,
+      "last": 1063,
+      "guard": "Active membership with symbolic active power at directional end.",
+      "replacement": "power token -> []",
+      "normalization": "Copies selected obligation; no RHS.",
+      "dependency_and_activity": "Membership dependency; n<=0 asserted after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 124,
+      "text": "broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep);",
+      "function": "power_propagation::propagate",
+      "first": 108,
+      "last": 168,
+      "guard": "Active power whose current base is syntactic empty.",
+      "replacement": "power token -> []",
+      "normalization": "No RHS; active obligation selected.",
+      "dependency_and_activity": "Stored power dependency; power sink deactivates matching key.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 138,
+      "text": "broadcast_subst(n, p.m_e.get(), repl, p.m_dep);",
+      "function": "power_propagation::propagate",
+      "first": 108,
+      "last": 168,
+      "guard": "Active power; syntactic numeral exponent <=1024; positive unfolds, nonpositive empty.",
+      "replacement": "power token -> current base repeated positive exponent times, else []",
+      "normalization": "Current mutable base, not original AST base; no self/closure exclusion.",
+      "dependency_and_activity": "Stored power dependency; power sink deactivates matching key.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 200,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);",
+      "function": "power_split::iterator::next",
+      "first": 179,
+      "last": 205,
+      "guard": "Active indexed power; next enumeration j <= bound (residual emits no substitution).",
+      "replacement": "power token -> current base repeated j times",
+      "normalization": "Saved iterator index checked active; j starts with positive enumeration; no base-cycle exclusion.",
+      "dependency_and_activity": "Saved dependency; exponent=j constraint added after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 212,
+      "text": "broadcast_subst(n, p.m_e, empty, dep);",
+      "function": "unfold_empty",
+      "first": 208,
+      "last": 214,
+      "guard": "Helper invoked by power_split::split at257 or power_peel::split at885 after their trigger guards.",
+      "replacement": "selected power token -> []",
+      "normalization": "Copies obligation; no RHS; callers independently check activity/presence.",
+      "dependency_and_activity": "Caller dependency; exponent<=0 constraint added after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 508,
+      "text": "broadcast_subst(n, px.m_e, expr_ref_vector(m), dep);",
+      "function": "power_trichotomy::apply",
+      "first": 455,
+      "last": 579,
+      "guard": "power_trichotomy case0 in either direction; length ordering and empty-power disjunction constraints.",
+      "replacement": "shorter power token -> []",
+      "normalization": "Copies active trigger obligations; no RHS.",
+      "dependency_and_activity": "Trigger dependency; conditional branch constraints, not proved concrete assignments.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 578,
+      "text": "broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep);",
+      "function": "power_trichotomy::apply",
+      "first": 455,
+      "last": 579,
+      "guard": "power_trichotomy cases1-4 with their actual equations/arithmetic constraints.",
+      "replacement": "longer power token -> shorter power token followed by residual",
+      "normalization": "Copies mutable bases; registers residual powers; keyed fresh terms; no global closure check. P18 identity proof remains open.",
+      "dependency_and_activity": "Trigger dependency; local equations/constraints inherit it.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 802,
+      "text": "broadcast_subst(n, p.m_e.get(), repl, dep);",
+      "function": "power_fixed_exp::split",
+      "first": 784,
+      "last": 810,
+      "guard": "Active axiomatized symbolic exponent; model value<=1024; solver implies that exact integer value.",
+      "replacement": "power token -> positive copies of current base, else []",
+      "normalization": "Mutable current base used; no self/closure guard.",
+      "dependency_and_activity": "Join stored and implication dependencies; committed return.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 862,
+      "text": "broadcast_subst(m_n, p.m_e, repl, m_dep);",
+      "function": "power_peel::iterator::next",
+      "first": 843,
+      "last": 867,
+      "guard": "Saved power/equation indices in bounds and active; positive peel alternative.",
+      "replacement": "power token -> current base plus power(current base,n-1), directionally",
+      "normalization": "Copies obligation; new arithmetic exponent normalized; no self-base exclusion.",
+      "dependency_and_activity": "Saved equation dependency; n>=1 asserted after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 987,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);",
+      "function": "power_var_decompose::iterator::next",
+      "first": 937,
+      "last": 1013,
+      "guard": "Current decomposition boundary; preceding power boundary skipped; original power found active. Caller requires entire original base be unit tokens.",
+      "replacement": "variable -> power(base,fresh_m) plus prefix and optional inner power",
+      "normalization": "Saved unit-only base excludes direct variable-token self-base candidate; no complete latest-binding DAG proof.",
+      "dependency_and_activity": "Saved equation dependency; fresh_m>=0 and proper-prefix inequalities after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 1007,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);",
+      "function": "power_var_decompose::iterator::next",
+      "first": 937,
+      "last": 1013,
+      "guard": "All decomposition positions exhausted; extension not yet offered.",
+      "replacement": "variable -> original power token plus keyed fresh tail, directionally",
+      "normalization": "Caller unit-only base guard; original power token retained from saved parent state; no latest-binding closure.",
+      "dependency_and_activity": "Saved dependency; tail length>=0 asserted after broadcast.",
+      "global_latest_binding_dag_proved": false
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "line": 1168,
+      "text": "broadcast_subst(m_n, m_var.get(), repl, m_dep);",
+      "function": "power_gpower_intro::iterator::next",
+      "first": 1126,
+      "last": 1178,
+      "guard": "Gpower self-cycle trigger; nonempty compressed prefix; optional single-power unwrap; iterator boundary exists.",
+      "replacement": "variable -> registered fresh-exponent power plus prefix/optional inner power",
+      "normalization": "Unwrapped base need not remain ground: variable may become that base. No occurs/acyclicity guard on this result.",
+      "dependency_and_activity": "Saved equation dependency; fresh exponent>=0 and optional inner bounds after broadcast.",
+      "global_latest_binding_dag_proved": false
+    }
+  ],
+  "concrete_chain_attempts": [
+    {
+      "id": "C11-chain1",
+      "result": "blocked in the simple active-equation scenario",
+      "sequence": [
+        "Start X=Y.A and Y=X.B with no prior bindings.",
+        "After X->[Y,A], active second equation is Y=Y.A.B.",
+        "simplify_equation rejects Y as a definition because occurs(Y,Y) holds."
+      ],
+      "limit": "Does not prove arbitrary producer histories or global acyclicity."
+    },
+    {
+      "id": "C11-chain2",
+      "result": "blocked by inspected decomposition caller guard",
+      "sequence": [
+        "Attempt variable decomposition of X against power(X,n).",
+        "find_var_decompose_trigger requires every flattened current base token be a unit.",
+        "A sequence variable X is not a unit, so this attempted trigger is rejected."
+      ],
+      "limit": "This rejection does not apply to the different gpower producer."
+    },
+    {
+      "id": "C11-chain3",
+      "result": "conditional local source chain; full driver reachability unproved",
+      "prestate": [
+        "Active equation [P,X]=[X,unit(a)], P=power(X,n), n symbolic, P registered active with current base X.",
+        "Choose first gpower fresh-key use for X, yielding fresh integer k and Q=power(X,k), distinct from P. No prior substitutions are needed."
+      ],
+      "sequence": [
+        "Forward gpower trigger scans prefix [P] before target X; opposite head is X.",
+        "Single-power unwrap changes compressed prefix [P] to its current base [X]; non-groundness is not rechecked.",
+        "split registers Q with base X before invoking its iterator.",
+        "First iterator position has plain token X and empty prefix, so line1168 broadcasts X->[Q].",
+        "power_facet::apply_subst scans active P and Q and replaces base token X with Q; both current bases become Q, including Q itself.",
+        "Conditional extension: if power_fixed_exp is called with solver implication k=1, line802 emits Q->[Q], because one-copy unfold returns the current base Q.",
+        "Conditional extension: eliminating Q with that latest binding repeats the same token; removal-before-membership is not an ancestor guard."
+      ],
+      "distinctions": [
+        "Q.m_e remains finite original AST power(X,k); mutable Q.m_s==Q is not a cyclic AST pointer structure.",
+        "The active-power current-base dependency graph can self-reference before any self-edge exists in m_subst.",
+        "A later Q->[Q] would create a latest-binding self-edge; it has additional caller/implication premises."
+      ],
+      "limit": "No claim that propagation order, splitter priority, implication queries, backtracking and later elimination jointly reach this state in the native solver; no native run, hang or crash observed."
+    }
+  ],
+  "sink_facts": [
+    "subst_in replaces whole equal tokens only, not arbitrary AST subterms.",
+    "eq sink rewrites all active equations and appends/trails a latest binding; old RHS vectors remain untouched.",
+    "power sink removes active matching keys, adds replacement powers, then rebases all active current bases mentioning the variable.",
+    "find_power ignores inactive entries; add_power therefore can register a term again after deactivation. Its idempotence is active-only.",
+    "Keyed fresh cache returns a retained fresh constant for repeated identical caller/sort/argument keys, not a new constant per invocation.",
+    "Central broadcast has no occurs/DAG guard and adds a length constraint after all sinks.",
+    "mem sink snapshots the old membership count before remove/add; does not revisit appended entries in that pass.",
+    "unfold_empty has exactly the two direct callers at power cpp257 and885 in the pinned source."
+  ],
+  "source_tool_validation_history": [
+    {
+      "result": "Initial lexical-scope assertion failed, before output; not a verifier check",
+      "cause": "Multiline model_completion_split::split declaration was omitted by a single-line signature pattern",
+      "correction": "Allow newline-separated arguments while excluding braces/semicolons; still check every known site has exactly one containing scope and exact pinned call text"
+    },
+    {
+      "result": "Second lexical-scope assertion failed, before output; not a verifier check",
+      "cause": "The namespace-local free helper unfold_empty was excluded by requiring a qualified method name",
+      "correction": "Admit namespace-indented free functions too, retaining exactly-one-scope assertions for every site"
+    },
+    {
+      "result": "Third lexical-scope assertion failed, before output; not a verifier check",
+      "cause": "A nested if with size() was admitted after broadening names to free functions",
+      "correction": "Require exactly four-space namespace indentation before a nonspace header character; preserve exactly-one-scope checks and disclose this local lexical heuristic, not official upstream extraction"
+    }
+  ],
+  "formal_properties_selected": 0,
+  "verifier_attempts": 0,
+  "native_executions": 0,
+  "unresolved": [
+    "Global latest-binding DAG preservation across all producers and restored iterator states.",
+    "Native search-driver eligibility and scheduling for chain3 and any subsequent self-binding/elimination.",
+    "Concrete-value terminality and exact endpoint eligibility across completion helper callers."
+  ],
+  "selection_handoff": "Consider a new whole-entry power_facet::apply_subst invariant-preservation intent with explicitly modeled complete sink effects and the chain3 caller context. Do not select or claim a refutation until the independent core stage and frozen selection."
+}

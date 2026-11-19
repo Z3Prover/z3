@@ -1,0 +1,25 @@
+{
+  "status": "failed tool-validation launch, before any live verifier",
+  "wrapper_exit": 1,
+  "replay_exit": 1,
+  "live_verifier_invocations": 0,
+  "reason": "Replay output incorrectly targeted the immutable bundle; guard rejected it before output creation or Dafny invocation.",
+  "files": [
+    {
+      "path": "replay-driver.log",
+      "sha256": "18da0abf8126acfb4b37994375ccbbc334993bc12e706d3e6038c3c0128a5732"
+    },
+    {
+      "path": "replay_nfv4_checks.py",
+      "sha256": "0108cfb117fb5e6eac8451355d8d7a3d906814b9d94be1f2607760751cba17c0"
+    },
+    {
+      "path": "seal_nfv4_publication.py",
+      "sha256": "724c8620dd0b7df4e272f9b2150f012f4ee3a2e9d6d347b9825ee58cb4b3997c"
+    },
+    {
+      "path": "unit-tests.log",
+      "sha256": "2e3657c5e3b2c2508aacd1d469c2278cf84f00e7d074d3b13fb908d11cafb20d"
+    }
+  ]
+}

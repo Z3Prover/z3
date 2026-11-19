@@ -1,0 +1,17 @@
+{
+  "recorded_utc": "2026-11-19T17:53:47.922516+00:00",
+  "previous_publication": "13cfdf0d3f046886dd16ae6aef2c9853679b4877",
+  "source": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+  "stash": "7af7fad70e9cea38601c67ff00d89f6b5576c2d6",
+  "branch": "c3mv",
+  "previous_report_trees": {
+    "c3mv-71ec455a1": "c6870166d2d538f383f7b6d86be938770f19f15f",
+    "c3mv-71ec455a1-batch2": "baaef9f8b2712c9d494114d3aca7b979a2530652",
+    "c3mv-71ec455a1-batch3": "bc39eafa46f7d69f6844257a41ced6d0834c90f2"
+  },
+  "source_files_independently_raw_hash_checked": 19,
+  "source_excerpt_lines_independently_checked": 4642,
+  "source_identity_check": "All five current source inventories deduplicated; blob IDs, raw SHA-256 and exact numbered excerpts checked against pinned Git blobs; no source execution.",
+  "shell_preflight_note": "Initial PowerShell directory listing had an invalid Filter array and exited1 before Git inspection. Corrected read-only preflight succeeded; not a verifier attempt."
+}

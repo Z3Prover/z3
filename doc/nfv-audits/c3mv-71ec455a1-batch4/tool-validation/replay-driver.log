@@ -1,0 +1,3 @@
+{"sequence": 1, "expected_exit": 4, "actual_exit": 4, "matched": true}
+{"sequence": 2, "expected_exit": 4, "actual_exit": 4, "matched": true}
+{"sequence": 3, "expected_exit": 4, "actual_exit": 4, "matched": true}

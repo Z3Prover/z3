@@ -1,0 +1,43 @@
+{
+  "policy": "Exact historical bytes, including CRLF, are preserved. Fresh publication prose/tools use LF. Attributes exempt every hashed CRLF-bearing historical file from conversion.",
+  "raw_crlf_exceptions": [
+    "capture_nfv4_core.py",
+    "capture_nfv4_substitutions.py",
+    "check_nfv4_models.py",
+    "finish_nfv4_substitutions.py",
+    "finish_nfv4_verification.py",
+    "freeze_nfv4_models.py",
+    "make_nfv4_models.py",
+    "nfv4-core-provenance.md",
+    "nfv4-modeling.md",
+    "nfv4-models/drafts/001-provenance/check_nfv4_models.py",
+    "nfv4-models/drafts/008-provenance/check_nfv4_models.py",
+    "nfv4-models/drafts/015-provenance/check_nfv4_models.py",
+    "nfv4-models/drafts/016-provenance/check_nfv4_models.py",
+    "nfv4-models/frozen/check_nfv4_models.py",
+    "nfv4-models/frozen/freeze_nfv4_models.py",
+    "nfv4-models/frozen/make_nfv4_models.py",
+    "nfv4-selection.md",
+    "nfv4-subst-invariants.md",
+    "nfv4-verification.md",
+    "select_nfv4.py",
+    "tool-validation/attempts/001-output-isolation/seal_nfv4_publication.py",
+    "verify_nfv4.py"
+  ],
+  "historical_tools": [
+    "capture_nfv4_substitutions.py",
+    "finish_nfv4_substitutions.py",
+    "capture_nfv4_core.py",
+    "select_nfv4.py",
+    "make_nfv4_models.py",
+    "check_nfv4_models.py",
+    "freeze_nfv4_models.py",
+    "verify_nfv4.py",
+    "finish_nfv4_verification.py"
+  ],
+  "portable_tools": [
+    "validate_nfv4_publication.py",
+    "replay_nfv4_checks.py"
+  ],
+  "no_historical_bytes_changed": true
+}

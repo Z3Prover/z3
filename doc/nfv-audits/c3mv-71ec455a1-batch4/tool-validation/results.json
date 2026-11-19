@@ -1,0 +1,35 @@
+{
+  "status": "pass",
+  "recorded_utc": "2026-11-19T17:55:10.123490+00:00",
+  "live_verifier_invocations": 3,
+  "audit_verifier_attempts": 3,
+  "distinction": "These three live replays and two mocked unit tests validate tools, not new audit properties or native source.",
+  "dafny_version": "4.11.0+fcb2042d6d043a2634f0854338c08feeaaaf4ae2",
+  "solver_version": "Z3 version 4.12.1 - 64 bit",
+  "unit_exit": 0,
+  "replay_exit": 0,
+  "replay_command": [
+    "C:\\Users\\nbjorner\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+    "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch4\\replay_nfv4_checks.py",
+    "--bundle",
+    "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch4",
+    "--dafny",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+    "--solver",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+    "--output",
+    "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv4-publication-replay-002"
+  ],
+  "tests": [
+    "Earlier exit mismatch remains failure despite a later match.",
+    "Changed model hash rejected before verifier execution.",
+    "All three exact audit inputs replay their expected exit4 failures."
+  ],
+  "failed_tool_launches": [
+    {
+      "receipt": "attempts/001-output-isolation/receipt.json",
+      "live_verifier_invocations": 0,
+      "reason": "Initial output path was inside the bundle; replay guard rejected it. Exact original tools/log retained; corrected output is external."
+    }
+  ]
+}

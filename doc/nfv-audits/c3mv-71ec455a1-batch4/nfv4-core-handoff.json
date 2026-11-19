@@ -1,0 +1,10 @@
+{
+  "stage": "nfv4-core-provenance",
+  "status": "done",
+  "source_inventory_sha256": "8aa4c1cc449d7bb52ed0ed0adb18e4db816e170d19d61116df77cf6ab7e15d53",
+  "provenance_ledger_sha256": "c93b2c182ccf0e3bdbdb9405fd3a7717264a621681f4d01be25bb646b4f27873",
+  "report_sha256": "00cb8bf467a133623aca3604931179c1f649253263d5060304be5836705eb57b",
+  "next_stage": "nfv4-select",
+  "schedule_id": 2,
+  "stop_schedule": false
+}

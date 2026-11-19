@@ -1,0 +1,39 @@
+{
+  "stage": "nfv4-model",
+  "status": "done",
+  "recorded_utc": "2026-11-19T17:43:51.250619+00:00",
+  "freeze_sha256": "7e3fcc0f8d139aa3d05605b8ab62582d60737bb8523ffef7b54bf6e1df241e3e",
+  "report_sha256": "061da437afaed194d83e111cc938ef6dccd8baf7e87dff965b23d19403353405",
+  "draft_checks_sha256": "6bd11f60e2c953608941cd529df460cf88b9295b09c4ee4f3ec9e622e32ad647",
+  "properties": [
+    "P20",
+    "P21",
+    "P22"
+  ],
+  "whole_properties": 3,
+  "whole_conjuncts_each": 3,
+  "body_defined_helpers": 62,
+  "concrete_domains": 13,
+  "construction_checks": 20,
+  "construction_successes": 17,
+  "construction_failures": 3,
+  "new_verifier_attempts": 0,
+  "native_executions": 0,
+  "next_stage": "nfv4-verify",
+  "schedule_id": 2,
+  "stop_schedule": false,
+  "limitations": [
+    "Resolution is not verification or nonvacuity.",
+    "No native reachability, crash, wrong answer or C++ equivalence established.",
+    "Totalized helper defaults outside well-formed domains; finite-language, row, successful-allocation and canonical membership projections.",
+    "Source tags are local provenance, not full upstream admission.",
+    "Exact-transition conjunctions and all helper/input contracts remain frozen, even if they prevent a useful entry-only repair."
+  ],
+  "repository_check": {
+    "branch": "c3mv",
+    "head": "13cfdf0d3f046886dd16ae6aef2c9853679b4877",
+    "source_tree": "caa5a9922f074f9f4adc8f7c98e1685be9626503",
+    "worktree": "clean",
+    "stash": "unchanged listed entry; no stash operation performed"
+  }
+}

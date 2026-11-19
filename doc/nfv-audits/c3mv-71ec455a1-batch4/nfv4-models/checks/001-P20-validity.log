@@ -1,0 +1,6 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/checks/001-P20-validity.dfy(294,24): Error: index out of range
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/checks/001-P20-validity.dfy(431,27): Error: index out of range
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/checks/001-P20-validity.dfy(737,48): Error: index out of range
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv4-models/checks/001-P20-validity.dfy(737,95): Error: index out of range
+
+Dafny program verifier finished with 17 verified, 4 errors
