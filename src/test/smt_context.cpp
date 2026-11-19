@@ -19,6 +19,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "solver/assertions/asserted_formulas.h"
 #include "model/model.h"
 #include "qe/qsat.h"
 #include "tactic/goal.h"
@@ -31,6 +32,39 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/smtlogics/smt_tactic.h"
 #include <cstring>
 #include <sstream>
+
+static void check_nseq_arithmetic_normalization() {
+    for (char const* solver : {"seq", "nseq"}) {
+        for (bool proofs : {false, true}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            arith_util arith(m);
+            params_ref p;
+            p.set_sym("string_solver", symbol(solver));
+            p.set_bool("arith_lhs", false);
+            smt_params params;
+            params.updt_params(p);
+            asserted_formulas formulas(m, params, p);
+            sort* int_sort = arith.mk_int();
+            expr_ref x(m.mk_const("x", int_sort), m);
+            expr_ref y(m.mk_const("y", int_sort), m);
+            expr_ref z(m.mk_const("z", int_sort), m);
+            expr_ref sum(arith.mk_add(x, y), m);
+            expr_ref equality(m.mk_eq(sum, z), m);
+            formulas.assert_expr(equality);
+            VERIFY(formulas.get_num_formulas() == 1);
+            expr* lhs = nullptr, *rhs = nullptr;
+            VERIFY(m.is_eq(formulas.get_formula(0), lhs, rhs));
+            bool normalized = arith.is_zero(lhs) || arith.is_zero(rhs);
+            VERIFY(normalized == (params.m_string_solver == symbol("nseq")));
+            if (proofs) {
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(checker.check(formulas.get_formula_proof(0), side_conditions));
+            }
+        }
+    }
+}
 
 static void check_case_split_relevant_first() {
     for (unsigned strategy : {0u, 1u, 2u}) {
@@ -1957,6 +1991,7 @@ static void check_inactive_nseq() {
 
 void tst_smt_context()
 {
+    check_nseq_arithmetic_normalization();
     check_nseq_quantified_decompositions();
     check_inactive_nseq();
     check_late_equality_justification();

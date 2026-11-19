@@ -137,6 +137,8 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     if (m_smt_params.m_pull_cheap_ite) m_params.set_bool("pull_cheap_ite", true);
     m_params.set_bool("elim_and", flag);
     m_params.set_bool("arith_ineq_lhs", true);
+    if (m_smt_params.m_string_solver == symbol("nseq"))
+        m_params.set_bool("arith_lhs", true);
     m_params.set_bool("sort_sums", true);
     m_params.set_bool("rewrite_patterns", true);
     m_params.set_bool("eq2ineq", m_smt_params.m_arith_eq2ineq);
