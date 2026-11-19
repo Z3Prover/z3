@@ -225,6 +225,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::replace_all_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::ncontains_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::lex_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::model_completion_split, m, m_seq, true));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
         m_tree.add_completion_plugin(alloc(seq::mem_witness_split, m, m_seq, m_rewriter));

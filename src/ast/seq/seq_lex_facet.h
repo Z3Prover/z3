@@ -12,7 +12,7 @@ Abstract:
     Obligations are stored as token vectors. Propagation strips known
     equal prefixes, resolves comparisons once one side is exhausted or
     two leading constant characters differ, and leaves variable-led
-    cases pending for later substitutions.
+    cases for substitutions or a prefix/first-difference split.
 
     Resolution rules (`is_strict` records whether `str.<` (true) or
     `str.<=` (false) was asserted for a `(lhs, rhs)` pair):
@@ -154,6 +154,36 @@ namespace seq {
         char const* name() const override { return "lex-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-lex-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
+    class lex_split : public eq_tree::split_plugin_i {
+        ast_manager& m;
+        seq_util&    u;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            expr_ref_vector m_lhs, m_rhs;
+            eq_tree::dep_tracker m_dep;
+            ast_manager& m;
+            seq_util& u;
+            unsigned m_next_case = 0;
+        public:
+            iterator(eq_tree::node& n, str_lex const& lx, ast_manager& m, seq_util& u) :
+                m_n(n), m_lhs(lx.m_lhs), m_rhs(lx.m_rhs), m_dep(lx.m_dep), m(m), u(u) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        lex_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        char const* name() const override { return "lex-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-lex-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 

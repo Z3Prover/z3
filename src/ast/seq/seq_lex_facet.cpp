@@ -25,6 +25,7 @@ Notes:
 
 --*/
 #include "ast/seq/seq_lex_facet.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_seq_plugin.h"
@@ -215,6 +216,82 @@ namespace seq {
         if (!changed && !cyc_changed)
             return stx::simplify_result::noop;
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> lex_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        auto& f = ac.lex_facet_ref();
+        if (f.is_satisfied())
+            return nullptr;
+
+        str_lex lx = f.lexs()[0];
+        scoped_ptr<eq_tree::split_iterator_i> it;
+        if (!lx.m_lhs.empty() && !lx.m_rhs.empty())
+            it = alloc(iterator, n, lx, m, u);
+
+        sort* s = u.str.mk_string_sort();
+        expr_ref lhs(u.str.mk_concat(lx.m_lhs, s), m);
+        expr_ref rhs(u.str.mk_concat(lx.m_rhs, s), m);
+        expr* tail = ac.mk_fresh_var("lex.tail", s, { lhs, rhs });
+        expr_ref_vector prefix(lx.m_lhs);
+        prefix.push_back(tail);
+        f.remove(0);
+        ac.eq_facet_ref().add_equation(lx.m_rhs, prefix, lx.m_dep);
+        if (lx.m_strict) {
+            auto& sf = ac.solver_facet_ref();
+            auto& a = sf.get_arith_util();
+            expr_ref len(u.str.mk_length(tail), m);
+            expr_ref zero(a.mk_int(0), m);
+            sf.add_constraint(a.mk_gt(len, zero), lx.m_dep);
+        }
+        out = eq_tree::edge("lex prefix", lx.m_dep, true, 0);
+        has_more = true;
+        committed = true;
+        ++m_stats.m_num_splits;
+        return it;
+    }
+
+    bool lex_split::iterator::next(eq_tree::edge& out) {
+        if (m_next_case == 2)
+            return false;
+        bool at_start = m_next_case++ == 0;
+        auto ac = get_ambient(m_n);
+        sort* s = u.str.mk_string_sort();
+        expr_ref lhs(u.str.mk_concat(m_lhs, s), m);
+        expr_ref rhs(u.str.mk_concat(m_rhs, s), m);
+        expr_ref prefix(m);
+        prefix = at_start ? u.str.mk_empty(s) : ac.mk_fresh_var("lex.prefix", s, { lhs, rhs });
+        expr* a = ac.mk_fresh_var("lex.a", u.mk_char_sort(), { lhs, rhs, prefix });
+        expr* b = ac.mk_fresh_var("lex.b", u.mk_char_sort(), { lhs, rhs, prefix });
+        expr_ref a_unit(u.str.mk_unit(a), m);
+        expr_ref b_unit(u.str.mk_unit(b), m);
+        expr* lhs_tail = ac.mk_fresh_var("lex.lhs", s, { lhs, rhs, prefix });
+        expr* rhs_tail = ac.mk_fresh_var("lex.rhs", s, { lhs, rhs, prefix });
+        expr_ref_vector left(m), right(m);
+        if (!at_start) {
+            left.push_back(prefix);
+            right.push_back(prefix);
+            auto& sf = ac.solver_facet_ref();
+            auto& arith = sf.get_arith_util();
+            expr_ref len(u.str.mk_length(prefix), m);
+            expr_ref zero(arith.mk_int(0), m);
+            sf.add_constraint(arith.mk_gt(len, zero), m_dep);
+        }
+        left.push_back(a_unit);
+        left.push_back(lhs_tail);
+        right.push_back(b_unit);
+        right.push_back(rhs_tail);
+        ac.lex_facet_ref().remove(0);
+        ac.eq_facet_ref().add_equation(m_lhs, left, m_dep);
+        ac.eq_facet_ref().add_equation(m_rhs, right, m_dep);
+        // The arithmetic backend only relaxes character order; the outer
+        // character theory must adopt it before accepting this leaf.
+        expr_ref less(u.mk_lt(a, b), m);
+        ac.add_assumption(less, m_dep);
+        out = eq_tree::edge(at_start ? "lex first character" : "lex later difference", m_dep, true, 0);
+        return true;
     }
 
     // Pack/unpack an index into an egraph justification reason pointer.
