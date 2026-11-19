@@ -2346,7 +2346,7 @@ let rec integer_cut_facts (steps:list IC.step) (facts:list expr)
   | step :: rest -> integer_cut_facts rest (facts @ [step.IC.bound])
 
 let check_integer_cut (facts:list expr) : bool =
-  if not (linear_inputs (LA.assumptions R.false_expr facts)) then false
+  if facts = [] || not (linear_inputs (LA.assumptions R.false_expr facts)) then false
   else match IC.synthesize R.false_expr facts with
   | None -> false
   | Some certificate ->

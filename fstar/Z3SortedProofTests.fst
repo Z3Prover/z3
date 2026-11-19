@@ -308,6 +308,7 @@ let original_inputs_and_exhaustiveness ()
                    K.check_document schema { exhaustive_document with entries = [
                      { P.rule = U.Unverified "th-lemma"; formula = R.false_expr; premise_ids = [] }];
                      root = 0 } == Some 1) =
+  assert_norm (not (K.check_integer_cut []));
   assert_norm (K.check_document schema exhaustive_document == Some 0);
   assert_norm (K.check_document schema { exhaustive_document with assertions = [no_empty] } == None);
   assert_norm (K.check_document schema { exhaustive_document with entries = [

@@ -123,13 +123,68 @@ let lemma_branch_axiom (#base:sort -> Type0) (s:S.checked_schema)
   : Lemma (requires branch_of formula == Some branch /\ D.scoped [] branch.choice)
           (ensures T.truth s bc model other formula) =
   let rho = T.empty_environment (S.signature s) in
+  assert (D.scoped [] formula);
+  (match formula with
+   | App f [guard; equation] ->
+     assert (f = R.or_decl [guard; equation]);
+     assert (D.scoped [] guard /\ D.scoped [] equation);
+     assert (branch.guard = guard /\ branch.equation = equation)
+   | _ -> ());
+  assert (D.scoped [] (App (R.or_decl [branch.guard; branch.equation])
+                            [branch.guard; branch.equation]));
+  assert (A.equality_parts branch.equation == Some (branch.left, branch.right));
+  assert (branch.equation = R.mk_eq_expr branch.left branch.right);
+  assert (D.scoped [] branch.left /\ D.scoped [] branch.right);
+  assert (get_sort branch.left == get_sort branch.right);
+  if branch.positive then
+    assert (branch.guard = R.mk_not_expr branch.condition)
+  else
+    assert (branch.guard = branch.condition);
+  let selected = if branch.positive then branch.then_value else branch.else_value in
+  assert ((branch.left = branch.choice /\ branch.right = selected) ||
+          (branch.right = branch.choice /\ branch.left = selected));
   SA.lemma_ite_scope [] branch.choice branch.condition branch.then_value branch.else_value;
   T.lemma_nary s bc model other (R.or_decl [branch.guard; branch.equation])
     [branch.guard; branch.equation] B.Or;
+  assert (T.truth s bc model other formula ==
+          (T.truth s bc model other branch.guard ||
+           T.truth s bc model other branch.equation));
   if branch.positive then T.lemma_negation s bc model other R.not_decl branch.condition;
   T.lemma_equality s bc model other branch.left branch.right;
   SA.lemma_ite s bc model other [] rho branch.choice branch.condition
-    branch.then_value branch.else_value
+    branch.then_value branch.else_value;
+  let condition_true = T.truth s bc model other branch.condition in
+  if branch.positive then
+    (if condition_true then
+       (assert (T.evaluate s bc model other branch.choice ==
+                T.evaluate s bc model other branch.then_value);
+        if branch.left = branch.choice then
+          (assert (branch.right = branch.then_value);
+           assert (T.evaluate s bc model other branch.left ==
+                   T.evaluate s bc model other branch.right))
+        else
+          (assert (branch.right = branch.choice /\ branch.left = branch.then_value);
+           assert (T.evaluate s bc model other branch.left ==
+                   T.evaluate s bc model other branch.right));
+        assert (T.truth s bc model other branch.equation))
+     else
+       assert (T.truth s bc model other branch.guard))
+  else
+    (if condition_true then
+       assert (T.truth s bc model other branch.guard)
+     else
+       (assert (T.evaluate s bc model other branch.choice ==
+                T.evaluate s bc model other branch.else_value);
+        if branch.left = branch.choice then
+          (assert (branch.right = branch.else_value);
+           assert (T.evaluate s bc model other branch.left ==
+                   T.evaluate s bc model other branch.right))
+        else
+          (assert (branch.right = branch.choice /\ branch.left = branch.else_value);
+           assert (T.evaluate s bc model other branch.left ==
+                   T.evaluate s bc model other branch.right));
+        assert (T.truth s bc model other branch.equation)));
+  assert (T.truth s bc model other formula)
 
 let lemma_ite_definition_axiom (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (model:T.scalar_model base)
