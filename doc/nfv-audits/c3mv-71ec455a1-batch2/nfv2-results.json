@@ -1,0 +1,149 @@
+{
+  "checked_utc": "2026-11-19T15:52:33.286692+00:00",
+  "audited_head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "source_execution": false,
+  "scope": "Manual local NFV-methodology audit; no proved C++ correspondence or native reachability/crash evidence",
+  "whole_properties": 7,
+  "verified": 4,
+  "refuted": 2,
+  "unresolved": 1,
+  "verifier_checks": 42,
+  "successful_checks": 32,
+  "failed_checks": 10,
+  "timeout_checks": 1,
+  "modeling_draft_checks": 16,
+  "source_tags": 171,
+  "computation_and_contracts": "Compare using refresh_nfv2_proof_metadata.py against exact frozen baseline; only sound proof annotations changed",
+  "properties": [
+    {
+      "id": "P11",
+      "result": "refuted_translated_model",
+      "nfv_outcome": "refuted",
+      "entry_point": "DischargeEntry",
+      "canonical_sha256": "67e379d7c9c2fb6ad72d10efa70b61c7ef9b722001ef10b34df736d0cf60550b",
+      "whole_positive_property": [
+        "!discharged || !WordContains(X + [a] + Y, X + [b] + Z)"
+      ],
+      "validity": "checks\\024-P11-annotation-3-validity.dfy",
+      "domain": "checks\\027-P11-annotation-domain.dfy",
+      "original_positive_attempt": "checks\\016-P11-proof.dfy",
+      "primary_evidence": "checks\\030-P11-annotation-refute.dfy",
+      "witness": {
+        "X": [
+          97,
+          97
+        ],
+        "Y": [
+          98
+        ],
+        "Z": [],
+        "a": 97,
+        "b": 98
+      }
+    },
+    {
+      "id": "P12",
+      "result": "refuted_translated_model",
+      "nfv_outcome": "refuted",
+      "entry_point": "AdmissionEntry",
+      "canonical_sha256": "19015a7d10d897082a65cc72ebb18d2733a1d2458a7bdbb71ed7232b5c59ca5e",
+      "whole_positive_property": [
+        "admitted == (case_number < 2 * pattern_length + 2)"
+      ],
+      "validity": "checks\\002-P12-validity.dfy",
+      "domain": "checks\\011-P12-domain.dfy",
+      "original_positive_attempt": "checks\\017-P12-proof.dfy",
+      "primary_evidence": "checks\\022-P12-refute.dfy",
+      "witness": {
+        "pattern_length": 2147483647,
+        "case_number": 1
+      }
+    },
+    {
+      "id": "P13",
+      "result": "unresolved_proof_obligations",
+      "nfv_outcome": "audit_failure",
+      "entry_point": "RequestEntry",
+      "canonical_sha256": "5a52b4130696be5a5fa6a40bbce57b7a926cd442d2f16f60c5f7b6cc199f3460",
+      "whole_positive_property": [
+        "conflict == (FirstConflict(queue,is_eq,verdict,start) < |queue|)",
+        "queue_out == ExpectedQueue(queue,is_eq,verdict,start)",
+        "qhead_out == (if conflict then start else |queue_out|)",
+        "0 <= qhead_out <= |queue_out|"
+      ],
+      "validity": "checks\\026-P13-annotation-4-validity.dfy",
+      "domain": "checks\\028-P13-annotation-domain.dfy",
+      "original_positive_attempt": "checks\\031-P13-proof.dfy",
+      "primary_evidence": "checks\\031-P13-proof.dfy",
+      "witness": null
+    },
+    {
+      "id": "P14",
+      "result": "verified_translated_model",
+      "nfv_outcome": "verified",
+      "entry_point": "PreimageEntry",
+      "canonical_sha256": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc",
+      "whole_positive_property": [
+        "rewritten_accepts == TargetAccepts(StrAt(word,if last_index then |word|-1 else k),allowed_characters,accepts_empty)"
+      ],
+      "validity": "checks\\004-P14-validity.dfy",
+      "domain": "checks\\012-P14-domain.dfy",
+      "original_positive_attempt": "checks\\018-P14-proof.dfy",
+      "primary_evidence": "checks\\018-P14-proof.dfy",
+      "witness": null
+    },
+    {
+      "id": "P15",
+      "result": "verified_translated_model",
+      "nfv_outcome": "verified",
+      "entry_point": "ObservationEntry",
+      "canonical_sha256": "cb152e72f57a5e16f666399b6b51572ba59200d92b4e01d04095f758aea281fe",
+      "whole_positive_property": [
+        "rewritten_contains == HasCharacter(ReplaceFirst(word,needle,replacement),character)"
+      ],
+      "validity": "checks\\005-P15-validity.dfy",
+      "domain": "checks\\013-P15-domain.dfy",
+      "original_positive_attempt": "checks\\019-P15-proof.dfy",
+      "primary_evidence": "checks\\019-P15-proof.dfy",
+      "witness": null
+    },
+    {
+      "id": "P16",
+      "result": "verified_translated_model",
+      "nfv_outcome": "verified",
+      "entry_point": "RestorationEntry",
+      "canonical_sha256": "61c5e51d632a35fe339db2da16c958b02ee86b73657784df15efcb9181571abf",
+      "whole_positive_property": [
+        "restored == original"
+      ],
+      "validity": "checks\\025-P16-annotation-3-validity.dfy",
+      "domain": "checks\\029-P16-annotation-domain.dfy",
+      "original_positive_attempt": "checks\\032-P16-proof.dfy",
+      "primary_evidence": "checks\\032-P16-proof.dfy",
+      "witness": null
+    },
+    {
+      "id": "P17",
+      "result": "verified_translated_model",
+      "nfv_outcome": "verified",
+      "entry_point": "BooleanEntry",
+      "canonical_sha256": "3bfb9c68d2569c52792c06ff1c542bd281573030f46061d821a0f111f7d07035",
+      "whole_positive_property": [
+        "verdict == (if conjunction then (if -1 in child_verdicts then -1 else if 0 in child_verdicts then 0 else 1) else (if 1 in child_verdicts then 1 else if 0 in child_verdicts then 0 else -1))"
+      ],
+      "validity": "checks\\007-P17-validity.dfy",
+      "domain": "checks\\014-P17-domain.dfy",
+      "original_positive_attempt": "checks\\020-P17-proof.dfy",
+      "primary_evidence": "checks\\020-P17-proof.dfy",
+      "witness": null
+    }
+  ],
+  "candidate": {
+    "id": "P12",
+    "scope": "admission prelude only; mathematical/nonwrapping threshold in entry, unchanged helpers/input contracts/entire original postcondition",
+    "validity": "checks\\040-P12-candidate-validity.dfy",
+    "domain": "checks\\041-P12-candidate-domain.dfy",
+    "proof": "checks\\042-P12-candidate-proof.dfy"
+  },
+  "deferred_queue_proof": "Initial relational invariants were not established and were removed as proof annotations, never from the complete positive property. Validity and concrete domains pass. The original conflict/queue relation remains unproved; this is neither a source bug nor a model refutation."
+}

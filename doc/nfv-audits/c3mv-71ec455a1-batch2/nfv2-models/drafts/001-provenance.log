@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\z3seq\doc\nfv-audits\c3mv-71ec455a1\check_nfv_provenance.py", line 50, in <module>
+    assert re.fullmatch(r'[{};]+|(?:requires|ensures|invariant|assert|decreases|reads|modifies)\b.*',row.strip()), (prop['id'],'synthetic computation',row)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('P14', 'synthetic computation', '  } else {')

@@ -1,0 +1,475 @@
+{
+  "selection_sha256": "be379560dc9f91cc8650d5abaa0de4e4680748d54c81be5385cc69e2131a1685",
+  "audited_head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "phase": "resolved before any property-free validity, concrete domain, or original-property verification",
+  "policy": "Keep entry computation, non-proof helper computation, helper contracts and complete entry contracts unchanged. Only sound proof annotations/erased proof bodies may change; compare explicitly with these exact baseline inputs and preserve every attempt. Candidate repairs may change entry computation only and must retain the full original contracts and helpers.",
+  "files": {
+    "properties.json": "3f17fef439dfc292ce3d2b9b8a9f6bae0afddd50e490671307f0efbb8900eb97",
+    "sources.json": "fbbcd435f1123dabe550a150a49f526031f06c902b470fe4002a752523e0658c",
+    "P11.dfy": "0789716ac724f28d39e1c0c58b845fa2859990e477060e759d3c7f9b91c9655f",
+    "P12.dfy": "19015a7d10d897082a65cc72ebb18d2733a1d2458a7bdbb71ed7232b5c59ca5e",
+    "P13.dfy": "c3e4eb7b9e9c66590d777e2c131c27d032ac708c0edd1badd0bd7fd8e53d2184",
+    "P14.dfy": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc",
+    "P15.dfy": "cb152e72f57a5e16f666399b6b51572ba59200d92b4e01d04095f758aea281fe",
+    "P16.dfy": "b84a7d058897d56d2f41760190af873379e4080bbbc0ef96da218a43158a8c99",
+    "P17.dfy": "3bfb9c68d2569c52792c06ff1c542bd281573030f46061d821a0f111f7d07035"
+  },
+  "properties": [
+    {
+      "id": "P11",
+      "entry_point": "DischargeEntry",
+      "requires": [
+        {
+          "clause": "a != b",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: a != b"
+        },
+        {
+          "clause": "|X| + 1 + |Y| < 2147483648",
+          "origin": "inferred",
+          "optional": true,
+          "description": "Conservative additional interpreted-word length restriction, not a source guard; try removal in accepted-refutation follow-ups."
+        },
+        {
+          "clause": "|X| + 1 + |Z| < 2147483648",
+          "origin": "inferred",
+          "optional": true,
+          "description": "Conservative additional interpreted-word length restriction, not a source guard; try removal in accepted-refutation follow-ups."
+        }
+      ],
+      "ensures": [
+        "!discharged || !WordContains(X + [a] + Y, X + [b] + Z)"
+      ],
+      "helpers": [
+        {
+          "name": "WordContains",
+          "kind": "function",
+          "description": "Body-defined interpreted word-infix observation, not token containment.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_ncontains_facet.cpp",
+              "line": 154
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "AlignmentEntry",
+          "kind": "method",
+          "description": "Actual compare_alignment loop specialized to the sole fixed window: AST IDs X=0,Y=1,Z=2,unit(a)=3,unit(b)=4. a!=b makes the two constant units distinct independently of their word valuations.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_ncontains_facet.cpp",
+              "line": 128
+            }
+          ],
+          "requires": [],
+          "ensures": [
+            "verdict == -1"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P12",
+      "entry_point": "AdmissionEntry",
+      "requires": [
+        {
+          "clause": "1 <= pattern_length <= 4294967295",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: 1 <= pattern_length <= 4294967295"
+        },
+        {
+          "clause": "1 <= case_number <= 4294967295",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: 1 <= case_number <= 4294967295"
+        }
+      ],
+      "ensures": [
+        "admitted == (case_number < 2 * pattern_length + 2)"
+      ],
+      "helpers": [
+        {
+          "name": "Unsigned32",
+          "kind": "function",
+          "description": "Body-defined modulo semantics of the source unsigned expression for an explicitly modeled 32-bit unsigned target.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_replace_all_facet.cpp",
+              "line": 225
+            }
+          ],
+          "requires": [
+            "0 <= value"
+          ],
+          "ensures": [
+            "0 <= Unsigned32(value) < 4294967296"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P13",
+      "entry_point": "RequestEntry",
+      "requires": [
+        {
+          "clause": "ValidQueue(queue,is_eq,verdict)",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: ValidQueue(queue,is_eq,verdict)"
+        },
+        {
+          "clause": "0 <= start <= |queue| < 4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: 0 <= start <= |queue| < 4294967296"
+        },
+        {
+          "clause": "|verdict| < 4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: |verdict| < 4294967296"
+        },
+        {
+          "clause": "forall v :: v in verdict ==> -1 <= v <= 1",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: forall v :: v in verdict ==> -1 <= v <= 1"
+        }
+      ],
+      "ensures": [
+        "conflict == (FirstConflict(queue,is_eq,verdict,start) < |queue|)",
+        "queue_out == ExpectedQueue(queue,is_eq,verdict,start)",
+        "qhead_out == (if conflict then start else |queue_out|)",
+        "0 <= qhead_out <= |queue_out|"
+      ],
+      "helpers": [
+        {
+          "name": "ValidQueue",
+          "kind": "function",
+          "description": "Body-defined validity of request-ID observations into immutable kind/verdict arrays.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_req_facet.cpp",
+              "line": 76
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "IsConflict",
+          "kind": "function",
+          "description": "Disagreement of an observed definitive bisimulation verdict and asserted equality/disequality.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_req_facet.cpp",
+              "line": 76
+            }
+          ],
+          "requires": [
+            "|is_eq| == |verdict| && 0 <= id < |verdict|"
+          ],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "FirstConflict",
+          "kind": "function",
+          "description": "Body-defined specification scanning original request order; does not assume oracle correctness.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_req_facet.cpp",
+              "line": 73
+            }
+          ],
+          "requires": [
+            "ValidQueue(queue,is_eq,verdict)",
+            "0 <= start <= |queue|"
+          ],
+          "ensures": [
+            "start <= FirstConflict(queue,is_eq,verdict,start) <= |queue|"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "FilterUnknown",
+          "kind": "function",
+          "description": "Body-defined stable retention of unknown verdicts.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_req_facet.cpp",
+              "line": 99
+            }
+          ],
+          "requires": [
+            "forall id :: id in queue ==> 0 <= id < |verdict|"
+          ],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "ExpectedQueue",
+          "kind": "function",
+          "description": "Whole residual queue specification from first conflict and stable retention.",
+          "source": [
+            {
+              "path": "src/ast/seq/seq_req_facet.cpp",
+              "line": 73
+            }
+          ],
+          "requires": [
+            "ValidQueue(queue,is_eq,verdict)",
+            "0 <= start <= |queue|"
+          ],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "EraseAt",
+          "kind": "function",
+          "description": "Value denotation of vector erase; its actual left-shift/pop inverse is modeled independently in P16.",
+          "source": [
+            {
+              "path": "src/util/vector.h",
+              "line": 447
+            }
+          ],
+          "requires": [
+            "0 <= index < |queue|"
+          ],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P14",
+      "entry_point": "PreimageEntry",
+      "requires": [
+        {
+          "clause": "0 <= k <= 64",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: 0 <= k <= 64"
+        },
+        {
+          "clause": "|word| < 4294967296",
+          "origin": "inferred",
+          "optional": true,
+          "description": "Conservative additional interpreted-word length restriction, not a source guard; try removal in accepted-refutation follow-ups."
+        }
+      ],
+      "ensures": [
+        "rewritten_accepts == TargetAccepts(StrAt(word,if last_index then |word|-1 else k),allowed_characters,accepts_empty)"
+      ],
+      "helpers": [
+        {
+          "name": "StrAt",
+          "kind": "function",
+          "description": "Body-defined SMT str.at denotation, including negative/out-of-range empty result.",
+          "source": [
+            {
+              "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+              "line": 774
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "TargetAccepts",
+          "kind": "function",
+          "description": "Body-defined observation of arbitrary target language on epsilon and singleton words only.",
+          "source": [
+            {
+              "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+              "line": 775
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P15",
+      "entry_point": "ObservationEntry",
+      "requires": [
+        {
+          "clause": "!HasCharacter(needle,character)",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: !HasCharacter(needle,character)"
+        },
+        {
+          "clause": "!HasCharacter(replacement,character)",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: !HasCharacter(replacement,character)"
+        },
+        {
+          "clause": "|word| < 2147483648 && |needle| < 2147483648 && |replacement| < 2147483648",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: |word| < 2147483648 && |needle| < 2147483648 && |replacement| < 2147483648"
+        }
+      ],
+      "ensures": [
+        "rewritten_contains == HasCharacter(ReplaceFirst(word,needle,replacement),character)"
+      ],
+      "helpers": [
+        {
+          "name": "HasCharacter",
+          "kind": "function",
+          "description": "Body-defined one-character containment denotation used by the source local rewrite guard/result.",
+          "source": [
+            {
+              "path": "src/solver/assertions/asserted_formulas.cpp",
+              "line": 360
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "MatchFrom",
+          "kind": "function",
+          "description": "Pure recursion faithfully represents the source inner matching loop and guarded remaining offset.",
+          "source": [
+            {
+              "path": "src/util/zstring.cpp",
+              "line": 131
+            }
+          ],
+          "requires": [
+            "0 <= index <= |word| && index + |needle| <= |word|",
+            "0 <= offset <= |needle|"
+          ],
+          "ensures": [
+            "MatchFrom(word,needle,index,offset) == (word[index+offset..index+|needle|] == needle[offset..])"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "ReplaceScan",
+          "kind": "function",
+          "description": "Pure recursion represents the actual source outer loop state (index,found), first-only match, append and skip behavior. It is not an opaque replace oracle.",
+          "source": [
+            {
+              "path": "src/util/zstring.cpp",
+              "line": 129
+            }
+          ],
+          "requires": [
+            "0 < |needle|",
+            "0 <= index <= |word|"
+          ],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "ReplaceFirst",
+          "kind": "function",
+          "description": "Actual ground replacement branch order from zstring::replace, including empty needle and too-short source.",
+          "source": [
+            {
+              "path": "src/util/zstring.cpp",
+              "line": 120
+            }
+          ],
+          "requires": [],
+          "ensures": [],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        },
+        {
+          "name": "ScanPreserves",
+          "kind": "lemma",
+          "description": "Erased proof helper by induction on the source scan; all contracts must be proved, not assumed.",
+          "source": [
+            {
+              "path": "src/util/zstring.cpp",
+              "line": 129
+            }
+          ],
+          "requires": [
+            "0 < |needle| && 0 <= index <= |word|",
+            "!HasCharacter(needle,character) && !HasCharacter(replacement,character)"
+          ],
+          "ensures": [
+            "HasCharacter(ReplaceScan(word,needle,replacement,index,found),character) == HasCharacter(word[index..],character)"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P16",
+      "entry_point": "RestorationEntry",
+      "requires": [
+        {
+          "clause": "0 <= index < |original| < 4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: 0 <= index < |original| < 4294967296"
+        }
+      ],
+      "ensures": [
+        "restored == original"
+      ],
+      "helpers": [
+        {
+          "name": "EraseLeft",
+          "kind": "method",
+          "description": "Actual left-shift/pop erase computation, with a proved slice contract; not an assumed inverse.",
+          "source": [
+            {
+              "path": "src/util/vector.h",
+              "line": 447
+            }
+          ],
+          "requires": [
+            "0 <= index < |original|"
+          ],
+          "ensures": [
+            "erased == original[..index] + original[index+1..]"
+          ],
+          "contract_status": "body-defined obligations, not trusted axioms or assumed helper results"
+        }
+      ]
+    },
+    {
+      "id": "P17",
+      "entry_point": "BooleanEntry",
+      "requires": [
+        {
+          "clause": "forall value :: value in child_verdicts ==> -1 <= value <= 1",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: forall value :: value in child_verdicts ==> -1 <= value <= 1"
+        },
+        {
+          "clause": "|child_verdicts| < 4294967296",
+          "origin": "inferred",
+          "optional": false,
+          "description": "Frozen selected-slice applicability / guarded data domain; not necessarily a native caller check: |child_verdicts| < 4294967296"
+        }
+      ],
+      "ensures": [
+        "verdict == (if conjunction then (if -1 in child_verdicts then -1 else if 0 in child_verdicts then 0 else 1) else (if 1 in child_verdicts then 1 else if 0 in child_verdicts then 0 else -1))"
+      ],
+      "helpers": []
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "scope": "Intent selection freeze only; model computation/contracts are frozen later before original-property verification",
+  "selection_sha256": "be379560dc9f91cc8650d5abaa0de4e4680748d54c81be5385cc69e2131a1685",
+  "source_inventory_sha256": "57e3f8b3b7b92834e81259d23bdb3e0aed0f94eee2ab18f2b39d03c916b3379a",
+  "property_ids": [
+    "P11",
+    "P12",
+    "P13",
+    "P14",
+    "P15",
+    "P16",
+    "P17"
+  ],
+  "count": 7,
+  "no_dafny_implementation_created_by_this_stage": true
+}

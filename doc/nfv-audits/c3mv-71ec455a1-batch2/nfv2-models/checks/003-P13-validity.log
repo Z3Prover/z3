@@ -1,0 +1,19 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(35,35): Error: function precondition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(12,37): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(35,35): Error: function precondition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(12,43): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(48,42): Error: index out of range
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(48,98): Error: function precondition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(41,11): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(63,32): Error: function precondition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(41,11): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(101,24): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(6,26): Related location: this proposition could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(107,58): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(109,74): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/003-P13-validity.dfy(117,24): Error: index out of range
+
+Dafny program verifier finished with 2 verified, 9 errors

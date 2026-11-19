@@ -1,0 +1,55 @@
+{
+  "status": "pass",
+  "scope": "exact tags, metadata, forbidden constructs; NOT source equivalence or full upstream validation",
+  "properties": [
+    {
+      "id": "P11",
+      "source_tags": 43,
+      "requires": 3,
+      "helpers": 2,
+      "sha256": "0789716ac724f28d39e1c0c58b845fa2859990e477060e759d3c7f9b91c9655f"
+    },
+    {
+      "id": "P12",
+      "source_tags": 7,
+      "requires": 2,
+      "helpers": 1,
+      "sha256": "19015a7d10d897082a65cc72ebb18d2733a1d2458a7bdbb71ed7232b5c59ca5e"
+    },
+    {
+      "id": "P13",
+      "source_tags": 48,
+      "requires": 4,
+      "helpers": 6,
+      "sha256": "c3e4eb7b9e9c66590d777e2c131c27d032ac708c0edd1badd0bd7fd8e53d2184"
+    },
+    {
+      "id": "P14",
+      "source_tags": 13,
+      "requires": 2,
+      "helpers": 2,
+      "sha256": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc"
+    },
+    {
+      "id": "P15",
+      "source_tags": 33,
+      "requires": 3,
+      "helpers": 5,
+      "sha256": "cb152e72f57a5e16f666399b6b51572ba59200d92b4e01d04095f758aea281fe"
+    },
+    {
+      "id": "P16",
+      "source_tags": 17,
+      "requires": 1,
+      "helpers": 1,
+      "sha256": "b84a7d058897d56d2f41760190af873379e4080bbbc0ef96da218a43158a8c99"
+    },
+    {
+      "id": "P17",
+      "source_tags": 10,
+      "requires": 2,
+      "helpers": 0,
+      "sha256": "3bfb9c68d2569c52792c06ff1c542bd281573030f46061d821a0f111f7d07035"
+    }
+  ]
+}

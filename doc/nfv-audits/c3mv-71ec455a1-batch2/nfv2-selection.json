@@ -1,0 +1,314 @@
+{
+  "batch": 2,
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "d738f81eab9af1468394664a812fe4310ae8e1fa",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "nfv_upstream": "599726579274cfeb1c0915414b911371527a9870",
+  "scope": "Manual local NFV-methodology audit: seven new selected whole properties, not verdicts or official hosted-driver output",
+  "numbering": "P11-P17 are distinct from the immutable first-batch P1-P10",
+  "properties": [
+    {
+      "id": "P11",
+      "coverage_candidate": "C01",
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "entry": "ncontains_propagation::propagate",
+      "span": [
+        264,
+        291
+      ],
+      "grounding_quote": "// every position is a determined mismatch: the needle",
+      "inputs": "X,Y,Z: seq<int>; a,b: int; three distinct non-unit AST identities separate from word valuations",
+      "domain": [
+        "a != b",
+        "|X| + 1 + |Y| < 2147483648",
+        "|X| + 1 + |Z| < 2147483648",
+        "one active obligation [X,unit(a),Y] not-contains [X,unit(b),Z]; no earlier conflict or substitution"
+      ],
+      "whole_positive_property": "!discharged || !WordContains(X + [a] + Y, X + [b] + Z)",
+      "required_helpers": [
+        "Faithful pointer/kind-aware compare_alignment, not comparison of word valuations",
+        "Complete token-window scan and actual all-mismatch discharge decision",
+        "Body-defined word containment and valuation/flattening helpers"
+      ],
+      "correspondence_limits": [
+        "Specific token shape, not all containment propagation",
+        "No preceding facet/caller reachability, native result, source fix or crash claim",
+        "This is a different branch from the published prefix-pruning model"
+      ],
+      "domain_example": {
+        "X": [
+          97,
+          97
+        ],
+        "Y": [
+          98
+        ],
+        "Z": [],
+        "a": 97,
+        "b": 98
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 286,
+      "source_blob": "fd7bb6d72650d1484ac82942fcef3cfb0c0a3656"
+    },
+    {
+      "id": "P12",
+      "coverage_candidate": "C02",
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "entry": "replace_all_split::apply_case",
+      "span": [
+        215,
+        229
+      ],
+      "grounding_quote": "if (c >= 2 * p.length() + 2)",
+      "inputs": "pattern_length, case_number: int representing 32-bit unsigned values; output admitted: bool",
+      "domain": [
+        "1 <= pattern_length <= 4294967295",
+        "1 <= case_number <= 4294967295",
+        "the selected source prelude has a valid active replacement obligation and nonempty literal pattern"
+      ],
+      "whole_positive_property": "admitted == (case_number < 2 * pattern_length + 2), with the specification arithmetic mathematical and the source computation modulo 4294967296",
+      "required_helpers": [
+        "Body-defined unsigned-32 arithmetic for the actual expression 2*p.length()+2",
+        "Source guard observation only: admitted iff the guard does not return false"
+      ],
+      "correspondence_limits": [
+        "Checks branch-number admission only, not replacement semantics, iterator exhaustion or all index bounds",
+        "32-bit unsigned target model; no assumption that 2*pattern_length+2 does not wrap",
+        "No huge literal allocation is performed or proved possible. Any model refutation remains conditional on length/source applicability",
+        "Caller checks only nonempty literal pattern; inspected zstring representation exposes unsigned length, not an asserted small-pattern bound"
+      ],
+      "domain_example": {
+        "pattern_length": 2147483647,
+        "case_number": 1
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 225,
+      "source_blob": "e2911ff7f490d420a6040267a60ba818f2a4025d"
+    },
+    {
+      "id": "P13",
+      "coverage_candidate": "C03",
+      "path": "src/ast/seq/seq_req_facet.cpp",
+      "entry": "req_propagation::propagate",
+      "span": [
+        61,
+        118
+      ],
+      "grounding_quote": "continue; // re-examine same index (now the next request)",
+      "inputs": "queue: seq<int> request IDs; is_eq: seq<bool>; verdict: seq<int>; start: int; outputs queue_out, qhead_out, conflict",
+      "domain": [
+        "0 <= start <= |queue| < 4294967296",
+        "|is_eq| == |verdict| < 4294967296",
+        "every queue ID indexes is_eq/verdict",
+        "every verdict is -1(false), 0(unknown), or 1(true)"
+      ],
+      "whole_positive_property": "Let stop=FirstConflict(queue,is_eq,verdict,start), or |queue| if absent. conflict == (stop < |queue|) AND queue_out == queue[..start] + FilterUnknown(queue[start..stop],verdict) + queue[stop..] AND qhead_out == (if conflict then start else |queue_out|) AND 0 <= qhead_out <= |queue_out|",
+      "required_helpers": [
+        "Body-defined first-conflict and stable-unknown-filter specification helpers",
+        "Actual mutable queue scan, erase, same-index continuation and qhead adjustment"
+      ],
+      "correspondence_limits": [
+        "Bisimulation results are explicit environment observations for bookkeeping, not assumed proofs of regex equivalence",
+        "Prior prefix below start is deliberately not rescanned, as in source",
+        "No native allocator/AST lifetime or full trail-stack proof; scalar/vector value state only"
+      ],
+      "domain_example": {
+        "queue": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "is_eq": [
+          true,
+          false,
+          true,
+          true
+        ],
+        "verdict": [
+          1,
+          0,
+          -1,
+          1
+        ],
+        "start": 0
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 81,
+      "source_blob": "dbb408705713edc76f1a69dc0276c947bba7b354"
+    },
+    {
+      "id": "P14",
+      "coverage_candidate": "C06",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "regular_compiler::preimage",
+      "span": [
+        774,
+        791
+      ],
+      "grounding_quote": "result = join(yes, nullable(r) ? length(0, k) : empty);",
+      "inputs": "word, allowed_characters: seq<int>; accepts_empty,last_index: bool; k: int; output rewritten_accepts: bool",
+      "domain": [
+        "0 <= k <= 64",
+        "|word| < 4294967296",
+        "selected str.at fixed-nonnegative-index branch or exactly str.len(word)-1 branch; nullable helper succeeds"
+      ],
+      "whole_positive_property": "rewritten_accepts == TargetAccepts(StrAt(word, if last_index then |word|-1 else k), allowed_characters, accepts_empty)",
+      "required_helpers": [
+        "Body-defined str.at with negative/out-of-range behavior and guarded indexing",
+        "Body-defined target membership on epsilon and singleton words",
+        "Source regex cat/meet/union/length semantics for both selected branches; no opaque assumed rewrite result"
+      ],
+      "correspondence_limits": [
+        "Only epsilon/single-character membership of the arbitrary target language matters because str.at has length at most one",
+        "No proof of general regex implementation, nullable decision procedure, extraction/preimage branches or caller budget behavior",
+        "Integer alphabet abstracts equality of valid characters; no unsupported character-arithmetic claims"
+      ],
+      "domain_example": {
+        "word": [],
+        "allowed_characters": [
+          97
+        ],
+        "accepts_empty": true,
+        "last_index": true,
+        "k": 0
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 780,
+      "source_blob": "8c182d0e93e238e39c4e74669b73d567aa7cb948"
+    },
+    {
+      "id": "P15",
+      "coverage_candidate": "C07",
+      "path": "src/solver/assertions/asserted_formulas.cpp",
+      "entry": "asserted_formulas::simplify_replace_contains",
+      "span": [
+        355,
+        400
+      ],
+      "grounding_quote": "// A single-character observation is unchanged when neither replacement operand contains it.",
+      "inputs": "word,needle,replacement: seq<int>; character: int; output rewritten_contains: bool",
+      "domain": [
+        "!HasCharacter(needle,character)",
+        "!HasCharacter(replacement,character)",
+        "|word|,|needle|,|replacement| < 2147483648",
+        "selected admitted rewrite: nseq, no proof production/quantifiers, and no global blocked-replacement abort"
+      ],
+      "whole_positive_property": "rewritten_contains == HasCharacter(ReplaceFirst(word,needle,replacement),character)",
+      "required_helpers": [
+        "Actual rewritten observation is HasCharacter(word,character)",
+        "Body-defined ground ReplaceFirst from zstring::replace, including empty needle, no match, first-only replacement, matching loop and copy/skip behavior",
+        "Body-defined character occurrence; preserve the real whole property, not merely a sufficient no-match case"
+      ],
+      "correspondence_limits": [
+        "This is the local observation rewrite; graph traversal, ancestor blocking, sharing, proof/model conversion and marks/lifetimes remain unproved",
+        "Character/string denotation only, not AST or allocator memory safety",
+        "Length bounds preserve selected unsigned helper arithmetic; do not assume nonempty needle"
+      ],
+      "domain_example": {
+        "word": [
+          97,
+          98
+        ],
+        "needle": [],
+        "replacement": [
+          99
+        ],
+        "character": 98
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 398,
+      "source_blob": "99ebcb9c4daf4a5ea43f9333eec5372b42dbabf4"
+    },
+    {
+      "id": "P16",
+      "coverage_candidate": "C03 helper",
+      "path": "src/ast/seq/seq_eq_facet.h",
+      "entry": "vector_erase_trail<T>::undo",
+      "span": [
+        78,
+        91
+      ],
+      "grounding_quote": "m_vec[m_idx] = std::move(m_value);",
+      "inputs": "original: seq<int>; index: int; output restored: seq<int>",
+      "domain": [
+        "0 <= index < |original| < 4294967296",
+        "the trail constructor records original[index] before exactly that slot is erased, as in req_facet::remove"
+      ],
+      "whole_positive_property": "restored == original, with all modeled push/shift/store accesses in bounds",
+      "required_helpers": [
+        "Body-defined actual vector erase-by-left-shift and pop",
+        "Record the erased value before mutation",
+        "Actual undo: push saved value, right-shift backwards, then write the saved slot; never replace the whole output with original"
+      ],
+      "correspondence_limits": [
+        "Value elements abstract movable request records; move/destructor/AST references and allocation failures are outside the model",
+        "Checks this new helper and its selected erase/undo path, not all apply_subst/dependency or nested trail behavior",
+        "Bounds are real index/size requirements, not assumptions that undo succeeds"
+      ],
+      "domain_example": {
+        "original": [
+          10,
+          20,
+          30
+        ],
+        "index": 1
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 89,
+      "source_blob": "0fbfb69356e3abdd356c9f3b0db9003b642a609d"
+    },
+    {
+      "id": "P17",
+      "coverage_candidate": "C09",
+      "path": "src/ast/rewriter/seq_regex_witness.cpp",
+      "entry": "regex_witness::accepts",
+      "span": [
+        154,
+        166
+      ],
+      "grounding_quote": "if (value == (conjunction ? l_false : l_true))",
+      "inputs": "conjunction: bool; child_verdicts: seq<int>; output verdict: int; encoding -1=false,0=unknown,1=true",
+      "domain": [
+        "every child verdict is -1,0,or 1",
+        "|child_verdicts| < 4294967296",
+        "selected nonempty-ground-word Boolean regex constructor branch after earlier source guards"
+      ],
+      "whole_positive_property": "verdict == (if conjunction then (if -1 in child_verdicts then -1 else if 0 in child_verdicts then 0 else 1) else (if 1 in child_verdicts then 1 else if 0 in child_verdicts then 0 else -1))",
+      "required_helpers": [
+        "Preserve source identity value, short-circuit decisive result, unknown accumulation, and loop order",
+        "Body-defined membership/aggregation specification; explicit observed child verdicts rather than hidden convenient child results"
+      ],
+      "correspondence_limits": [
+        "Boolean aggregation only; no work-counter/depth-budget proof, full regex acceptance, derivative or ground-slicing correctness",
+        "Resource failures may appear as unknown child observations, but their occurrence/cost is not modeled",
+        "This is not source-level regex soundness or native crash verification"
+      ],
+      "domain_example": {
+        "conjunction": true,
+        "child_verdicts": [
+          1,
+          0,
+          1
+        ]
+      },
+      "outcome": "not modeled or checked",
+      "intent_origin": "source-inferred hypothesis, not a quotation of PR intent",
+      "quote_line": 158,
+      "source_blob": "c4cf97d08738e5cdfd95db6da508149918b63937"
+    }
+  ],
+  "deferred": [
+    "C05 callback-driven coherence: require a justified callback/object-lifetime model rather than a value-only proxy",
+    "C08 full substitution/dependency/qhead undo: caller aliasing and dependency graph contracts need further tracing",
+    "C10 full trichotomy word branches; C11 substitution acyclicity; C12 cache/core entailment; C13 complete model reconstruction",
+    "C14 split positive-decimal/length-bound properties; C04 unchanged derivative helpers are context only"
+  ]
+}

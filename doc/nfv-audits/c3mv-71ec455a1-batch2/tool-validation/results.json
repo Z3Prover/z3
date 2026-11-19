@@ -1,0 +1,9 @@
+{
+  "status": "pass",
+  "scope": "Publication-tool smoke tests, NOT additional selected properties or part of the 42 audit checks",
+  "live_verifier_invocations": 5,
+  "mixed_runner_exit": 1,
+  "successful_runner_exit": 0,
+  "replay_exit": 0,
+  "checks": "Earlier selected failure survives later success; positive runner exit; exact-input replay of expected success and expected proof failure"
+}

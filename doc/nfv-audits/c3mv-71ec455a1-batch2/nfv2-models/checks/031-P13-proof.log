@@ -1,0 +1,6 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/031-P13-proof.dfy(105,0): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/031-P13-proof.dfy(97,19): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/031-P13-proof.dfy(105,0): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/031-P13-proof.dfy(99,20): Related location: this is the postcondition that could not be proved
+
+Dafny program verifier finished with 6 verified, 2 errors

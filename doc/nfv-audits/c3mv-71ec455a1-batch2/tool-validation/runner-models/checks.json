@@ -1,0 +1,77 @@
+[
+  {
+    "id": "P13",
+    "phase": "proof",
+    "started_utc": "2026-11-19T15:57:42.535144+00:00",
+    "seconds": 1.666,
+    "exit_code": 4,
+    "canonical_sha256": "5a52b4130696be5a5fa6a40bbce57b7a926cd442d2f16f60c5f7b6cc199f3460",
+    "input_sha256": "5a52b4130696be5a5fa6a40bbce57b7a926cd442d2f16f60c5f7b6cc199f3460",
+    "input": "checks\\001-P13-proof.dfy",
+    "log": "checks\\001-P13-proof.log",
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch2\\tool-validation\\runner-models\\checks\\001-P13-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ]
+  },
+  {
+    "id": "P14",
+    "phase": "proof",
+    "started_utc": "2026-11-19T15:57:44.206415+00:00",
+    "seconds": 1.384,
+    "exit_code": 0,
+    "canonical_sha256": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc",
+    "input_sha256": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc",
+    "input": "checks\\002-P14-proof.dfy",
+    "log": "checks\\002-P14-proof.log",
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch2\\tool-validation\\runner-models\\checks\\002-P14-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ]
+  },
+  {
+    "id": "P14",
+    "phase": "validity",
+    "started_utc": "2026-11-19T15:57:45.829134+00:00",
+    "seconds": 1.368,
+    "exit_code": 0,
+    "canonical_sha256": "afd2ca8f144677df88bd60989ef8841520b8f746d3e85f28866e4cf4cce126cc",
+    "input_sha256": "78ad8dc3da05303dbcd4bcbea734c0a7215647d28f33f7b82ba2f47ad928be01",
+    "input": "checks\\003-P14-validity.dfy",
+    "log": "checks\\003-P14-validity.log",
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch2\\tool-validation\\runner-models\\checks\\003-P14-validity.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ]
+  }
+]

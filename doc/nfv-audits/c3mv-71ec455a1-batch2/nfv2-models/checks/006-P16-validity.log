@@ -1,0 +1,6 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/006-P16-validity.dfy(22,33): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/006-P16-validity.dfy(63,33): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+
+Dafny program verifier finished with 1 verified, 2 errors

@@ -1,0 +1,95 @@
+{
+  "scope": "All checked Dafny inputs, logs and JSON copied byte-exact. Only CRLF document/script line endings normalized to LF.",
+  "normalizations": [
+    {
+      "path": "nfv2-p1-source-trace.md",
+      "original_sha256": "b40f205a549c2817162ef67ee88f5ac027240b190c694a7433246caa7b38a7eb",
+      "published_sha256": "544bf30c5d12e65f2de71d352f84a5a1101e23ee184720024a2d9978e56bc3dc",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "nfv2-coverage.md",
+      "original_sha256": "693e78ad42fb37a28f09a109f78de6ffe69a36ccd73137c6c0de72fb52264687",
+      "published_sha256": "5b568171e02d2c93d94b74d550227d8b9decde05c38edcd9cbc07703aa989540",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "nfv2-selection.md",
+      "original_sha256": "08ba112126efca19ce46035ee6e44cc10bf2efb3f597db538ab68ad92995e579",
+      "published_sha256": "64ce17e2209767a5412ac79f3b7293caee8cc4bf0d7bc36bb68f9421b6e2c4cc",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "nfv2-modeling.md",
+      "original_sha256": "5027813b91411cab0b0d52e312bbcc8500c8e1d8e5013af115fd6b66fa9c1896",
+      "published_sha256": "42eac1cf830c23ae0ac1cc2fe958a653e89857beef4b9ff611f7cd9b890c14fd",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "nfv2-verification.md",
+      "original_sha256": "521a995d1605e2aaaa82b595768b9b5d91e91c210d408838e9f74140db62ed8f",
+      "published_sha256": "8253b337531a2586afa8c11916b119e49cb7f4ef1435e24a0a42901a773a5158",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "nfv-methodology.md",
+      "original_sha256": "fe007963beee57b3a1dc196b62ede81924b1346dbd135c3e6fe6b630bc601834",
+      "published_sha256": "f24baa592a98364b6b672f53756db532a4f638f0a894e05e224281c7bcf5e881",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\capture_nfv2_p1.py",
+      "original_sha256": "8385ec8402a13fcd0986c519326764bd603c5311881a8468f378b3224fa496dd",
+      "published_sha256": "a2e56de36d49562579afd80c2fbf4ff1e8fd6e095591c59701e81e2fae43abe2",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\capture_nfv2_coverage.py",
+      "original_sha256": "44b121084d3d5341247fe56b5057a4438f5a8c665512821e8846a55626b771f7",
+      "published_sha256": "70b3a7e5a3e9a80f92510c80e621d12bafe5a6485e03450949ffb2bad958df9f",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\select_nfv2_properties.py",
+      "original_sha256": "217e142476942315ba4c92bc223c63d40677d660ba9e008a57d0ec6e4d871491",
+      "published_sha256": "138b49f3a7f114b1f95ac0e8e00e0961c7603cb61eeb0e414e06c8b97bb6568c",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\make_nfv2_models.py",
+      "original_sha256": "7b97e0fa47d4ffedeb30f10d769d967af27a8ad208a5586c8598d02e661936aa",
+      "published_sha256": "f4926f830f13217c0d484c4c72884cdda5bc6d6b9a4d2d60886a06f7753ade40",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\check_nfv2_models.py",
+      "original_sha256": "33c4bf4278c48512c3efd8ceb156cb22aa3543f4ac760e5a90f2aa66e260416c",
+      "published_sha256": "19f7d1fe8945a9e12496c54d3fb78af421716b17781568a97bd7134325f4010f",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\freeze_nfv2_models.py",
+      "original_sha256": "a76475bd1d113348db343617092ebc4734cffc2249b4d18894a938c494a53abc",
+      "published_sha256": "7bf23651b5447133fa079408263af3ed0adc1bbdd970e405097f240b53956890",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\refresh_nfv2_proof_metadata.py",
+      "original_sha256": "ad742a668762f4c0f1f7c46a58ab4a3edf2263dd4ca5c3f0e068568a2ef49c61",
+      "published_sha256": "2c7d3e915f87c08d75f59a13228e162acb0e24ae4046aa8d35edd4cd1896565d",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\nfv2_followups.py",
+      "original_sha256": "8ea7ff4f257eb986e573dfa82fe798e5407396570525c43e2b1956902204889c",
+      "published_sha256": "1bde956d1be81ebf8b4cbe45c74c19aeb97181df64167bdb01c0fe8a7319d6f7",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    },
+    {
+      "path": "historical-tools\\validate_nfv2_verification.py",
+      "original_sha256": "3dc4fe47aad87e9a28b2d36325b0fac5e829051005f3237be4f03caca7aed882",
+      "published_sha256": "c9e55c9aab7054734669b1cf3945330a9980e27792f2ea8c23f45d4444b272c6",
+      "change": "CRLF to LF only; checked inputs/logs/JSON never normalized"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/021-P11-refute.dfy(6,2): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/021-P11-refute.dfy(145,24): Error: a postcondition could not be proved on this return path
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/021-P11-refute.dfy(88,41): Related location: this is the postcondition that could not be proved
+C:/Users/nbjorner/.copilot/session-state/41a24878-0132-4dff-ba04-d7afa4eaaafb/files/nfv2-models/checks/021-P11-refute.dfy(6,2): Related location: this proposition could not be proved
+
+Dafny program verifier finished with 3 verified, 1 error

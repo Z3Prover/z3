@@ -1,0 +1,1060 @@
+{
+  "head": "71ec455a18702fe695d0c924a535ff9f385bd58d",
+  "master": "d738f81eab9af1468394664a812fe4310ae8e1fa",
+  "merge_base": "437536cd64a544a1c329fc57d83e56e294fdf47c",
+  "scope": "Coverage mapping only. Candidates are not frozen selection, models or verdicts. Native source not executed.",
+  "counts": {
+    "production": 64,
+    "test": 20,
+    "build": 5
+  },
+  "files": [
+    {
+      "path": "src/ast/rewriter/CMakeLists.txt",
+      "change": "M",
+      "kind": "build",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/guard_set.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P6"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/guard_set.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/seq_derive.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": [
+        "C04"
+      ]
+    },
+    {
+      "path": "src/ast/rewriter/seq_derive.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/seq_regex_witness.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": [
+        "C09"
+      ]
+    },
+    {
+      "path": "src/ast/rewriter/seq_regex_witness.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/seq_rewriter.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P10"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/seq_rewriter.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/rewriter/th_rewriter.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/CMakeLists.txt",
+      "change": "M",
+      "kind": "build",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_ambient_context.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_assumption_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_axioms.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P2"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C11"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_eq_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_ho_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_lex_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P3"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_lex_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_mem_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_monadic.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_monadic.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P1"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C01",
+        "C08"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_ncontains_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_parikh.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_parikh.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P5"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C10"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_power_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_regex_live.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_regex_live.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P4"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C02"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_replace_all_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_req_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": [
+        "C03"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_req_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_solver_facet_i.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_stoi_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": [
+        "C05"
+      ]
+    },
+    {
+      "path": "src/ast/seq/seq_sub_solver.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_view.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_view_witness.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq/seq_view_witness.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/seq_decl_plugin.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/simplifiers/CMakeLists.txt",
+      "change": "M",
+      "kind": "build",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P9"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C06",
+        "C14"
+      ]
+    },
+    {
+      "path": "src/ast/simplifiers/seq_regular_simplifier.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/ast/sls/sls_seq_plugin.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/model/model_evaluator.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/params/smt_params.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/params/smt_params_helper.hpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/params/theory_seq_params.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/params/theory_seq_params.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/CMakeLists.txt",
+      "change": "M",
+      "kind": "build",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/seq_ambient_context.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/seq_axioms.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/seq_nseq_ambient_context.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/seq_solver_facet.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/seq_solver_facet.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/smt_setup.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/smt_setup.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/theory_nseq.cpp",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P8"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C13"
+      ]
+    },
+    {
+      "path": "src/smt/theory_nseq.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/smt/theory_seq.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/solver/assertions/CMakeLists.txt",
+      "change": "M",
+      "kind": "build",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/solver/assertions/asserted_formulas.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": [
+        "C07"
+      ]
+    },
+    {
+      "path": "src/solver/assertions/asserted_formulas.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/tactic/core/elim_uncnstr_tactic.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/tactic/core/elim_uncnstr_tactic.h",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/tactic/portfolio/default_tactic.cpp",
+      "change": "M",
+      "kind": "production",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/CMakeLists.txt",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/elim_uncnstr.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/main.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/parametric_datatype.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_eq_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_ho_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_lex_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_limits.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_mem_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_monadic.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_ncontains_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_parikh.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_power.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_power_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_regex_witness.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_rewriter.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/seq_solver_facet.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/simplifier.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/smt_context.cpp",
+      "change": "M",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/test/stx_search_tree.cpp",
+      "change": "A",
+      "kind": "test",
+      "previous_primary_model_ids": [],
+      "prior_scope": "No first-batch primary model; prior context/range inspection may exist",
+      "candidate_ids": []
+    },
+    {
+      "path": "src/util/stx_search_tree.h",
+      "change": "A",
+      "kind": "production",
+      "previous_primary_model_ids": [
+        "P7"
+      ],
+      "prior_scope": "Focused primary model(s), not file-wide verification",
+      "candidate_ids": [
+        "C12"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "C01",
+      "priority": "high",
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "entry": "ncontains_propagation::propagate",
+      "span": [
+        232,
+        301
+      ],
+      "previous_gap": "P1 covered prefix pruning only, not the all-determined-mismatches discharge.",
+      "proposed_obligation": "A discharged negative containment must be valid at character offsets, including variable-width and empty-valued symbolic tokens.",
+      "limits": "Start with symbolic token shapes [X,a,Y] and [X,b,Z]; a!=b. Candidate valuation X=aa,Y=b,Z=epsilon is only a hypothesis here.",
+      "next_step": "Select the complete discharge-soundness property before constructing a new model; do not extend the prior candidate-fix proof.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C02",
+      "priority": "high",
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "entry": "replace_all_split::apply_case",
+      "span": [
+        215,
+        268
+      ],
+      "previous_gap": "P4 checked match_at with one-character-width token valuations, not replacement splitting.",
+      "proposed_obligation": "Every generated empty/end/match/copy branch preserves first-occurrence replacement semantics and the cases cover all inputs under the actual pattern guard.",
+      "limits": "Must retain nonempty constant pattern, nonoverlapping replacement-all scanning, fresh-tail equations and the first-character copy behavior. Model case-count arithmetic including unsigned overflow separately or explicitly bound it.",
+      "next_step": "Inspect pattern admission and iterator initialization; use actual case numbering, not an idealized partition.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C03",
+      "priority": "high",
+      "path": "src/ast/seq/seq_req_facet.cpp",
+      "entry": "req_propagation::propagate",
+      "span": [
+        26,
+        120
+      ],
+      "previous_gap": "No earlier property modeled erasing a request vector while advancing qhead.",
+      "proposed_obligation": "Resolved requests are removed, unknown requests retained in order, conflicting verdicts stop, qhead remains in range and pop restores prior queue state.",
+      "limits": "Regex bisimulation verdicts may be explicit inputs for this bookkeeping property; this cannot prove the regex oracle.",
+      "next_step": "Read vector_erase_trail semantics before translation; preserve same-index reexamination and remove-below-qhead adjustment.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C04",
+      "priority": "context-only",
+      "path": "src/ast/rewriter/seq_derive.cpp",
+      "entry": "derive::exclude_interval",
+      "span": [
+        1427,
+        1471
+      ],
+      "previous_gap": "No earlier model covered derivative path-interval mutation or boundary arithmetic.",
+      "proposed_obligation": "The active interval suffix denotes exactly the original set minus the excluded interval; retained history and push/pop boundaries stay valid, with guarded endpoint +/-1.",
+      "limits": "Proper character-domain intervals and a valid initial suffix are actual preconditions, not assumptions that the result is correct.",
+      "next_step": "Retain as dependency context only; select a genuinely changed caller before attributing an obligation to the c3mv delta.",
+      "status": "Unchanged implementation at pinned merge base: not eligible as a new-code property entry.",
+      "changed_span_intersects": false,
+      "eligibility": "unchanged helper context only"
+    },
+    {
+      "id": "C05",
+      "priority": "high",
+      "path": "src/ast/seq/seq_stoi_facet.h",
+      "entry": "stoi_facet::check_stoi_coherence",
+      "span": [
+        92,
+        175
+      ],
+      "previous_gap": "P8 treated coherence as an external observation; it did not inspect its callback/state safety.",
+      "proposed_obligation": "Axiom callbacks may append/reallocate tracking terms without invalidating the saved term/depth; depth updates remain monotone and guarded bounds equal 10^k-1.",
+      "limits": "Requires a justified append-only callback contract, finite registration behavior and mathematical numeric bounds; does not establish a decimal parser or AST memory safety by itself.",
+      "next_step": "Trace m_instantiate/add_term callbacks and validate actual registration dedup before choosing a faithful finite-state model.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C06",
+      "priority": "high",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "regular_compiler::preimage",
+      "span": [
+        762,
+        895
+      ],
+      "previous_gap": "P9 covered only negative decimal thresholds, not preimages of indexing/extraction.",
+      "proposed_obligation": "The selected str.at fixed-index and last-index preimages agree with extraction membership for all words, including short/empty words and nullable target languages.",
+      "limits": "Focus on the exact selected branches and k<=64 guard. Character membership and epsilon membership suffice only because str.at returns length at most one.",
+      "next_step": "Read length/nullable/regex concatenation helpers; retain both successful-character and epsilon branches.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C07",
+      "priority": "high",
+      "path": "src/solver/assertions/asserted_formulas.cpp",
+      "entry": "asserted_formulas::simplify_replace_contains",
+      "span": [
+        317,
+        416
+      ],
+      "previous_gap": "No earlier model checked the new replacement/contains preprocessing rule.",
+      "proposed_obligation": "A single-character containment observation is unchanged by first-occurrence str.replace when neither constant needle nor replacement contains that character.",
+      "limits": "Must include empty needles and no-match behavior. This is the local rewrite, not a proof of shared-mark traversal, proof production or all parent-blocking gates.",
+      "next_step": "Translate actual replace semantics with body-defined first-match search; separately document global applicability guards and ancestor blocking.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C08",
+      "priority": "high",
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "entry": "ncontains_facet::apply_subst",
+      "span": [
+        28,
+        67
+      ],
+      "previous_gap": "P1 excluded dependencies, qhead rewind, append/deactivate operations and trailing.",
+      "proposed_obligation": "Substitution updates exactly active matching haystack/needle occurrences, joins justification when touched, rewinds the scan appropriately, and undo restores previous fields and dependencies.",
+      "limits": "Value-state/trail modeling alone does not establish C++ alias or allocator correctness; inspect trail helpers and distinguish a null substitution dependency from an empty dependency set.",
+      "next_step": "Model a bounded operation sequence with source-faithful update order and genuine trail reversal, not a direct assignment of the expected old state.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C09",
+      "priority": "medium",
+      "path": "src/ast/rewriter/seq_regex_witness.cpp",
+      "entry": "regex_witness::accepts",
+      "span": [
+        131,
+        249
+      ],
+      "previous_gap": "No previous property covered witness acceptance or its work/depth bounds.",
+      "proposed_obligation": "For selected Boolean regex constructors, three-valued acceptance returns a definite verdict only when supported by all needed branches, and budget exhaustion stays unknown.",
+      "limits": "This wrapper property would not establish derivative correctness, ground slicing or full regex acceptance. Preserve shared mutable work and short-circuit order.",
+      "next_step": "Define a source-grounded constructor slice and exact work/depth arithmetic before selection; do not use successful child results as proof of entire acceptance.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C10",
+      "priority": "medium",
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "entry": "power_trichotomy::apply",
+      "span": [
+        455,
+        581
+      ],
+      "previous_gap": "P5 proved primitive-root minimality, not trichotomy branches or their completeness.",
+      "proposed_obligation": "A selected f3 periodic-word branch emits a residual z satisfying Y^N = X^M.z under the branch equations and M,N>=2.",
+      "limits": "One-branch soundness is not trichotomy exhaustiveness; preserve prefix/suffix orientation, exponent truncation semantics and constant-base period conditions.",
+      "next_step": "Read all helper definitions and caller guards; choose a tractable complete word identity rather than replacing word semantics with unconstrained counts.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C11",
+      "priority": "high-followup",
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "entry": "eq_facet::eliminate",
+      "span": [
+        104,
+        150
+      ],
+      "previous_gap": "No previous model checked recursive substitution expansion termination or cycle invariants.",
+      "proposed_obligation": "Expansion terminates and preserves represented words under the weakest caller-justified substitution-graph invariant.",
+      "limits": "Observed on_stack.remove(t) occurs before on_stack.contains(t); this alone is not a reachable cycle/crash proof. Acyclicity may be maintained by callers.",
+      "next_step": "Trace every substitution producer before modeling; separate malformed-state behavior from reachable release behavior. Do not mask an unbounded loop with an invented fuel counter.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C12",
+      "priority": "high-followup",
+      "path": "src/util/stx_search_tree.h",
+      "entry": "search_tree::filter_by_conflict_dep / try_rewatch",
+      "span": [
+        631,
+        849
+      ],
+      "previous_gap": "P7 proved only child-verdict aggregation, not cache/core entailment or watch representation.",
+      "proposed_obligation": "A cache hit is justified by a valid stored unsat core actually contained in the current semantically active facts, and excluded live facets block unsafe caching.",
+      "limits": "Must trace provenance of conflict dependencies; do not assume leaf-subset filtering implies semantic unsatisfiability. Canonical clone pointers and live pointers are distinct representations.",
+      "next_step": "Inspect vector contains semantics, clone/equality rules, dependency construction and watch-list mutation. Potential missed cache hits are performance observations, not logical failures.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C13",
+      "priority": "high-followup",
+      "path": "src/smt/theory_nseq.cpp",
+      "entry": "seq_model_value_proc::mk_value",
+      "span": [
+        79,
+        151
+      ],
+      "previous_gap": "P8 excluded complete model reconstruction and nested power-token processing.",
+      "proposed_obligation": "Generated power delimiters are balanced, starts/exponents stacks never underflow, and rebuilt values preserve dependencies and sequence denotation.",
+      "limits": "Cannot prove safety by assuming arbitrary external token streams are balanced without tracing the actual producers. AST reference/GC lifetime is a separate obligation.",
+      "next_step": "Trace slot producers and retain nested scopes, empty bases and exponent semantics before a dedicated later batch.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    },
+    {
+      "id": "C14",
+      "priority": "medium",
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "entry": "regular_compiler::bounded_length / decimal_greater",
+      "span": [
+        138,
+        169
+      ],
+      "previous_gap": "P9 excluded nonnegative decimal languages and numerical bound propagation.",
+      "proposed_obligation": "Saturating length sums and conditional upper bounds never underestimate actual words; separately, positive-threshold decimal languages must handle leading zeros and magnitude boundaries.",
+      "limits": "These are TWO distinct future properties, not one selected whole property. Need actual add_truncate and decimal constructor semantics; do not reuse P9 conversion assumptions as a parser proof.",
+      "next_step": "Split into separate entries if selected later; retain UINT_MAX sentinel behavior, numeral-size budget and loop indexing.",
+      "status": "candidate; not selected, modeled, verified, or refuted",
+      "changed_span_intersects": true,
+      "eligibility": "changed-code candidate"
+    }
+  ],
+  "previous_models": {
+    "P1": {
+      "path": "src/ast/seq/seq_ncontains_facet.cpp",
+      "scope": "selected symbolic prefix-pruning shape only"
+    },
+    "P2": {
+      "path": "src/ast/seq/seq_eq_facet.cpp",
+      "scope": "resolved-character disequality cancellation only"
+    },
+    "P3": {
+      "path": "src/ast/seq/seq_lex_facet.cpp",
+      "scope": "resolved-character lexicographic obligation only"
+    },
+    "P4": {
+      "path": "src/ast/seq/seq_replace_all_facet.cpp",
+      "scope": "constant pattern helper with unit-width valuations only"
+    },
+    "P5": {
+      "path": "src/ast/seq/seq_power_facet.cpp",
+      "scope": "primitive-root minimal divisor-period only"
+    },
+    "P6": {
+      "path": "src/ast/rewriter/guard_set.cpp",
+      "scope": "fresh string length scan after sorting only"
+    },
+    "P7": {
+      "path": "src/util/stx_search_tree.h",
+      "scope": "DFS child-result/purity aggregation only"
+    },
+    "P8": {
+      "path": "src/smt/theory_nseq.cpp",
+      "scope": "pending-hypothesis early acceptance/reset boundary only"
+    },
+    "P9": {
+      "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+      "scope": "negative integral decimal thresholds only"
+    },
+    "P10": {
+      "path": "src/ast/rewriter/seq_rewriter.cpp",
+      "scope": "plus-repetition factor-count algebra only"
+    }
+  },
+  "previous_batch": "doc/nfv-audits/c3mv-71ec455a1",
+  "user_scope": "Logical correctness and possible user-space crashes",
+  "limitations": [
+    "No exhaustive line-by-line inspection of all changed files",
+    "No native execution, build, sanitizer or regression run",
+    "Metadata and source provenance do not prove C++/Dafny correspondence"
+  ]
+}

@@ -1,0 +1,2 @@
+{"input": "checks\\022-P12-refute.dfy", "expected_exit": 0, "actual_exit": 0, "matched": true}
+{"input": "checks\\031-P13-proof.dfy", "expected_exit": 4, "actual_exit": 4, "matched": true}

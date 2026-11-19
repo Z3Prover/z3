@@ -1,0 +1,48 @@
+[
+  {
+    "input": "checks\\022-P12-refute.dfy",
+    "input_sha256": "83621a293ad09fb4a5b2811962c34aa332ded976524f5d59aaebca7c908edf30",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "matched": true,
+    "seconds": 1.332,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch2\\nfv2-models\\checks\\022-P12-refute.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "022-P12-refute.log"
+  },
+  {
+    "input": "checks\\031-P13-proof.dfy",
+    "input_sha256": "5a52b4130696be5a5fa6a40bbce57b7a926cd442d2f16f60c5f7b6cc199f3460",
+    "expected_exit": 4,
+    "actual_exit": 4,
+    "matched": true,
+    "seconds": 1.645,
+    "command": [
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\Dafny.exe",
+      "verify",
+      "C:\\z3seq\\doc\\nfv-audits\\c3mv-71ec455a1-batch2\\nfv2-models\\checks\\031-P13-proof.dfy",
+      "--solver-path",
+      "C:\\Users\\nbjorner\\.copilot\\session-state\\41a24878-0132-4dff-ba04-d7afa4eaaafb\\files\\nfv-tools\\dafny\\z3\\bin\\z3-4.12.1.exe",
+      "--verification-time-limit",
+      "30",
+      "--cores",
+      "2",
+      "--allow-warnings",
+      "--show-snippets",
+      "false"
+    ],
+    "log": "031-P13-proof.log"
+  }
+]
