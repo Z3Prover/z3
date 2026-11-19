@@ -7,12 +7,16 @@ Module Name:
 
 Abstract:
 
-    Tests for default (flagged) entries of params_ref.
+    Tests for default (flagged) entries of params_ref, and for gparams::reset.
 
 --*/
 #include "util/params.h"
+#include "util/gparams.h"
 #include "util/debug.h"
 #include <cstring>
+#include <sstream>
+#include <string>
+#include <vector>
 
 static void tst_set_default() {
     params_ref p;
@@ -104,8 +108,52 @@ static void tst_fallback() {
     ENSURE(local.get_uint("max_occs", wrong_kind, 7) == 2);
 }
 
+// gparams::reset frees the names and string values of the parameters set so far.
+// The names of the registered modules must survive it: after a reset, setting
+// parameters (whose names and values are copied again) must not overwrite them.
+static void tst_gparams_reset_keeps_modules() {
+    std::ostringstream ms;
+    gparams::display_modules(ms); // registers the modules
+    std::vector<std::string> modules;
+    std::istringstream lines(ms.str());
+    for (std::string l; std::getline(lines, l); ) {
+        std::string const tag = "[module] ";
+        ENSURE(l.compare(0, tag.size(), tag) == 0);
+        modules.push_back(l.substr(tag.size(), l.find(',') == std::string::npos ? std::string::npos : l.find(',') - tag.size()));
+    }
+    ENSURE(modules.size() > 5);
+    gparams::set("smt.random_seed", "3");
+    gparams::reset();
+    bool ok = true;
+    // new copies of module names and string values, in the freed memory
+    try {
+        gparams::set("rewriter.flat", "false");
+        gparams::set("smt.qi.cost", std::string(200, 'x').c_str());
+        gparams::set("smt.mbqi.id", std::string(200, 'y').c_str());
+        gparams::set("sat.random_seed", "5");
+        ok = gparams::get_value("rewriter.flat") == "false" && gparams::get_value("sat.random_seed") == "5";
+    }
+    catch (z3_exception & ex) {
+        std::cerr << "set after reset: " << ex.what() << "\n";
+        ok = false;
+    }
+    for (std::string const & mod : modules) {
+        try {
+            std::ostringstream out;
+            gparams::display_module(out, mod.c_str());
+        }
+        catch (z3_exception & ex) {
+            std::cerr << "module " << mod << " after reset: " << ex.what() << "\n";
+            ok = false;
+        }
+    }
+    gparams::reset();
+    ENSURE(ok);
+}
+
 void tst_params() {
     tst_set_default();
     tst_append();
     tst_fallback();
+    tst_gparams_reset_keeps_modules();
 }
