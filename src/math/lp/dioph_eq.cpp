@@ -549,6 +549,12 @@ namespace lp {
         // The amount of work, measured in machine words, spent since the last check() on
         // eliminating the columns of the retired terms from m_l_matrix. See undo_add_term_method().
         uint64_t m_undo_work = 0;
+        bool m_cancelled = false;
+        bool check_cancel() {
+            if (!m_cancelled)
+                m_cancelled = lra.settings().get_cancel_flag();
+            return m_cancelled;
+        }
         void reset_conflict() { m_normalize_conflict_index = UINT_MAX; }
         bool has_conflict_index() const { return m_normalize_conflict_index != UINT_MAX; }
         void set_rewrite_conflict(unsigned idx, const mpq& gcd) {
@@ -1021,6 +1027,8 @@ namespace lp {
         // q is the queue of variables that can be substituted in ei
         void substitute_on_q(unsigned ei) {
             while (!m_q.empty()) {
+                if (check_cancel())
+                    return;
                 unsigned j = m_q.pop_front();
                 mpq alpha = get_coeff_in_e_row(ei, j);
                 if (alpha.is_zero()) continue;
@@ -1249,6 +1257,8 @@ namespace lp {
             remove_irrelevant_fresh_defs();
             
             for (unsigned ei : m_changed_rows) {
+                if (check_cancel())
+                    return;
                 if (ei >= m_e_matrix.row_count())
                     continue;
                 if (belongs_to_s(ei))
@@ -1286,8 +1296,11 @@ namespace lp {
         }
 
         void eliminate_substituted_in_changed_rows() {
-            for (unsigned ei : m_changed_rows)
+            for (unsigned ei : m_changed_rows) {
+                if (check_cancel())
+                    return;
                 subs_entry(ei);
+            }
         }
 
         // returns true if a variable j is substituted
@@ -1334,11 +1347,17 @@ namespace lp {
             m_undo_work = 0;
 
             process_m_changed_f_columns(f_vector);
+            if (check_cancel())
+                return;
             for (const lar_term* t : m_added_terms) {
+                if (check_cancel())
+                    return;
                 m_active_terms.insert(t);
                 f_vector.push_back(m_e_matrix.row_count()); // going to add a row in fill_entry
                 fill_entry(*t);
                 register_columns_to_term(*t);
+                if (check_cancel())
+                    return;
             }
 
             SASSERT(is_in_sync());
@@ -2318,7 +2337,16 @@ namespace lp {
             std_vector<unsigned> f_vector;
             lia_move ret;
             do {
+                m_cancelled = false;
                 init(f_vector);
+                if (m_cancelled) {
+                    m_added_terms.erase(
+                        std::remove_if(m_added_terms.begin(), m_added_terms.end(),
+                                       [this](const lar_term* t) { return contains(m_active_terms, t); }),
+                        m_added_terms.end());
+                    reset_state();
+                    return lia_move::cancelled;
+                }
                 ret = process_f_and_tighten_terms(f_vector);
             } 
             while (ret == lia_move::continue_with_check);

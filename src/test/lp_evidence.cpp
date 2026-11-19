@@ -590,6 +590,22 @@ namespace {
             found = true;
         }
         VERIFY(found);
+
+        struct resource_limit : lp::lp_resource_limit {
+            unsigned calls = 0;
+            unsigned cancel_on_call = 0;
+            bool get_cancel_flag() override {
+                return cancel_on_call && ++calls >= cancel_on_call;
+            }
+        } limit;
+        s.settings().set_resource_limit(limit);
+        coefficients = {{lp::mpq(1), x}, {lp::mpq(2), y}};
+        s.add_term(coefficients, UINT_MAX);
+        limit.cancel_on_call = 3;
+        VERIFY(equations.check() == lp::lia_move::cancelled);
+        VERIFY(limit.calls == limit.cancel_on_call);
+        limit.cancel_on_call = 0;
+        VERIFY(equations.check() != lp::lia_move::cancelled);
         s.pop();
     }
 
