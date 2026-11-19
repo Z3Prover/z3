@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-19T13:45:29-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-19T14:00:49-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -79,7 +79,7 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
-| Nov 19 13:41 | QF_LIA ring producer trace; explicit-certificate candidate, not a checker gain | Pre-existing dirty producer changes were built at Z3 hash `2a744d6369f337becd8a9a0dc45dc4b099b7664b`; focused `test-z3 lp_evidence` passed. On the pinned ring input (SHA-256 `bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`), the new proof document (SHA-256 `c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb`) has 1,196 nodes and emits 19 `lp-linear`, 18 `lp-integer-lattice`, 199 `lp-input`, and 19 `lp-context` nodes. Both checker routes remain PARTIAL 22; the trace found no pending `th-lemma`, but per-rule diagnostics are N/M. `Z3NativeProof.fst` has no `lp-integer-lattice` decoder/rule, so the explicit rounding nodes are not consumed. This proof differs from the prior capture; no matched-proof burn-down or timing claim | `ring-producer-evidence-20261119T1626ET`, `lp_evidence`, `Z3NativeProof.fst`, `Z3UnifiedProofSyntax.fst`, `Z3SortedProof.fst` |
+| Nov 19 14:00 | QF_LIA LP producer-to-checker handoff audit; no checker gain | The pinned ring proof (input SHA-256 `bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`, document SHA-256 `c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb`) has 1,196 nodes and 18 `lp-integer-lattice` producer nodes, each with `farkas=none`, one LP step-index parameter, and 4 or 6 formula premises. Both routes remain PARTIAL 22; no exact per-rule vector was captured, so the 18 nodes are not asserted to account for exactly 18 PENDING. `Z3Native.ml` preserves the name as `arith/lp-integer-lattice`; `Z3UnifiedProofSyntax.basic_rule_of_name` does not recognize it and `Z3NativeProof.native_rule` falls through to `Unverified` because there is no Farkas vector. The native checker therefore does not consume these explicit steps. No producer defect or matched-proof burn-down is established | `ring-producer-evidence-20261119T1626ET`, `Z3Native.ml`, `Z3NativeProof.fst`, `Z3UnifiedProofSyntax.fst` |
 | Nov 19 13:22 | Cached-root experiment; matched-proof measurement correction, not a gain | Baseline modules `2671dc150931` and candidate `4a4d6e2ac0b9` checked the same 927-node QF_LIA ring proof document (SHA-256 `bb2a48d9f712c4278644ff531c088d17d53a6ae7fb45db64b359e65efe3fb1cc` in the paired timing run). Baseline has 4 `intro-def` PENDING; candidate has 43 (4 `apply-def`, 4 `intro-def`, 20 `rewrite`, 15 `th-lemma`). Five alternating pairs gave median candidate/baseline `check_ms` ratio 1.0061. A separate in-process capture gave both arms the same document hash (`1e9b4745f1c67b6eb8480d652208f946b5564581ac9676b92f25ef8ae80256f7`, 927 nodes); both `check` and `check_definition` returned PARTIAL 4 on baseline and PARTIAL 43 on candidate, so the regression is not confined to the definition entrypoint. No timing claim from this single route capture. Not promoted; no burn-down credit | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
 | Nov 19 12:28 | Farkas provenance triage on the completed `fstar-build` capture; no checker or producer change | Three observed PENDING: two in `Algebra.CommMonoid`, one in `Math.Exp`; pinned input hashes match. Their contexts contain product/division terms and `assumed:nlsat`, but the F* arithmetic linearizer may treat compound terms as opaque variables. Native hint/coefficient payloads and proof hashes are N/M; these are not QF_LIA certificate failures and do not establish a producer defect | `fstar-build-incremental-20261119T193000Z`, `Z3NativeProof.fst`, `Z3Native.ml`, `theory_lra.cpp`, `Z3LinearArithmeticAst.fst` |
 | Nov 19 12:24 | Same-pin interactive `fstar-build` capture; coverage refresh, no checker change | All 583 path/input-hash pairs match the pinned selection. 384 sessions completed, 23 timed out and 176 were not run; completed diagnostics cover 7,190/7,190 proof verdicts with 430 weighted PENDING (139 `assumed:nlsat`, 236 `th-lemma`, 23 `quant-intro`, 10 `nnf-neg`, 10 `sk`, 8 `rewrite`, 3 `arith/farkas`, 1 `arith/lp-monomial-interval`). Observed verdicts include 8,411 ACCEPT / 209 PARTIAL; timeout-prefix rule diagnostics, tails and proof hashes are N/M. Not comparable to the prior capture; no burn-down credit | `fstar-build-incremental-20261119T193000Z` |
@@ -234,6 +234,18 @@ checker gap to malformed producer evidence. The unstaged producer and test
 changes were left untouched. Evidence:
 `files\ring-producer-evidence-20261119T1626ET`, `src/ast/proofs/lp_proof.cpp`,
 `src/test/lp_evidence.cpp`.
+
+The producer-to-checker trace confirms that all 18 emitted
+`lp-integer-lattice` steps have no Farkas coefficient list: each carries a
+single step index and four or six actual formula premises. `Z3Native.ml`
+preserves the hint as `arith/lp-integer-lattice`, but
+`Z3UnifiedProofSyntax.basic_rule_of_name` does not recognize it and
+`Z3NativeProof.native_rule` returns `Unverified` when no Farkas vector is
+present. The proof
+has 22 total PARTIAL obligations, but without checker diagnostics the exact
+per-rule contribution remains N/M. This is a verified checker-coverage gap,
+not evidence of malformed producer data. Capture log:
+`files\ring-producer-evidence-20261119T1626ET\capture-current.stderr`.
 
 On the pinned `2671dc150931` extended cohort, the 15 weighted `arith/farkas`
 PENDING occur in five QF_NIA/QF_NRA inputs (13 and 2 respectively); the
