@@ -41,24 +41,29 @@ State: **stages complete**. All 394 ACCEPT/PARTIAL cases have diagnostics; there
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-18T17:44:43-08:00`; latest case `2026-11-18T17:41:52-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-19T12:24:00-08:00`; completed capture checker `2671dc150931` (`2671dc1509317d8d991f5b7a3f3f3ff41d5b19a043db95d7ca3ec27ffdafe0b9`); corpus manifest `151fb3147a773d622252d6db5786802e11b62b19a61a2af83ed0ff6c89826187`.
 
-| Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
+| Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Rule-diagnosed proof verdicts | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 253 / 583 | 237 | 16 | 0 | 330 | 249 / 253 | 0 |
+| 407 / 583 | 384 | 23 | 0 | 176 | 7,190 / 7,190 completed | 0 |
 
-Observed proofs: **6061 ACCEPT / 158 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **138**.
+Observed proof verdicts: **8,411 ACCEPT / 209 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **256**. The 23 TIMEOUT sessions yielded 1,430 prefix verdicts (1,405 ACCEPT / 25 PARTIAL), but their rule diagnostics and proof tails are N/M. All 583 selected path/hash pairs match the pinned manifest.
 
-| Rule | Observed PENDING |
+| Rule | Completed-diagnostic PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 72 |
-| `nnf-neg` | 5 |
-| `quant-intro` | 9 |
-| `rewrite` | 7 |
-| `sk` | 5 |
-| `th-lemma` | 198 |
+| `arith/farkas` | 3 |
+| `arith/lp-monomial-interval` | 1 |
+| `assumed:nlsat` | 139 |
+| `def-axiom` | 0 |
+| `der` | 0 |
+| `intro-def` | 0 |
+| `nnf-neg` | 10 |
+| `quant-intro` | 23 |
+| `rewrite` | 8 |
+| `sk` | 10 |
+| `th-lemma` | 236 |
 
-Aggregation correction at 17:44:43 PST: 106 repeated input paths in `current-fstar-pending-2671-06` were excluded, retaining the first observation per path. Duplicate input hashes and verdicts match; proof counts differ on 103 rows and rule vectors on 5, so reruns are not counted as coverage or checker improvement. State: **stage complete**. Per-case evidence and pins: sessions `files\current-fstar-pending-2671-01`, `files\current-fstar-pending-2671-05`, and `files\current-fstar-pending-2671-06`.
+Rule totals sum to 430 across completed diagnostics. The 1,430 timeout-prefix verdicts have no corresponding complete rule-diagnostic stream; their PENDING and unobserved tails are N/M. This is a coverage refresh, not a comparable burn-down from the earlier 253-input capture; proof hashes are N/M. Evidence, per-input hashes and logs: `files\fstar-build-incremental-20261119T193000Z`.
 <!-- END CURRENT FSTAR PENDING -->
 
 ## Last 10 incremental improvements and measurement corrections
@@ -71,6 +76,7 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 19 12:24 | Same-pin interactive `fstar-build` capture; coverage refresh, no checker change | All 583 path/input-hash pairs match the pinned selection. 384 sessions completed, 23 timed out and 176 were not run; completed diagnostics cover 7,190/7,190 proof verdicts with 430 weighted PENDING (139 `assumed:nlsat`, 236 `th-lemma`, 23 `quant-intro`, 10 `nnf-neg`, 10 `sk`, 8 `rewrite`, 3 `arith/farkas`, 1 `arith/lp-monomial-interval`). Observed verdicts include 8,411 ACCEPT / 209 PARTIAL; timeout-prefix rule diagnostics, tails and proof hashes are N/M. Not comparable to the prior capture; no burn-down credit | `fstar-build-incremental-20261119T193000Z` |
 | Nov 19 11:07 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 path/input-hash pairs match the prior capture. Sample: 100 ACCEPT / 86 PARTIAL / 20 UNKNOWN / 19 TIMEOUT; extended: 74 ACCEPT / 134 PARTIAL / 70 UNKNOWN / 7 TIMEOUT. Sample QF_LIA remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; its PARTIAL has four `intro-def` PENDING and no Farkas PENDING. The 14 extended Farkas PENDING are in four QF_NIA/QF_NRA cases whose residual formulas contain nonlinear products. Status and rule-vector drift with proof hashes N/M is not a matched-proof burn-down or evidence of a producer defect | `periodic-smtlib-20261119T173100Z`, prior `periodic-smtlib-20261119T121101Z` |
 | Nov 19 05:16 | Scheduled same-pin, same-input SMT-LIB rerun; measurement correction, no checker change | All 510 input hashes matched. Sample: 100 ACCEPT / 85 PARTIAL / 20 UNKNOWN / 20 TIMEOUT; extended: 74 ACCEPT / 133 PARTIAL / 72 UNKNOWN / 6 TIMEOUT. Sample QF_LIA subset remains 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN (four `intro-def` PENDING); extended has no selected QF_LIA inputs. Current 14 Farkas PENDING are in QF_NIA/QF_NRA cases with nonlinear products. Diagnostic rule vectors changed, but proof hashes are N/M; no matched-proof burn-down or producer defect is established | `periodic-smtlib-20261119T121101Z`, prior `periodic-smtlib-20261119T060109Z` |
 | Nov 19 02:42 | Expanded-definition candidate; alternating input-paired control on the 25 selected `smtlib-sample` QF_LIA inputs | Baseline `2671dc150931`: 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN, with 4 `intro-def` PENDING; candidate `240329979fbe`: 18 ACCEPT / 0 PARTIAL / 2 TIMEOUT / 5 UNKNOWN. Median candidate/baseline `check_ms` ratio 1.0045 across 18 timed pairs, but the ring was 2.174x slower (4.849s vs 2.231s). All input hashes and checker binaries were pinned; proof hash N/M, so no matched-proof burn-down or full-cohort claim | `files\qflia-sample-candidate-240329-02` |
@@ -80,7 +86,6 @@ proofs, not whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 15:30 | Current-pin fstar-build prefix extension, five inputs; no checker change | Four inputs completed and one timed out; 88 ACCEPT / 1 PARTIAL / 7 solver UNKNOWN, with one new `th-lemma` PENDING. The timeout's observed 56-proof prefix is included; its tail is N/M. Coverage refresh, not a same-proof burn-down | `current-fstar-pending-2671-05` |
 | Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 14:37 | Bounded-integers fstar-build diagnostic replay, 10 queries; no checker change | Three `th-lemma` PENDING remain with identical fingerprints; replay reports 9 ACCEPT / 1 PARTIAL. Proof-node counts differ on queries 7-10 and proof hash is N/M, so this is not a matched-proof burn-down | `fstar-build-bounded-integers-2671-03.json` |
-| Nov 18 14:24 | Current-pin arithmetic hint bridge diagnosis; one QF_NIA Count proof, no checker change | Native `bound` and `farkas` hints both become `ArithmeticFarkas` before replay. The Count failures retain nonlinear residuals, so this does not establish a QF_LIA rounding/certificate defect | `count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`, `Z3Native.ml:437-477`, `Z3NativeProof.fst:309-316` |
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
 
