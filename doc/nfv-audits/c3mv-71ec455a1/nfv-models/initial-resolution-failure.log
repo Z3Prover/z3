@@ -1,0 +1,2 @@
+nfv-models/P10.dfy(6,2): Error: quantifiers in non-ghost contexts must be compilable, but Dafny's heuristics can't figure out how to produce or compile a bounded set of values for 'groups'
+1 resolution/type errors detected in P1.dfy

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "P1",
+    "first_property_attempt": "checks\\022-P1-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "2a40f815c10b72de01e0da45cd893b4313bdb183e7daa8109ff0c9d189890fc1"
+  },
+  {
+    "id": "P2",
+    "first_property_attempt": "checks\\023-P2-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "0cb567b6bb863c00176b167f7483fbebc61641257675c8959f0e5a825b2c0982"
+  },
+  {
+    "id": "P3",
+    "first_property_attempt": "checks\\024-P3-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "cd7f5f584ce543029fe876157c712eb2efc10a2e7610f447063cec0b9b43bd9a"
+  },
+  {
+    "id": "P4",
+    "first_property_attempt": "checks\\025-P4-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "ca57253a4e46d0ffe552e91afa7dc1cf340055654087d4abeafb84e44b19ad13"
+  },
+  {
+    "id": "P5",
+    "first_property_attempt": "checks\\026-P5-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "b7e791812204aae9ec65c3a91cd5be640ae918827c6d734475fb4181106e1edd"
+  },
+  {
+    "id": "P6",
+    "first_property_attempt": "checks\\027-P6-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "4e3105ad98eb2bb6f47629d16395b6484d0960c90aa5cc4244c279d05c5b19ff"
+  },
+  {
+    "id": "P7",
+    "first_property_attempt": "checks\\028-P7-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "4045653065271a68812ee0222b7d48e8c96dd0d2ec0c5584cbda9c5576a12118"
+  },
+  {
+    "id": "P8",
+    "first_property_attempt": "checks\\029-P8-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "712ef4f3e7c83362b540625c4a3c85213723ad742ae53edbf75f2968a6fe307c"
+  },
+  {
+    "id": "P9",
+    "first_property_attempt": "checks\\030-P9-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "3165a4c5f3e99f51be9d08069643991c6dd9e77519b34703339c2593eecc2fb4"
+  },
+  {
+    "id": "P10",
+    "first_property_attempt": "checks\\031-P10-proof.dfy",
+    "annotation_only": true,
+    "frozen_computation_contract_sha256": "46f9d5f06057ba701b1e871fc764e2b5cc1e0cf20aafdf235eae1d64ad4c0ccc"
+  }
+]

@@ -1,0 +1,625 @@
+{
+  "scope": "Published artifact bytes; local path normalization only in logs/commands. Checked Dafny input bytes unchanged.",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 14,
+      "sha256": "a79691a93b46e49ce460c26ef22afcc03d6eca1e63bf2edbc20e96159510f6c9"
+    },
+    {
+      "path": "check_nfv_provenance.py",
+      "bytes": 3372,
+      "sha256": "57e3b4b29dd32c10956f3ffe016cbe9b2bd58e7d566559fc2973650ed3643f10"
+    },
+    {
+      "path": "nfv-models\\checks\\001-P1-validity.dfy",
+      "bytes": 9507,
+      "sha256": "944b0aa73b063d5304938d491371c74f00b6973322d9bc72f8d63403cc6350c9"
+    },
+    {
+      "path": "nfv-models\\checks\\001-P1-validity.log",
+      "bytes": 402,
+      "sha256": "860023545d2cdef7ef59ecc168880b12422e6710420f074b3b5fc8f09fc4f5cd"
+    },
+    {
+      "path": "nfv-models\\checks\\002-P2-validity.dfy",
+      "bytes": 3640,
+      "sha256": "674421644d124dac86830f8a6e7e1e53fe20c3b9e21236aab47697ded72416a1"
+    },
+    {
+      "path": "nfv-models\\checks\\002-P2-validity.log",
+      "bytes": 59,
+      "sha256": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5"
+    },
+    {
+      "path": "nfv-models\\checks\\003-P3-validity.dfy",
+      "bytes": 6096,
+      "sha256": "d0b0d3d3d35e89a0b2218fb312dfd4eac17e12d6ebc46beff850a006c570d1dd"
+    },
+    {
+      "path": "nfv-models\\checks\\003-P3-validity.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\004-P4-validity.dfy",
+      "bytes": 2502,
+      "sha256": "8be52659362b2c6baa863fdfb81f85e1a722a45a1559684e4ae0b66a3704efb4"
+    },
+    {
+      "path": "nfv-models\\checks\\004-P4-validity.log",
+      "bytes": 218,
+      "sha256": "1328270c09c3f4884c363056fdb0da3f58e72823a57e7dba17bed9059a0b4e5d"
+    },
+    {
+      "path": "nfv-models\\checks\\005-P5-validity.dfy",
+      "bytes": 3797,
+      "sha256": "4b9cbf8487b13accd67e0c0d1892e4084cef79d8d8e5c90bc513a04ed04e245d"
+    },
+    {
+      "path": "nfv-models\\checks\\005-P5-validity.log",
+      "bytes": 59,
+      "sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2"
+    },
+    {
+      "path": "nfv-models\\checks\\006-P6-validity.dfy",
+      "bytes": 2147,
+      "sha256": "a229bc2e216ff5d70fb70bfb24fe78e212f940b9951aab01fd89dbead2ec8adf"
+    },
+    {
+      "path": "nfv-models\\checks\\006-P6-validity.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\007-P7-validity.dfy",
+      "bytes": 4709,
+      "sha256": "da2f7d2b85fee7e913f81f65053af175a47857be93a0eef4935158e4f7dd60f7"
+    },
+    {
+      "path": "nfv-models\\checks\\007-P7-validity.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\008-P8-validity.dfy",
+      "bytes": 2506,
+      "sha256": "89933c127bae820adca7ded8ae69f04ca4424f6c138467039f064fe9980c0ea3"
+    },
+    {
+      "path": "nfv-models\\checks\\008-P8-validity.log",
+      "bytes": 59,
+      "sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2"
+    },
+    {
+      "path": "nfv-models\\checks\\009-P9-validity.dfy",
+      "bytes": 4177,
+      "sha256": "7bafafd8aec1f05bc39a573ca62a9420df58e9f2ecd58be309391b9115aab645"
+    },
+    {
+      "path": "nfv-models\\checks\\009-P9-validity.log",
+      "bytes": 59,
+      "sha256": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5"
+    },
+    {
+      "path": "nfv-models\\checks\\010-P10-validity.dfy",
+      "bytes": 2646,
+      "sha256": "94483bc93065b6cb08855567ac3dfac0a899a04b36ee60d7173373258cffc81f"
+    },
+    {
+      "path": "nfv-models\\checks\\010-P10-validity.log",
+      "bytes": 403,
+      "sha256": "056382b30d3b9d82a8c3b8c249814802a2e343c83b6439095593ac13079fdedd"
+    },
+    {
+      "path": "nfv-models\\checks\\011-P1-domain.dfy",
+      "bytes": 9596,
+      "sha256": "482df5402ca8d4a0b8950420a0c42de03d20b82178f1450435076f587bb400a6"
+    },
+    {
+      "path": "nfv-models\\checks\\011-P1-domain.log",
+      "bytes": 400,
+      "sha256": "9c5e52181a5efda1ca74935d51eaa36d501000cd3edb9df3e5eca7731758ff48"
+    },
+    {
+      "path": "nfv-models\\checks\\012-P2-domain.dfy",
+      "bytes": 3817,
+      "sha256": "d8c389eda5d856da0c59e9f67a5fa2438e18e7931d8c5ac111ccc8777c1ebef7"
+    },
+    {
+      "path": "nfv-models\\checks\\012-P2-domain.log",
+      "bytes": 59,
+      "sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2"
+    },
+    {
+      "path": "nfv-models\\checks\\013-P3-domain.dfy",
+      "bytes": 6247,
+      "sha256": "7d691278eb5e23cf258f0939d5ca18fb6957b9dd41cad409b497ef436fddfd4e"
+    },
+    {
+      "path": "nfv-models\\checks\\013-P3-domain.log",
+      "bytes": 59,
+      "sha256": "5a85d064fb0f77424cdbc9152b314adb2489c99bc1ced2177cad5955d588c71c"
+    },
+    {
+      "path": "nfv-models\\checks\\014-P5-domain.dfy",
+      "bytes": 3931,
+      "sha256": "dbd7fc2f0ea82bfd7f881642021c3d2ee98ff167472915002f1c255cb9f22209"
+    },
+    {
+      "path": "nfv-models\\checks\\014-P5-domain.log",
+      "bytes": 59,
+      "sha256": "4e42b7b708d3c1e5049f07230bd54981456a3de9c15a47daa906b4b7891210ed"
+    },
+    {
+      "path": "nfv-models\\checks\\015-P6-domain.dfy",
+      "bytes": 2291,
+      "sha256": "7c37a5915253fe62ef6ce8bb6a9b4bab546939eb7315d5e8bbb866f24458049c"
+    },
+    {
+      "path": "nfv-models\\checks\\015-P6-domain.log",
+      "bytes": 59,
+      "sha256": "5a85d064fb0f77424cdbc9152b314adb2489c99bc1ced2177cad5955d588c71c"
+    },
+    {
+      "path": "nfv-models\\checks\\016-P7-domain.dfy",
+      "bytes": 4994,
+      "sha256": "dbb60685de4840d25cc3904b21062b6b6303758f1e0a542b56e76a893550868a"
+    },
+    {
+      "path": "nfv-models\\checks\\016-P7-domain.log",
+      "bytes": 59,
+      "sha256": "4e42b7b708d3c1e5049f07230bd54981456a3de9c15a47daa906b4b7891210ed"
+    },
+    {
+      "path": "nfv-models\\checks\\017-P8-domain.dfy",
+      "bytes": 2682,
+      "sha256": "87c85344d40f7e410b951752ce8b043ee6bb582d4c3758d03ee1f5e38e6ddde3"
+    },
+    {
+      "path": "nfv-models\\checks\\017-P8-domain.log",
+      "bytes": 59,
+      "sha256": "4e42b7b708d3c1e5049f07230bd54981456a3de9c15a47daa906b4b7891210ed"
+    },
+    {
+      "path": "nfv-models\\checks\\018-P9-domain.dfy",
+      "bytes": 4323,
+      "sha256": "2e82d7c9a06afca4eade14f85e6219a1f4f612d99132a7e51f45340ef5503abc"
+    },
+    {
+      "path": "nfv-models\\checks\\018-P9-domain.log",
+      "bytes": 59,
+      "sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2"
+    },
+    {
+      "path": "nfv-models\\checks\\019-P10-domain.dfy",
+      "bytes": 2842,
+      "sha256": "27d67ab993aa6476f99d21d16877cfcaf89b24052589e2426c242ba1e6e12f78"
+    },
+    {
+      "path": "nfv-models\\checks\\019-P10-domain.log",
+      "bytes": 401,
+      "sha256": "d11e42cbba902ad29d1b8689c7f363d1b3eb4c9ae9e33f7c745c58701500b2ca"
+    },
+    {
+      "path": "nfv-models\\checks\\020-P4-validity.dfy",
+      "bytes": 2693,
+      "sha256": "2ca7ec569e1aa8ff117053316e15c8e696a42f84f2e80b59e4869ff32e251173"
+    },
+    {
+      "path": "nfv-models\\checks\\020-P4-validity.log",
+      "bytes": 59,
+      "sha256": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5"
+    },
+    {
+      "path": "nfv-models\\checks\\021-P4-domain.dfy",
+      "bytes": 2938,
+      "sha256": "32b8417b4d97b16d803c797bf3fc9ae593c3cbab189b15cefac0c254efae8c70"
+    },
+    {
+      "path": "nfv-models\\checks\\021-P4-domain.log",
+      "bytes": 59,
+      "sha256": "5a85d064fb0f77424cdbc9152b314adb2489c99bc1ced2177cad5955d588c71c"
+    },
+    {
+      "path": "nfv-models\\checks\\022-P1-proof.dfy",
+      "bytes": 9593,
+      "sha256": "eb755d358f0a49aa7bbfe8b532259c0f740b6a200205c1b9ab79ce1932c738a1"
+    },
+    {
+      "path": "nfv-models\\checks\\022-P1-proof.log",
+      "bytes": 615,
+      "sha256": "51f6229c551bd552efb9ed6f8949844b70d3a7c76716629d9ecc3c6f007cc2d9"
+    },
+    {
+      "path": "nfv-models\\checks\\023-P2-proof.dfy",
+      "bytes": 3835,
+      "sha256": "1d45872f0407a4610d6c103b3d2965480c9e1ccf523c05c25dbf6955592d500f"
+    },
+    {
+      "path": "nfv-models\\checks\\023-P2-proof.log",
+      "bytes": 59,
+      "sha256": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5"
+    },
+    {
+      "path": "nfv-models\\checks\\024-P3-proof.dfy",
+      "bytes": 6314,
+      "sha256": "700e5fc109250073b12e84674dbb061ba7b275fb6d7a76ddf77fe5cce580bd14"
+    },
+    {
+      "path": "nfv-models\\checks\\024-P3-proof.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\025-P4-proof.dfy",
+      "bytes": 3245,
+      "sha256": "a24516212cd666cb6186130059536bef6b456efd6d1f468dd9c30da6fa08cc9d"
+    },
+    {
+      "path": "nfv-models\\checks\\025-P4-proof.log",
+      "bytes": 618,
+      "sha256": "2c095f8f6d06b3ebec02b07057b62a6b993b7e0946ec335bf8287e04a6251544"
+    },
+    {
+      "path": "nfv-models\\checks\\026-P5-proof.dfy",
+      "bytes": 4147,
+      "sha256": "485e2caab7267f532b5dc43c3943fca3f89a0c8efe402c5faf4de9735b033f41"
+    },
+    {
+      "path": "nfv-models\\checks\\026-P5-proof.log",
+      "bytes": 59,
+      "sha256": "5a85d064fb0f77424cdbc9152b314adb2489c99bc1ced2177cad5955d588c71c"
+    },
+    {
+      "path": "nfv-models\\checks\\027-P6-proof.dfy",
+      "bytes": 2521,
+      "sha256": "2e2048232eb7a461a8474f3132f1a17ebcf51818bb523af705f90d3f990728b1"
+    },
+    {
+      "path": "nfv-models\\checks\\027-P6-proof.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\028-P7-proof.dfy",
+      "bytes": 5478,
+      "sha256": "ee05979d0e0514bab0f1c7402c221d7b950ea8ecc529434519010d78b915655e"
+    },
+    {
+      "path": "nfv-models\\checks\\028-P7-proof.log",
+      "bytes": 59,
+      "sha256": "8b086c8efecfd215c39cce83107b6532fd7d96e000ac491f0efadea0d3203d9c"
+    },
+    {
+      "path": "nfv-models\\checks\\029-P8-proof.dfy",
+      "bytes": 2892,
+      "sha256": "d5c97928cdd6e0dbe419e87ca3f75d4c595630802d934c1de38cd0028268f8e4"
+    },
+    {
+      "path": "nfv-models\\checks\\029-P8-proof.log",
+      "bytes": 59,
+      "sha256": "56230dec2c545fac174666fad19ce4710d421342c54a3dbf7a95d7834c62b6b2"
+    },
+    {
+      "path": "nfv-models\\checks\\030-P9-proof.dfy",
+      "bytes": 4284,
+      "sha256": "da350547265cc8b46551b2e04550143953a26cb0b530caf6e346eaa8fcf5513f"
+    },
+    {
+      "path": "nfv-models\\checks\\030-P9-proof.log",
+      "bytes": 59,
+      "sha256": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5"
+    },
+    {
+      "path": "nfv-models\\checks\\031-P10-proof.dfy",
+      "bytes": 2760,
+      "sha256": "124c455ef18cdf3ac9aefe14672814efa9a26757b02e2553dd6e01c34dff8543"
+    },
+    {
+      "path": "nfv-models\\checks\\031-P10-proof.log",
+      "bytes": 619,
+      "sha256": "9eef5fa8062953cc942c7f0ec7adda7e62292de1df9f59969a6d4b0e27bf1677"
+    },
+    {
+      "path": "nfv-models\\checks\\032-P4-proof.dfy",
+      "bytes": 3393,
+      "sha256": "6573875882a559d00d8b94922a1e1e544aae81ea55295232b0da037156c63a20"
+    },
+    {
+      "path": "nfv-models\\checks\\032-P4-proof.log",
+      "bytes": 1035,
+      "sha256": "491c93675a4f7104a61f4eb5188491cd76a73a09bf856e3a5400f2d5657034bf"
+    },
+    {
+      "path": "nfv-models\\checks\\033-P10-proof.dfy",
+      "bytes": 3018,
+      "sha256": "da0641992f13250d984614acc61da1328b9dbff7371c2c7b84a2661f4775dc5c"
+    },
+    {
+      "path": "nfv-models\\checks\\033-P10-proof.log",
+      "bytes": 1037,
+      "sha256": "cd81632316e9a83d41b0637bf9903aaaaa44c633a98842126018393d0e739774"
+    },
+    {
+      "path": "nfv-models\\checks\\034-P1-refute.dfy",
+      "bytes": 10074,
+      "sha256": "3915c74c2cebb97d0af3994021819fb1ee95c3879c55f0d1bf27ab75b03cd1ab"
+    },
+    {
+      "path": "nfv-models\\checks\\034-P1-refute.log",
+      "bytes": 619,
+      "sha256": "675d6238fb6a79448279b600b774fa06b4a64dbb1cf7b43f2bf921c060deede7"
+    },
+    {
+      "path": "nfv-models\\checks\\035-P4-proof.dfy",
+      "bytes": 3519,
+      "sha256": "a941b7b719bda7ffa1b7ec2089d0bc4b075dd2f4e9ab3cba3ad8b17868257bdd"
+    },
+    {
+      "path": "nfv-models\\checks\\035-P4-proof.log",
+      "bytes": 1035,
+      "sha256": "912875fedd523e4a427015aa1669dca306ed329538abe627c78fca19a0ea7f1d"
+    },
+    {
+      "path": "nfv-models\\checks\\036-P1-refute.dfy",
+      "bytes": 10405,
+      "sha256": "b0a405f46fdbb1dd109d9c3f1cace1d50855e04680a97f42bfb4305edc057e78"
+    },
+    {
+      "path": "nfv-models\\checks\\036-P1-refute.log",
+      "bytes": 697,
+      "sha256": "25db855f7719d0d8919851ecde3ce1c3b0d246d0b838db16a48ebdb5231760d7"
+    },
+    {
+      "path": "nfv-models\\checks\\037-P4-proof.dfy",
+      "bytes": 3519,
+      "sha256": "a941b7b719bda7ffa1b7ec2089d0bc4b075dd2f4e9ab3cba3ad8b17868257bdd"
+    },
+    {
+      "path": "nfv-models\\checks\\037-P4-proof.log",
+      "bytes": 743,
+      "sha256": "5d1736d956b9e869b38ddf220963f40ecf0f3a44bb81e6eb3bc8e2981bc47672"
+    },
+    {
+      "path": "nfv-models\\checks\\038-P10-proof.dfy",
+      "bytes": 3018,
+      "sha256": "da0641992f13250d984614acc61da1328b9dbff7371c2c7b84a2661f4775dc5c"
+    },
+    {
+      "path": "nfv-models\\checks\\038-P10-proof.log",
+      "bytes": 743,
+      "sha256": "79647415722d75536f7e8776912e7ca9799c910e900564812527f808371536d8"
+    },
+    {
+      "path": "nfv-models\\checks\\039-P1-refute.dfy",
+      "bytes": 10405,
+      "sha256": "b0a405f46fdbb1dd109d9c3f1cace1d50855e04680a97f42bfb4305edc057e78"
+    },
+    {
+      "path": "nfv-models\\checks\\039-P1-refute.log",
+      "bytes": 400,
+      "sha256": "156513253ee18a1877ee3170005b4e7810f6552467ef727414856dd5768954cc"
+    },
+    {
+      "path": "nfv-models\\checks\\040-P1-fix-proof.dfy",
+      "bytes": 9999,
+      "sha256": "6d3d300c6cd392dc8fff22a907043d66412388afbede7f3ac7cf8c49af3214e8"
+    },
+    {
+      "path": "nfv-models\\checks\\040-P1-fix-proof.log",
+      "bytes": 935,
+      "sha256": "277b59ba48d94dcda601a5a62194f473e75adaac3090573d00f1cf1d9e3d1477"
+    },
+    {
+      "path": "nfv-models\\checks\\041-P1-fix-domain.dfy",
+      "bytes": 10002,
+      "sha256": "88276f04089b429cb0100dc099715ece8c9c9ac254f88d20b8ce59b1a2c279e6"
+    },
+    {
+      "path": "nfv-models\\checks\\041-P1-fix-domain.log",
+      "bytes": 752,
+      "sha256": "d1acfe283a9447a33e3720beb2225198d087e282fff08225ab2313225ca7a7b1"
+    },
+    {
+      "path": "nfv-models\\checks\\042-P1-fix-proof.dfy",
+      "bytes": 10854,
+      "sha256": "859f182450268902cdf15f02563b413c70a0ed86ff5893d946679c2747790ba3"
+    },
+    {
+      "path": "nfv-models\\checks\\042-P1-fix-proof.log",
+      "bytes": 403,
+      "sha256": "14a67c85fe27397a306e2361b99681612381f7cc9aa1c328fbbb37c9eddf4637"
+    },
+    {
+      "path": "nfv-models\\checks\\043-P1-validity.dfy",
+      "bytes": 9838,
+      "sha256": "ce906c30e3ad82480e945757bd53de77d3960cb9dd437e47d2059bff32945bd8"
+    },
+    {
+      "path": "nfv-models\\checks\\043-P1-validity.log",
+      "bytes": 402,
+      "sha256": "4593b5351523e3ae0f86bed971f55c5305d07cfbd090aa6fc6f9501af8ee5011"
+    },
+    {
+      "path": "nfv-models\\checks\\044-P4-validity.dfy",
+      "bytes": 2967,
+      "sha256": "c89024349fc8733c8916095dd7e2eb47aef26e3bd06c2950a4158de6514b09cc"
+    },
+    {
+      "path": "nfv-models\\checks\\044-P4-validity.log",
+      "bytes": 404,
+      "sha256": "72afde375370d32b53eff7b97291ac1f3536c8d23e8ad30e5bb7a78335e9d1a4"
+    },
+    {
+      "path": "nfv-models\\checks\\045-P10-validity.dfy",
+      "bytes": 2904,
+      "sha256": "a0aba3cda32cd5c8237bbaca10ba6599746224c616af72ce8a36dec812d5c673"
+    },
+    {
+      "path": "nfv-models\\checks\\045-P10-validity.log",
+      "bytes": 749,
+      "sha256": "3857de463242c73202af6cf35143c7d7f5dbd27652de180b808b6f3451801415"
+    },
+    {
+      "path": "nfv-models\\checks\\046-P1-domain.dfy",
+      "bytes": 9927,
+      "sha256": "012f5e17502ba3cf984c8c4716a885f2ec1cd967677cf1fc360a51bbd90b1a09"
+    },
+    {
+      "path": "nfv-models\\checks\\046-P1-domain.log",
+      "bytes": 400,
+      "sha256": "0efc45c5bcb2a2ef401ae5a034cda17dd23084086c9d2cb8700a99da477245bb"
+    },
+    {
+      "path": "nfv-models\\checks\\047-P4-domain.dfy",
+      "bytes": 3212,
+      "sha256": "ed76f57f0c9f96321c7b54f29d5ab2b89cc74e454a30a04a4a25242c5da606c5"
+    },
+    {
+      "path": "nfv-models\\checks\\047-P4-domain.log",
+      "bytes": 402,
+      "sha256": "ba17b31f6928127b2004098eba6af465b5ad362f7fcc4b9cc4cf2ad15892b737"
+    },
+    {
+      "path": "nfv-models\\checks\\048-P10-domain.dfy",
+      "bytes": 3100,
+      "sha256": "f1ee6a2fef17aff137f84f982dc3d94efb6eb3313198f76ba6f1130876c8fda8"
+    },
+    {
+      "path": "nfv-models\\checks\\048-P10-domain.log",
+      "bytes": 745,
+      "sha256": "b710942d7a257ba98b011495ba223a1507ce643845b29ef17e6e109e9ea7aa4a"
+    },
+    {
+      "path": "nfv-models\\checks\\049-P1-fix-validity.dfy",
+      "bytes": 10768,
+      "sha256": "8d5bedf3f07794ec31401d967df0d7935ad47a5c6630ade9a269a75505db62c2"
+    },
+    {
+      "path": "nfv-models\\checks\\049-P1-fix-validity.log",
+      "bytes": 406,
+      "sha256": "b48bcabb166361bce7c559e49df9d327e1488dfafc133dc3729029407b036b5d"
+    },
+    {
+      "path": "nfv-models\\checks\\050-P1-fix-domain.dfy",
+      "bytes": 10857,
+      "sha256": "49ad99d223ff6ac2140af64120eec8318f423cd567d9cd51ebaea02dc37e2f8f"
+    },
+    {
+      "path": "nfv-models\\checks\\050-P1-fix-domain.log",
+      "bytes": 404,
+      "sha256": "da4ef8911467ccc7e07dce67a81a1ea80519be25d0d120d0c858d5d3a821a235"
+    },
+    {
+      "path": "nfv-models\\checks.json",
+      "bytes": 35108,
+      "sha256": "faf2e0c2fede15ebae98e4831503c486a0112a3d5f10d030cc65317049857650"
+    },
+    {
+      "path": "nfv-models\\followups.json",
+      "bytes": 1513,
+      "sha256": "28db3dcb4a2ad58a3bcfabfd9b550bd86af0f0ad50fc0f918af644abb0e3c5b5"
+    },
+    {
+      "path": "nfv-models\\freeze.json",
+      "bytes": 2215,
+      "sha256": "7cbd6c3cc168a743169b2ffe1a6b8a6a0c4555e66d1c8d8bb6f6c113e5e82dd3"
+    },
+    {
+      "path": "nfv-models\\initial-resolution-failure.log",
+      "bytes": 233,
+      "sha256": "f452b87e3a1044b4ebb2f9ced15b44c1b6ead01407f23ebce2628aaa5ffce074"
+    },
+    {
+      "path": "nfv-models\\initial-resolution.log",
+      "bytes": 1025,
+      "sha256": "e398331fcd7d3a8d7a1d0101b37bf4b2291b31a1e47c970d778ee492365ce087"
+    },
+    {
+      "path": "nfv-models\\P1-fixed.dfy",
+      "bytes": 10854,
+      "sha256": "859f182450268902cdf15f02563b413c70a0ed86ff5893d946679c2747790ba3"
+    },
+    {
+      "path": "nfv-models\\P1.dfy",
+      "bytes": 9924,
+      "sha256": "06974b6ce04a4346c253a22a61cc2684d269c6ba5a984de047dfc1c2501221bd"
+    },
+    {
+      "path": "nfv-models\\P10.dfy",
+      "bytes": 3018,
+      "sha256": "da0641992f13250d984614acc61da1328b9dbff7371c2c7b84a2661f4775dc5c"
+    },
+    {
+      "path": "nfv-models\\P2.dfy",
+      "bytes": 3835,
+      "sha256": "1d45872f0407a4610d6c103b3d2965480c9e1ccf523c05c25dbf6955592d500f"
+    },
+    {
+      "path": "nfv-models\\P3.dfy",
+      "bytes": 6314,
+      "sha256": "700e5fc109250073b12e84674dbb061ba7b275fb6d7a76ddf77fe5cce580bd14"
+    },
+    {
+      "path": "nfv-models\\P4.dfy",
+      "bytes": 3519,
+      "sha256": "a941b7b719bda7ffa1b7ec2089d0bc4b075dd2f4e9ab3cba3ad8b17868257bdd"
+    },
+    {
+      "path": "nfv-models\\P5.dfy",
+      "bytes": 4147,
+      "sha256": "485e2caab7267f532b5dc43c3943fca3f89a0c8efe402c5faf4de9735b033f41"
+    },
+    {
+      "path": "nfv-models\\P6.dfy",
+      "bytes": 2521,
+      "sha256": "2e2048232eb7a461a8474f3132f1a17ebcf51818bb523af705f90d3f990728b1"
+    },
+    {
+      "path": "nfv-models\\P7.dfy",
+      "bytes": 5478,
+      "sha256": "ee05979d0e0514bab0f1c7402c221d7b950ea8ecc529434519010d78b915655e"
+    },
+    {
+      "path": "nfv-models\\P8.dfy",
+      "bytes": 2892,
+      "sha256": "d5c97928cdd6e0dbe419e87ca3f75d4c595630802d934c1de38cd0028268f8e4"
+    },
+    {
+      "path": "nfv-models\\P9.dfy",
+      "bytes": 4284,
+      "sha256": "da350547265cc8b46551b2e04550143953a26cb0b530caf6e346eaa8fcf5513f"
+    },
+    {
+      "path": "nfv-models\\properties.json",
+      "bytes": 29035,
+      "sha256": "91d8aabce78c61ee14adddd8eef4a78ea8071cc354048eba8aee41f9554bf784"
+    },
+    {
+      "path": "nfv-models\\provenance.json",
+      "bytes": 1955,
+      "sha256": "81cd7a22d58802f1579391d47d450ad3f3383e78a447ed6e7025de2e9767ebb5"
+    },
+    {
+      "path": "nfv-models\\results.json",
+      "bytes": 43033,
+      "sha256": "cd82115c8632ea04a292eed16bcaf2b3f6d01549b1f935caa7d9d5cb96ff669c"
+    },
+    {
+      "path": "nfv-models\\source-inventory.json",
+      "bytes": 14686,
+      "sha256": "21c6ff362f6ffbeefc69432701730a747a95b3cae60f97c30ca7c018adc57954"
+    },
+    {
+      "path": "README.md",
+      "bytes": 16631,
+      "sha256": "90d4f07991447fd392f078638754ff0539239de3bd98d0b8571a0ed9e9be5e49"
+    },
+    {
+      "path": "run_nfv_audit.py",
+      "bytes": 6416,
+      "sha256": "35118d99d1f3e9a4acee329f9ef9a5948c0c0520a4a7cc35233667ef8a9133f4"
+    }
+  ]
+}

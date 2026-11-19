@@ -1,0 +1,7 @@
+nfv-models/checks/033-P10-proof.dfy(6,2): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/033-P10-proof.dfy(29,11): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/033-P10-proof.dfy(18,0): Error: a postcondition could not be proved on this return path
+nfv-models/checks/033-P10-proof.dfy(16,19): Related location: this is the postcondition that could not be proved
+nfv-models/checks/033-P10-proof.dfy(29,4): Error: assertion might not hold
+
+Dafny program verifier finished with 0 verified, 2 errors

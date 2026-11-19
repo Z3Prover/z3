@@ -1,0 +1,16 @@
+{
+  "property": "P1",
+  "kind": "model-checked candidate, not source-verified fix",
+  "original_sha256": "06974b6ce04a4346c253a22a61cc2684d269c6ba5a984de047dfc1c2501221bd",
+  "candidate_sha256": "859f182450268902cdf15f02563b413c70a0ed86ff5893d946679c2747790ba3",
+  "optional_assumptions_removed": [],
+  "optional_assumptions_reason": "None supplied; all original applicability conditions retained.",
+  "simplified_property": null,
+  "simplification_diagnostic": "The whole property is already a single Boolean equality before == after. No useful shorter projection was identified; no separate simplification proof claimed.",
+  "candidate_description": "Do not strip a variable-width token based only on token-aligned mismatch starts. Guard pruning with all stripped tokens being sequence units. This guard disables pruning in the selected symbolic-X shape.",
+  "source_path": "src/ast/seq/seq_ncontains_facet.cpp",
+  "source_line": 293,
+  "source_old": "if (has_window && first_undef_pos > 0) {",
+  "source_new": "if (has_window && first_undef_pos > 0 &&\n    std::all_of(nc.m_haystack.begin(), nc.m_haystack.begin() + first_undef_pos,\n                [&](expr* token) { return u.str.is_unit(token); })) {",
+  "caveat": "Suggestion only. No C++ patch applied, compiled or executed. Proof covers the stated symbolic-token shape, not full propagation, all call sites, trailing, model/source correspondence or performance. The unit-prefix guard needs broader source-level review and regressions before adoption."
+}

@@ -1,0 +1,4 @@
+nfv-models/checks/004-P4-validity.dfy(18,14): Error: this invariant could not be proved to be maintained by the loop
+ Related message: loop invariant violation
+
+Dafny program verifier finished with 0 verified, 1 error

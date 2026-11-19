@@ -1,0 +1,5 @@
+nfv-models/checks/034-P1-refute.dfy(6,2): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/034-P1-refute.dfy(100,0): Error: a postcondition could not be proved on this return path
+nfv-models/checks/034-P1-refute.dfy(98,20): Related location: this is the postcondition that could not be proved
+
+Dafny program verifier finished with 4 verified, 1 error

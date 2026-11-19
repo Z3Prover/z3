@@ -1,0 +1,4 @@
+nfv-models/checks/037-P4-proof.dfy(16,21): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/037-P4-proof.dfy(43,13): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+
+Dafny program verifier finished with 2 verified, 0 errors

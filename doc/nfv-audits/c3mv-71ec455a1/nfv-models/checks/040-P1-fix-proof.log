@@ -1,0 +1,5 @@
+nfv-models/checks/040-P1-fix-proof.dfy(6,2): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/040-P1-fix-proof.dfy(168,43): Warning: Could not find a trigger for this quantifier. Without a trigger, the quantifier may cause brittle verification. To silence this warning, add an explicit trigger using the {:trigger} attribute. For more information, see the section on quantifier instantiation rules in the reference manual.
+nfv-models/checks/040-P1-fix-proof.dfy(84,7): Error: Verification of 'PruningEntry' timed out after 30 seconds. (the limit can be increased using --verification-time-limit)
+
+Dafny program verifier finished with 3 verified, 0 errors, 1 time out

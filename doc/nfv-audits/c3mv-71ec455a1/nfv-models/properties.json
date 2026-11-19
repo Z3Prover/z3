@@ -1,0 +1,948 @@
+[
+  {
+    "id": "P1",
+    "title": "Variable-token prefix pruning preserves containment",
+    "path": "src/ast/seq/seq_ncontains_facet.cpp",
+    "entry_point": "PruningEntry",
+    "origin": "source",
+    "quote": "strip the leading run of determined-mismatch positions.",
+    "original_ensures": [
+      "before == after"
+    ],
+    "assumptions": [
+      {
+        "clause": "a != b",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: a != b"
+      },
+      {
+        "clause": "|x| < 2147483647 && |y| < 2147483647",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |x| < 2147483647 && |y| < 2147483647"
+      }
+    ],
+    "source_lines": [
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      141,
+      213,
+      264,
+      265,
+      266,
+      267,
+      268,
+      269,
+      270,
+      271,
+      272,
+      273,
+      274,
+      276,
+      277,
+      281,
+      282,
+      283,
+      285,
+      288,
+      289,
+      290,
+      291,
+      293,
+      295,
+      296,
+      297,
+      298,
+      299,
+      301
+    ],
+    "source_span": [
+      264,
+      301
+    ],
+    "required_context": [
+      "src/ast/seq/seq_ncontains_facet.cpp"
+    ],
+    "witnesses": [
+      {
+        "x": [
+          97,
+          97
+        ],
+        "y": [
+          98
+        ],
+        "a": 97,
+        "b": 98
+      }
+    ],
+    "environment": [
+      {
+        "name": "ContainsWord",
+        "kind": "inferred",
+        "description": "Finite word-infix observation for the containment obligation.",
+        "source": {
+          "path": "src/ast/seq/seq_ncontains_facet.cpp",
+          "lines": [
+            264,
+            265
+          ]
+        }
+      },
+      {
+        "name": "Flatten",
+        "kind": "inferred",
+        "description": "Concatenate interpreted token words; does not identify AST tokens with character positions.",
+        "source": {
+          "path": "src/ast/seq/seq_ncontains_facet.cpp",
+          "lines": [
+            296
+          ]
+        }
+      },
+      {
+        "name": "Alignment",
+        "kind": "source-derived",
+        "description": "compare_alignment for the fixed source token shape, preserving identity/unit tests.",
+        "source": {
+          "path": "src/ast/seq/seq_ncontains_facet.cpp",
+          "lines": [
+            128,
+            129,
+            130,
+            131,
+            132,
+            133,
+            134,
+            135,
+            136,
+            137,
+            138,
+            139,
+            141
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. One active obligation with no prior conflict/equation; AST identities are h=[X,unit(a),Y], n=[X,unit(b)], where X and Y are distinct non-unit symbolic terms even if their valuations are equal/empty. Concrete distinct a,b justify m.are_distinct. Alignment is specialized to these two windows but retains its imperative loop/guards. before/after observe word containment, not source return values. found_match/discharge branches are proved unreachable in this selected state by Alignment contracts. Dependencies, allocation, trailing, other facets, source reachability and later normalization are not modeled.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "06974b6ce04a4346c253a22a61cc2684d269c6ba5a984de047dfc1c2501221bd",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P2",
+    "title": "Common-end cancellation preserves disequality",
+    "path": "src/ast/seq/seq_eq_facet.cpp",
+    "entry_point": "CancellationEntry",
+    "origin": "source",
+    "quote": "Cancel common prefixes and suffixes.",
+    "original_ensures": [
+      "(left == right) == (L == R)",
+      "conflict ==> left == right"
+    ],
+    "assumptions": [
+      {
+        "clause": "|left| < 4294967295 && |right| < 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |left| < 4294967295 && |right| < 4294967295"
+      }
+    ],
+    "source_lines": [
+      989,
+      1017,
+      1018,
+      1019,
+      1021,
+      1022,
+      1023,
+      1025,
+      1026,
+      1027,
+      1028,
+      1029,
+      1030,
+      1031,
+      1032,
+      1036,
+      1038
+    ],
+    "source_span": [
+      1017,
+      1038
+    ],
+    "required_context": [
+      "src/ast/seq/seq_eq_facet.cpp"
+    ],
+    "witnesses": [
+      {
+        "left": [
+          97,
+          98,
+          99
+        ],
+        "right": [
+          97,
+          100,
+          99
+        ]
+      },
+      {
+        "left": [],
+        "right": []
+      }
+    ],
+    "environment": [],
+    "correspondence": "No source-to-model equivalence proof. Single active disequality after earlier reduce_eq declined to discharge. All tokens are resolved character units, represented by integers, not general words. Trail/dependency and changed flag effects omitted; returned conflict is the empty-residual test only, not subsequent leading-distinct discharge. Sequences preserve pointer/equal-character comparison on this domain.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "1d45872f0407a4610d6c103b3d2965480c9e1ccf523c05c25dbf6955592d500f",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P3",
+    "title": "Resolved-character lexicographic decisions are sound",
+    "path": "src/ast/seq/seq_lex_facet.cpp",
+    "entry_point": "LexEntry",
+    "origin": "source",
+    "quote": "Strip leading tokens already known equal.",
+    "original_ensures": [
+      "discharged == (Less(L0, R0) || (!strict && L0 == R0))",
+      "conflict == !discharged"
+    ],
+    "assumptions": [
+      {
+        "clause": "|L0| < 4294967295 && |R0| < 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |L0| < 4294967295 && |R0| < 4294967295"
+      }
+    ],
+    "source_lines": [
+      104,
+      105,
+      107,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      125,
+      126,
+      127,
+      128,
+      129,
+      133,
+      134,
+      136,
+      138,
+      139,
+      140,
+      141,
+      143,
+      144,
+      145,
+      148,
+      149,
+      154,
+      155,
+      156,
+      159,
+      160,
+      165,
+      166,
+      167,
+      171,
+      172,
+      173,
+      175,
+      177,
+      179,
+      180,
+      181,
+      183,
+      185
+    ],
+    "source_span": [
+      114,
+      185
+    ],
+    "required_context": [
+      "src/ast/seq/seq_lex_facet.cpp"
+    ],
+    "witnesses": [
+      {
+        "L0": [],
+        "R0": [],
+        "strict": true
+      },
+      {
+        "L0": [
+          97,
+          98
+        ],
+        "R0": [
+          97,
+          99
+        ],
+        "strict": false
+      }
+    ],
+    "environment": [
+      {
+        "name": "Less",
+        "kind": "inferred",
+        "description": "Lexicographic order over finite resolved character words.",
+        "source": {
+          "path": "src/ast/seq/seq_lex_facet.cpp",
+          "lines": [
+            81,
+            88,
+            175
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. One obligation, all tokens constant character units; both unit-detection branches reduce to true. AST allocation, trails, dependency and changed observations omitted. Less is a body-defined mathematical lex-order specification, not an assumed oracle. Integer order abstracts source unsigned character order; no arithmetic on character codes.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "700e5fc109250073b12e84674dbb061ba7b275fb6d7a76ddf77fe5cce580bd14",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P4",
+    "title": "Definite pattern-match results are conservative",
+    "path": "src/ast/seq/seq_replace_all_facet.cpp",
+    "entry_point": "MatchEntry",
+    "origin": "source",
+    "quote": "Undefined as soon as a token is not a constant character.",
+    "original_ensures": [
+      "-1 <= r <= 1",
+      "r == 1 ==> pos + |p| <= |input| && input[pos..pos+|p|] == p",
+      "r == -1 ==> pos + |p| > |input| || (exists j :: 0 <= j < |p| && pos+j < |input| && constant[pos+j] && input[pos+j] != p[j])",
+      "r == 0 ==> exists j :: 0 <= j < |p| && pos+j < |input| && !constant[pos+j]"
+    ],
+    "assumptions": [
+      {
+        "clause": "|constant| == |input|",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |constant| == |input|"
+      },
+      {
+        "clause": "0 <= pos <= |input|",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 <= pos <= |input|"
+      },
+      {
+        "clause": "|input| < 2147483647 && 0 < |p| < 2147483647",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |input| < 2147483647 && 0 < |p| < 2147483647"
+      }
+    ],
+    "source_lines": [
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      130
+    ],
+    "source_span": [
+      120,
+      130
+    ],
+    "required_context": [
+      "src/ast/seq/seq_replace_all_facet.cpp"
+    ],
+    "witnesses": [
+      {
+        "input": [
+          97,
+          98
+        ],
+        "constant": [
+          true,
+          true
+        ],
+        "pos": 0,
+        "p": [
+          97,
+          98
+        ]
+      },
+      {
+        "input": [
+          97,
+          99
+        ],
+        "constant": [
+          false,
+          true
+        ],
+        "pos": 0,
+        "p": [
+          98,
+          99
+        ]
+      },
+      {
+        "input": [],
+        "constant": [],
+        "pos": 0,
+        "p": [
+          97
+        ]
+      }
+    ],
+    "environment": [],
+    "correspondence": "No source-to-model equivalence proof. Each input token interpreted as one character; constant mask records actual is_const_unit results. Arbitrary nonconstant valuations remain explicit and cannot yield a definite match through that position. Excludes multi-character variable tokens, since their boundary/length semantics are not reconstructed. pos+k bounded below UINT_MAX. r=-1/0/1 encodes false/undefined/true.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "a941b7b719bda7ffa1b7ec2089d0bc4b075dd2f4e9ab3cba3ad8b17868257bdd",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P5",
+    "title": "Primitive-root search finds the smallest divisor period",
+    "path": "src/ast/seq/seq_power_facet.cpp",
+    "entry_point": "PrimitiveEntry",
+    "origin": "source",
+    "quote": "if (s.length() % d == 0 && has_period(s, d))",
+    "original_ensures": [
+      "0 < |root| <= |s| && root == s[..|root|]",
+      "|s| % |root| == 0 && Period(s,|root|)",
+      "forall k :: 1 <= k < |root| ==> |s| % k != 0 || !Period(s,k)"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 < |s| < 2147483647",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 < |s| < 2147483647"
+      }
+    ],
+    "source_lines": [
+      283,
+      284,
+      285,
+      286,
+      288,
+      291,
+      292,
+      293,
+      294,
+      296
+    ],
+    "source_span": [
+      291,
+      296
+    ],
+    "required_context": [
+      "src/ast/seq/seq_power_facet.cpp"
+    ],
+    "witnesses": [
+      {
+        "s": [
+          97,
+          98,
+          97,
+          98
+        ]
+      },
+      {
+        "s": [
+          97
+        ]
+      }
+    ],
+    "environment": [
+      {
+        "name": "Period",
+        "kind": "inferred",
+        "description": "All character positions separated by r agree when in range.",
+        "source": {
+          "path": "src/ast/seq/seq_power_facet.cpp",
+          "lines": [
+            283,
+            284,
+            285
+          ]
+        }
+      },
+      {
+        "name": "CheckPeriod",
+        "kind": "source-derived",
+        "description": "Imperative has_period scan with early mismatching return.",
+        "source": {
+          "path": "src/ast/seq/seq_power_facet.cpp",
+          "lines": [
+            283,
+            284,
+            285,
+            286,
+            288
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. Nonempty concrete base only, as required by constant_word callers. Proves minimum divisor-period definition, not all power-trichotomy cases or reconstruction of regex/string ASTs. Input bound avoids unsigned i+r wrap; no bounded search-length cutoff below that bound.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "485e2caab7267f532b5dc43c3943fca3f89a0c8efe402c5faf4de9735b033f41",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P6",
+    "title": "Sorted missing-length scan constructs a distinct string",
+    "path": "src/ast/rewriter/guard_set.cpp",
+    "entry_point": "FreshLengthEntry",
+    "origin": "source",
+    "quote": "A missing length supplies a value distinct from every mentioned literal.",
+    "original_ensures": [
+      "0 <= length <= |lengths|",
+      "forall i :: 0 <= i < |lengths| ==> lengths[i] != length",
+      "|characters| == length && forall i :: 0 <= i < |characters| ==> characters[i] == 0"
+    ],
+    "assumptions": [
+      {
+        "clause": "|lengths| < 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: |lengths| < 4294967295"
+      },
+      {
+        "clause": "forall i :: 0 <= i < |lengths| ==> 0 <= lengths[i] <= 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: forall i :: 0 <= i < |lengths| ==> 0 <= lengths[i] <= 4294967295"
+      },
+      {
+        "clause": "forall i,j :: 0 <= i < j < |lengths| ==> lengths[i] <= lengths[j]",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: forall i,j :: 0 <= i < j < |lengths| ==> lengths[i] <= lengths[j]"
+      }
+    ],
+    "source_lines": [
+      116,
+      127,
+      128,
+      129,
+      130,
+      132,
+      133,
+      134
+    ],
+    "source_span": [
+      127,
+      134
+    ],
+    "required_context": [
+      "src/ast/rewriter/guard_set.cpp"
+    ],
+    "witnesses": [
+      {
+        "lengths": [
+          0,
+          0,
+          1,
+          3
+        ]
+      },
+      {
+        "lengths": []
+      }
+    ],
+    "environment": [],
+    "correspondence": "No source-to-model equivalence proof. Successful String-literal branch after preceding std::sort. Sorted nonnegative lengths are an inferred selected-slice applicability condition justified by the captured sort, not a modeled sorting algorithm. Freshness follows solely from different lengths; Unicode string constructor/allocation/cancellation not verified. Sequence count strictly below UINT_MAX prevents length counter wrap.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "2e2048232eb7a461a8474f3132f1a17ebcf51818bb523af705f90d3f990728b1",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P7",
+    "title": "DFS never aggregates unresolved children as UNSAT",
+    "path": "src/util/stx_search_tree.h",
+    "entry_point": "AggregationEntry",
+    "origin": "source",
+    "quote": "AND-reduced across every UNSAT child",
+    "original_ensures": [
+      "(result == 0) == (exists i :: 0 <= i < |children| && children[i] == 0)",
+      "result != 0 ==> (result == 3) == (exists i :: 0 <= i < |children| && children[i] == 3)",
+      "result != 0 && result != 3 ==> (result == 2) == (exists i :: 0 <= i < |children| && children[i] == 2)",
+      "(result == 1) == (forall i :: 0 <= i < |children| ==> children[i] == 1)",
+      "result == 1 ==> pure == (eligible && forall i :: 0 <= i < |children| ==> childPure[i])"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 < |children| < 4294967295 && |childPure| == |children|",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 < |children| < 4294967295 && |childPure| == |children|"
+      },
+      {
+        "clause": "forall i :: 0 <= i < |children| ==> 0 <= children[i] <= 3",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: forall i :: 0 <= i < |children| ==> 0 <= children[i] <= 3"
+      }
+    ],
+    "source_lines": [
+      1054,
+      1118,
+      1119,
+      1120,
+      1121,
+      1122,
+      1123,
+      1124,
+      1125,
+      1126,
+      1129,
+      1131,
+      1132,
+      1133,
+      1135,
+      1136,
+      1137,
+      1138,
+      1139,
+      1140,
+      1141,
+      1143,
+      1144,
+      1145,
+      1146,
+      1147,
+      1152
+    ],
+    "source_span": [
+      1118,
+      1154
+    ],
+    "required_context": [
+      "src/util/stx_search_tree.h"
+    ],
+    "witnesses": [
+      {
+        "children": [
+          1,
+          2,
+          3
+        ],
+        "childPure": [
+          true,
+          true,
+          true
+        ],
+        "eligible": true
+      },
+      {
+        "children": [
+          3,
+          0
+        ],
+        "childPure": [
+          false,
+          false
+        ],
+        "eligible": true
+      },
+      {
+        "children": [
+          1,
+          1
+        ],
+        "childPure": [
+          true,
+          false
+        ],
+        "eligible": true
+      }
+    ],
+    "environment": [],
+    "correspondence": "No source-to-model equivalence proof. Only exhaustive child-enumerator aggregation, after a committed first branch. Explicit arbitrary recursive return verdicts and purity bits preserve the result-use property without assuming recursive soundness. Resource cutoffs inside children represented by verdicts. Trail pop, dependency join, cache insertion, iterator effects/termination not modeled. Returning on SAT instead of break then common epilogue preserves the modeled result and purity observations only. pure initialized false matches caller-observed child_pure initial value, not every internal source exit assignment.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "ee05979d0e0514bab0f1c7402c221d7b950ea8ecc529434519010d78b915655e",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P8",
+    "title": "Pending-hypothesis early acceptance respects remaining obligations",
+    "path": "src/smt/theory_nseq.cpp",
+    "entry_point": "PendingEntry",
+    "origin": "source",
+    "quote": "A required hypothesis turned false; discard the snapshot.",
+    "original_ensures": [
+      "(status == 0) == (AllTrue(pending) && coherent && !digitBranch && unhandled == 0 && hoSatisfied)",
+      "(status == 3) == !AllTrue(pending)",
+      "cleared == (!AllTrue(pending) || !coherent)"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 < |pending| < 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 < |pending| < 4294967295"
+      },
+      {
+        "clause": "forall i :: 0 <= i < |pending| ==> pending[i] == -1 || pending[i] == 1",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: forall i :: 0 <= i < |pending| ==> pending[i] == -1 || pending[i] == 1"
+      },
+      {
+        "clause": "0 <= unhandled <= 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 <= unhandled <= 4294967295"
+      }
+    ],
+    "source_lines": [
+      1063,
+      1088,
+      1090,
+      1091,
+      1092,
+      1093,
+      1094,
+      1096,
+      1097,
+      1103,
+      1104
+    ],
+    "source_span": [
+      1088,
+      1104
+    ],
+    "required_context": [
+      "src/smt/theory_nseq.cpp"
+    ],
+    "witnesses": [
+      {
+        "pending": [
+          1
+        ],
+        "coherent": true,
+        "digitBranch": false,
+        "unhandled": 0,
+        "hoSatisfied": false
+      },
+      {
+        "pending": [
+          -1
+        ],
+        "coherent": true,
+        "digitBranch": false,
+        "unhandled": 0,
+        "hoSatisfied": true
+      }
+    ],
+    "environment": [
+      {
+        "name": "AllTrue",
+        "kind": "inferred",
+        "description": "Exact all_of pending literals assigned true, without assuming assignment correctness.",
+        "source": {
+          "path": "src/smt/theory_nseq.cpp",
+          "lines": [
+            1090
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. Selected nonempty-pending early branch after prior progress checks declined. Literal observations exclude undefined, following source assertion. coherent/digitBranch/hoSatisfied are unrestricted external observations; only their use is checked. status 0=DONE,1=CONTINUE,2=GIVEUP,3=fall-through beyond this slice. IMPORTANT: false pending hypotheses do NOT return CONTINUE here in source; they reset then fall through to later search. Initial Stage-2 shorthand has been corrected before modeling. Cleared is a reset observation. Later search/model acceptance and external helper correctness not verified.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "d5c97928cdd6e0dbe419e87ca3f75d4c595630802d934c1de38cd0028268f8e4",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P9",
+    "title": "Negative decimal thresholds preserve all six comparisons",
+    "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+    "entry_point": "DecimalEntry",
+    "origin": "source",
+    "quote": "language = bound.is_minus_one() ? complement(valid) : empty.get();",
+    "original_ensures": [
+      "member == Comparison(value,bound,op)"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 <= op <= 5 && bound < 0",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 <= op <= 5 && bound < 0"
+      },
+      {
+        "clause": "(valid && value >= 0) || (!valid && value == -1)",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: (valid && value >= 0) || (!valid && value == -1)"
+      }
+    ],
+    "source_lines": [
+      316,
+      326,
+      327,
+      328,
+      329,
+      330,
+      331,
+      332
+    ],
+    "source_span": [
+      325,
+      334
+    ],
+    "required_context": [
+      "src/ast/simplifiers/seq_regular_simplifier.cpp"
+    ],
+    "witnesses": [
+      {
+        "valid": false,
+        "value": -1,
+        "bound": -1,
+        "op": 0
+      },
+      {
+        "valid": true,
+        "value": 0,
+        "bound": -2,
+        "op": 5
+      }
+    ],
+    "environment": [
+      {
+        "name": "Comparison",
+        "kind": "inferred",
+        "description": "Mathematical meaning of the six source comparison kinds.",
+        "source": {
+          "path": "src/ast/simplifiers/seq_regular_simplifier.cpp",
+          "lines": [
+            326,
+            327,
+            328,
+            329,
+            330,
+            331,
+            332
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. Only negative integral thresholds; six enum values mapped explicitly to 0..5. valid is membership in the nonempty decimal-digit language, with the disclosed weakest SMT conversion contract. Does not verify digit parser, actual regex constructors, affine extraction, or positive-threshold decimal_greater. rational mathematical integers have no machine-overflow replacement here.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "da350547265cc8b46551b2e04550143953a26cb0b530caf6e346eaa8fcf5513f",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  },
+  {
+    "id": "P10",
+    "title": "Flattening a repetition of plus preserves factor counts",
+    "path": "src/ast/rewriter/seq_rewriter.cpp",
+    "entry_point": "PlusEntry",
+    "origin": "source",
+    "quote": "(R+){lo,hi} = R{lo,} when hi > 0.",
+    "original_ensures": [
+      "accepted == NestedPlus(count,lo,hi,bounded)"
+    ],
+    "assumptions": [
+      {
+        "clause": "0 <= count && 0 <= lo <= 4294967295 && 0 <= hi <= 4294967295",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: 0 <= count && 0 <= lo <= 4294967295 && 0 <= hi <= 4294967295"
+      },
+      {
+        "clause": "bounded ==> lo <= hi",
+        "origin": "inferred",
+        "optional": false,
+        "description": "Selected-slice applicability/domain: bounded ==> lo <= hi"
+      }
+    ],
+    "source_lines": [
+      4480,
+      4505,
+      4506,
+      4507,
+      4511,
+      4512,
+      4513,
+      4515,
+      4516,
+      4517,
+      4519,
+      4520,
+      4521,
+      4522,
+      4523,
+      4524
+    ],
+    "source_span": [
+      4505,
+      4524
+    ],
+    "required_context": [
+      "src/ast/rewriter/seq_rewriter.cpp"
+    ],
+    "witnesses": [
+      {
+        "count": 1,
+        "lo": 0,
+        "hi": 0,
+        "bounded": false
+      },
+      {
+        "count": 0,
+        "lo": 0,
+        "hi": 2,
+        "bounded": true
+      },
+      {
+        "count": 3,
+        "lo": 2,
+        "hi": 2,
+        "bounded": true
+      }
+    ],
+    "environment": [
+      {
+        "name": "NestedPlus",
+        "kind": "inferred",
+        "description": "An outer group count in bounds, each nonzero group containing at least one R factor; zero groups produce zero factors.",
+        "source": {
+          "path": "src/ast/rewriter/seq_rewriter.cpp",
+          "lines": [
+            4519,
+            4520,
+            4521,
+            4522,
+            4523
+          ]
+        }
+      }
+    ],
+    "correspondence": "No source-to-model equivalence proof. The argument is already recognized as plus or R.concat(R.star), and bounds are valid unsigned numbers. Earlier empty-regex argument handling excluded. Model includes preceding zero and one repetitions, preventing flattening through hi=0. A factor count describes a derivation into R words, not word length; nonempty plus factors mean at least one R factor even if R accepts epsilon. NestedPlus is a body-defined existence condition for partitions into groups, not an assumed equality. Does not prove C++ AST equivalence or all nested-loop arithmetic rules.",
+    "provenance": "Exact pinned source tags checked locally; not an official NFV pipeline acceptance.",
+    "sha256": "da0641992f13250d984614acc61da1328b9dbff7371c2c7b84a2661f4775dc5c",
+    "source_coverage_limit": "Focused value/control-flow slice, not complete NFV parser coverage. Omitted effect/branch assumptions are disclosed in correspondence; exact tags are provenance, not equivalence."
+  }
+]
