@@ -221,21 +221,22 @@ static void test_mbqi_nan_arrays() {
     Z3_del_config(cfg);
 
     // Equal array elements can have different user-supplied NaN payloads.
+    // Index-only payload functions avoid unsupported lambda arguments after fpa2bv.
     char const* spec = R"(
 (set-option :smt.mbqi.max_iterations 10)
 (set-option :rlimit 1000000)
 (declare-const len Int)
 (declare-const a (Array Int (_ FloatingPoint 5 11)))
 (declare-const b (Array Int (_ FloatingPoint 5 11)))
-(declare-fun nanbits-a ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
-(declare-fun nanbits-b ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
+(declare-fun nanbits-a (Int) (_ BitVec 16))
+(declare-fun nanbits-b (Int) (_ BitVec 16))
 (assert (<= 0 len))
 (assert (<= len 9223372036854775807))
 (assert (forall ((i Int))
   (! (=> (and (<= 0 i) (< i len)) (= (select a i) (select b i)))
      :pattern ((select a i) (select b i)))))
 (assert (not (forall ((i Int))
-  (! (let ((pa (nanbits-a a i)) (pb (nanbits-b b i)))
+  (! (let ((pa (nanbits-a i)) (pb (nanbits-b i)))
        (let ((sa (ite (= ((_ extract 9 0) pa) #b0000000000)
                       #b0000000001 ((_ extract 9 0) pa)))
              (sb (ite (= ((_ extract 9 0) pb) #b0000000000)
