@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-18T17:24:58-08:00**. Goal: eliminate pending proof obligations
+Updated: **2026-11-18T17:44:43-08:00**. Goal: eliminate pending proof obligations
 and meet or beat the legacy checker on `fstar-build` and SMT-LIB.
 
 **Definition** is the independent checker with definition, NNF and Skolem
@@ -41,37 +41,37 @@ State: **stages complete**. Diagnostic errors are excluded from rule totals. Per
 <!-- BEGIN CURRENT FSTAR PENDING -->
 ## Current fstar-build diagnostic collection
 
-Updated `2026-11-18T17:24:58-08:00`; latest case `2026-11-18T17:24:58-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
+Updated `2026-11-18T17:44:43-08:00`; latest case `2026-11-18T17:41:52-08:00`; checker `2671dc150931`. Counts include observed timeout prefixes only; unobserved proof tails and cases with diagnostic errors may contain additional PENDING.
 
 | Observed / selected | Completed | TIMEOUT | Error / crash | NOT_RUN | Diagnosed proof sessions / observed | Diagnostic errors |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 269 / 583 | 259 | 10 | 0 | 314 | 262 / 269 | 0 |
+| 253 / 583 | 237 | 16 | 0 | 330 | 249 / 253 | 0 |
 
-Observed proofs: **5763 ACCEPT / 151 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **100**.
+Observed proofs: **6061 ACCEPT / 158 PARTIAL / 0 UNKNOWN / 0 REJECT**; solver UNKNOWN queries: **138**.
 
 | Rule | Observed PENDING |
 | --- | ---: |
-| `assumed:nlsat` | 70 |
-| `nnf-neg` | 4 |
-| `quant-intro` | 5 |
-| `rewrite` | 4 |
-| `sk` | 4 |
-| `th-lemma` | 172 |
+| `assumed:nlsat` | 72 |
+| `nnf-neg` | 5 |
+| `quant-intro` | 9 |
+| `rewrite` | 7 |
+| `sk` | 5 |
+| `th-lemma` | 198 |
 
-State: **stage complete**. Per-case evidence and pins: sessions
-`files\current-fstar-pending-2671-01`, `files\current-fstar-pending-2671-05`,
-and `files\current-fstar-pending-2671-06`.
+Aggregation correction at 17:44:43 PST: 106 repeated input paths in `current-fstar-pending-2671-06` were excluded, retaining the first observation per path. Duplicate input hashes and verdicts match; proof counts differ on 103 rows and rule vectors on 5, so reruns are not counted as coverage or checker improvement. State: **stage complete**. Per-case evidence and pins: sessions `files\current-fstar-pending-2671-01`, `files\current-fstar-pending-2671-05`, and `files\current-fstar-pending-2671-06`.
 <!-- END CURRENT FSTAR PENDING -->
 
-## Last 10 incremental improvements
+## Last 10 incremental improvements and measurement corrections
 
 Refresh this rolling timeline on every dashboard update; retain existing rows
-when no new improvement has been measured. Times are evidence-file completion
-or last-modified times in PST. Counts are for the specified frozen proofs, not
-whole cohorts; overlapping candidate gains must not be added.
+when no new improvement has been measured. Label measurement corrections
+explicitly and do not credit them as checker gains. Times are evidence-file
+completion or last-modified times in PST. Counts are for the specified frozen
+proofs, not whole cohorts; overlapping candidate gains must not be added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
+| Nov 18 17:44 | fstar-build aggregation correction, current pin; no checker change | 359 raw rows → 253 distinct inputs; excluded 106 repeated paths. Duplicate hashes/verdicts match, but proof counts differ in 103 rows and rule vectors in 5; no burn-down credit | `current-fstar-pending-2671-01`, `current-fstar-pending-2671-05`, `current-fstar-pending-2671-06` |
 | Nov 18 15:30 | Current-pin fstar-build prefix extension, five inputs; no checker change | Four inputs completed and one timed out; 88 ACCEPT / 1 PARTIAL / 7 solver UNKNOWN, with one new `th-lemma` PENDING. The timeout's observed 56-proof prefix is included; its tail is N/M. Coverage refresh, not a same-proof burn-down | `current-fstar-pending-2671-05` |
 | Nov 18 14:59 | Exact current-pin QF_LIA ring arithmetic-hint trace; no checker change | Frozen proof hash matches `23fedbd874be`; one native `arith bound` (655) and four native `arith farkas` nodes (460, 912, 846, 929) all pass as `ArithmeticFarkas`. This case shows no QF_LIA rounding failure | `ring-native-hints-2671-01.json`, `ring-native-hints-2671-01.stderr`, `ring-definitions-trace-2671-03.json` |
 | Nov 18 14:37 | Bounded-integers fstar-build diagnostic replay, 10 queries; no checker change | Three `th-lemma` PENDING remain with identical fingerprints; replay reports 9 ACCEPT / 1 PARTIAL. Proof-node counts differ on queries 7-10 and proof hash is N/M, so this is not a matched-proof burn-down | `fstar-build-bounded-integers-2671-03.json` |
@@ -81,7 +81,6 @@ whole cohorts; overlapping candidate gains must not be added.
 | Nov 18 12:10 | Current-pin QF_NIA/QF_NRA Farkas provenance, four matched 10-second captures | 13 weighted PENDING across 10 nodes are native `arith bound` hints; preparation succeeds but linear acceptance fails with residual terms. Producer path emits bound weights and a consequent, but does not apply its Farkas-conflict validation to this hint. This narrows the gap to bound evidence/replay; it does not establish malformed certificates or explain every residual | `extended-farkas-capture-2671-05.json`, `NativeFarkasTrace2671.ml` |
 | Nov 18 11:40 | Current-pin QF_LIA ring definition diagnosis, 1 frozen proof | Four `intro-def` PENDING are nullary Int ITE branch definitions; replay shape gates do not match. Five arithmetic steps accepted (one native bound, four native Farkas) | `ring-definitions-trace-2671-03.json`, `ite-add-sample-02.json` |
 | Nov 18 11:28 | Current-pin fstar-build diagnostic refresh; no checker change | 98 / 583 observed: 97 completed, 1 timeout, 485 not run; 19 weighted PENDING across five rules. No whole-cohort burn-down comparison | `current-fstar-pending-2671-01` |
-| Nov 18 10:59 | Current checker pin vs. pre-conditional baseline, sample, 11 matched proofs; combined confirmation, not an additive gain | `apply-def` PENDING 80 → 0; `rewrite` 43 → 36; zero verdict regressions or unobserved proofs | `conditional-current-baseline-2671-01.json` |
 
 Root certification may discharge obligations without independently
 certifying each original entry. Evidence files contain checker and proof pins.
