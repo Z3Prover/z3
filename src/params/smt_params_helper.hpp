@@ -208,7 +208,7 @@ Abstract:
   DOUBLE_(dack_gc_inv_decay,                       "dack.gc_inv_decay",                       0.8,                      "Dynamic ackermannization garbage collection decay") \
   UINT_  (dack_threshold,                          "dack.threshold",                          10,                       " number of times the congruence rule must be used before Leibniz's axiom is expanded") \
   BOOL_  (theory_case_split,                       "theory_case_split",                       false,                    "Allow the context to use heuristics involving theory case splits, which are a set of literals of which exactly one can be assigned True. If this option is false, the context will generate extra axioms to enforce this instead.") \
-  SYMBOL_(string_solver,                           "string_solver",                           "nseq",                   "string/sequence solver: z3str3, seq, nseq, auto, empty, or none") \
+  SYMBOL_(string_solver,                           "string_solver",                           "auto",                   "string/sequence solver: z3str3, seq, nseq, auto, empty, or none") \
   BOOL_  (seq_regular,                             "seq.regular",                             true,                     "nseq: group regular string observations and take exact preimages before general rewriting") \
   UINT_  (seq_regular_max_steps,                   "seq.regular_max_steps",                   100000,                   "nseq: work limit for transactional grouped regular preprocessing") \
   BOOL_  (core_validate,                           "core.validate",                           false,                    "[internal] validate unsat core produced by SMT context. This option is intended for debugging") \
