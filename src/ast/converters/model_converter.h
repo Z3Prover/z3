@@ -75,6 +75,8 @@ public:
 
     virtual void operator()(model_ref & m) = 0;
 
+    virtual bool apply_partial(model_ref & m) { return false; }
+
     virtual void operator()(labels_vec & r) {}
     
     virtual model_converter * translate(ast_translation & translator) = 0;
@@ -112,5 +114,4 @@ model_converter * model_and_labels2model_converter(model * m, labels_vec const &
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m);
 
 void apply(model_converter_ref & mc, model_ref & m);
-
 

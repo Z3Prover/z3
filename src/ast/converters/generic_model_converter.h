@@ -38,6 +38,7 @@ private:
 
     expr_ref simplify_def(entry const& e);
     void convert_initialize_value(expr* def, unsigned i, vector<std::pair<expr_ref, expr_ref>>& var2value);
+    void apply(model_ref & md, bool completion);
 
 public:
     generic_model_converter(ast_manager & m, char const* orig) : m(m), m_orig(orig) {}
@@ -53,6 +54,7 @@ public:
     void operator()(labels_vec &) override { }
     
     void operator()(model_ref & md) override;
+    bool apply_partial(model_ref & md) override;
 
     void cancel() override {}
 
@@ -74,4 +76,3 @@ public:
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;
-

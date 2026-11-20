@@ -1,0 +1,7 @@
+command: /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out --include /home/runner/work/z3/z3/fstar PartialModel.fst
+
+stdout:
+Verified module: PartialModel
+All verification conditions discharged successfully
+
+exit: 0

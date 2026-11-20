@@ -6544,6 +6544,33 @@ extern "C" {
     void Z3_API Z3_goal_dec_ref(Z3_context c, Z3_goal g);
 
     /**
+       \brief Return \c true if model generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_models_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_models_enabled(Z3_context c, Z3_goal g);
+
+    /**
+       \brief Return \c true if unsat core generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_unsat_cores_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_unsat_cores_enabled(Z3_context c, Z3_goal g);
+
+    /**
+       \brief Return \c true if proof generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_proofs_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_proofs_enabled(Z3_context c, Z3_goal g);
+
+    /**
        \brief Return the "precision" of the given goal. Goals can be transformed using over and under approximations.
        A under approximation is applied when the objective is to find a model for a given goal.
        An over approximation is applied when the objective is to find a proof for a given goal.
@@ -6636,6 +6663,8 @@ extern "C" {
        The model may be null, in which case the returned model is valid if the goal was
        established satisfiable.
 
+       Model generation must have been enabled when creating the goal.
+
        When using this feature it is advisable to set the parameter \c model.compact to \c false.
        It is by default true, which erases variables created by the solver from models.
        Without access to model values for intermediary variables, values of other variables
@@ -6644,6 +6673,21 @@ extern "C" {
        def_API('Z3_goal_convert_model', MODEL, (_in(CONTEXT), _in(GOAL), _in(MODEL)))
     */
     Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m);
+
+    /**
+       \brief Return a partial model containing the goal's model-converter definitions.
+
+       This does not solve the goal and the result is not necessarily a model of
+       the goal or of the original formulas. Evaluate expressions with
+       #Z3_model_eval and model completion disabled to retain uninterpreted
+       subgoal symbols. The definitions describe one reconstruction chosen by
+       the tactics, which need not cover every model of the original goal.
+       An error is returned if a model converter does not support partial models.
+       Model generation must have been enabled when creating the goal.
+
+       def_API('Z3_goal_get_model', MODEL, (_in(CONTEXT), _in(GOAL)))
+    */
+    Z3_model Z3_API Z3_goal_get_model(Z3_context c, Z3_goal g);
 
     /**
        \brief Convert a goal into a string.
