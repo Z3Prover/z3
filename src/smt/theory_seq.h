@@ -41,6 +41,7 @@ namespace smt {
 
     class theory_seq : public theory, public seq::eq_solver_context {
         friend class seq_regex;
+        friend class theory_seq_test;
 
         struct assumption {
             enode* n1, *n2;
@@ -80,7 +81,12 @@ namespace smt {
                 m_map.reserve(2*r.v->get_id() + 1);
                 m_map[r.v->get_id()] = r;
             }
-            void reset() { m_map.reset(); m_trail.reset(); }
+            void reset() {
+                // Clear touched slots before releasing the expressions that identify them.
+                for (unsigned i = 0; i < m_trail.size(); i += 2)
+                    m_map[m_trail.get(i)->get_id()] = expr_dep();
+                m_trail.reset();
+            }
         };
         
         // map from variables to representatives 

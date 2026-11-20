@@ -39,9 +39,58 @@ Tests:
 #include "ast/seq/seq_skolem.h"
 #include "model/model.h"
 #include "smt/smt_context.h"
+#include "smt/theory_seq.h"
 #include <iostream>
 #include <string>
 #include <vector>
+
+namespace smt {
+    class theory_seq_test {
+    public:
+        static void eval_cache() {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util su(m);
+            expr_ref_vector padding(m);
+            for (unsigned i = 0; i < 1024; ++i)
+                padding.push_back(m.mk_fresh_const("padding", su.str.mk_string_sort()));
+            expr_ref key(m.mk_fresh_const("key", su.str.mk_string_sort()), m);
+            expr_ref first(su.str.mk_string("first"), m);
+            expr_ref second(su.str.mk_string("second"), m);
+            theory_seq::eval_cache cache(m);
+            theory_seq::expr_dep value;
+            cache.insert(theory_seq::expr_dep(key, first, nullptr));
+            cache.insert(theory_seq::expr_dep(first, second, nullptr));
+            cache.insert(theory_seq::expr_dep(key, second, nullptr));
+            ENSURE(cache.find(key, value) && value.e == second);
+            cache.reset();
+            ENSURE(!cache.find(key, value));
+            ENSURE(!cache.find(first, value));
+            cache.insert(theory_seq::expr_dep(key, first, nullptr));
+            ENSURE(cache.find(key, value) && value.e == first);
+            cache.reset();
+            theory_seq::dependency_manager dm;
+            theory_seq::solution_map solution(m, dm);
+            solution.add_cache(value);
+            solution.update(key, second, nullptr);
+            ENSURE(!solution.find_cache(key, value));
+            solution.push_scope();
+            solution.update(key, first, nullptr);
+            solution.add_cache(value);
+            solution.pop_scope(1);
+            ENSURE(!solution.find_cache(key, value));
+            ENSURE(solution.find(key) == second);
+            padding.reset();
+            for (unsigned i = 0; i < 64; ++i) {
+                expr_ref temporary(m.mk_fresh_const("temporary", su.str.mk_string_sort()), m);
+                ENSURE(!cache.find(temporary, value));
+                cache.insert(theory_seq::expr_dep(temporary, first, nullptr));
+                temporary = nullptr;
+                cache.reset();
+            }
+        }
+    };
+}
 
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
@@ -462,6 +511,7 @@ static void tst_seq_last_index() {
 }
 
 void tst_seq_rewriter() {
+    smt::theory_seq_test::eval_cache();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();
     tst_extract_length_products();

@@ -128,9 +128,6 @@ namespace arith {
     }
 
     lpvar solver::register_theory_var_in_lar_solver(theory_var v) {
-        lpvar lpv = lp().external_to_local(v);
-        if (lpv != lp::null_lpvar)
-            return lpv;
         return lp().add_var(v, is_int(v));
     }
 
