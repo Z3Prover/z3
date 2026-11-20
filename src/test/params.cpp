@@ -11,6 +11,7 @@ Abstract:
 
 --*/
 #include "util/params.h"
+#include "params/smt_params_helper.hpp"
 #include "util/debug.h"
 #include <cstring>
 
@@ -80,6 +81,12 @@ static void tst_append() {
     ENSURE(author.is_default("flat") && !author.contains("other"));
 }
 
+static void tst_string_solver_default() {
+    params_ref p;
+    smt_params_helper h(p);
+    ENSURE(h.string_solver() == symbol("auto"));
+}
+
 static void tst_fallback() {
     params_ref local, global;
     local.set_default_bool("som", true);
@@ -108,4 +115,5 @@ void tst_params() {
     tst_set_default();
     tst_append();
     tst_fallback();
+    tst_string_solver_default();
 }
