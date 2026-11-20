@@ -33,11 +33,11 @@ safe-outputs:
     report-as-issue: false
   jobs:
     publish-fstar-audit:
-      description: Publish one bounded F* audit bundle for the triggering PR; commit audit files only for same-repository heads, otherwise provide artifacts.
+      description: Publish one bounded F* audit bundle as run artifacts and a comment for the triggering PR, without modifying its branch.
       runs-on: ubuntu-latest
       if: needs.agent.result == 'success' && needs.detection.result == 'success' && needs.detection.outputs.detection_success == 'true'
       permissions:
-        contents: write
+        contents: read
         pull-requests: write
       inputs:
         payload:
@@ -192,11 +192,10 @@ in its report and verification log.
 
 The publisher accepts at most eight flat `.fst` filenames, 64 KiB per file,
 and a 256 KiB total payload. It adds a report, log, and hash manifest itself.
-It rechecks the current head, appends only
-`fstar/audits/pr-<number>/<audited-head-sha>/` on same-repository PRs with an
-expected-head atomic commit, and never writes a contributor fork. Fork PRs get
-the same downloadable artifact instead. Both receive a revision-specific
-comment linking evidence; artifacts are retained for 30 days. Do not push,
+It rechecks the current head and retains the bundle as a downloadable run
+artifact for both same-repository and fork PRs, without committing files or
+modifying any PR branch. Both receive a revision-specific comment linking
+evidence; artifacts are retained for 30 days. Do not push,
 comment, open issues, or publish artifacts using other tools.
 
 When proof modules are produced, the publisher also includes the first 5,000

@@ -23,6 +23,7 @@ Abstract:
   BOOL_(pull_cheap_ite,                   "pull_cheap_ite",                   false,     "pull if-then-else terms when cheap.") \
   UINT_(bv_ineq_consistency_test_max,     "bv_ineq_consistency_test_max",     0,         "max size of conjunctions on which to perform consistency test based on inequalities on bitvectors.") \
   BOOL_(unfold_recursive_functions,       "unfold_recursive_functions",       false,     "apply simplification recursively on recursive functions.") \
+  UINT_(max_recfun_unfoldings,            "max_recfun_unfoldings",            100000,    "maximum number of recursive function unfoldings when simplifying a term. Applications beyond the limit are not unfolded by the simplifier.") \
   BOOL_(cache_all,                        "cache_all",                        false,     "cache all intermediate results.") \
   BOOL_(enable_der,                       "enable_der",                       true,      "enable destructive equality resolution to quantifiers.") \
   BOOL_(rewrite_patterns,                 "rewrite_patterns",                 false,     "rewrite patterns.") \

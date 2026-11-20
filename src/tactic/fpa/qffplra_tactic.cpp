@@ -77,6 +77,8 @@ struct is_non_qffplra_predicate {
 
 class is_qffplra_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_qffplra_probe); }
+    char const* name() const override { return "is-qffplra"; }
     result operator()(goal const & g) override {
         return 
             test<is_fpa_function>(g) && 

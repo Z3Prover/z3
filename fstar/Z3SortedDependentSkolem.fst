@@ -415,8 +415,11 @@ let lemma_subst_envs_extend (#base:sort -> Type0) (sigma:V.signature) (bound:lis
   : Lemma (requires subst_envs sigma bound vs depth a b rho eta)
           (ensures subst_envs sigma bound vs (depth + L.length inner) (inner @ a) (inner @ b)
                      (V.extend sigma a inner ws rho) (V.extend sigma b inner ws eta)) =
+  assert (L.length a == L.length b + L.length bound /\ depth <= L.length b);
   LP.append_length inner a;
   LP.append_length inner b;
+  assert (L.length (inner @ a) == L.length (inner @ b) + L.length bound /\
+          depth + L.length inner <= L.length (inner @ b));
   let at (n:nat{n < L.length (inner @ a)})
     : Lemma ((n < depth + L.length inner ==>
                 (V.extend sigma a inner ws rho n <: V.tree base) == (V.extend sigma b inner ws eta n <: V.tree base)) /\

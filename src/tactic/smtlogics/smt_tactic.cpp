@@ -23,8 +23,11 @@ Author:
 
 tactic * mk_smt_tactic(ast_manager & m, params_ref const & p) {
     sat_params sp(p);
-    if (sp.smt())
-        return mk_solver2tactic(mk_smt2_solver(m, p));
+    if (sp.smt()) {
+        tactic * t = mk_solver2tactic(mk_smt2_solver(m, p));
+        t->set_display_name("smt");
+        return t;
+    }
     if (sp.euf())
         return mk_sat_tactic(m, p);
     return mk_smt_tactic_core(m, p);

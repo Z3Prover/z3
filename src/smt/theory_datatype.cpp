@@ -947,7 +947,8 @@ namespace smt {
                 return;
             if (m_util.is_datatype(n->get_sort()))
                 m_args.push_back(n);
-            else if (visited.insert_if_not_there(n->get_root())) {
+            else if (!visited.contains(n->get_root())) {
+                visited.insert(n->get_root());
                 todo.push_back(n);
             }
         };

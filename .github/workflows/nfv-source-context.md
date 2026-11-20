@@ -26,13 +26,16 @@ network:
 tools:
   edit:
 safe-outputs:
+  timeout-minutes: 45
+  threat-detection:
+    report-as-issue: false
   # Publication must not inherit a shared GH_AW_GITHUB_TOKEN override.
   github-token: ${{ secrets.GITHUB_TOKEN }}
   noop:
     report-as-issue: false
-  missing-data:
+  report-missing-data:
     create-issue: false
-  missing-tool:
+  report-missing-tool:
     create-issue: false
   report-incomplete:
     create-issue: false
@@ -47,7 +50,7 @@ safe-outputs:
         actions: read
       steps:
         - if: ${{ needs.agent.result == 'success' }}
-          uses: actions/download-artifact@v8.0.1
+          uses: actions/download-artifact@v8.0.2
           with:
             name: nfv-source-context-validated
             path: nfv-context-validated
@@ -69,7 +72,7 @@ steps:
       path: nfv-plugin
       token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
       persist-credentials: false
-  - uses: actions/setup-python@v7.0.0
+  - uses: actions/setup-python@v7.1.0
     with:
       python-version: "3.12"
   - name: Install trusted collector
@@ -130,7 +133,8 @@ post-steps:
       name: nfv-source-context-validated
       path: nfv-context-validated/context.json
       if-no-files-found: error
-source: microsoft/neuro-formal-verification/workflow@6c75d91346c50f9b23b119717ed81d6edfcdf174
+source: microsoft/neuro-formal-verification/workflow@599726579274cfeb1c0915414b911371527a9870
+source-sha: "599726579274cfeb1c0915414b911371527a9870"
 ---
 
 # Source-context session

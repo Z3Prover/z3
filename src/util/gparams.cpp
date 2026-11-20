@@ -134,7 +134,8 @@ struct gparams::imp {
     param_descrs         m_param_descrs;
     smap<params_ref* >   m_module_params;
     params_ref           m_params;
-    region               m_region;
+    region               m_region;          // module names and values of set parameters; freed by reset
+    region               m_registry_region; // names of registered modules; kept by reset
     std::string          m_buffer;
 
     void check_registered() {
@@ -160,11 +161,12 @@ struct gparams::imp {
     smap<char const *> & get_module_descrs() { check_registered(); return m_module_descrs; }
     param_descrs & get_param_descrs() { check_registered(); return m_param_descrs; }
 
-    char * cpy(char const* s) {
-        char * r = new (m_region) char[strlen(s)+1];
+    static char * cpy(region & reg, char const* s) {
+        char * r = new (reg) char[strlen(s)+1];
         memcpy(r, s, strlen(s)+1);
         return r;
     }
+    char * cpy(char const* s) { return cpy(m_region, s); }
 
     bool get_module_param_descr(std::string const& m, param_descrs*& d) {
         return get_module_param_descr(m.c_str(), d);
@@ -221,7 +223,7 @@ public:
         }
         else {
             ld = alloc(lazy_param_descrs, f);
-            m_module_param_descrs.insert(cpy(module_name), ld);
+            m_module_param_descrs.insert(cpy(m_registry_region, module_name), ld);
         }
     }
 
@@ -229,7 +231,7 @@ public:
         // Don't need synchronization here, this method
         // is invoked from check_registered that is already protected.
         if (!m_module_descrs.contains(module_name)) {
-            m_module_descrs.insert(cpy(module_name), descr);
+            m_module_descrs.insert(cpy(m_registry_region, module_name), descr);
         }
     }
 
@@ -547,6 +549,13 @@ public:
         }
     }
 
+    void collect_module_param_descrs(char const * module_name, param_descrs & r) {
+        lock_guard lock(*gparams_mux);
+        param_descrs * d = nullptr;
+        if (get_module_param_descr(module_name, d))
+            r.copy(*d);
+    }
+
     void display_module(std::ostream & out, char const* module_name) {
         lock_guard lock(*gparams_mux);
         param_descrs * d = nullptr;
@@ -680,6 +689,11 @@ params_ref gparams::get_module(char const * module_name) {
     return g_imp->get_module(module_name);
 }
 
+
+void gparams::collect_module_param_descrs(char const * module_name, param_descrs & r) {
+    SASSERT(g_imp);
+    g_imp->collect_module_param_descrs(module_name, r);
+}
 
 params_ref const& gparams::get_ref() {
     TRACE(gparams, tout << "gparams::get_ref()\n";);

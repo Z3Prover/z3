@@ -32,6 +32,22 @@ z3_add_component(simplifiers
     reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
+  REGISTRATION_HEADERS
+    bit2int.h
+    bit_blaster.h
+    bv1_blaster.h
+    elim_bounds.h
+    elim_term_ite.h
+    ff_simplify.h
+    lambda_simplifier.h
+    leibniz_simplifier.h
+    max_bv_sharing.h
+    pull_nested_quantifiers.h
+    push_ite.h
+    randomizer.h
+    recfun_finder.h
+    refine_inj_axiom.h
+    rewriter_simplifier.h
   COMPONENT_DEPENDENCIES
     bit_blaster
     euf

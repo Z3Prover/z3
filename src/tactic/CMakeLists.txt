@@ -8,6 +8,9 @@ z3_add_component(tactic
     probe.cpp
     tactical.cpp
     tactic.cpp
+  REGISTRATION_HEADERS
+    probe.h
+    tactic.h
   COMPONENT_DEPENDENCIES
     ast
     model

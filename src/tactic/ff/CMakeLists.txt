@@ -5,6 +5,9 @@ z3_add_component(ff_tactics
     ff_simplify_tactic.cpp
     ff_solve_tactic.cpp
     ff_unique_tactic.cpp
+  REGISTRATION_HEADERS
+    ff2bv_tactic.h
+    ff_solve_tactic.h
   COMPONENT_DEPENDENCIES
     core_tactics
     ff_ast

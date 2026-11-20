@@ -89,6 +89,9 @@ let real_difference (e:expr) : option (expr & expr) =
           | None -> (match real_negated_operand a with Some y -> Some (b, y) | None -> None))
   | _ -> None
 
+let lemma_add_negated (x y:real)
+  : Lemma (x +. (0.0R -. y) == x -. y /\ (0.0R -. y) +. x == x -. y) = ()
+
 let lemma_real_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (reals:RL.carrier base) (scope:list sort)
@@ -102,8 +105,14 @@ let lemma_real_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boole
   | App f [a; b] ->
     RL.lemma_real_binary_at s bc model other reals scope rho f a b A.Add;
     (match real_negated_operand b with
-     | Some z -> lemma_real_negated_operand s bc model other reals scope rho b z
-     | None -> lemma_real_negated_operand s bc model other reals scope rho a y)
+     | Some z ->
+       assert (x == a /\ y == z);
+       lemma_real_negated_operand s bc model other reals scope rho b z
+     | None ->
+       assert (x == b /\ real_negated_operand a == Some y);
+       lemma_real_negated_operand s bc model other reals scope rho a y);
+    lemma_add_negated (RL.real_at s bc model other reals scope rho x)
+                      (RL.real_at s bc model other reals scope rho y)
   | _ -> ()
 
 (* The operands l and r of a Real comparison read against the pair (x, y):

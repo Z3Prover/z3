@@ -44,7 +44,7 @@ namespace ff {
             if (proof.nodes.size() >= max_nodes) throw exhausted{"proof-nodes"};
             if (cost > 16 * 1024 * 1024 - bytes) throw exhausted{"proof-bytes"};
             bytes += cost;
-            unsigned id = proof.nodes.size();
+            unsigned id = static_cast<unsigned>(proof.nodes.size());
             proof.nodes.push_back(std::move(n));
             return id;
         }
@@ -80,7 +80,7 @@ namespace ff {
                 auto n = proof.nodes[id];
                 if (n.kind != certificate::rule::input) n.left = renamed[n.left];
                 if (n.kind == certificate::rule::add) n.right = renamed[n.right];
-                renamed[id] = compact.nodes.size();
+                renamed[id] = static_cast<unsigned>(compact.nodes.size());
                 compact.nodes.push_back(std::move(n));
             }
             compact.root = renamed[proof.root];
@@ -230,7 +230,7 @@ namespace ff {
         // replace h by zero for A and by target for B*T, with all other inputs
         // zero in the latter traversal. Never expand B as a polynomial.
         std::pair<unsigned, unsigned> discharge(unsigned root, unsigned hypothesis, unsigned target) {
-            unsigned count = proof.nodes.size();
+            unsigned count = static_cast<unsigned>(proof.nodes.size());
             if (root >= count || hypothesis >= count || target >= count) throw exhausted();
             std::vector<bool> live(count, false), affected(count, false);
             std::vector<unsigned> pending{root}, rewritten(count, ~0u), lifted(count, ~0u);
@@ -319,7 +319,7 @@ namespace ff {
                     // Keep a bounded optional branch attempt from consuming the
                     // entire proof store. Failure restores the proved root-scope
                     // equations and DAG; all work/cancellation remains charged.
-                    unsigned saved_nodes = proof.nodes.size(), saved_root = proof.root, saved_zero = zero_proof;
+                    unsigned saved_nodes = static_cast<unsigned>(proof.nodes.size()), saved_root = proof.root, saved_zero = zero_proof;
                     size_t saved_bytes = bytes;
                     auto restore = [&]() {
                         proof.nodes.resize(saved_nodes); proof.root = saved_root;
@@ -397,7 +397,7 @@ namespace ff {
                 // importantly, search scheduling is never trusted by the checker:
                 // acceptance depends only on an explicit derivation of 1.
                 if (lcm.size() != left.size() + right.size())
-                    pairs.emplace(lcm.size(), j, basis.size());
+                    pairs.emplace(static_cast<unsigned>(lcm.size()), j, static_cast<unsigned>(basis.size()));
             }
             basis.push_back(std::move(f));
             return false;
@@ -406,7 +406,7 @@ namespace ff {
         certificate_builder(engine &e, unsigned max_nodes) : e(e), max_nodes(std::min(max_nodes, 100000u)) {}
         lbool run_native(std::vector<polynomial> const &equations, std::vector<rational> &values,
                          certificate &out, bool native_unique, bool native_branches) {
-            input_count = equations.size();
+            input_count = static_cast<unsigned>(equations.size());
             auto input = equations;
             unsigned variables = 0;
             for (unsigned i = 0; i < input.size(); ++i) {

@@ -15,7 +15,7 @@ class user_propagator_created_maximisation : public z3::user_propagator_base {
     user_propagator_created_maximisation* childPropagator = nullptr;
     user_propagator_created_maximisation* parentPropagator = nullptr;
 
-    int board;
+    unsigned board;
     int nesting; // Just for logging (0 ... main solver; 1 ... sub-solver)
 
 public:

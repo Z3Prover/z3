@@ -21,11 +21,31 @@ Author:
 #include "ast/rewriter/var_subst.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/for_each_expr.h"
+#include "ast/ast_ll_pp.h"
 #include "params/rewriter_params.hpp"
 
 void recfun_rewriter::updt_params(params_ref const &p) {
     rewriter_params rp(p);
     m_recfun_unfold = rp.unfold_recursive_functions();
+    m_max_unfolds = rp.max_recfun_unfoldings();
+}
+
+bool recfun_rewriter::inc_unfold(func_decl* f, unsigned num_args, expr* const* args) {
+    if (m_blocked.empty() && m_num_unfolds < m_max_unfolds) {
+        ++m_num_unfolds;
+        return true;
+    }
+    app_ref a(m.mk_app(f, num_args, args), m);
+    if (m_blocked.contains(a))
+        return false;
+    if (m_num_unfolds < m_max_unfolds) {
+        ++m_num_unfolds;
+        return true;
+    }
+    IF_VERBOSE(10, verbose_stream() << "(recfun-rewriter :unfold-limit " << m_max_unfolds << " :blocked " << mk_bounded_pp(a, m, 2) << ")\n");
+    m_blocked.insert(a);
+    m_pinned.push_back(a);
+    return false;
 }
     
 br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -86,6 +106,10 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
             }            
         }
         if (safe_to_subst) {
+            // Unfolding need not terminate. Leave applications that exceed the
+            // budget to the resource-limited theory solver.
+            if (!inc_unfold(f, num_args, args))
+                return BR_FAILED;
             var_subst sub(m);
             result = sub(d.get_rhs(), num_args, args);
             return BR_REWRITE_FULL;

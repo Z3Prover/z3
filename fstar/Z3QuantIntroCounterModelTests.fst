@@ -720,10 +720,17 @@ let d9_xor (u:TR.uninterpreted)
   : Lemma (st9 u ["g1"; "g2"] (fst QT.b14_xor) == true /\ st9 u ["g1"; "g2"] (snd QT.b14_xor) == false) =
   let n = ["g1"; "g2"] in
   let p = among n in
+  let t = T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u p) leaf_scope (leaf_env u) in
   b14_facts (); lemma_gs u n; g_classified ();
   assert_norm (L.mem "g1" n == true /\ L.mem "g2" n == true /\ L.mem "g3" n == false);
+  assert (t g1 == true /\ t g2 == true /\ t g3 == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  assert (st9 u n (QT.mk_or [g1; g2; g3]) == true);
+  assert (NR.fold_truth t B.Xor [] == false);
+  assert (NR.fold_truth t B.Xor [g2] == true);
+  assert (NR.fold_truth t B.Xor [g1; g2] == false);
   lemma_node u p QT.xor_d [g1; g2] B.Xor;
+  assert (st9 u n (App QT.xor_d [g1; g2]) == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [App QT.xor_d [g1; g2]; g3]) [App QT.xor_d [g1; g2]; g3] B.Or
 
 let d9_polarity (u:TR.uninterpreted)

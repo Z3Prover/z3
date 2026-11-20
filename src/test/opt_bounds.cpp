@@ -1861,6 +1861,32 @@ static void tst_infinity_and_epsilon() {
 // x >= y the limit of y is 10 and the next objective z <= y - 3 gives 7.
 // A limit that is itself infinite keeps a sound interval and the sat status.
 static void tst_lex_after_unbounded() {
+    for (bool is_real : {false, true}) {
+        for (bool maximize : {false, true}) {
+            opt_fixture f;
+            Z3_sort sort = is_real ? Z3_mk_real_sort(f.ctx) : Z3_mk_int_sort(f.ctx);
+            Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), sort);
+            Z3_ast b = is_real && maximize ?
+                Z3_mk_not(f.ctx, Z3_mk_eq(f.ctx, x, f.num(5))) :
+                Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+            Z3_ast hi = Z3_mk_int(f.ctx, is_real ? 3 : 2, sort);
+            Z3_ast lo = Z3_mk_int(f.ctx, is_real ? 1 : 0, sort);
+            unsigned first = is_real ? f.objective(Z3_mk_unary_minus(f.ctx, x)) : f.objective(x, false);
+            unsigned h = f.objective(Z3_mk_ite(f.ctx, b, hi, lo), maximize);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_symbolic_bounds(f, first, is_real ? 1 : -1, 0, 0);
+            Z3_ast lower = scalar_bound(f, h, true);
+            Z3_ast upper = scalar_bound(f, h, false);
+            ENSURE(Z3_algebraic_le(f.ctx, lower, upper));
+            // The interval must contain the limiting optimum, even when this
+            // converted MaxSMT objective is not optimized after the unbounded one.
+            Z3_ast expected = maximize ? hi : lo;
+            ENSURE(Z3_algebraic_le(f.ctx, lower, expected));
+            ENSURE(Z3_algebraic_le(f.ctx, expected, upper));
+            ensure_vector(f, h, true, 0, lower, 0, Z3_INT_SORT);
+            ensure_vector(f, h, false, 0, upper, 0, Z3_INT_SORT);
+        }
+    }
     for (bool minimize_first : {false, true}) {
         opt_fixture f;
         Z3_ast x = f.real("x"), y = f.real("y"), z = f.real("z");
@@ -1921,6 +1947,56 @@ static void tst_lex_after_unbounded() {
         Z3_ast_vector_inc_ref(f.ctx, v);
         ensure_value(f, Z3_ast_vector_get(f.ctx, v, 0), f.num(1));
         Z3_ast_vector_dec_ref(f.ctx, v);
+    }
+    for (bool minimize_first : {false, true})
+    for (bool minimize_last : {false, true})
+    for (bool enabled : {false, true})
+    for (unsigned arith_solver : {2u, 6u}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_lex_after_unbounded"), enabled);
+        Z3_params_set_bool(f.ctx, p, f.symbol("smt.auto_config"), false);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast m = Z3_mk_const(f.ctx, f.symbol("m"), ints);
+        Z3_ast r = Z3_mk_const(f.ctx, f.symbol("r"), ints);
+        Z3_ast zero = Z3_mk_int(f.ctx, 0, ints);
+        f.add(Z3_mk_lt(f.ctx, m, zero));
+        unsigned first = f.objective(minimize_first ? f.sub(m, r) : f.sub(r, m), !minimize_first);
+        unsigned middle = f.objective(m);
+        unsigned last = f.objective(minimize_last ? r : Z3_mk_unary_minus(f.ctx, r), !minimize_last);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, first, minimize_first ? -1 : 1, 0, 0);
+        if (enabled)
+            ensure_finite_bounds(f, middle, Z3_mk_int(f.ctx, -1, ints), Z3_INT_SORT);
+        else {
+            ensure_vector(f, middle, true, -1, f.num(0), 0, Z3_INT_SORT);
+            ensure_vector(f, middle, false, 1, f.num(0), 0, Z3_INT_SORT);
+        }
+        ensure_vector(f, last, !minimize_last, minimize_last ? 1 : -1, f.num(0), 0, Z3_INT_SORT);
+    }
+    for (unsigned arith_solver : {2u, 6u}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("smt.auto_config"), false);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast m = Z3_mk_const(f.ctx, f.symbol("m"), ints);
+        Z3_ast r = Z3_mk_const(f.ctx, f.symbol("r"), ints);
+        f.add(Z3_mk_lt(f.ctx, m, Z3_mk_int(f.ctx, 0, ints)));
+        unsigned first = f.objective(m);
+        unsigned middle = f.objective(f.sub(m, r), false);
+        unsigned last = f.objective(r, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, first, Z3_mk_int(f.ctx, -1, ints), Z3_INT_SORT);
+        ensure_symbolic_bounds(f, middle, -1, 0, 0);
+        ensure_vector(f, last, false, 1, f.num(0), 0, Z3_INT_SORT);
     }
 }
 
@@ -2136,6 +2212,39 @@ static void tst_unbounded_curve() {
     }
 }
 
+// Issue #11690: a product of three bounded integers climbs for many rounds
+// under the legacy arithmetic solver, so the curve certificate is tried. Every
+// curve through the recent models leaves the box, which evaluating it at a few
+// parameters shows; no solver query on the curve is needed. The cubic's query
+// used to spend minutes in nlsat on resultants with large coefficients. The
+// search itself takes about 45000 units, so it completes within 100000 only
+// when the certificate attempts stay cheap.
+static void tst_unbounded_curve_bounded_product() {
+    opt_fixture f;
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), 2);
+    Z3_params_set_bool(f.ctx, p, f.symbol("elim_01"), false);
+    Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), 100000);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+    Z3_optimize_from_string(f.ctx, f.opt,
+        "(declare-fun jbnal () Int)"
+        "(declare-fun idqbn () Int)"
+        "(declare-fun bclvd () Int)"
+        "(assert (>= idqbn 1))"
+        "(assert (>= bclvd 1))"
+        "(assert (<= idqbn 4))"
+        "(assert (<= jbnal 24))"
+        "(assert (<= bclvd 128))"
+        "(assert (>= jbnal 1))"
+        "(maximize (* idqbn jbnal bclvd))");
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    ENSURE(f.check() == Z3_L_TRUE);
+    ensure_finite_bounds(f, 0, Z3_mk_int(f.ctx, 12288, Z3_mk_int_sort(f.ctx)), Z3_INT_SORT);
+}
+
 // maximize y with y = x*x, x >= 0 over the models (5, 25), (6, 36), (7, 49).
 // The backward differences at (7, 49) are (1, 13) and (0, 2). The ray
 // x = 7 + t, y = 49 + 13 t leaves the parabola at t = 1; the quadratic
@@ -2215,6 +2324,7 @@ static void tst_min_max_ite_sums() {
         bool maximize;
         int expected;
         bool is_real = false;
+        char const* objective = "x";
     };
     test_case const cases[] = {
         {"(assert (or a b))"
@@ -2243,16 +2353,32 @@ static void tst_min_max_ite_sums() {
         {"(assert (or a b))"
          "(assert (>= x (+ (ite a 1.0 0.0) (ite b 1.0 0.0))))", false, 1, true},
         {"(assert (or a b))"
-         "(assert (<= x (+ (ite a 1.0 0.0) (ite b 1.0 0.0))))", true, 2, true}
+         "(assert (<= x (+ (ite a 1.0 0.0) (ite b 1.0 0.0))))", true, 2, true},
+        {"(define-fun-rec read_x ((n Int)) Int (ite (= n 0) x (read_x (- n 1))))"
+         "(assert (= (read_x 0) 5))"
+         "(assert (>= x (ite a 1 0)))", false, 5},
+        {"(define-fun-rec read_x ((n Int)) Int (ite (= n 0) x (read_x (- n 1))))"
+         "(assert (= (read_x 0) (- 1)))"
+         "(assert (<= x (ite a 1 0)))", true, -1},
+        {"(declare-fun f (Int) Int)(declare-const t Int)(declare-const u Int)"
+         "(assert (<= t u))(assert (<= u 0))(assert (>= t 0))"
+         "(assert (= (f t) 5))"
+         "(assert (>= (f 0) (ite a 1 0)))", false, 5, false, "(f 0)"},
+        {"(declare-fun f (Int) Int)(declare-const t Int)(declare-const u Int)"
+         "(assert (<= t u))(assert (<= u 0))(assert (>= t 0))"
+         "(assert (= (f t) (- 1)))"
+         "(assert (<= (f 0) (ite a 1 0)))", true, -1, false, "(f 0)"}
     };
     for (unsigned arith_solver : {2u, 6u})
     for (bool elim_01 : {false, true})
+    for (bool incremental : {false, true})
     for (auto const& t : cases) {
         opt_fixture f;
         Z3_params p = Z3_mk_params(f.ctx);
         Z3_params_inc_ref(f.ctx, p);
         Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
         Z3_params_set_bool(f.ctx, p, f.symbol("elim_01"), elim_01);
+        Z3_params_set_bool(f.ctx, p, f.symbol("incremental"), incremental);
         Z3_optimize_set_params(f.ctx, f.opt, p);
         Z3_params_dec_ref(f.ctx, p);
         std::string problem =
@@ -2260,14 +2386,18 @@ static void tst_min_max_ite_sums() {
             "(declare-const y Int)";
         problem += t.is_real ? "(declare-const x Real)" : "(declare-const x Int)";
         problem += t.constraints;
-        problem += t.maximize ? "(maximize x)" : "(minimize x)";
+        problem += t.maximize ? "(maximize " : "(minimize ";
+        problem += t.objective;
+        problem += ")";
         Z3_optimize_from_string(f.ctx, f.opt, problem.c_str());
         ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
         ENSURE(f.check() == Z3_L_TRUE);
         ensure_finite_bounds(f, 0, f.num(t.expected), Z3_INT_SORT);
-        Z3_sort sort = t.is_real ? Z3_mk_real_sort(f.ctx) : Z3_mk_int_sort(f.ctx);
-        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), sort);
-        ensure_model_value(f, x, f.num(t.expected));
+        Z3_ast_vector objectives = Z3_optimize_get_objectives(f.ctx, f.opt);
+        Z3_ast_vector_inc_ref(f.ctx, objectives);
+        ensure_model_value(f, Z3_ast_vector_get(f.ctx, objectives, 0),
+                           f.num(t.maximize ? -t.expected : t.expected));
+        Z3_ast_vector_dec_ref(f.ctx, objectives);
         Z3_model model = Z3_optimize_get_model(f.ctx, f.opt);
         Z3_model_inc_ref(f.ctx, model);
         Z3_ast_vector hard = Z3_optimize_get_assertions(f.ctx, f.opt);
@@ -2410,6 +2540,7 @@ void tst_opt_bounds() {
     tst_nlsat_unbounded_reals_only();
     tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
+    tst_unbounded_curve_bounded_product();
     tst_unbounded_curve_parabola();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();

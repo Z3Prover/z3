@@ -1628,6 +1628,14 @@ void cmd_context::erase_psort_decl(symbol const & s) {
     erase_psort_decl_core(s);
 }
 
+void cmd_context::rollback_psort_decl(symbol const & s) {
+    erase_psort_decl_core(s);
+    if (!m_global_decls) {
+        SASSERT(!m_psort_decls_stack.empty() && m_psort_decls_stack.back() == s);
+        m_psort_decls_stack.pop_back();
+    }
+}
+
 void cmd_context::erase_cmd(symbol const & s) {
     cmd * c;
     if (m_cmds.find(s, c)) {

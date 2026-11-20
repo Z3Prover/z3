@@ -11,6 +11,12 @@ const sha = "a".repeat(40);
 function fixture(t) {
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "pulse-nightly-test-"));
     t.after(() => fs.rmSync(artifactDir, { recursive: true }));
+    fs.mkdirSync(path.join(artifactDir, "build"));
+    fs.writeFileSync(path.join(artifactDir, "build", "source.json"), JSON.stringify({
+        source_sha: "b".repeat(40),
+        source_ref: "feat/fstar-independent-proof-checker",
+        ocaml_checker: "independent-definition",
+    }));
     for (const backend of ["ocaml", "cherry"]) {
         const directory = path.join(artifactDir, backend);
         fs.mkdirSync(directory);
@@ -82,6 +88,25 @@ test("an older nightly cannot publish into a newer release", async t => {
     assert.equal((await publish(args)).status, "stale");
     assert.equal(mutations.length, 0);
     assert.equal(notices.length, 1);
+});
+
+test("PR checker source may differ from the nightly solver but must identify the independent build", async t => {
+    const { args, mutations } = fixture(t);
+    const summary = [];
+    args.core.summary.addRaw = text => { summary.push(text); return args.core.summary; };
+    assert.equal((await publish(args)).status, "published");
+    assert.match(summary.join(""), new RegExp("Checker source: `" + "b".repeat(40) + "`"));
+    assert.match(summary.join(""), new RegExp("Nightly solver: `" + sha + "`"));
+    mutations.length = 0;
+    for (const metadata of [
+        { source_sha: sha }, { source_sha: "bad",
+            source_ref: "feat/fstar-independent-proof-checker",
+            ocaml_checker: "independent-definition" },
+    ]) {
+        fs.writeFileSync(path.join(args.artifactDir, "build", "source.json"), JSON.stringify(metadata));
+        await assert.rejects(publish(args), /independent checker source metadata/);
+        assert.equal(mutations.length, 0);
+    }
 });
 
 test("non-nightly, failed, fork, and non-default branch runs cannot publish", async t => {

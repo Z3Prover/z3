@@ -599,11 +599,9 @@ class TestEnumerationExport(unittest.TestCase):
             "(assert (= (select (select a 0) 1) red))": "unsupported sort",
             _COLOR + "(declare-const a (Array (Array Int Color) Int))\n(declare-const b (Array Int Color))\n"
             "(assert (= (select a b) 1))": "unsupported sort",
-            # Constant arrays need an infinite index sort, and the default
-            # value of an array constant or application is not known to be
-            # a constructor.
-            _COLOR + "(declare-const a (Array Bool Color))\n"
-            "(assert (= a ((as const (Array Bool Color)) red)))": "constant arrays are supported over Int and Real",
+            # The default value of an array constant or application is not
+            # known to be a constructor. (Constant arrays over Bool indices
+            # are admitted, test_proof_to_lean_const_sort.py.)
             _COLOR + "(declare-fun f (Int) (Array Int Color))\n"
             "(assert (= (default (store (f 0) 1 red)) red))": "supported over constant arrays only",
             _COLOR + "(declare-fun g (Color) Color)\n(declare-const a (Array Int Color))\n"

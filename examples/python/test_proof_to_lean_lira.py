@@ -232,6 +232,21 @@ FLOOR_INPUTS = {
 (assert (= (ite p x 0.25) 0.25))
 (assert p)
 """,
+    # is_int of a constant: no Int term but the floor is_int stands for,
+    # and the certificate is over both sorts all the same.
+    "is_int_of_a_fraction": """(assert (is_int 0.5))
+""",
+    "not_is_int_of_an_integer": """(assert (not (is_int 2.0)))
+""",
+    # Z3 rewrites the equality with the floor of a constant into bounds of
+    # x; the floor of -2 is replaced by its value first
+    # (proof_to_lean._floor_shift_facts), with (Rat.floor (-2)) in its
+    # context grind ran out of heartbeats.
+    "floor_equal_to_the_floor_of_a_constant": """(declare-const x Real)
+(assert (not (= (to_int x) (to_int (- 2.0)))))
+(assert (<= (- 2.0) x))
+(assert (< x (- 1.0)))
+""",
 }
 
 
@@ -1001,9 +1016,10 @@ class TestFloorValidation(unittest.TestCase):
         source = random_floor_instance(FLOOR_SEEDS[1])
         self.assertIsNotNone(source)
         text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
-        self.assertRegex(text, r"have _d\d+_\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
-                               r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
-                               r"Rat\.floor_add_intCast\)")
+        # Between Int terms, and cast into Rat.
+        self.assertRegex(text, r"have _di(\d+_\d+) := \(congrArg Rat\.floor \(show .* by push_cast; grind\)\)"
+                               r"\.trans Rat\.floor_add_intCast\n\s+"
+                               r"have _d\1 := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) _di\1\n")
         # Of the floors of x, x + 1/2, and x + 2 (the legacy certificate
         # keeps the input's terms, and the rewritten 2 + x and 1/2 + x),
         # only those differing by an integer are related.
@@ -1014,7 +1030,8 @@ class TestFloorValidation(unittest.TestCase):
                          if graph.kind(node) == z3.Z3_OP_TO_INT})
         self.assertGreaterEqual(len(floors), 3)
         indices = collections.defaultdict(int)  # every variable rendered as _vars 0
-        facts = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        facts, substitutions = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        self.assertEqual(substitutions, [])  # No floor of a constant.
         self.assertTrue(any("(((((2 : Int))) : Int) : Rat)" in fact for fact in facts), facts)
         for fact in facts:
             with self.subTest(fact=fact):
@@ -1025,12 +1042,37 @@ class TestFloorValidation(unittest.TestCase):
         for core in ("clause-log", "legacy"):
             with self.subTest(core=core):
                 text = proof_to_lean.reconstruct(source, _export(source, core))
-                self.assertRegex(text, r"have _z\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
-                                       r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
-                                       r"\(Rat\.floor_intCast _\)\)")
+                self.assertRegex(text, r"have _zi(\d+) := \(congrArg Rat\.floor \(show .* by push_cast; grind\)\)"
+                                       r"\.trans \(Rat\.floor_intCast _\)\n\s+"
+                                       r"have _z\1 := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
+                                       r"_zi\1\n")
+                # The floor of n is not replaced by n: only a constant's is.
+                self.assertNotIn("generalize Rat.floor", text)
         # Floors of Real variables get none.
         text = proof_to_lean.reconstruct(self.source, self.certificate)
         self.assertNotIn("Rat.floor_intCast", text)
+
+    def test_is_int_of_a_constant_is_a_certificate_over_both_sorts(self):
+        # (is_int 0.5) alone: the certificate declares is_int and Real
+        # numerals only, labelled qf_lira; it was rejected as a certificate
+        # over one sort. The floor's value decides the rewrite to false.
+        for name, value in (("is_int_of_a_fraction", "0"), ("not_is_int_of_an_integer", "2")):
+            source = FLOOR_INPUTS[name]
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate = _export(source, core)
+                    self.assertEqual(certificate["fragment"], "qf_lira")
+                    self.assertEqual({declaration["range"] for declaration in certificate["declarations"]
+                                      if declaration["range"] in ("Int", "Real")}, {"Real"})
+                    text = proof_to_lean.reconstruct(source, certificate)
+                    self.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", text)
+                    self.assertRegex(text, r"have _zi\d+ .*\(\(%s : Int\)\)" % value)
+                    self.assertIn("try (generalize Rat.floor", text)
+                    relabelled = copy.deepcopy(certificate)
+                    relabelled["fragment"] = "qf_lra"
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                                "qf_lra certificates cannot mix Int and Real arithmetic"):
+                        proof_to_lean.reconstruct(source, relabelled)
 
     def test_floor_shift_pairs_are_capped(self):
         # 13 floors x + k/2: past the cap no pair is related, while the
@@ -1044,10 +1086,10 @@ class TestFloorValidation(unittest.TestCase):
                          if graph.kind(node) == z3.Z3_OP_TO_INT})
         self.assertGreater(len(floors), proof_to_lean._FLOOR_SHIFT_LIMIT)
         indices = collections.defaultdict(int)
-        capped = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        capped, _ = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
         self.assertFalse([fact for fact in capped if fact.startswith("have _d")], capped)
         self.assertTrue([fact for fact in capped if fact.startswith("have _z")], capped)
-        below = proof_to_lean._floor_shift_facts(graph, floors[:proof_to_lean._FLOOR_SHIFT_LIMIT], indices, indices)
+        below, _ = proof_to_lean._floor_shift_facts(graph, floors[:proof_to_lean._FLOOR_SHIFT_LIMIT], indices, indices)
         self.assertTrue([fact for fact in below if fact.startswith("have _d")], below)
 
     def test_is_int_definition_axioms_are_arith_hints(self):

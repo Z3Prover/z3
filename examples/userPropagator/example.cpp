@@ -157,7 +157,7 @@ int test4(unsigned num) {
     z3::expr manhattanSum1 = context.bv_val(0, queens1[0].get_sort().bv_size());
     z3::expr manhattanSum2 = context.bv_val(0, queens2[0].get_sort().bv_size());
 
-    for (int i = 1; i < queens1.size(); i++) {
+    for (unsigned i = 1; i < queens1.size(); i++) {
         manhattanSum1 = manhattanSum1 + z3::ite(z3::uge(queens1[i], queens1[i - 1]), queens1[i] - queens1[i - 1], queens1[i - 1] - queens1[i]);
         manhattanSum2 = manhattanSum2 + z3::ite(z3::uge(queens2[i], queens2[i - 1]), queens2[i] - queens2[i - 1], queens2[i - 1] - queens2[i]);
     }
@@ -244,13 +244,13 @@ int test7(unsigned num) {
     z3::expr manhattanSum1 = context.bv_val(0, queens1[0].get_sort().bv_size());
     z3::expr manhattanSum2 = context.bv_val(0, queens2[0].get_sort().bv_size());
 
-    for (int i = 1; i < queens1.size(); i++) {
+    for (unsigned i = 1; i < queens1.size(); i++) {
         manhattanSum1 = manhattanSum1 + z3::ite(z3::uge(queens1[i], queens1[i - 1]), queens1[i] - queens1[i - 1], queens1[i - 1] - queens1[i]);
         manhattanSum2 = manhattanSum2 + z3::ite(z3::uge(queens2[i], queens2[i - 1]), queens2[i] - queens2[i - 1], queens2[i - 1] - queens2[i]);
     }
 
     z3::sort_vector domain(context);
-    for (int i = 0; i < queens1.size(); i++) {
+    for (unsigned i = 0; i < queens1.size(); i++) {
         domain.push_back(queens1[i].get_sort());
     }
     z3::func_decl validFunc = context.user_propagate_function(context.str_symbol("valid"), domain, context.bool_sort());

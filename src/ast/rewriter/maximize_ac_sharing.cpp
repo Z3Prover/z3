@@ -28,6 +28,7 @@ void maximize_ac_sharing::register_kind(decl_kind k) {
 
 
 br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result, proof_ref& result_pr) {
+    init();
     decl_kind k = f->get_kind();
     if (!f->is_associative())
         return BR_FAILED;
