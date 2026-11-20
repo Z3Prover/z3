@@ -19,7 +19,6 @@ Revision History:
 #pragma once
 
 #include <cmath>
-#include "util/var_queue.h"
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/stopwatch.h"
@@ -45,6 +44,7 @@ Revision History:
 #include "sat/sat_parallel.h"
 #include "sat/sat_local_search.h"
 #include "sat/sat_solver_core.h"
+#include "sat/sat_activity_queue.h"
 
 namespace pb {
     class solver;
@@ -137,6 +137,9 @@ namespace sat {
         // branch variable selection:
         svector<unsigned>       m_activity;
         unsigned                m_activity_inc;
+        // activities used instead of m_activity with sat.activity.truncate=false
+        svector<double>         m_double_activity;
+        double                  m_double_activity_inc;
         svector<uint64_t>       m_last_conflict;
         svector<uint64_t>       m_last_propagation;
         svector<uint64_t>       m_participated;
@@ -163,7 +166,7 @@ namespace sat {
         unsigned                m_rephase_inc;
         backoff                 m_rephase;
         backoff                 m_reorder;
-        var_queue<unsigned_vector> m_case_split_queue;
+        activity_queue          m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
         unsigned                m_search_lvl;
@@ -385,7 +388,7 @@ namespace sat {
         void set_has_new_best_phase(bool b) { m_new_best_phase = b; }
         bool has_new_best_phase() const { return m_new_best_phase; }
         void move_to_front(bool_var b);
-        unsigned get_activity(bool_var v) const { return m_activity[v]; }
+        double get_activity(bool_var v) const { return double_activity() ? m_double_activity[v] : m_activity[v]; }
         void get_backbone_candidates(literal_vector& lits, unsigned max_num);
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
@@ -807,6 +810,10 @@ namespace sat {
         // -----------------------
     public:
         void inc_activity(bool_var v) {
+            if (double_activity()) {
+                inc_double_activity(v);
+                return;
+            }
             unsigned & act = m_activity[v];
             act += m_activity_inc;
             m_case_split_queue.activity_increased_eh(v);
@@ -815,12 +822,31 @@ namespace sat {
         }
 
         void decay_activity() {
+            if (double_activity()) {
+                decay_double_activity();
+                return;
+            }
             m_activity_inc *= m_config.m_variable_decay;
             m_activity_inc /= 100;
         }
 
     private:
         void rescale_activity();
+
+        // Activities with sat.activity.truncate=false: doubles, rescaled by
+        // 1e-100 when one exceeds 1e100 (as in MiniSat). The unsigned
+        // activities above are shifted right by 14 bits when one exceeds
+        // 2^24, which zeroes every activity below 2^14.
+        bool double_activity() const { return m_case_split_queue.uses_double(); }
+        void inc_double_activity(bool_var v);
+        void decay_double_activity();
+        void rescale_double_activity();
+        void set_double_activity(bool_var v, double act);
+        // sets the activity of v to act, truncated to unsigned if the
+        // activities are unsigned
+        void set_activity_value(bool_var v, double act);
+        double unsigned_activity_scale() const;
+        void updt_activity_representation();
 
         void update_chb_activity(bool is_sat, unsigned qhead);
 

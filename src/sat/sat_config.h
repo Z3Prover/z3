@@ -182,6 +182,7 @@ namespace sat {
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;
         bool               m_anti_exploration;
+        bool               m_activity_truncate;
         double             m_step_size_init;
         double             m_step_size_dec;
         double             m_step_size_min;

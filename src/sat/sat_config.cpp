@@ -218,6 +218,7 @@ namespace sat {
             throw sat_param_exception("invalid branching heuristic: accepted heuristics are 'vsids' or 'chb'");
 
         m_anti_exploration = p.branching_anti_exploration();
+        m_activity_truncate = p.activity_truncate();
         m_step_size_init = 0.40;
         m_step_size_dec  = 0.000001;
         m_step_size_min  = 0.06;
