@@ -19,10 +19,77 @@ Revision History:
 
 #include "math/polynomial/upolynomial.h"
 #include "math/polynomial/upolynomial_factorization.h"
+#include "math/polynomial/polynomial.h"
 #include "util/rlimit.h"
 #include <iostream>
 
 namespace polynomial {
+
+static void test_pseudo_division_resource_cost() {
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+    polynomial_ref x(m), y(m), c(m), p(m), q(m), Q(m), R(m);
+    x = m.mk_polynomial(m.mk_var());
+    y = m.mk_polynomial(m.mk_var());
+    scoped_numeral n(nm);
+    n = 1;
+    nm.mul2k(n, 4096);
+    c = m.mk_const(n.get());
+    p = c*(x^2) + 1;
+    q = c*x + 1;
+
+    bool canceled = false;
+    {
+        scoped_rlimit limit(rl, 100);
+        unsigned d = 0;
+        try {
+            m.pseudo_division(p, q, 0, d, Q, R);
+        }
+        catch (polynomial_exception const&) {
+            canceled = true;
+        }
+    }
+    ENSURE(canceled);
+
+    unsigned d = 0;
+    m.pseudo_division(p, q, 0, d, Q, R);
+    polynomial_ref lc(m);
+    lc = coeff(q, 0, degree(q, 0));
+    ENSURE(eq((lc^d)*p, Q*q + R));
+
+    p = (x^2) + 1;
+    q = x + 1;
+    uint64_t before = rl.count();
+    m.pseudo_division(p, q, 0, d, Q, R);
+    uint64_t small_cost = rl.count() - before;
+    polynomial_ref dense(m);
+    dense = y + 1;
+    for (unsigned i = 2; i <= 16; ++i)
+        dense = dense + (y^i);
+    q = x + dense;
+    before = rl.count();
+    m.pseudo_division(p, q, 0, d, Q, R);
+    ENSURE(rl.count() - before > small_cost);
+    lc = coeff(q, 0, degree(q, 0));
+    ENSURE(eq((lc^d)*p, Q*q + R));
+
+    p = c*(x^2) + 1;
+    q = c*x + 1;
+    canceled = false;
+    {
+        scoped_rlimit limit(rl, 100);
+        try {
+            m.resultant(p, q, 0, R);
+        }
+        catch (polynomial_exception const&) {
+            canceled = true;
+        }
+    }
+    ENSURE(canceled);
+    m.resultant(p, q, 0, R);
+    ENSURE(eq(R, c*c + c));
+}
 
 void test_factorization_basic() {
     std::cout << "test_factorization_basic\n";
@@ -385,5 +452,6 @@ void test_polynomial_factorization() {
 } // namespace polynomial
 
 void tst_polynomial_factorization() {
+    polynomial::test_pseudo_division_resource_cost();
     polynomial::test_polynomial_factorization();
 }
