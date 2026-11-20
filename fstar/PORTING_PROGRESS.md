@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-19T20:20:30-08:00**. The cohort tables below are the latest
+Updated: **2026-11-19T20:40:59-08:00**. The cohort tables below are the latest
 complete captures pinned to checker `2671dc150931`; the single-proof result
 uses the current-worktree checker and does not refresh those cohort totals.
 
@@ -89,7 +89,8 @@ added.
 
 | Time (PST) | Improvement and scope | Measured effect | Evidence in session `files\` |
 | --- | --- | --- | --- |
-| Nov 19 20:15; source audit 20:20 | QF_LIA lattice replay and Farkas producer/checker audit; one frozen 1,196-node proof | Same current checker and proof: the control with 18 typed lattice rules erased is PARTIAL 22 (18 `arith/lp-integer-lattice`, 4 `intro-def`); full evidence is PARTIAL 4 (`intro-def`). Five alternating pairs: median 1.253197s → 0.038934s (32.2x). The source audit found bound/Farkas tags share one replay rule; it adds no cohort measurement or established producer defect | `current-qflia-lattice-replay-03.json`, `current-qflia-lattice-rule-count-03.json`, `ring-native-hints-2671-01.json` |
+| Nov 19 20:41 | Same-run QF_LIA producer/checker trace; 1,196-node proof | The pinned `c8fabf...` proof emitted 33 `farkas` hints (weights 1,1) and one six-premise `bound` hint at index 755 (weights 1/2, 2, 16, 8, 1/2, 1/2, 1). The same-capture diagnostic has no `arith/farkas` PENDING, but remains PARTIAL 46 (18 lattice, 4 `intro-def`, 4 `apply-def`, 20 `rewrite`). It differs from typed replay proof `68279b...`; no burn-down credit | `ring-producer-trace-06.json`, `ring-producer-trace-06.stderr`, `current-qflia-lattice-replay-03.json` |
+| Nov 19 20:15; source audit 20:20; provenance 20:27 | QF_LIA lattice replay and Farkas producer/checker audit; one frozen 1,196-node proof | Same current checker and proof: the control with 18 typed lattice rules erased is PARTIAL 22 (18 `arith/lp-integer-lattice`, 4 `intro-def`); full evidence is PARTIAL 4 (`intro-def`). Five alternating pairs: median 1.253197s → 0.038934s (32.2x). Provenance review distinguishes the exact 2671 ring trace from current producer document `c8fabf...`; the latter is not a byte-identical replay of typed document `68279b...` | `current-qflia-lattice-replay-03.json`, `current-qflia-lattice-rule-count-03.json`, `ring-native-hints-2671-01.json`, `ring-producer-evidence-20261119T1626ET\summary-current.json` |
 | Nov 19 14:00 | QF_LIA producer-to-checker trace; historical baseline proof | The 1,196-node document SHA-256 `c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb` had 18 unrecognized lattice steps and PARTIAL 22; exact per-rule attribution was then N/M. The later typed-evidence result above supersedes this coverage finding | `ring-producer-evidence-20261119T1626ET` |
 | Nov 19 13:22 | Cached-root experiment; matched-proof correction | Baseline `2671dc150931` had 4 PENDING; candidate `4a4d6e2ac0b9` had 43 on the same 927-node proof. Five pairs gave median candidate/baseline `check_ms` ratio 1.0061. Not promoted; no burn-down credit | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
 | Nov 19 12:28 | fstar-build Farkas provenance triage | Three observed PENDING are in `Algebra.CommMonoid` and `Math.Exp`; native payloads and proof hashes are N/M. No controlled QF_LIA failure or producer defect established | `fstar-build-incremental-20261119T193000Z` |
@@ -98,7 +99,6 @@ added.
 | Nov 19 05:16 | Same-pin SMT-LIB rerun | Sample 100 ACCEPT / 85 PARTIAL / 20 UNKNOWN / 20 TIMEOUT; extended 74 / 133 / 72 / 6. No matched-proof burn-down | `periodic-smtlib-20261119T121101Z`, prior `periodic-smtlib-20261119T060109Z` |
 | Nov 19 02:42 | Expanded-definition candidate; 25 sample QF_LIA inputs | Baseline 17 ACCEPT / 1 PARTIAL / 2 TIMEOUT / 5 UNKNOWN; candidate 18 / 0 / 2 / 5. Median candidate/baseline `check_ms` ratio 1.0045; ring 2.174x slower. Proof hashes N/M | `qflia-sample-candidate-240329-02` |
 | Nov 19 02:07 | Expanded paired-ITE definition replay; frozen ring | Baseline PARTIAL 4; candidate ACCEPT. Five pairs measured 2.240s → 5.086s (2.271x slower); no proof hash, no burn-down credit | `ring-expanded-def-20261119-paired.txt`, `ring-expanded-def-20261119-more-pairs.txt` |
-| Nov 18 23:10 | Same-input SMT-LIB rerun; measurement correction | 510 input hashes matched; ACCEPT/PARTIAL counts unchanged, with one sample UNKNOWN → TIMEOUT. Proof hashes N/M; no matched-proof burn-down | `periodic-smtlib-20261119T060109Z`, prior `periodic-smtlib-20261118T235842Z` |
 
 ## Burn-down: identical frozen proofs or evidence controls
 
@@ -152,15 +152,40 @@ also omits hard definition constraints and permanent LP facts without SAT-core
 sources. These are possible evidence/replay gaps, not proof that the observed
 nonlinear cases are malformed.
 
-On a separate exact frozen ring capture (document SHA-256
-`23fedbd874befdb1d88fe310aeedec84d49c6c23bd05cb2088318f3fe665a474`), one
-native `bound` node and four `farkas` nodes all pass arithmetic replay. The
-14 extended-cohort Farkas PENDING have nonlinear QF_NIA/QF_NRA residuals; the
-three fstar-build cases lack native payloads and proof hashes. Neither set is
-a controlled QF_LIA Farkas failure. Evidence:
-`ring-native-hints-2671-01.json`, `count-farkas-trace-2671-01.json`,
-`count-farkas-trace-2671-01.txt`, `Z3Native.ml`, `Z3NativeProof.fst`,
-`src\smt\theory_lra.cpp`.
+At checker pin `2671dc150931`, an exact frozen ring capture (document SHA-256
+`23fedbd874befdb1d88fe310aeedec84d49c6c23bd05cb2088318f3fe665a474`, capture
+binary SHA-256 `bede92c57096ead8fb1eee22eb3ccec56e3cf733cacd39cae575795977625079`)
+has one native `bound` node (index 655) and four `farkas` nodes (460, 912, 846,
+929); all five pass arithmetic replay. The producer summary for input SHA-256
+`bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5` and
+document SHA-256
+`c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb` reports
+18 integer-lattice and 19 linear LP entries. A later isolated instrumented
+capture successfully traced that document: 33 `farkas` hints, each with
+weights `1,1` and one premise, plus one `bound` hint (index 755) with six
+premises and weights `1/2, 2, 16, 8, 1/2, 1/2, 1`; its conclusion is
+`(not (<= v1 8))`.
+The trace's same-capture diagnostic has no `arith/farkas` PENDING and reports
+PARTIAL 46 from 18 `arith/lp-integer-lattice`, 4 `intro-def`, 4 `apply-def`,
+and 20 `rewrite` obligations. This establishes that these observed arithmetic
+hints are checked, not that all integer rounding/cut cases are covered. The
+bound payload includes fractional multipliers, but this one successful
+certificate is not evidence about other producer paths. The trace build used
+`libz3.a` SHA-256
+`32fcfb61c2797843bcede15be26622fc651433e287e1a432efb7b5ec1f636d4d`,
+instrumented `theory_lra.cpp` SHA-256
+`4da9870f0c3e28ed6d462fab0f54492620f06df8f5fd24d289cd4e746c731c02`,
+and capture executable SHA-256
+`d3c61e8abd8458e171a26bcaa30805fb7fc8386760e3e2f49df34a8684bc6388`.
+The typed replay document (`68279b...`) has a different hash; these results
+are not an identical-proof comparison. The 14 extended-cohort Farkas PENDING
+have nonlinear QF_NIA/QF_NRA residuals; the three fstar-build cases lack
+native payloads and proof hashes. Neither set is a controlled QF_LIA Farkas
+failure. Evidence: `ring-native-hints-2671-01.json`,
+`ring-producer-evidence-20261119T1626ET\summary-current.json`,
+`ring-producer-trace-06.json`, `ring-producer-trace-06.stderr`,
+`count-farkas-trace-2671-01.json`, `count-farkas-trace-2671-01.txt`,
+`Z3Native.ml`, `Z3NativeProof.fst`, `src\smt\theory_lra.cpp`.
 
 ## Validation and remaining work
 
