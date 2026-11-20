@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T14:06:08-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T14:12:58-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The current source branch includes master through `bf981cb1b`; the candidate
 checker hash and fresh cohort results are N/M.
@@ -78,9 +78,11 @@ the prior capture is `a223a1c83bccc50ec3a93a34dea312f2862f6091dece34995bdcac3560
 
 Current captured cohort Farkas failures are nonlinear QF_NIA/QF_NRA residuals,
 not controlled QF_LIA failures. The typed certificate decoder checks LP
-structure, while the native proof mapper currently gives typed replay to
-integer-lattice and Gomory steps; generic LP steps still need rule-specific
-checker replay. No producer defect is established by the current cohort data.
+structure. Native `lp-linear` coefficients are candidate Farkas weights and
+are replayed against the actual premise and conclusion formulas; integer
+lattice, Gomory, and integer-tighten steps also have typed checks. The
+`lp-monomial-*` steps still lack equivalent typed replay. No producer defect
+is established by the current cohort data.
 
 ## Burn-down on fixed evidence
 
@@ -100,6 +102,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
 | Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or AProVE capture yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
 | Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
@@ -109,7 +112,6 @@ overlapping candidate effects must not be added.
 | Nov 19 14:00 | QF_LIA producer-to-checker trace | Historical 1,196-node document had 18 unrecognized lattice steps and PARTIAL 22; later typed replay supersedes this coverage result | `ring-producer-evidence-20261119T1626ET` |
 | Nov 19 13:22 | Cached-root experiment; matched-proof correction | Candidate had 43 PENDING versus baseline 4 on the same 927-node proof; paired median check-time ratio 1.0061. Not promoted | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
 | Nov 19 12:28 | fstar-build Farkas provenance triage | Three observed PENDING are in `Algebra.CommMonoid` and `Math.Exp`; native payloads and proof hashes N/M | `fstar-build-incremental-20261119T193000Z` |
-| Nov 19 12:24 | Same-pin fstar-build refresh | 384 completed, 23 TIMEOUT, 176 NOT_RUN; 430 weighted PENDING across completed diagnostics. Not comparable to prior 253-input capture | `fstar-build-incremental-20261119T193000Z` |
 
 ## Validation and active cadence
 
