@@ -331,8 +331,15 @@ static std::string run_text(std::string const & text) {
     goal_ref g = alloc(goal, f.m, false, true, false);
     g->assert_expr(f.m.mk_eq(f.x, bv.mk_bv_add(f.y, f.z)));
     g->assert_expr(bv.mk_ult(bv.mk_bv_mul(f.x, f.y), f.z));
-    g->assert_expr(bv.mk_ult(bv.mk_bv_xor(f.x, bv.mk_bv_xor(f.y, f.z)), bv.mk_bv_add(f.x, f.y)));
-    g->assert_expr(bv.mk_ult(bv.mk_bv_mul(bv.mk_bv_add(f.x, f.y), bv.mk_bv_add(f.z, f.y)), bv.mk_bv_xor(f.z, f.x)));
+    // arguments that allocate are built in separate statements (determinism)
+    expr_ref yz(bv.mk_bv_xor(f.y, f.z), f.m);
+    expr_ref x_yz(bv.mk_bv_xor(f.x, yz), f.m);
+    expr_ref xy(bv.mk_bv_add(f.x, f.y), f.m);
+    g->assert_expr(bv.mk_ult(x_yz, xy));
+    expr_ref zy(bv.mk_bv_add(f.z, f.y), f.m);
+    expr_ref prod(bv.mk_bv_mul(xy, zy), f.m);
+    expr_ref zx(bv.mk_bv_xor(f.z, f.x), f.m);
+    g->assert_expr(bv.mk_ult(prod, zx));
     goal_ref_buffer result;
     (*t)(g, result);
     t->cleanup();
@@ -839,8 +846,15 @@ static unsigned num_xor(params_ref const & p, params_ref const * late = nullptr)
     bv_fixture f;
     auto & bv = f.bv;
     expr_ref_vector fmls(f.m);
-    fmls.push_back(bv.mk_ult(bv.mk_bv_xor(f.x, bv.mk_bv_xor(f.y, f.z)), bv.mk_bv_add(f.x, f.y)));
-    fmls.push_back(bv.mk_ult(bv.mk_bv_xor(f.z, bv.mk_bv_xor(f.x, f.y)), bv.mk_bv_mul(f.x, f.z)));
+    // arguments that allocate are built in separate statements (determinism)
+    expr_ref yz(bv.mk_bv_xor(f.y, f.z), f.m);
+    expr_ref x_yz(bv.mk_bv_xor(f.x, yz), f.m);
+    expr_ref xy(bv.mk_bv_add(f.x, f.y), f.m);
+    fmls.push_back(bv.mk_ult(x_yz, xy));
+    expr_ref xy2(bv.mk_bv_xor(f.x, f.y), f.m);
+    expr_ref z_xy(bv.mk_bv_xor(f.z, xy2), f.m);
+    expr_ref xz(bv.mk_bv_mul(f.x, f.z), f.m);
+    fmls.push_back(bv.mk_ult(z_xy, xz));
     expr_ref_vector r = run_preamble(f.m, fmls, p, late);
     unsigned n = 0;
     for (expr * e : subterms::all(r))
@@ -879,7 +893,12 @@ static bool has_product_of_sums(params_ref const & p, params_ref const * late = 
     auto & bv = f.bv;
     expr_ref one(bv.mk_numeral(1, 8), f.m);
     expr_ref_vector fmls(f.m);
-    fmls.push_back(bv.mk_ult(bv.mk_bv_mul(bv.mk_bv_add(f.x, one), bv.mk_bv_add(f.y, one)), bv.mk_bv_mul(f.x, f.y)));
+    // arguments that allocate are built in separate statements (determinism)
+    expr_ref x1(bv.mk_bv_add(f.x, one), f.m);
+    expr_ref y1(bv.mk_bv_add(f.y, one), f.m);
+    expr_ref prod(bv.mk_bv_mul(x1, y1), f.m);
+    expr_ref xy(bv.mk_bv_mul(f.x, f.y), f.m);
+    fmls.push_back(bv.mk_ult(prod, xy));
     fmls.push_back(bv.mk_ult(f.x, f.y));
     expr_ref_vector r = run_preamble(f.m, fmls, p, late);
     for (expr * e : subterms::all(r))
