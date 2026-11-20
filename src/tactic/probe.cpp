@@ -21,7 +21,9 @@ Revision History:
 --*/
 #include <cstring>
 #include <cmath>
+#include <cstdint>
 #include "tactic/probe.h"
+#include "tactic/tactic.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "tactic/goal_util.h"
@@ -91,6 +93,15 @@ public:
 
     bool has_syntax() const override { return m_p->has_syntax(); }
 
+    void updt_params(params_ref const & p) override { m_p->updt_params(p); }
+
+    // a probe of the same class with the argument a
+    virtual probe * mk_copy(probe * a) const = 0;
+
+    probe * translate() override {
+        probe * a = m_p->translate();
+        return a == m_p ? this : mk_copy(a);
+    }
 };
 
 class bin_probe : public probe {
@@ -121,20 +132,46 @@ public:
         m_p1->display_sexpr(out << "(" << name() << " ");
         return m_p2->display_sexpr(out << " ") << ")";
     }
+
+    std::ostream& display_with(std::ostream& out, params_ref const & p, std::string * notes, std::string & problems) const override {
+        m_p1->display_with(out << "(" << name() << " ", p, notes, problems);
+        return m_p2->display_with(out << " ", p, notes, problems) << ")";
+    }
+
+    void updt_params(params_ref const & p) override {
+        m_p1->updt_params(p);
+        m_p2->updt_params(p);
+    }
+
+    // a probe of the same class with the arguments a and b
+    virtual probe * mk_copy(probe * a, probe * b) const = 0;
+
+    probe * translate() override {
+        probe * a = m_p1->translate();
+        probe * b = m_p2->translate();
+        if (a == m_p1 && b == m_p2)
+            return this;
+        // a or b may be new: hold them while the copy takes its references
+        probe_ref ra(a), rb(b);
+        return mk_copy(a, b);
+    }
 };
 
 class not_probe : public unary_probe {
 public:
     not_probe(probe * p):unary_probe(p) {}
+    probe * mk_copy(probe * a) const override { return alloc(not_probe, a); }
     result operator()(goal const & g) override {
         return result(!m_p->operator()(g).is_true());
     }
     std::ostream& display_sexpr(std::ostream& out) const override;
+    std::ostream& display_with(std::ostream& out, params_ref const & p, std::string * notes, std::string & problems) const override;
 };
 
 class and_probe : public bin_probe {
 public:
     and_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(and_probe, a, b); }
     char const* name() const override { return "and"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() && m_p2->operator()(g).is_true());
@@ -144,6 +181,7 @@ public:
 class or_probe : public bin_probe {
 public:
     or_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(or_probe, a, b); }
     char const* name() const override { return "or"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() || m_p2->operator()(g).is_true());
@@ -153,6 +191,7 @@ public:
 class eq_probe : public bin_probe {
 public:
     eq_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(eq_probe, a, b); }
     char const* name() const override { return "="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() == m_p2->operator()(g).get_value());
@@ -162,6 +201,7 @@ public:
 class le_probe : public bin_probe {
 public:
     le_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(le_probe, a, b); }
     char const* name() const override { return "<="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() <= m_p2->operator()(g).get_value());
@@ -171,6 +211,7 @@ public:
 class add_probe : public bin_probe {
 public:
     add_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(add_probe, a, b); }
     char const* name() const override { return "+"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() + m_p2->operator()(g).get_value());
@@ -180,6 +221,7 @@ public:
 class sub_probe : public bin_probe {
 public:
     sub_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(sub_probe, a, b); }
     char const* name() const override { return "-"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() - m_p2->operator()(g).get_value());
@@ -189,6 +231,7 @@ public:
 class mul_probe : public bin_probe {
 public:
     mul_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(mul_probe, a, b); }
     char const* name() const override { return "*"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() * m_p2->operator()(g).get_value());
@@ -198,6 +241,7 @@ public:
 class div_probe : public bin_probe {
 public:
     div_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
+    probe * mk_copy(probe * a, probe * b) const override { return alloc(div_probe, a, b); }
     char const* name() const override { return "/"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() / m_p2->operator()(g).get_value());
@@ -220,6 +264,12 @@ public:
         return m_val == std::floor(m_val) && std::fabs(m_val) <= INT32_MAX;
     }
 
+    std::ostream& display_with(std::ostream& out, params_ref const & p, std::string * notes, std::string & problems) const override {
+        if (!has_syntax())
+            add_problem(problems, m_val == std::floor(m_val) ? "constant too big" : "constant not an integer");
+        return display_sexpr(out);
+    }
+
     result operator()(goal const & g) override {
         return result(m_val);
     }
@@ -234,6 +284,54 @@ std::ostream& not_probe::display_sexpr(std::ostream& out) const {
         return b->arg1()->display_sexpr(out << " ") << ")";
     }
     return m_p->display_sexpr(out << "(not ") << ")";
+}
+
+std::ostream& not_probe::display_with(std::ostream& out, params_ref const & p, std::string * notes, std::string & problems) const {
+    auto* b = dynamic_cast<bin_probe const*>(m_p);
+    if (b && dynamic_cast<le_probe const*>(m_p)) {
+        b->arg2()->display_with(out << "(< ", p, notes, problems);
+        return b->arg1()->display_with(out << " ", p, notes, problems) << ")";
+    }
+    return m_p->display_with(out << "(not ", p, notes, problems) << ")";
+}
+
+// See mk_param_probe. The value is set by updt_params; translate copies the probe.
+class param_probe : public probe {
+    symbol   m_key;
+    unsigned m_default;
+    unsigned m_value;
+public:
+    param_probe(symbol const & key, unsigned d, unsigned v) : m_key(key), m_default(d), m_value(v) {}
+
+    void updt_params(params_ref const & p) override { m_value = p.get_uint(m_key, m_default); }
+
+    probe * translate() override { return alloc(param_probe, m_key, m_default, m_value); }
+
+    result operator()(goal const & g) override { return result(m_value); }
+
+    // the constant it evaluates to: the tactic language has no parameter probes
+    std::ostream& display_sexpr(std::ostream& out) const override { return out << m_value; }
+
+    bool has_syntax() const override { return m_value <= INT32_MAX; }
+
+    std::ostream& display_with(std::ostream& out, params_ref const & p, std::string * notes, std::string & problems) const override {
+        unsigned v = p.get_uint(m_key, m_default);
+        // the parser reads a constant as a 32-bit integer
+        if (v > INT32_MAX)
+            add_problem(problems, "constant too big");
+        if (notes) {
+            *notes += (notes->empty() ? "" : ", ") + std::string(m_key.str()) + " " + std::to_string(v);
+            if (!p.contains(m_key))
+                *notes += " (default)";
+            else if (p.contains(scope_global_mark(m_key)))
+                *notes += " (global)";
+        }
+        return out << v;
+    }
+};
+
+probe * mk_param_probe(char const * key, unsigned _default) {
+    return alloc(param_probe, symbol(key), _default, _default);
 }
 
 probe * mk_const_probe(double v) {

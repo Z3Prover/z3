@@ -24,7 +24,9 @@ Revision History:
 #pragma once
 
 #include <cstring>
+#include <string>
 
+#include "util/params.h"
 #include "tactic/goal.h"
 
 class probe {
@@ -61,6 +63,34 @@ public:
     // Whether display gives a probe the tactic language parses: false if the probe,
     // or a probe it is built from, is not registered with Z3_ADD_PROBE.
     virtual bool has_syntax() const { return strcmp(name(), "unnamed-probe") != 0; }
+
+    // Parameters: a probe built with mk_param_probe takes the value of its key from p.
+    // Composite probes pass p to their arguments. Tacticals holding a probe pass it their
+    // parameters (cond, when, fail-if).
+    virtual void updt_params(params_ref const & p) {}
+
+    // The probe of a copy of a tactic (tactic::translate). A probe that holds parameters is
+    // copied, so that updt_params on one copy does not change the others; probes without
+    // parameters are shared.
+    virtual probe * translate() { return this; }
+
+    // Display as display_sexpr, with the parameters p that updt_params would pass: a
+    // parameter probe is displayed as the constant it takes from p, so the display parses
+    // and evaluates as the probe does. If notes is not null, parameter probes add
+    // "key value" to it, followed by "(default)" if p does not set the key, or "(global)"
+    // if a scope took it from a global setting. problems receives the reasons the display
+    // does not parse ("unregistered probe", "constant too big"), separated by ", ".
+    virtual std::ostream& display_with(std::ostream& out, params_ref const & p, std::string * notes,
+                                       std::string & problems) const {
+        if (!has_syntax())
+            add_problem(problems, "unregistered probe");
+        return display_sexpr(out);
+    }
+
+    static void add_problem(std::string & problems, char const * p) {
+        if (problems.find(p) == std::string::npos)
+            problems += (problems.empty() ? "" : ", ") + std::string(p);
+    }
 };
 
 typedef ref<probe> probe_ref;
@@ -90,6 +120,14 @@ struct probe_registration {
   inline probe_registration g_z3_probe_registration_##TAG(NAME, DESCR, []() -> probe* { return CODE; })
 
 probe * mk_const_probe(double val);
+
+/**
+   \brief A probe whose value is the unsigned parameter \c key of the parameters it
+   receives through updt_params, or \c _default if they do not set it. The key is read
+   locally only: a global setting reaches it through scope_tactic, which routes
+   tactic.<path>.<key> to the steps of the scope.
+*/
+probe * mk_param_probe(char const * key, unsigned _default);
 
 probe * mk_memory_probe();
 probe * mk_depth_probe();

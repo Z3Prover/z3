@@ -29,12 +29,17 @@ Notes:
 #include <cstring>
 #include <sstream>
 
-// Display a probe; a comment marks a probe that the tactic language has no name for.
-static std::string display_probe(probe const & p, std::string & comment) {
+// Display a probe with the parameters params it receives; a comment says why the display
+// does not parse, if it does not. With annotate, the comment also lists the
+// parameters the probe reads (a parameter probe is displayed as its value).
+static std::string display_probe(probe const & p, params_ref const & params, bool annotate, std::string & comment) {
     std::ostringstream out;
-    p.display_sexpr(out);
-    if (!p.has_syntax())
-        comment = "not parseable: unregistered probe";
+    std::string notes, problems;
+    p.display_with(out, params, annotate ? &notes : nullptr, problems);
+    if (!problems.empty())
+        comment = "not parseable: " + problems;
+    if (!notes.empty())
+        comment += (comment.empty() ? "" : "; ") + ("probe: " + notes);
     return out.str();
 }
 
@@ -1178,14 +1183,39 @@ public:
         merge(new_p);
         // the child first: the scopes in it declare the keys they route
         // A key is written as syntax if a displayed step declares it: the parser checks
-        // it against the tactic the output parses to. A key that only steps that are not
-        // displayed declare (disabled scopes, displayed as skip) is left out.
+        // it against the tactic the output parses to. If a key is declared only by
+        // disabled steps, it is still written, and t is displayed again with its disabled
+        // steps as (when 0 t'), which declare it (see below).
         ctx.open("(using-params");
         ctx.push_frame();
         m_t->display_pipeline(new_p, ctx);
         param_descrs shown, child;
         ctx.pop_frame(shown);
         m_t->collect_param_descrs(child);
+        // If a key is declared only by disabled steps, displayed as skip, display t again
+        // with them as (when 0 t'): writing the key needs a step that declares it, and
+        // leaving it out would change what the displayed steps receive (they may read
+        // keys they do not declare, as solve-eqs passes its parameters to its rewriter).
+        // ctx.keep_disabled applies to every disabled scope in t, also those whose keys
+        // are not needed: (when 0 t') is then shown where skip would do. That is correct,
+        // only longer.
+        if (!ctx.keep_disabled) {
+            bool needed = false;
+            for (unsigned i = 0; !needed && i < m_params.size(); ++i) {
+                symbol k = m_params.get_key(i);
+                needed = !declares(ctx.scope_keys, k) && !tactic_param_has_syntax(shown, k) && tactic_param_has_syntax(child, k);
+            }
+            if (needed) {
+                ctx.drop_last();
+                ctx.keep_disabled = true;
+                ctx.push_frame();
+                m_t->display_pipeline(new_p, ctx);
+                param_descrs shown2;
+                ctx.pop_frame(shown2);
+                ctx.keep_disabled = false;
+                shown.copy(shown2);
+            }
+        }
         std::string tail, comment, scoped, skipped;
         for (unsigned i = 0; i < m_params.size(); ++i) {
             symbol k = m_params.get_key(i);
@@ -1222,9 +1252,13 @@ public:
                 continue;
             }
             bool unused = ctx.pipeline && !declares(*ctx.pipeline, k) && !is_inherited(p, k, v.str());
-            if (unused && ctx.unused)
+            if (unused && ctx.unused && !ctx.unused->contains(k))
                 ctx.unused->push_back(k);
             std::string note;
+            // After the redisplay, disabled scopes declare their keys. This is reached only
+            // if t declares k in collect_param_descrs but no displayed step declares it
+            // (a tactic whose display does not declare what it collects): the key is left
+            // out, since the output would not parse with it.
             if (!tactic_param_has_syntax(shown, k) && tactic_param_has_syntax(child, k)) {
                 if (ctx.annotate)
                     skipped += (skipped.empty() ? "for skipped steps: " : ", ") + entry;
@@ -1462,7 +1496,8 @@ public:
     // The tactic language has no scopes, and the display must be a tactic that, run
     // without the scoped settings, does what this one does with them. So a scope is
     // displayed as what it does under the current settings:
-    // - disabled: skip;
+    // - disabled: skip, or (when 0 t) under ctx.keep_disabled (an enclosing using-params
+    //   needs the keys t declares);
     // - otherwise t, wrapped in (using-params t :k v ...) for the keys the scope routes
     //   to it (local or global scoped values) that t declares.
     // With ctx.annotate, a comment names the scope: "scope <path>", the routed values
@@ -1478,7 +1513,15 @@ public:
         ctx.scope_keys.copy(rows);
         std::string label = "scope " + m_path;
         if (!enabled) {
-            ctx.leaf("skip", ctx.annotate ? label + " disabled" + (src == source::global ? " (global)" : "") : std::string());
+            std::string c = ctx.annotate ? label + " disabled" + (src == source::global ? " (global)" : "") : std::string();
+            if (!ctx.keep_disabled) {
+                ctx.leaf("skip", c);
+                return;
+            }
+            // (when 0 t) never runs t, and t still declares its keys
+            ctx.open("(when 0", c);
+            m_t->display_pipeline(new_p, ctx);
+            ctx.close();
             return;
         }
         // (using-params t) without keys is displayed as t (tactic_display_ctx::close)
@@ -1533,7 +1576,7 @@ public:
     void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         bool is_when = strcmp(m_t2->name(), "skip") == 0;
         std::string comment;
-        std::string c = display_probe(*m_p, comment);
+        std::string c = display_probe(*m_p, p, ctx.annotate, comment);
         ctx.open((is_when ? "(when " : "(if ") + c, comment);
         m_t1->display_pipeline(p, ctx);
         if (!is_when)
@@ -1549,10 +1592,15 @@ public:
             m_t2->operator()(in, result);
     }
 
+    void updt_params(params_ref const & p) override {
+        m_p->updt_params(p);
+        binary_tactical::updt_params(p);
+    }
+
     tactic * translate(ast_manager & m) override {
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
-        return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
+        return alloc(cond_tactical, m_p->translate(), new_t1, new_t2);
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
@@ -1581,7 +1629,7 @@ public:
 
     void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         std::string comment;
-        std::string c = display_probe(*m_p, comment);
+        std::string c = display_probe(*m_p, p, ctx.annotate, comment);
         ctx.leaf("(fail-if " + c + ")", comment);
     }
 
@@ -1594,8 +1642,12 @@ public:
         result.push_back(in.get());
     }
 
+    void updt_params(params_ref const & p) override { m_p->updt_params(p); }
+
     tactic * translate(ast_manager & m) override {
-        return this;
+        probe * q = m_p->translate();
+        // a probe without parameters is shared, and so is this tactic
+        return q == m_p.get() ? this : alloc(fail_if_tactic, q);
     }
 
     void collect_statistics(statistics& st) const override {

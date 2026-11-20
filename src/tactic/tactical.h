@@ -90,9 +90,10 @@ tactic * annotate_tactic(char const* name, tactic * t);
    paths with the logic, e.g. "qfbv.preamble".
 
    The tactic language has no scopes. display-tactic shows a scope as what it does
-   under the current settings: skip if it is disabled, else t with the values it routes
-   as explicit using-params keys. Run without the scoped settings, the output does
-   what the pipeline does with them.
+   under the current settings: skip if it is disabled (or (when 0 t), if an enclosing
+   using-params has keys that only t declares), else t with the values it routes as
+   explicit using-params keys. Run without the scoped settings, the output does what
+   the pipeline does with them.
 */
 tactic * scope_tactic(char const * path, tactic * t);
 

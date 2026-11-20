@@ -661,6 +661,17 @@ void params_ref::set_entry(symbol const & k, params_ref const & src, symbol cons
     m_params->set_value(k, v);
 }
 
+void params_ref::copy_entry(params_ref const & src, symbol const & k) {
+    params::entry const * e = src.m_params ? src.m_params->find(k) : nullptr;
+    if (!e || src.m_params == m_params)
+        return;
+    params::value v = e->second;
+    init();
+    m_params->set_value(k, v);
+    if (v.m_default)
+        m_params->mark_default(k);
+}
+
 void params_ref::init() {
     if (!m_params) {
         m_params = alloc(params);

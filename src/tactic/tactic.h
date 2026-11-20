@@ -59,6 +59,9 @@ struct tactic_display_ctx {
     svector<symbol> *      unused = nullptr;
     // in: mark default values "(default)" and global values "(global)" (see display_tactic_params)
     bool                   annotate = false;
+    // in: display a disabled scope as (when 0 t) instead of skip, so that t still declares
+    // its keys (set by using_params_tactical while it displays its tactic again)
+    bool                   keep_disabled = false;
     // out: the keys that scope_tactic routes, declared by the scopes displayed so far.
     // Scopes are not displayed, so these keys are not written as syntax.
     param_descrs           scope_keys;
@@ -69,6 +72,8 @@ struct tactic_display_ctx {
     void close(std::string const & tail = std::string(), std::string const & tail_comment = std::string());
     // add c to the comment of the node added last
     void comment_last(std::string const & c);
+    // remove the node added last
+    void drop_last();
     // add the descriptors of a displayed tactic to descrs and to the open frames
     void declare(param_descrs & d);
     // Frames collect the descriptors of the tactics displayed between push_frame and

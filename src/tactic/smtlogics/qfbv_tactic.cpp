@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include <cstring>
 #include "tactic/tactical.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -32,8 +33,6 @@ Notes:
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic_params.hpp"
-
-#define MEMLIMIT 300
 
 // Tuned values are set with set_default_*: a value the user gives, locally or in
 // the global module of the key, replaces them. The other values are kept forced.
@@ -94,6 +93,18 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             ));
 }
 
+// The entries of p, in order and with their default flags, without the keys of the
+// qfbv scopes (qfbv.* and tactic.qfbv.*). The scopes route those keys from the parameters
+// each step receives through updt_params; a copy of them in a using_params inside a
+// scope would freeze the values given at construction (a switch could not be cleared).
+static void copy_without_scope_keys(params_ref const & p, params_ref & r) {
+    for (unsigned i = 0; i < p.size(); ++i) {
+        symbol k = p.get_key(i);
+        if (k.is_numerical() || (strncmp(k.bare_str(), "qfbv.", 5) != 0 && strncmp(k.bare_str(), "tactic.qfbv.", 12) != 0))
+            r.copy_entry(p, k);
+    }
+}
+
 static tactic * main_p(tactic* t) {
     params_ref p;
     p.set_bool("elim_and", true);
@@ -105,7 +116,8 @@ static tactic * main_p(tactic* t) {
 
 tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
 
-    params_ref local_ctx_p = p;
+    params_ref local_ctx_p;
+    copy_without_scope_keys(p, local_ctx_p);
     local_ctx_p.set_bool("local_ctx", true);
     local_ctx_p.set_bool("flat", false);
     local_ctx_p.set_bool("flat_and_or", false);
@@ -123,11 +135,16 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
                                                 using_params(smt, solver_p)),
                                        cond(mk_is_qfbv_probe(),
                                             and_then(mk_bit_blaster_tactic(m),
-                                                     when(mk_lt(mk_memory_probe(), mk_const_probe(MEMLIMIT)),
-                                                          and_then(using_params(and_then(mk_simplify_tactic(m),
-                                                                                         mk_solve_eqs_tactic(m)),
+                                                     // aig.max_memory: megabytes allocated by the process
+                                                     when(mk_lt(mk_memory_probe(),
+                                                                mk_param_probe("aig.max_memory", qfbv_tactic_defaults::aig_max_memory)),
+                                                          // the scopes only have enabled rows: inside the
+                                                          // using_params, which passes the same parameters
+                                                          // to both steps as before
+                                                          and_then(using_params(and_then(scope_tactic("qfbv.postblast.simp", mk_simplify_tactic(m)),
+                                                                                         scope_tactic("qfbv.postblast.solve_eqs", mk_solve_eqs_tactic(m))),
                                                                                 local_ctx_p),
-                                                                   if_no_proofs(mk_aig_tactic()))),
+                                                                   scope_tactic("qfbv.postblast.aig", if_no_proofs(mk_aig_tactic())))),
                                                      sat),
                                             smt)))));
 

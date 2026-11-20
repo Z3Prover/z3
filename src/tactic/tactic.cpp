@@ -257,6 +257,11 @@ void tactic_display_ctx::pop_frame(param_descrs & r) {
     m_frames.pop_back();
 }
 
+void tactic_display_ctx::drop_last() {
+    SASSERT(!m_stack.back().children.empty());
+    m_stack.back().children.pop_back();
+}
+
 void tactic_display_ctx::comment_last(std::string const & c) {
     SASSERT(!m_stack.back().children.empty());
     node & n = m_stack.back().children.back();

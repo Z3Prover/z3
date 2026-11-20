@@ -32,7 +32,13 @@ Abstract:
   BOOL_(preamble_simp2_push_ite_bv,  "qfbv.preamble.simp2.push_ite_bv",  false, "push_ite_bv in the second simplify pass of the QF_BV preamble") \
   BOOL_(preamble_hoist_enabled,      "qfbv.preamble.hoist.enabled",      true,  "run the hoist_mul simplify pass of the QF_BV preamble") \
   BOOL_(preamble_hoist_hoist_mul,    "qfbv.preamble.hoist.hoist_mul",    true,  "hoist_mul in the hoist simplify pass of the QF_BV preamble") \
-  BOOL_(preamble_hoist_som,          "qfbv.preamble.hoist.som",          false, "som in the hoist simplify pass of the QF_BV preamble")
+  BOOL_(preamble_hoist_som,          "qfbv.preamble.hoist.som",          false, "som in the hoist simplify pass of the QF_BV preamble") \
+  /* read by mk_param_probe("aig.max_memory"), routed by the scope qfbv */ \
+  UINT_(aig_max_memory,              "qfbv.aig.max_memory",              300,   "run the steps after bit-blasting (simplify, solve-eqs, aig) only while the process has allocated fewer than this many megabytes") \
+  BOOL_(postblast_simp_enabled,      "qfbv.postblast.simp.enabled",      true,  "run the simplify pass after bit-blasting") \
+  BOOL_(postblast_solve_eqs_enabled, "qfbv.postblast.solve_eqs.enabled", true,  "run solve-eqs after bit-blasting (smt.solve_eqs=false disables it in any case)") \
+  /* not a scope qfbv.aig: it would route qfbv.aig.max_memory to the aig tactic's max_memory */ \
+  BOOL_(postblast_aig_enabled,       "qfbv.postblast.aig.enabled",       true,  "run the aig pass after bit-blasting")
 
 // No description: tactic_params.hpp registers the description of the "tactic" module.
 Z3_DEFINE_MODULE_PARAMS(qfbv_tactic_params, "tactic", QFBV_TACTIC_PARAMS_LIST, nullptr);

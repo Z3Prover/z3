@@ -217,6 +217,10 @@ static void tst_defaults_unchanged() {
     bool ok = ls.size() == std::size(expected);
     for (unsigned i = 0; ok && i < ls.size(); ++i) {
         erase_all(ls[i], " (default)");
+        // the annotation of a scope around a single step is on its line
+        size_t sc = ls[i].find("; scope ");
+        if (sc != std::string::npos)
+            ls[i].erase(sc > 0 && ls[i][sc - 1] == ' ' ? sc - 1 : sc);
         ok = ls[i] == expected[i];
     }
     if (!ok) {
@@ -373,8 +377,12 @@ static std::string check_replay(std::string const & e, std::vector<std::array<ch
     ENSURE(replay == original);
     ensure_round_trip(text);
     std::string rerun = run_text(text);
-    if (rerun != run)
-        std::cerr << "run of " << e << ":\n" << run << "--- replayed:\n" << rerun;
+    if (rerun != run) {
+        std::cerr << "run of " << e;
+        for (auto const & kv : gs)
+            std::cerr << " " << kv[0] << "." << kv[1] << "=" << kv[2];
+        std::cerr << ":\n" << run << "--- replayed " << text << ":\n" << rerun;
+    }
     ENSURE(rerun == run);
     return text;
 }
@@ -406,8 +414,175 @@ static void tst_scope_replay() {
     ENSURE(text.find(":local_ctx_limit 10000000 :flat false") != std::string::npos);
 }
 
-// A key of a using-params that only a disabled step declares is left out of the
-// display: the tactic it parses to has skip instead of the step.
+// After bit-blasting, while the process has allocated fewer than qfbv.aig.max_memory
+// megabytes, simplify, solve-eqs and aig run; each has an enabled switch. The goal
+// x = y + z, x*y < z with the preamble's solve-eqs disabled, so that solve-eqs-elim-vars
+// counts the solve-eqs after bit-blasting. The back ends are skip: the result is the
+// goal after the post-blast steps.
+struct postblast_run {
+    unsigned    elim_vars;
+    std::string goal;
+    std::string stats;  // the statistics without time and memory
+};
+
+static postblast_run run_postblast(params_ref const & p, params_ref const * late = nullptr) {
+    bv_fixture f;
+    auto & bv = f.bv;
+    params_ref q;
+    q.copy(p);
+    q.set_bool("qfbv.preamble.solve_eqs.enabled", false);
+    q.set_bool("qfbv.preamble.simp2.enabled", false); // leave work for the simplify after bit-blasting
+    tactic_ref t = mk_qfbv_tactic(f.m, q, mk_skip_tactic(), mk_skip_tactic());
+    t->updt_params(q);
+    if (late) {
+        params_ref r;
+        r.copy(*late);
+        r.set_bool("qfbv.preamble.solve_eqs.enabled", false);
+        r.set_bool("qfbv.preamble.simp2.enabled", false);
+        t->updt_params(r);
+    }
+    goal_ref g = alloc(goal, f.m);
+    g->assert_expr(f.m.mk_eq(f.x, bv.mk_bv_add(f.y, f.z)));
+    g->assert_expr(bv.mk_ult(bv.mk_bv_mul(f.x, f.y), f.z));
+    // (or a (and a b)): simplify with local_ctx reduces it
+    expr_ref a(bv.mk_ult(f.y, f.z), f.m), b(bv.mk_ult(f.z, bv.mk_bv_add(f.y, f.y)), f.m);
+    g->assert_expr(f.m.mk_or(a, f.m.mk_and(a, b)));
+    goal_ref_buffer result;
+    (*t)(g, result);
+    t->cleanup();
+    statistics st;
+    t->collect_statistics(st);
+    postblast_run r;
+    r.elim_vars = 0;
+    std::ostringstream ss;
+    for (unsigned i = 0; i < st.size(); ++i) {
+        if (strcmp(st.get_key(i), "solve-eqs-elim-vars") == 0)
+            r.elim_vars += st.get_uint_value(i);
+        std::string k = st.get_key(i);
+        if (k.find("time") == std::string::npos && k.find("memory") == std::string::npos && st.is_uint(i))
+            ss << k << " " << st.get_uint_value(i) << "\n";
+    }
+    r.stats = ss.str();
+    std::ostringstream out;
+    for (goal * x : result)
+        x->display(out);
+    r.goal = out.str();
+    return r;
+}
+
+// The steps after bit-blasting get a copy of the factory parameters without the scope
+// keys; a default (flagged) entry stays a default there, so a later user value replaces
+// it.
+static void tst_postblast_factory_defaults() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p, late;
+    p.set_default_bool("som", true);
+    p.set_bool("hoist_mul", true);
+    p.set_bool("qfbv.postblast.simp.enabled", false);
+    late.set_bool("som", false);
+    late.set_bool("hoist_mul", false);
+    tactic_ref t = mk_qfbv_tactic(m, p);
+    std::string line;
+    for (auto const & l : display_leaves(*t, late))
+        if (l.find("simplify ;") != std::string::npos && l.find(":local_ctx true :flat false") != std::string::npos)
+            line = l;
+    if (line.find(":som false") == std::string::npos || line.find(":hoist_mul true") == std::string::npos)
+        std::cerr << line << "\n";
+    // the default yields to the later value, the user value given at construction stays
+    ENSURE(line.find(":som false") != std::string::npos);
+    ENSURE(line.find(":hoist_mul true") != std::string::npos);
+}
+
+static void tst_postblast() {
+    params_ref none, bound0, huge, simp_off, solve_off, aig_off, all_off;
+    bound0.set_uint("qfbv.aig.max_memory", 0);
+    huge.set_uint("qfbv.aig.max_memory", 1000000);
+    simp_off.set_bool("qfbv.postblast.simp.enabled", false);
+    solve_off.set_bool("qfbv.postblast.solve_eqs.enabled", false);
+    aig_off.set_bool("qfbv.postblast.aig.enabled", false);
+    all_off.copy(simp_off);
+    all_off.copy(solve_off);
+    all_off.copy(aig_off);
+    postblast_run d = run_postblast(none);
+    ENSURE(d.elim_vars > 0);
+    // the bound: below it the steps run, above it they are skipped
+    postblast_run r = run_postblast(bound0);
+    ENSURE(r.elim_vars == 0 && r.goal != d.goal);
+    ENSURE(run_postblast(huge).goal == d.goal);
+    // skipping the block is skipping its three steps
+    ENSURE(run_postblast(all_off).goal == r.goal);
+    // a switch given locally at construction, cleared by a later updt_params: the step
+    // runs again
+    ENSURE(run_postblast(solve_off, &none).elim_vars == d.elim_vars);
+    ENSURE(run_postblast(none, &solve_off).elim_vars == 0);
+    // set after construction, either way
+    ENSURE(run_postblast(none, &bound0).elim_vars == 0);
+    ENSURE(run_postblast(bound0, &none).goal == d.goal);
+    // set globally
+    {
+        scoped_gparam g("tactic", "qfbv.aig.max_memory", "0");
+        r = run_postblast(none);
+    }
+    ENSURE(r.elim_vars == 0);
+    // each switch skips its step, the others run
+    // solve-eqs and aig normalize the goal: simplify shows with them off
+    params_ref solve_aig_off;
+    solve_aig_off.copy(solve_off);
+    solve_aig_off.copy(aig_off);
+    postblast_run sa = run_postblast(solve_aig_off);
+    r = run_postblast(all_off);
+    ENSURE(r.goal != sa.goal);
+    r = run_postblast(simp_off);
+    ENSURE(r.elim_vars > 0);
+    r = run_postblast(solve_off);
+    ENSURE(r.elim_vars == 0 && r.goal != d.goal);
+    r = run_postblast(aig_off);
+    ENSURE(r.elim_vars > 0 && r.goal != d.goal);
+    {
+        scoped_gparam g("tactic", "qfbv.postblast.aig.enabled", "false");
+        ENSURE(run_postblast(none).goal == r.goal);
+    }
+    // typos are rejected
+    for (char const * k : { "tactic.qfbv.aig.max_memroy", "tactic.qfbv.postblast.aig.enabeld" }) {
+        bool thrown = false;
+        try {
+            gparams::set(k, "0");
+        }
+        catch (z3_exception &) {
+            thrown = true;
+        }
+        gparams::reset();
+        ENSURE(thrown);
+    }
+    // display: the bound as its value, a disabled step as skip; replay
+    std::string text = check_replay("qfbv", { { "tactic", "qfbv.aig.max_memory", "0" } }, {});
+    ENSURE(text.find("(< memory 0)") != std::string::npos);
+    std::string a;
+    {
+        scoped_gparam g("tactic", "qfbv.aig.max_memory", "0");
+        for (auto const & x : display_cmd_leaves("qfbv"))
+            a += x + "\n";
+    }
+    ENSURE(a.find("probe: aig.max_memory 0 (global)") != std::string::npos);
+    a.clear();
+    for (auto const & x : display_cmd_leaves("qfbv"))
+        a += x + "\n";
+    ENSURE(a.find("probe: aig.max_memory 300 (default)") != std::string::npos);
+    text = check_replay("(using-params qfbv :qfbv.aig.max_memory 5)", {}, {});
+    ENSURE(text.find("(< memory 5)") != std::string::npos);
+    // simplify is the only step after bit-blasting that declares the keys of their
+    // using-params: disabled, it is displayed as (when 0 simplify), so that solve-eqs
+    // still receives them
+    for (char const * k : { "qfbv.postblast.solve_eqs.enabled", "qfbv.postblast.aig.enabled", "qfbv.postblast.simp.enabled" }) {
+        text = check_replay("qfbv", { { "tactic", k, "false" } }, {});
+        ENSURE(text.find(strcmp(k, "qfbv.postblast.simp.enabled") == 0 ? "(when 0 simplify)" : "skip") != std::string::npos);
+    }
+}
+
+// A key of a using-params that only a disabled step declares: the step is displayed as
+// (when 0 t), so that the key can still be written, and the output parses and
+// round-trips. Leaving the key out could change what the other steps receive.
 static void tst_skipped_key() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -424,11 +599,26 @@ static void tst_skipped_key() {
         text = out.str();
         a = ann.str();
     }
-    if (text != "(then skip simplify)\n")
-        std::cerr << text;
-    ENSURE(text == "(then skip simplify)\n");
+    std::string const expected =
+        "(using-params\n"
+        "  (then\n"
+        "    (when 0 solve-eqs) ; active: :solve_eqs.max_occs 5\n"
+        "    simplify)\n"
+        "  :solve_eqs.max_occs 5)\n";
+    if (text != expected)
+        std::cerr << text << a;
+    ENSURE(text == expected);
     ensure_round_trip(text);
-    ENSURE(a.find("for skipped steps: :solve_eqs.max_occs 5") != std::string::npos);
+    ENSURE(a.find("scope qfbv.preamble.solve_eqs disabled (global)") != std::string::npos);
+    // a disabled step whose keys no using-params needs is skip
+    tactic_ref u = and_then(scope_tactic("qfbv.preamble.solve_eqs", mk_solve_eqs_tactic(m)), mk_simplify_tactic(m));
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.solve_eqs.enabled", "false");
+        std::ostringstream out;
+        display_tactic(out, *u, params_ref());
+        text = out.str();
+    }
+    ENSURE(text == "(then skip simplify)\n");
     // enabled, the key is written
     std::ostringstream out;
     display_tactic(out, *t, params_ref());
@@ -574,9 +764,31 @@ static void tst_rows_live() {
                 for (auto const & x : display_cmd_leaves("qfbv"))
                     text += x + "\n";
             }
-            if (text.find("skip ; scope " + path + " disabled") == std::string::npos)
+            // the line of the step is skip (followed by closing parentheses), or
+            // (when 0 if an enclosing using-params needs the keys the step declares
+            size_t at = text.find("; scope " + path + " disabled");
+            bool ok = at != std::string::npos;
+            if (ok) {
+                size_t bol = text.rfind('\n', at) + 1;
+                std::string line = text.substr(bol, at - bol);
+                ok = line.find("skip") != std::string::npos || line.find("(when 0") != std::string::npos;
+            }
+            if (!ok)
                 std::cerr << "row has no effect: " << row << "\n" << text;
-            ENSURE(text.find("skip ; scope " + path + " disabled") != std::string::npos);
+            ENSURE(ok);
+            continue;
+        }
+        if (row == "qfbv.aig.max_memory") {
+            // the bound of the memory probe, displayed as its value
+            std::string text = display_cmd_text("qfbv");
+            ENSURE(text.find("(< memory " + def + ")") != std::string::npos);
+            {
+                scoped_gparam g("tactic", row.c_str(), v.c_str());
+                text = display_cmd_text("qfbv");
+            }
+            if (text.find("(< memory " + v + ")") == std::string::npos)
+                std::cerr << "row has no effect: " << row << "\n" << text;
+            ENSURE(text.find("(< memory " + v + ")") != std::string::npos);
             continue;
         }
         std::string key;
@@ -834,4 +1046,6 @@ void tst_qfbv_default_params() {
     tst_default_solver_declares();
     tst_scope_replay();
     tst_skipped_key();
+    tst_postblast();
+    tst_postblast_factory_defaults();
 }

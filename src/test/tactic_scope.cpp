@@ -303,6 +303,63 @@ static void tst_both_spellings() {
     ENSURE_EQ(runs(mk({{"tactic.test_scope.inner.enabled", true}, {"test_scope.inner.enabled", false}})), "100");
 }
 
+// A parameter probe reads its key from updt_params, through cond and fail-if, and a
+// translated copy has its own value.
+static bool fails(tactic & t) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    goal_ref g = alloc(goal, m);
+    goal_ref_buffer result;
+    try {
+        t(g, result);
+    }
+    catch (tactic_exception &) {
+        return true;
+    }
+    return false;
+}
+
+static void tst_param_probe() {
+    params_ref none, low;
+    low.set_uint("bound", 1);
+    // fails while 5 < bound
+    tactic_ref t = when(mk_lt(mk_const_probe(5), mk_param_probe("bound", 10)), mk_fail_tactic());
+    tactic_ref f = fail_if(mk_lt(mk_const_probe(5), mk_param_probe("bound", 10)));
+    for (tactic * x : { t.get(), f.get() }) {
+        ENSURE(fails(*x));
+        x->updt_params(low);
+        ENSURE(!fails(*x));
+        x->updt_params(none);
+        ENSURE(fails(*x));
+        ast_manager m2;
+        reg_decl_plugins(m2);
+        tactic_ref x2 = x->translate(m2);
+        x2->updt_params(low);
+        ENSURE(!fails(*x2));
+        ENSURE(fails(*x));
+    }
+    // display: the value as a constant, the key in the annotation
+    std::ostringstream out, ann;
+    display_tactic(out, *t, low);
+    display_tactic(ann, *t, none, nullptr, true);
+    ENSURE(out.str() == "(when (< 5 1) fail)\n");
+    ENSURE(ann.str().find("(when (< 5 10) fail) ; probe: bound 10 (default)") != std::string::npos);
+    // parseability follows the displayed value: the parser reads 32-bit constants
+    params_ref big;
+    big.set_uint("bound", 3000000000u);
+    std::ostringstream o1, o2;
+    display_tactic(o1, *t, big);
+    ENSURE(o1.str().find("(< 5 3000000000)) ; not parseable: constant too big") != std::string::npos ||
+           o1.str().find("not parseable: constant too big") != std::string::npos);
+    t->updt_params(big);
+    display_tactic(o2, *t, none);
+    ENSURE(o2.str().find("not parseable") == std::string::npos);
+    tactic_ref c = when(mk_lt(mk_const_probe(1e12), mk_const_probe(1)), mk_fail_tactic());
+    std::ostringstream o3;
+    display_tactic(o3, *c, none);
+    ENSURE(o3.str().find("not parseable: constant too big") != std::string::npos);
+}
+
 void tst_tactic_scope() {
     tst_local();
     tst_global();
@@ -310,4 +367,5 @@ void tst_tactic_scope() {
     tst_validation();
     tst_forced_between_scopes();
     tst_both_spellings();
+    tst_param_probe();
 }
