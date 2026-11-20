@@ -366,7 +366,7 @@ def report(output):
         "phase_statistics_cases": sum("statistics" in row for row in results),
         "warnings": warnings,
         "diagnostic_counts": dict(Counter(row["outcome"] for row in diagnostics)),
-        "diagnostic_errors": sum("diagnostic_error" in row for row in diagnostics),
+        "diagnostic_errors": sum(bool(row.get("diagnostic_error")) for row in diagnostics),
         "diagnostic_mismatches": sum(row.get("matches_original") is False for row in diagnostics),
         "obligation_families": obligations,
         "unknown_reasons": dict(Counter(row.get("reason", row.get("verdict", "not recorded"))

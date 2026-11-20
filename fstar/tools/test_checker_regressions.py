@@ -216,6 +216,14 @@ class CheckerRegressionTests(unittest.TestCase):
             self.assertEqual(summary["counts"]["PARTIAL"], 1)
             self.assertEqual(summary["counts"]["ERROR"], 0)
             with (args.output / "diagnostics.jsonl").open("a") as stream:
+                stream.write(json.dumps({
+                    "path": "QF_UF/example.smt2", "outcome": "ACCEPT",
+                    "matches_original": True, "diagnostic_error": None,
+                    "diagnostics": {"obligations": []}}) + "\n")
+            runner.report(args.output)
+            summary = json.loads((args.output / "summary.json").read_text())
+            self.assertEqual(summary["diagnostic_errors"], 1)
+            with (args.output / "diagnostics.jsonl").open("a") as stream:
                 stream.write('{"path":')
             runner.report(args.output)
             summary = json.loads((args.output / "summary.json").read_text())

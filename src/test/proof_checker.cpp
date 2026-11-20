@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "sat/smt/euf_proof_checker.h"
 #include <iostream>
@@ -261,6 +262,43 @@ static void tst_demodulation() {
     }
 }
 
+static void tst_farkas_integer_rounding_requires_integer_sides() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+    expr_ref z(m.mk_const(symbol("z"), a.mk_int()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    expr_ref to_real_x(a.mk_to_real(x), m);
+    expr_ref to_real_z(a.mk_to_real(z), m);
+    expr_ref one(a.mk_numeral(rational(1), false), m);
+
+    proof_checker checker(m);
+    auto check_pair = [&](expr* first, expr* second) {
+        proof_ref p1(m.mk_hypothesis(first), m);
+        proof_ref p2(m.mk_hypothesis(second), m);
+        proof* parents[] = { p1.get(), p2.get() };
+        parameter params[] = { parameter(symbol("farkas")), parameter(rational(1)),
+                               parameter(rational(1)) };
+        proof_ref contradiction(
+            m.mk_th_lemma(a.get_family_id(), m.mk_false(), 2, parents, 3, params), m);
+        expr_ref_vector side_conditions(m);
+        bool result = checker.check(contradiction.get(), side_conditions);
+        return result;
+    };
+
+    // This satisfiable pair used to pass: only the left side of the first
+    // Real comparison is integer-valued, so rounding that strict bound is invalid.
+    expr_ref first(a.mk_lt(to_real_x, y), m);
+    expr_ref second(a.mk_lt(y, a.mk_add(to_real_x, one)), m);
+    VERIFY(!check_pair(first, second));
+
+    // When both Real sides are integer-valued, strict-bound rounding remains valid.
+    expr_ref integer_upper(a.mk_lt(to_real_x, to_real_z), m);
+    expr_ref integer_lower(a.mk_le(to_real_z, to_real_x), m);
+    VERIFY(check_pair(integer_upper, integer_lower));
+}
+
 void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
@@ -269,4 +307,5 @@ void tst_proof_checker() {
     tst_quant_intro();
     tst_push_quant();
     tst_demodulation();
+    tst_farkas_integer_rounding_requires_integer_sides();
 }
