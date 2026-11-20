@@ -96,11 +96,11 @@ public:
     void updt_params(params_ref const & p) override { m_p->updt_params(p); }
 
     // a probe of the same class with the argument a
-    virtual probe * mk_copy(probe * a) const = 0;
+    virtual probe * clone1(probe * a) const = 0;
 
-    probe * translate() override {
-        probe * a = m_p->translate();
-        return a == m_p ? this : mk_copy(a);
+    probe * clone() override {
+        probe * a = m_p->clone();
+        return a == m_p ? this : clone1(a);
     }
 };
 
@@ -144,23 +144,23 @@ public:
     }
 
     // a probe of the same class with the arguments a and b
-    virtual probe * mk_copy(probe * a, probe * b) const = 0;
+    virtual probe * clone2(probe * a, probe * b) const = 0;
 
-    probe * translate() override {
-        probe * a = m_p1->translate();
-        probe * b = m_p2->translate();
+    probe * clone() override {
+        probe * a = m_p1->clone();
+        probe * b = m_p2->clone();
         if (a == m_p1 && b == m_p2)
             return this;
         // a or b may be new: hold them while the copy takes its references
         probe_ref ra(a), rb(b);
-        return mk_copy(a, b);
+        return clone2(a, b);
     }
 };
 
 class not_probe : public unary_probe {
 public:
     not_probe(probe * p):unary_probe(p) {}
-    probe * mk_copy(probe * a) const override { return alloc(not_probe, a); }
+    probe * clone1(probe * a) const override { return alloc(not_probe, a); }
     result operator()(goal const & g) override {
         return result(!m_p->operator()(g).is_true());
     }
@@ -171,7 +171,7 @@ public:
 class and_probe : public bin_probe {
 public:
     and_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(and_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(and_probe, a, b); }
     char const* name() const override { return "and"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() && m_p2->operator()(g).is_true());
@@ -181,7 +181,7 @@ public:
 class or_probe : public bin_probe {
 public:
     or_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(or_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(or_probe, a, b); }
     char const* name() const override { return "or"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() || m_p2->operator()(g).is_true());
@@ -191,7 +191,7 @@ public:
 class eq_probe : public bin_probe {
 public:
     eq_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(eq_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(eq_probe, a, b); }
     char const* name() const override { return "="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() == m_p2->operator()(g).get_value());
@@ -201,7 +201,7 @@ public:
 class le_probe : public bin_probe {
 public:
     le_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(le_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(le_probe, a, b); }
     char const* name() const override { return "<="; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() <= m_p2->operator()(g).get_value());
@@ -211,7 +211,7 @@ public:
 class add_probe : public bin_probe {
 public:
     add_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(add_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(add_probe, a, b); }
     char const* name() const override { return "+"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() + m_p2->operator()(g).get_value());
@@ -221,7 +221,7 @@ public:
 class sub_probe : public bin_probe {
 public:
     sub_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(sub_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(sub_probe, a, b); }
     char const* name() const override { return "-"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() - m_p2->operator()(g).get_value());
@@ -231,7 +231,7 @@ public:
 class mul_probe : public bin_probe {
 public:
     mul_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(mul_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(mul_probe, a, b); }
     char const* name() const override { return "*"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() * m_p2->operator()(g).get_value());
@@ -241,7 +241,7 @@ public:
 class div_probe : public bin_probe {
 public:
     div_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    probe * mk_copy(probe * a, probe * b) const override { return alloc(div_probe, a, b); }
+    probe * clone2(probe * a, probe * b) const override { return alloc(div_probe, a, b); }
     char const* name() const override { return "/"; }
     result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() / m_p2->operator()(g).get_value());
@@ -295,7 +295,7 @@ std::ostream& not_probe::display_with(std::ostream& out, params_ref const & p, s
     return m_p->display_with(out << "(not ", p, notes, problems) << ")";
 }
 
-// See mk_param_probe. The value is set by updt_params; translate copies the probe.
+// See mk_param_probe. The value is set by updt_params; clone copies the probe.
 class param_probe : public probe {
     symbol   m_key;
     unsigned m_default;
@@ -305,7 +305,7 @@ public:
 
     void updt_params(params_ref const & p) override { m_value = p.get_uint(m_key, m_default); }
 
-    probe * translate() override { return alloc(param_probe, m_key, m_default, m_value); }
+    probe * clone() override { return alloc(param_probe, m_key, m_default, m_value); }
 
     result operator()(goal const & g) override { return result(m_value); }
 

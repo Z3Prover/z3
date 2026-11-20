@@ -72,7 +72,7 @@ public:
     // The probe of a copy of a tactic (tactic::translate). A probe that holds parameters is
     // copied, so that updt_params on one copy does not change the others; probes without
     // parameters are shared.
-    virtual probe * translate() { return this; }
+    virtual probe * clone() { return this; }
 
     // Display as display_sexpr, with the parameters p that updt_params would pass: a
     // parameter probe is displayed as the constant it takes from p, so the display parses

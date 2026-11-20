@@ -1600,7 +1600,7 @@ public:
     tactic * translate(ast_manager & m) override {
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
-        return alloc(cond_tactical, m_p->translate(), new_t1, new_t2);
+        return alloc(cond_tactical, m_p->clone(), new_t1, new_t2);
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
@@ -1645,7 +1645,7 @@ public:
     void updt_params(params_ref const & p) override { m_p->updt_params(p); }
 
     tactic * translate(ast_manager & m) override {
-        probe * q = m_p->translate();
+        probe * q = m_p->clone();
         // a probe without parameters is shared, and so is this tactic
         return q == m_p.get() ? this : alloc(fail_if_tactic, q);
     }
