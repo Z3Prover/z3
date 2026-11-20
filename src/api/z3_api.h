@@ -6544,6 +6544,33 @@ extern "C" {
     void Z3_API Z3_goal_dec_ref(Z3_context c, Z3_goal g);
 
     /**
+       \brief Return \c true if model generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_models_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_models_enabled(Z3_context c, Z3_goal g);
+
+    /**
+       \brief Return \c true if unsat core generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_unsat_cores_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_unsat_cores_enabled(Z3_context c, Z3_goal g);
+
+    /**
+       \brief Return \c true if proof generation is enabled for the goal.
+
+       \sa Z3_mk_goal
+
+       def_API('Z3_goal_proofs_enabled', BOOL, (_in(CONTEXT), _in(GOAL)))
+    */
+    bool Z3_API Z3_goal_proofs_enabled(Z3_context c, Z3_goal g);
+
+    /**
        \brief Return the "precision" of the given goal. Goals can be transformed using over and under approximations.
        A under approximation is applied when the objective is to find a model for a given goal.
        An over approximation is applied when the objective is to find a proof for a given goal.
@@ -6635,6 +6662,8 @@ extern "C" {
        \brief Convert a model of the formulas of a goal to a model of an original goal.
        The model may be null, in which case the returned model is valid if the goal was
        established satisfiable.
+
+       Model generation must have been enabled when creating the goal.
 
        When using this feature it is advisable to set the parameter \c model.compact to \c false.
        It is by default true, which erases variables created by the solver from models.

@@ -56,6 +56,30 @@ extern "C" {
         Z3_CATCH;
     }
 
+    bool Z3_API Z3_goal_models_enabled(Z3_context c, Z3_goal g) {
+        Z3_TRY;
+        LOG_Z3_goal_models_enabled(c, g);
+        RESET_ERROR_CODE();
+        return to_goal_ref(g)->models_enabled();
+        Z3_CATCH_RETURN(false);
+    }
+
+    bool Z3_API Z3_goal_unsat_cores_enabled(Z3_context c, Z3_goal g) {
+        Z3_TRY;
+        LOG_Z3_goal_unsat_cores_enabled(c, g);
+        RESET_ERROR_CODE();
+        return to_goal_ref(g)->unsat_core_enabled();
+        Z3_CATCH_RETURN(false);
+    }
+
+    bool Z3_API Z3_goal_proofs_enabled(Z3_context c, Z3_goal g) {
+        Z3_TRY;
+        LOG_Z3_goal_proofs_enabled(c, g);
+        RESET_ERROR_CODE();
+        return to_goal_ref(g)->proofs_enabled();
+        Z3_CATCH_RETURN(false);
+    }
+
     Z3_goal_prec Z3_API Z3_goal_precision(Z3_context c, Z3_goal g) {
         Z3_TRY;
         LOG_Z3_goal_precision(c, g);
@@ -153,6 +177,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_goal_convert_model(c, g, m);
         RESET_ERROR_CODE();
+        if (!to_goal_ref(g)->models_enabled()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "model generation is disabled for this goal");
+            RETURN_Z3(nullptr);
+        }
         model_ref new_m;
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         mk_c(c)->save_object(m_ref);

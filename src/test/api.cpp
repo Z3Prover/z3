@@ -29,6 +29,11 @@ static void test_goal_partial_model() {
     Z3_goal g = Z3_mk_goal(ctx, true, false, false);
     Z3_goal_inc_ref(ctx, g);
 
+    Z3_model initial = Z3_goal_convert_model(ctx, g, nullptr);
+    ENSURE(initial && Z3_get_error_code(ctx) == Z3_OK);
+    Z3_model_inc_ref(ctx, initial);
+    Z3_model_dec_ref(ctx, initial);
+
     Z3_model empty = Z3_goal_get_model(ctx, g);
     Z3_model_inc_ref(ctx, empty);
     Z3_ast value = nullptr;
@@ -216,6 +221,13 @@ static void test_goal_partial_model() {
     Z3_goal_inc_ref(ctx, disabled);
     ENSURE(!Z3_goal_get_model(ctx, disabled));
     ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    Z3_model input_model = Z3_mk_model(ctx);
+    Z3_model_inc_ref(ctx, input_model);
+    for (bool with_model : {false, true}) {
+        ENSURE(!Z3_goal_convert_model(ctx, disabled, with_model ? input_model : nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    }
+    Z3_model_dec_ref(ctx, input_model);
     Z3_goal_dec_ref(ctx, disabled);
     Z3_del_context(ctx);
 }
