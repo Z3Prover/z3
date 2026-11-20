@@ -108,8 +108,9 @@ static void tst_power_rewriter() {
     }
 }
 
-static lbool check(ast_manager& m, expr_ref_vector const& fmls) {
+static lbool check(ast_manager& m, expr_ref_vector const& fmls, char const* string_solver = "seq") {
     smt_params sp;
+    sp.m_string_solver = symbol(string_solver);
     smt::context ctx(m, sp);
     for (expr* f : fmls)
         ctx.assert_expr(f);
@@ -399,7 +400,7 @@ static void tst_power_trichotomy() {
     // Plain power unfolding cannot refute this for all n.
     fmls.push_back(a.mk_ge(mm, a.mk_int(2)));
     fmls.push_back(m.mk_eq(cat(pw(x, mm), cat(str("b"), r)), pw(str("ab"), n)));
-    ENSURE(check(m, fmls) == l_false);
+    ENSURE(check(m, fmls, "nseq") == l_false);
 
     // x^m . r = y^n with xy != yx, m,n >= 2 is sat through form f3
     // (x = "aba", y = "abaab").
@@ -409,7 +410,7 @@ static void tst_power_trichotomy() {
     fmls.push_back(a.mk_ge(seq.str.mk_length(x), a.mk_int(1)));
     fmls.push_back(m.mk_not(m.mk_eq(cat(x, y), cat(y, x))));
     fmls.push_back(m.mk_eq(cat(pw(x, mm), r), pw(y, n)));
-    ENSURE(check(m, fmls) == l_true);
+    ENSURE(check(m, fmls, "nseq") == l_true);
 
     // ... and with m >= 3 and |y| < 2|x| it is unsat: f3 needs (m-1)|x| < |y|.
     fmls.reset();
@@ -419,7 +420,7 @@ static void tst_power_trichotomy() {
     fmls.push_back(a.mk_lt(seq.str.mk_length(y), a.mk_mul(a.mk_int(2), seq.str.mk_length(x))));
     fmls.push_back(m.mk_not(m.mk_eq(cat(x, y), cat(y, x))));
     fmls.push_back(m.mk_eq(cat(pw(x, mm), r), pw(y, n)));
-    ENSURE(check(m, fmls) == l_false);
+    ENSURE(check(m, fmls, "nseq") == l_false);
 
     // power_var_decompose must not cut a variable base only at token
     // boundaries: w = "abaab", i = j = 1, y = "aba" is a solution.
@@ -429,14 +430,14 @@ static void tst_power_trichotomy() {
     fmls.push_back(a.mk_ge(i, a.mk_int(1)));
     fmls.push_back(a.mk_ge(j, a.mk_int(1)));
     fmls.push_back(a.mk_ge(seq.str.mk_length(w), a.mk_int(1)));
-    ENSURE(check(m, fmls) == l_true);
+    ENSURE(check(m, fmls, "nseq") == l_true);
 
     // Nested bases: (a (ba)^i)^m = (aba)^n with m >= 2 is sat (i = 1, m = n).
     fmls.reset();
     fmls.push_back(a.mk_ge(mm, a.mk_int(2)));
     fmls.push_back(a.mk_ge(n, a.mk_int(1)));
     fmls.push_back(m.mk_eq(pw(cat(str("a"), pw(str("ba"), i)), mm), pw(str("aba"), n)));
-    ENSURE(check(m, fmls) == l_true);
+    ENSURE(check(m, fmls, "nseq") == l_true);
 
     // (a b^i c)^m = (a b^j d)^n with m, n >= 1 is unsat: c occurs only on the left.
     fmls.reset();
@@ -444,7 +445,7 @@ static void tst_power_trichotomy() {
     fmls.push_back(a.mk_ge(n, a.mk_int(1)));
     fmls.push_back(m.mk_eq(pw(cat(str("a"), cat(pw(str("b"), i), str("c"))), mm),
                            pw(cat(str("a"), cat(pw(str("b"), j), str("d"))), n)));
-    ENSURE(check(m, fmls) == l_false);
+    ENSURE(check(m, fmls, "nseq") == l_false);
 }
 
 void tst_seq_power() {
