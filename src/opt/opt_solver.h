@@ -177,8 +177,9 @@ namespace opt {
         smt::theory_var add_objective(app* term);
         void reset_objectives();
         maximize_result maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds = false, bool probe_bound = true);
-        bool maximize_objectives1(expr_ref_vector& blockers);
-        bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
+        bool maximize_objectives1(expr_ref_vector& blockers, unsigned num_assumptions = 0, expr* const* assumptions = nullptr);
+        bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker,
+                                         unsigned num_assumptions = 0, expr* const* assumptions = nullptr);
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
