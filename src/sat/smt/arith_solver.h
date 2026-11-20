@@ -408,7 +408,7 @@ namespace arith {
         bound_prop_mode propagation_mode() const;
 
         bool is_registered_var(theory_var v) const;
-        void ensure_column(theory_var v);
+        lp::lpvar ensure_column(theory_var v);
         lp::impq get_ivalue(theory_var v) const;
         rational get_value(theory_var v) const;
 
