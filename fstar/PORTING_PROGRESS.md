@@ -1,9 +1,9 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T14:55:59-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T14:59:54-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The AProVE candidate below was captured at source `817035eb8`, based on master
-through `bf981cb1b`; the PR branch now includes master through `8d5366f8c`.
+through `bf981cb1b`; the PR branch now includes master through `a4b03329f`.
 Fresh cohort results remain N/M.
 
 **Old historical** means archived measurements from earlier Legacy-checker
@@ -137,6 +137,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 14:59 | Merge master unbounded-objective fix | At merged HEAD `23a61f9c0`, the focused build and `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `a4b03329f`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
 | Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
@@ -146,11 +147,10 @@ overlapping candidate effects must not be added.
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
 | Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
 | Nov 19 20:41 | Same-run QF_LIA producer/checker trace | Pinned 1,196-node proof: 33 `farkas` hints and one six-premise `bound` hint. Same-capture diagnostic PARTIAL 46; differs from typed replay proof, so no burn-down credit | `ring-producer-trace-06.json`, `ring-producer-trace-06.stderr` |
-| Nov 19 20:15–20:27 | QF_LIA lattice replay and provenance audit | Same-proof lattice evidence reduces PENDING 22 → 4; five paired runs median 1.253197s → 0.038934s (32.2×). Producer trace is not byte-identical to typed document | `current-qflia-lattice-replay-03.json`, `current-qflia-lattice-rule-count-03.json`, `ring-native-hints-2671-01.json` |
 
 ## Validation and active cadence
 
-At merged HEAD `c502703ad`, `cmake --build build --target test-z3 --parallel
+At merged HEAD `23a61f9c0`, `cmake --build build --target test-z3 --parallel
 32` and the `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and
 `smt_context` test modules pass (5/5). At candidate HEAD `817035eb8`, the
 Linux `shell` and `libz3_ocaml` were built and installed; the one-case checker
