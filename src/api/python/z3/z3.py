@@ -8226,19 +8226,20 @@ class Solver(Z3PPObject):
         """Returns an iterator over solutions that satisfy the constraints.
 
         The parameter `t` is an expression whose values should be returned.
+        The enumeration order is unspecified.
 
         >>> s = Solver()
         >>> x, y, z = Ints("x y z")
         >>> s.add(x * x == 4)
-        >>> print(list(s.solutions(x)))
+        >>> print(sorted(v.as_long() for v in s.solutions(x)))
         [-2, 2]
         >>> s.reset()
         >>> s.add(x >= 0, x < 10)
-        >>> print(list(s.solutions(x)))
+        >>> print(sorted(v.as_long() for v in s.solutions(x)))
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         >>> s.reset()
         >>> s.add(x >= 0, y < 10, y == 2*x)
-        >>> print(list(s.solutions([x, y])))
+        >>> print(sorted([v.as_long() for v in row] for row in s.solutions([x, y])))
         [[0, 0], [1, 2], [2, 4], [3, 6], [4, 8]]
         """
         s = Solver()

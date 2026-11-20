@@ -12,6 +12,11 @@ Z3 and captures whatever its trace writer emits, including pretty-printer nodes.
 Platform-specific pointer formatting is reported as a difference too. Line endings
 are normalized only for comparison; raw artifacts retain their original bytes.
 
+When investigating AST differences, explicitly sequence AST-producing call arguments
+as described by the [determinism linter](../clang-tidy/README.md#ast-argument-order).
+Container traversals that emit formulas must also use a deterministic order, such
+as AST ID order, rather than pointer hashes or unordered-map iteration.
+
 ## Local use
 
 Requires Python 3.11+, CMake, Ninja and the compilers for the selected profiles.
