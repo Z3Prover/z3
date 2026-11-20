@@ -1856,6 +1856,41 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
+// Refreshing later Lex objectives must preserve an earlier infinitesimal optimum.
+static void tst_lex_epsilon_bounds() {
+    for (bool maximize : {false, true})
+    for (bool bounded : {false, true})
+    for (bool with_soft : {false, true})
+    for (unsigned arith_solver : {2u, 6u}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("smt.auto_config"), false);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        if (with_soft) {
+            Z3_ast b = Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+            Z3_optimize_assert_soft(f.ctx, f.opt, b, "1", nullptr);
+        }
+        Z3_ast a = f.real("a");
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast q = Z3_mk_const(f.ctx, f.symbol("q"), ints);
+        f.add(Z3_mk_gt(f.ctx, a, f.num(0)));
+        if (bounded)
+            f.add(Z3_mk_ge(f.ctx, q, Z3_mk_int(f.ctx, 0, ints)));
+        unsigned first = f.objective(maximize ? Z3_mk_unary_minus(f.ctx, a) : a, maximize);
+        Z3_ast next = f.sum(Z3_mk_int(f.ctx, 1, ints), q);
+        unsigned second = f.objective(Z3_mk_int2real(f.ctx, next), false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, first, 0, 0, maximize ? -1 : 1);
+        if (bounded)
+            ensure_finite_bounds(f, second, f.num(1), Z3_INT_SORT);
+        else
+            ensure_symbolic_bounds(f, second, -1, 0, 0);
+    }
+}
+
 // After an unbounded lexicographic objective, a later objective takes the
 // limit of its optima as the unbounded objective grows. With y <= 10 and
 // x >= y the limit of y is 10 and the next objective z <= y - 3 gives 7.
@@ -2570,6 +2605,7 @@ void tst_opt_bounds() {
     tst_nested_objective();
     tst_rational_bounds();
     tst_infinity_and_epsilon();
+    tst_lex_epsilon_bounds();
     tst_symba_bounds();
     tst_bitvector_bounds();
 }
