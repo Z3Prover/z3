@@ -1,9 +1,10 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T14:12:58-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T14:45:43-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
-The current source branch includes master through `bf981cb1b`; the candidate
-checker hash and fresh cohort results are N/M.
+The AProVE candidate below was captured at source `817035eb8`, based on master
+through `bf981cb1b`; the PR branch now includes master through `8d5366f8c`.
+Fresh cohort results remain N/M.
 
 **Old historical** means archived measurements from earlier Legacy-checker
 captures, not a current checker binary. **Core** is the sort-indexed checker
@@ -84,6 +85,23 @@ lattice, Gomory, and integer-tighten steps also have typed checks. The
 `lp-monomial-*` steps still lack equivalent typed replay. No producer defect
 is established by the current cohort data.
 
+A post-follow-up producer/checker run on the AProVE input is now pinned. The
+input SHA-256 is `8e9c33d59fec315a4853913768f76e15f98aea47938c6bb69ac484ece919219a`;
+the checker SHA-256 is `53f2b433d0a37ba5470ab3ebda9ce27d6316c188ceb6c4f73ae5002982df73aa`,
+with `libz3.a` SHA-256
+`65e3753c4688ed3f1fa2bd7f3b3855c2e7dde9b3f038c9057d3695dc8f738d91` and
+`libz3ml.a` SHA-256
+`f6d38ea8870fc0e2b69451e243735a5f4e13198dd8b2aa358eafd0c14ac775ba`.
+The separate native proof print is 276,000 bytes (`SHA-256
+86ff0c6c029f716e8ba41ff45ea74eb711478036e4f85fb2b07a2afd000ca7e3`) and
+contains 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, and 14
+`lp-monomial-substitute` nodes. A checker relinked against the current native
+libraries reports PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, and 5
+`th-lemma` PENDING; there is no arithmetic/Farkas PENDING in this run. This is
+a fresh single-input diagnostic, not a matched-proof comparison to the earlier
+document; the checker does not export its internal proof hash, so no burn-down
+or performance claim follows.
+
 ## Burn-down on fixed evidence
 
 | Dataset / fixed proof set | Comparison | Rule | Before | Checked | Remaining |
@@ -102,29 +120,33 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
+| Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
 | Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
-| Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or AProVE capture yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
+| Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or matched-proof comparison yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
 | Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
 | Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
 | Nov 19 20:41 | Same-run QF_LIA producer/checker trace | Pinned 1,196-node proof: 33 `farkas` hints and one six-premise `bound` hint. Same-capture diagnostic PARTIAL 46; differs from typed replay proof, so no burn-down credit | `ring-producer-trace-06.json`, `ring-producer-trace-06.stderr` |
 | Nov 19 20:15–20:27 | QF_LIA lattice replay and provenance audit | Same-proof lattice evidence reduces PENDING 22 → 4; five paired runs median 1.253197s → 0.038934s (32.2×). Producer trace is not byte-identical to typed document | `current-qflia-lattice-replay-03.json`, `current-qflia-lattice-rule-count-03.json`, `ring-native-hints-2671-01.json` |
 | Nov 19 14:00 | QF_LIA producer-to-checker trace | Historical 1,196-node document had 18 unrecognized lattice steps and PARTIAL 22; later typed replay supersedes this coverage result | `ring-producer-evidence-20261119T1626ET` |
-| Nov 19 13:22 | Cached-root experiment; matched-proof correction | Candidate had 43 PENDING versus baseline 4 on the same 927-node proof; paired median check-time ratio 1.0061. Not promoted | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
-| Nov 19 12:28 | fstar-build Farkas provenance triage | Three observed PENDING are in `Algebra.CommMonoid` and `Math.Exp`; native payloads and proof hashes N/M | `fstar-build-incremental-20261119T193000Z` |
 
 ## Validation and active cadence
 
-After merging master commit `bf981cb1b`, `cmake --build build --target
-test-z3 --parallel 32`, `test-z3 smt_context`, `test-z3 proof_checker`, and
-`test-z3 lp_evidence` pass. The updated Linux `libz3_ocaml` target and install
-pass; the all-target build hits a stale `examples/ml/z3.cmi` compiled with an
-older OCaml version. The native bridge's `authentic-bound-parameters` test
-passes; the full bridge suite still fails in unchanged synthetic Real-product
-coverage (`th-lemma`: expected PENDING 1, actual 0; baseline has not been
-rerun). Two full `build_ocaml_checker.ps1 -RunTests` attempts timed out at
-`Z3SortedBv.fst:456`; the native bridge stage was not reached. A checker-only
-strict build had passed before this full-scope attempt.
+At merged HEAD `c502703ad`, `cmake --build build --target test-z3 --parallel
+32` and the `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and
+`smt_context` test modules pass (5/5). At candidate HEAD `817035eb8`, the
+Linux `shell` and `libz3_ocaml` were built and installed; the one-case checker
+was relinked against pinned `libz3.a` and `libz3ml.a` and returned PARTIAL 22
+on the AProVE input.
+F* checker sources are unchanged since the prior checker-only strict pass, but
+a strict refresh timed out in `Z3SortedRealOrder.real_negated_operand` at the
+default Z3 resource limit. An initial cached-module relink failed because
+`main.cmx` and `Z3NativeMain.cmx` had inconsistent assumptions; rebuilding
+`main.ml` resolved the relink. The full bridge suite's unchanged synthetic
+Real-product mismatch remains unrerun. Two full
+`build_ocaml_checker.ps1 -RunTests` attempts previously timed out at
+`Z3SortedBv.fst:456`; no cohort candidate run is complete.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The new candidate has not been run across the cohorts; keep its weighted
