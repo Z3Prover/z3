@@ -58,7 +58,8 @@ namespace sat {
         m_conflict(justification(0)),
         m_num_frozen(0),
         m_activity_inc(128),
-        m_case_split_queue(m_activity),
+        m_double_activity_inc(128),
+        m_case_split_queue(m_activity, m_double_activity),
         m_qhead(0),
         m_scope_lvl(0),
         m_search_lvl(0),
@@ -127,6 +128,7 @@ namespace sat {
         m_external.reset();
         m_var_scope.reset();
         m_activity.reset();
+        m_double_activity.reset();
         m_mark.reset();
         m_lit_mark.reset();
         m_best_phase.reset();
@@ -146,6 +148,11 @@ namespace sat {
         m_trail.reset();
         m_scopes.reset();
         mk_var(false, false);
+
+        // scales the double activities of src into the unsigned range
+        double src_scale = 1;
+        if (!double_activity() && src.double_activity())
+            src_scale = src.unsigned_activity_scale();
 
         if (src.inconsistent()) {
             set_conflict();
@@ -167,7 +174,12 @@ namespace sat {
             m_best_phase_birthdate[v] = src.m_best_phase_birthdate[v];
 
             // inherit activity:
-            m_activity[v] = src.m_activity[v];
+            if (double_activity())
+                m_double_activity[v] = src.get_activity(v);
+            else if (src.double_activity())
+                m_activity[v] = static_cast<unsigned>(std::floor(src.get_activity(v) * src_scale));
+            else
+                m_activity[v] = src.m_activity[v];
             m_case_split_queue.activity_changed_eh(v, false);
         }
 
@@ -265,6 +277,7 @@ namespace sat {
         m_var_scope[v] = scope_lvl();
         m_touched[v] = 0;
         m_activity[v] = 0;
+        m_double_activity[v] = 0;
         m_mark[v] = false;
         m_lit_mark[2*v] = false;
         m_lit_mark[2*v+1] = false;
@@ -308,6 +321,7 @@ namespace sat {
         m_var_scope.push_back(scope_lvl());
         m_touched.push_back(0);
         m_activity.push_back(0); 
+        m_double_activity.push_back(0);
         m_mark.push_back(false);
         m_lit_mark.push_back(false);
         m_lit_mark.push_back(false);
@@ -678,7 +692,7 @@ namespace sat {
         solver& s;
         cmp_activity(solver& s):s(s) {}
         bool operator()(bool_var v1, bool_var v2) const {
-            return s.m_activity[v1] > s.m_activity[v2];
+            return s.get_activity(v1) > s.get_activity(v2);
         }
     };
 
@@ -941,7 +955,7 @@ namespace sat {
             uint64_t age = m_stats.m_conflicts - m_canceled[v];
             if (age > 0) {
                 double decay = pow(0.95, static_cast<double>(age));
-                set_activity(v, static_cast<unsigned>(m_activity[v] * decay));
+                set_activity_value(v, get_activity(v) * decay);
                 // NB. MapleSAT does not update canceled.
                 m_canceled[v] = m_stats.m_conflicts;
             }
@@ -1701,7 +1715,7 @@ namespace sat {
                 next = m_case_split_queue.min_var();
                 auto age = m_stats.m_conflicts - m_canceled[next];
                 while (age > 0) {
-                    set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, static_cast<double>(age))));
+                    set_activity_value(next, get_activity(next) * pow(0.95, static_cast<double>(age)));
                     m_canceled[next] = m_stats.m_conflicts;
                     next = m_case_split_queue.min_var();
                     age = m_stats.m_conflicts - m_canceled[next];                    
@@ -2004,6 +2018,13 @@ namespace sat {
         if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
             m_case_split_queue.activity_changed_eh(v, new_act > old_act);
         }
+    }
+
+    void solver::set_activity_value(bool_var v, double act) {
+        if (double_activity())
+            set_double_activity(v, act);
+        else
+            set_activity(v, static_cast<unsigned>(act));
     }
 
     bool solver::is_assumption(bool_var v) const {
@@ -2433,8 +2454,7 @@ namespace sat {
     }
 
     void solver::update_activity(bool_var v, double p) {
-        unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
-        set_activity(v, new_act);
+        set_activity_value(v, num_vars() * m_config.m_activity_scale *  p);
     }
 
     void solver::set_next_restart() {
@@ -3079,6 +3099,7 @@ namespace sat {
     void solver::do_reorder() {
         IF_VERBOSE(1, verbose_stream() << "(reorder)\n");
         m_activity_inc = 128;
+        m_double_activity_inc = 128;
         svector<bool_var> vars;
         for (bool_var v = num_vars(); v-- > 0; ) {
             if (!was_eliminated(v) && value(v) == l_undef) {            
@@ -3646,6 +3667,7 @@ namespace sat {
         m_var_scope.shrink(v);
         m_touched.shrink(v);
         m_activity.shrink(v);
+        m_double_activity.shrink(v);
         m_mark.shrink(v);
         m_lit_mark.shrink(2*v);
         m_phase.shrink(v);
@@ -3802,6 +3824,7 @@ namespace sat {
     void solver::updt_params(params_ref const & p) {
         m_params.append(p);
         m_config.updt_params(p);
+        updt_activity_representation();
         m_simplifier.updt_params(p);
         m_asymm_branch.updt_params(p);
         m_probing.updt_params(p);
@@ -3868,8 +3891,8 @@ namespace sat {
             auto d = m_stats.m_conflicts - m_last_conflict[v] + 1;
             if (d == 0) d = 1;
             auto reward = multiplier / d;            
-            auto activity = m_activity[v];
-            set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity)));
+            auto activity = get_activity(v);
+            set_activity_value(v, m_step_size * reward + ((1.0 - m_step_size) * activity));
         }
     }
 
@@ -3879,6 +3902,12 @@ namespace sat {
         if (m_case_split_queue.empty())
             return;
         bool_var next = m_case_split_queue.min_var();
+        if (double_activity()) {
+            double next_act = m_double_activity[next];
+            // next_act + 1 rounds to next_act for large activities
+            set_double_activity(b, std::max(next_act + 1, std::nextafter(next_act, HUGE_VAL)));
+            return;
+        }
         auto next_act = m_activity[next];
         set_activity(b, next_act + 1);
     }

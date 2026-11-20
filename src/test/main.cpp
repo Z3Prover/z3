@@ -140,6 +140,7 @@
     X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
+    X(sat_activity) \
     X(sat_config) \
     X(sat_unsat_core) \
     X(theory_dl) \

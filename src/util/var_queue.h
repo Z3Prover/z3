@@ -55,6 +55,10 @@ public:
         unassign_var_eh(v);
     }
     
+    void reserve(var n) {
+        m_queue.reserve(n);
+    }
+
     void del_var_eh(var v) {
         if (m_queue.contains(v))
             m_queue.erase(v);
