@@ -20,6 +20,7 @@ Notes:
 --*/
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 #include "util/params.h"
@@ -50,7 +51,7 @@ struct tactic_display_ctx {
         std::vector<node> children;
         bool              is_leaf = true;
     };
-    // out: descriptors of the tactics displayed with this context
+    // out: descriptors of the tactics displayed with this context (add them with declare)
     param_descrs           descrs;
     // in: descriptors of every tactic of the pipeline, collected by a previous walk
     param_descrs const *   pipeline = nullptr;
@@ -58,15 +59,33 @@ struct tactic_display_ctx {
     svector<symbol> *      unused = nullptr;
     // in: mark default values "(default)" and global values "(global)" (see display_tactic_params)
     bool                   annotate = false;
+    // in: display a disabled scope as (when 0 t) instead of skip, so that t still declares
+    // its keys (set by using_params_tactical while it displays its tactic again)
+    bool                   keep_disabled = false;
+    // out: the keys that scope_tactic routes, declared by the scopes displayed so far.
+    // Scopes are not displayed, so these keys are not written as syntax.
+    param_descrs           scope_keys;
 
     tactic_display_ctx() { m_stack.push_back(node()); }
     void leaf(std::string const & text, std::string const & comment = std::string());
     void open(std::string const & head, std::string const & comment = std::string());
     void close(std::string const & tail = std::string(), std::string const & tail_comment = std::string());
+    // add c to the comment of the node added last
+    void comment_last(std::string const & c);
+    // remove the node added last
+    void drop_last();
+    // add the descriptors of a displayed tactic to descrs and to the open frames
+    void declare(param_descrs & d);
+    // Frames collect the descriptors of the tactics displayed between push_frame and
+    // pop_frame, which moves them to r. A combinator uses them to know what the tactic
+    // it displays declares: a step that is not displayed (a disabled scope) declares nothing.
+    void push_frame();
+    void pop_frame(param_descrs & r);
     // the nodes displayed at the top level
     std::vector<node> const & roots() const { return m_stack[0].children; }
 private:
     std::vector<node> m_stack;
+    std::vector<std::unique_ptr<param_descrs>> m_frames;
 };
 
 typedef ptr_buffer<goal> goal_buffer;
@@ -228,9 +247,17 @@ public:
    in \c descrs if it is not null. For a default (flagged) entry whose key is set in the
    global parameters of its module (taken from \c descrs), the global value is displayed
    instead: it is the value the module's parameter helpers return. If \c annotate is
-   set, a default value is marked "(default)" and a global one "(global)".
+   set, a default value is marked "(default)" and a global one "(global)", also when
+   scope_tactic took it from a global scoped key.
 */
 void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs = nullptr, bool annotate = false);
+
+/**
+   \brief Key of the entry that scope_tactic sets, next to the entry for \c k, when it
+   takes the value of \c k from a global scoped key (tactic.<path>.k). An enclosing
+   scope's global value does not count as a local value for an inner scope.
+*/
+symbol scope_global_mark(symbol const & k);
 
 /**
    \brief Display the pipeline rooted at \c t when it receives the parameters \c p,
@@ -251,7 +278,10 @@ std::string tactic_display_string(char const * s);
 tactic * mk_skip_tactic();
 tactic * mk_fail_tactic();
 tactic * mk_fail_if_undecided_tactic();
-tactic*  mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)>);
+// A tactic built by mk on first use. collect, if given, declares its parameters:
+// collect_param_descrs does not build the tactic.
+tactic*  mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)> mk,
+                        std::function<void(param_descrs&)> collect = nullptr);
 
 Z3_ADD_TACTIC(skip, "skip", "do nothing tactic.", mk_skip_tactic());
 Z3_ADD_TACTIC(fail, "fail", "always fail tactic.", mk_fail_tactic());

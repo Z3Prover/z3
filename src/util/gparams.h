@@ -124,6 +124,13 @@ public:
        params_ref const & p = get_module_params("pp")
     */
     static params_ref get_module(char const * module_name);
+
+    /**
+       \brief Add the descriptions of the parameters of the given module to \c r.
+       Nothing is added if the module is unknown. Must not be called from a function
+       that registers parameter descriptions: those run under the gparams lock.
+    */
+    static void collect_module_param_descrs(char const * module_name, param_descrs & r);
     /**
        \brief Return the global parameter set (i.e., parameters that are not associated with any particular module).
     */

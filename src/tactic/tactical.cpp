@@ -19,6 +19,7 @@ Notes:
 #include "util/scoped_timer.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/gparams.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_proof_converter.h"
 #ifndef SINGLE_THREAD
@@ -28,12 +29,17 @@ Notes:
 #include <cstring>
 #include <sstream>
 
-// Display a probe; a comment marks a probe that the tactic language has no name for.
-static std::string display_probe(probe const & p, std::string & comment) {
+// Display a probe with the parameters params it receives; a comment says why the display
+// does not parse, if it does not. With annotate, the comment also lists the
+// parameters the probe reads (a parameter probe is displayed as its value).
+static std::string display_probe(probe const & p, params_ref const & params, bool annotate, std::string & comment) {
     std::ostringstream out;
-    p.display_sexpr(out);
-    if (!p.has_syntax())
-        comment = "not parseable: unregistered probe";
+    std::string notes, problems;
+    p.display_with(out, params, annotate ? &notes : nullptr, problems);
+    if (!problems.empty())
+        comment = "not parseable: " + problems;
+    if (!notes.empty())
+        comment += (comment.empty() ? "" : "; ") + ("probe: " + notes);
     return out.str();
 }
 
@@ -1171,6 +1177,16 @@ tactic * try_for(tactic * t, unsigned msecs) {
     return alloc(try_for_tactical, t, msecs);
 }
 
+// the parser of using-params accepts k for a tactic that declares d
+static bool tactic_param_has_syntax(param_descrs const & d, symbol k) {
+    switch (d.get_kind_in_module(k)) {
+    case CPK_BOOL: case CPK_UINT: case CPK_NUMERAL: case CPK_SYMBOL: case CPK_DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}
+
 class using_params_tactical : public unary_tactical {
     params_ref m_params;
 public:
@@ -1198,41 +1214,121 @@ public:
             return;
         }
         params_ref new_p = p;
-        new_p.append(m_params);
-        param_descrs child;
+        merge(new_p);
+        // the child first: the scopes in it declare the keys they route
+        // A key is written as syntax if a displayed step declares it: the parser checks
+        // it against the tactic the output parses to. If a key is declared only by
+        // disabled steps, it is still written, and t is displayed again with its disabled
+        // steps as (when 0 t'), which declare it (see below).
+        ctx.open("(using-params");
+        ctx.push_frame();
+        m_t->display_pipeline(new_p, ctx);
+        param_descrs shown, child;
+        ctx.pop_frame(shown);
         m_t->collect_param_descrs(child);
-        std::string tail, comment;
+        // If a key is declared only by disabled steps, displayed as skip, display t again
+        // with them as (when 0 t'): writing the key needs a step that declares it, and
+        // leaving it out would change what the displayed steps receive (they may read
+        // keys they do not declare, as solve-eqs passes its parameters to its rewriter).
+        // ctx.keep_disabled applies to every disabled scope in t, also those whose keys
+        // are not needed: (when 0 t') is then shown where skip would do. That is correct,
+        // only longer.
+        if (!ctx.keep_disabled) {
+            bool needed = false;
+            for (unsigned i = 0; !needed && i < m_params.size(); ++i) {
+                symbol k = m_params.get_key(i);
+                needed = !declares(ctx.scope_keys, k) && !tactic_param_has_syntax(shown, k) && tactic_param_has_syntax(child, k);
+            }
+            if (needed) {
+                ctx.drop_last();
+                ctx.keep_disabled = true;
+                ctx.push_frame();
+                m_t->display_pipeline(new_p, ctx);
+                param_descrs shown2;
+                ctx.pop_frame(shown2);
+                ctx.keep_disabled = false;
+                shown.copy(shown2);
+            }
+        }
+        std::string tail, comment, scoped, skipped;
         for (unsigned i = 0; i < m_params.size(); ++i) {
             symbol k = m_params.get_key(i);
             std::ostringstream v;
             m_params.display(v, k);
-            std::string entry = ":" + std::string(k.str()) + " " + v.str();
+            // A default is written with the value it has for t: the value that replaces
+            // it, if any. The tactic language has no defaults, so a default written as is
+            // would replace that value when the output is run.
+            char const * mark = "";
+            std::string value = v.str();
+            if (m_params.is_default(k)) {
+                std::ostringstream w;
+                if (!new_p.is_default(k))
+                    new_p.display(w, k);
+                else {
+                    char const * module = child.get_module(k);
+                    params_ref g = module ? gparams::get_module(module) : params_ref();
+                    if (g.contains(k)) {
+                        g.display(w, k);
+                        mark = " (global)";
+                    }
+                    else {
+                        new_p.display(w, k);
+                        mark = " (default)";
+                    }
+                }
+                value = w.str();
+            }
+            std::string entry = ":" + std::string(k.str()) + " " + value;
+            // A key that a scope routes: the scope writes its effect on the step.
+            if (declares(ctx.scope_keys, k)) {
+                if (ctx.annotate)
+                    scoped += (scoped.empty() ? "scoped: " : ", ") + entry;
+                continue;
+            }
             bool unused = ctx.pipeline && !declares(*ctx.pipeline, k) && !is_inherited(p, k, v.str());
-            if (unused && ctx.unused)
+            if (unused && ctx.unused && !ctx.unused->contains(k))
                 ctx.unused->push_back(k);
             std::string note;
-            if (!has_syntax(child, k))
+            // After the redisplay, disabled scopes declare their keys. This is reached only
+            // if t declares k in collect_param_descrs but no displayed step declares it
+            // (a tactic whose display does not declare what it collects): the key is left
+            // out, since the output would not parse with it.
+            if (!tactic_param_has_syntax(shown, k) && tactic_param_has_syntax(child, k)) {
+                if (ctx.annotate)
+                    skipped += (skipped.empty() ? "for skipped steps: " : ", ") + entry;
+                continue;
+            }
+            if (!tactic_param_has_syntax(shown, k))
                 note = entry + (unused ? " [unused]" : "");
             else {
                 tail += (tail.empty() ? "" : " ") + entry;
-                if (ctx.annotate && m_params.is_default(k))
-                    note = entry + " (default)";
+                if (ctx.annotate && m_params.is_default(k) && *mark)
+                    note = entry + mark;
             }
             if (!note.empty())
                 comment += (comment.empty() ? "not parseable: " : ", ") + note;
         }
-        ctx.open("(using-params");
-        m_t->display_pipeline(new_p, ctx);
-        ctx.close(tail, comment);
+        std::string c;
+        for (std::string const * x : { &scoped, &skipped, &comment })
+            if (!x->empty())
+                c += (c.empty() ? "" : "; ") + *x;
+        ctx.close(tail, c);
     }
 
-    // the parser of using-params accepts k for a tactic that declares d
-    static bool has_syntax(param_descrs const & d, symbol k) {
-        switch (d.get_kind_in_module(k)) {
-        case CPK_BOOL: case CPK_UINT: case CPK_NUMERAL: case CPK_SYMBOL: case CPK_DOUBLE:
-            return true;
-        default:
-            return false;
+    // Append m_params to new_p. A key that m_params sets unflagged is no longer a value
+    // that an enclosing scope took from a global scoped key: clear its mark, so that an
+    // inner scope sees it as local (see scope_global_mark).
+    void merge(params_ref & new_p) const {
+        new_p.append(m_params);
+        for (unsigned i = 0; i < m_params.size(); ++i) {
+            symbol k = m_params.get_key(i);
+            if (m_params.is_default(k))
+                continue;
+            symbol mark = scope_global_mark(k);
+            // new_p holds a mark only if it does not share its entries with m_params:
+            // params_ref::reset does not copy on write.
+            if (new_p.contains(mark))
+                new_p.reset(mark);
         }
     }
 
@@ -1254,7 +1350,7 @@ public:
               tout << "m_params: " << m_params << "\n";);
         
         params_ref new_p = p;
-        new_p.append(m_params);
+        merge(new_p);
         unary_tactical::updt_params(new_p);
         
         TRACE(using_params, 
@@ -1308,6 +1404,197 @@ tactic * annotate_tactic(char const* name, tactic * t) {
     return alloc(annotate_tactical, name, t);
 }
 
+// See scope_tactic in tactical.h.
+class scope_tactical : public unary_tactical {
+    std::string m_path;
+    bool        m_enabled = true;
+
+    enum class source { none, local, global };
+
+    // true and rest if k is "<path>.<rest>" or "tactic.<path>.<rest>"; prefixed tells which
+    bool strip(symbol const & k, std::string & rest, bool & prefixed) const {
+        if (k.is_numerical() || k.is_null())
+            return false;
+        char const * s = k.bare_str();
+        std::string const pre = m_path + ".";
+        for (char const * mod : { "", "tactic." }) {
+            size_t n = strlen(mod);
+            if (strncmp(s, mod, n) == 0 && strncmp(s + n, pre.c_str(), pre.size()) == 0 && s[n + pre.size()]) {
+                rest = s + n + pre.size();
+                prefixed = n > 0;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // The parameters the child receives for parameters p, and whether the step is enabled.
+    // A local entry <path>.<rest> sets <rest>. A global tactic.<path>.<rest> sets <rest>
+    // unless a local value for <rest> is present: an unflagged entry that is not marked as
+    // taken from a global scoped key by an enclosing scope.
+    // If p has both <path>.<rest> and tactic.<path>.<rest>, the first one wins, whatever
+    // their order: it is the name that validation gives a local key.
+    // routed, if not null, receives the keys <rest> that were set.
+    bool route(params_ref const & p, params_ref & new_p, source & enabled_src, svector<symbol> * routed = nullptr) const {
+        new_p.copy(p);
+        bool enabled = true;
+        enabled_src = source::none;
+        std::string rest;
+        bool prefixed;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            symbol k = p.get_key(i);
+            if (!strip(k, rest, prefixed))
+                continue;
+            if (prefixed && p.contains(symbol((m_path + "." + rest).c_str())))
+                continue;
+            if (rest == "enabled") {
+                enabled = p.get_bool(k, true);
+                enabled_src = source::local;
+                continue;
+            }
+            symbol r(rest.c_str());
+            new_p.set_entry(r, p, k);
+            if (routed && !routed->contains(r))
+                routed->push_back(r);
+            // params_ref::reset does not copy on write: safe because set_entry called
+            // init(), so new_p no longer shares its entries with p.
+            new_p.reset(scope_global_mark(r));
+        }
+        params_ref g = gparams::get_module("tactic");
+        for (unsigned i = 0; i < g.size(); ++i) {
+            symbol k = g.get_key(i);
+            if (!strip(k, rest, prefixed))
+                continue;
+            if (rest == "enabled") {
+                if (enabled_src != source::local) {
+                    enabled = g.get_bool(k, true);
+                    enabled_src = source::global;
+                }
+                continue;
+            }
+            symbol r(rest.c_str());
+            symbol mark = scope_global_mark(r);
+            if (new_p.contains(r) && !new_p.is_default(r) && !new_p.contains(mark))
+                continue;
+            new_p.set_entry(r, g, k);
+            new_p.set_bool(mark, true);
+            if (routed && !routed->contains(r))
+                routed->push_back(r);
+        }
+        return enabled;
+    }
+
+    // the descriptions of the keys of the tactic module under the path
+    void collect_scoped_descrs(param_descrs & r) const {
+        param_descrs all;
+        gparams::collect_module_param_descrs("tactic", all);
+        std::string const pre = m_path + ".";
+        for (unsigned i = 0; i < all.size(); ++i) {
+            symbol n = all.get_param_name(i);
+            if (strncmp(n.bare_str(), pre.c_str(), pre.size()) == 0)
+                r.insert(n, all.get_kind(n), all.get_descr(n), all.get_default(n), "tactic");
+        }
+    }
+
+public:
+    scope_tactical(char const * path, tactic * t) : unary_tactical(t), m_path(path) {
+        // the global settings until the first updt_params
+        params_ref new_p;
+        source src;
+        m_enabled = route(params_ref(), new_p, src);
+    }
+
+    char const * name() const override { return "scope"; }
+
+    void updt_params(params_ref const & p) override {
+        params_ref new_p;
+        source src;
+        m_enabled = route(p, new_p, src);
+        m_t->updt_params(new_p);
+    }
+
+    void collect_param_descrs(param_descrs & r) override {
+        m_t->collect_param_descrs(r);
+        collect_scoped_descrs(r);
+    }
+
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        if (!m_enabled) {
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(scope " << m_path << " disabled)\n";);
+            result.push_back(in.get());
+            return;
+        }
+        unary_tactical::operator()(in, result);
+    }
+
+    // The tactic language has no scopes, and the display must be a tactic that, run
+    // without the scoped settings, does what this one does with them. So a scope is
+    // displayed as what it does under the current settings:
+    // - disabled: skip, or (when 0 t) under ctx.keep_disabled (an enclosing using-params
+    //   needs the keys t declares);
+    // - otherwise t, wrapped in (using-params t :k v ...) for the keys the scope routes
+    //   to it (local or global scoped values) that t declares.
+    // With ctx.annotate, a comment names the scope: "scope <path>", the routed values
+    // with their "(global)" marks, and "disabled".
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        params_ref new_p;
+        source src;
+        svector<symbol> routed;
+        bool enabled = route(p, new_p, src, &routed);
+        param_descrs rows;
+        collect_scoped_descrs(rows);
+        ctx.declare(rows);
+        ctx.scope_keys.copy(rows);
+        std::string label = "scope " + m_path;
+        if (!enabled) {
+            std::string c = ctx.annotate ? label + " disabled" + (src == source::global ? " (global)" : "") : std::string();
+            if (!ctx.keep_disabled) {
+                ctx.leaf("skip", c);
+                return;
+            }
+            // (when 0 t) never runs t, and t still declares its keys
+            ctx.open("(when 0", c);
+            m_t->display_pipeline(new_p, ctx);
+            ctx.close();
+            return;
+        }
+        // (using-params t) without keys is displayed as t (tactic_display_ctx::close)
+        ctx.open("(using-params");
+        ctx.push_frame();
+        m_t->display_pipeline(new_p, ctx);
+        param_descrs shown;
+        ctx.pop_frame(shown);
+        std::string tail, note;
+        for (symbol const & r : routed) {
+            if (!tactic_param_has_syntax(shown, r))
+                continue;
+            std::ostringstream v;
+            new_p.display(v, r);
+            std::string entry = ":" + std::string(r.str()) + " " + v.str();
+            tail += (tail.empty() ? "" : " ") + entry;
+            note += " " + entry + (new_p.contains(scope_global_mark(r)) ? " (global)" : "");
+        }
+        if (tail.empty()) {
+            ctx.close();
+            if (ctx.annotate)
+                ctx.comment_last(label);
+            return;
+        }
+        ctx.close(tail, ctx.annotate ? label + ":" + note : std::string());
+    }
+
+    tactic * translate(ast_manager & m) override {
+        tactic * new_t = m_t->translate(m);
+        scope_tactical * r = alloc(scope_tactical, m_path.c_str(), new_t);
+        r->m_enabled = m_enabled;
+        return r;
+    }
+};
+
+tactic * scope_tactic(char const * path, tactic * t) {
+    return alloc(scope_tactical, path, t);
+}
+
 class cond_tactical : public binary_tactical {
     probe_ref m_p;
 public:
@@ -1323,7 +1610,7 @@ public:
     void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         bool is_when = strcmp(m_t2->name(), "skip") == 0;
         std::string comment;
-        std::string c = display_probe(*m_p, comment);
+        std::string c = display_probe(*m_p, p, ctx.annotate, comment);
         ctx.open((is_when ? "(when " : "(if ") + c, comment);
         m_t1->display_pipeline(p, ctx);
         if (!is_when)
@@ -1339,10 +1626,15 @@ public:
             m_t2->operator()(in, result);
     }
 
+    void updt_params(params_ref const & p) override {
+        m_p->updt_params(p);
+        binary_tactical::updt_params(p);
+    }
+
     tactic * translate(ast_manager & m) override {
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
-        return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
+        return alloc(cond_tactical, m_p->clone(), new_t1, new_t2);
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
@@ -1371,7 +1663,7 @@ public:
 
     void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
         std::string comment;
-        std::string c = display_probe(*m_p, comment);
+        std::string c = display_probe(*m_p, p, ctx.annotate, comment);
         ctx.leaf("(fail-if " + c + ")", comment);
     }
 
@@ -1384,8 +1676,11 @@ public:
         result.push_back(in.get());
     }
 
+    void updt_params(params_ref const & p) override { m_p->updt_params(p); }
+
     tactic * translate(ast_manager & m) override {
-        return this;
+        probe * q = m_p->clone();
+        return alloc(fail_if_tactic, q);
     }
 
     void collect_statistics(statistics& st) const override {

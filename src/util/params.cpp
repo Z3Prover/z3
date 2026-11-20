@@ -395,6 +395,18 @@ class params {
         return e && !e->second.m_default;
     }
     void mark_default(symbol const & k) { find(k)->second.m_default = true; }
+    // set k to the value v, unflagged
+    void set_value(symbol const & k, value const & v) {
+        switch (v.m_kind) {
+        case CPK_BOOL:    set_bool(k, v.m_bool_value); break;
+        case CPK_UINT:    set_uint(k, v.m_uint_value); break;
+        case CPK_DOUBLE:  set_double(k, v.m_double_value); break;
+        case CPK_NUMERAL: set_rat(k, *v.m_rat_value); break;
+        case CPK_SYMBOL:  set_sym(k, v.m_sym_value); break;
+        case CPK_STRING:  set_str(k, v.m_str_value); break;
+        default: UNREACHABLE(); break;
+        }
+    }
 
 public:
     ~params() {
@@ -632,32 +644,32 @@ void params_ref::copy_core(params const * src) {
     for (auto const& p : src->m_entries) {
         if (p.second.m_default && m_params->has_unflagged(p.first))
             continue;
-        switch (p.second.m_kind) {
-        case CPK_BOOL:
-            m_params->set_bool(p.first, p.second.m_bool_value);
-            break;
-        case CPK_UINT:
-            m_params->set_uint(p.first, p.second.m_uint_value);
-            break;
-        case CPK_DOUBLE:
-            m_params->set_double(p.first, p.second.m_double_value);
-            break;
-        case CPK_NUMERAL:
-            m_params->set_rat(p.first, *(p.second.m_rat_value));
-            break;
-        case CPK_SYMBOL:
-            m_params->set_sym(p.first, p.second.m_sym_value);
-            break;
-        case CPK_STRING:
-            m_params->set_str(p.first, p.second.m_str_value);
-            break;
-        default:
-            UNREACHABLE();
-            break;
-        }
+        m_params->set_value(p.first, p.second);
         if (p.second.m_default)
             m_params->mark_default(p.first);
     }
+}
+
+void params_ref::set_entry(symbol const & k, params_ref const & src, symbol const & src_k) {
+    params::entry const * e = src.m_params ? src.m_params->find(src_k) : nullptr;
+    if (!e || (src.m_params == m_params && k == src_k))
+        return;
+    // keep src's params alive: init() may release them when src is this
+    params_ref keep(src);
+    params::value v = e->second;
+    init();
+    m_params->set_value(k, v);
+}
+
+void params_ref::copy_entry(params_ref const & src, symbol const & k) {
+    params::entry const * e = src.m_params ? src.m_params->find(k) : nullptr;
+    if (!e || src.m_params == m_params)
+        return;
+    params::value v = e->second;
+    init();
+    m_params->set_value(k, v);
+    if (v.m_default)
+        m_params->mark_default(k);
 }
 
 void params_ref::init() {

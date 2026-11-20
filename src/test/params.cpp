@@ -11,6 +11,7 @@ Abstract:
 
 --*/
 #include "util/params.h"
+#include "util/rational.h"
 #include "util/gparams.h"
 #include "util/debug.h"
 #include <cstring>
@@ -151,9 +152,39 @@ static void tst_gparams_reset_keeps_modules() {
     ENSURE(ok);
 }
 
+// copy_entry copies an entry as it is: value, kind and default flag.
+static void tst_copy_entry() {
+    params_ref src, dst;
+    src.set_default_bool("flat", true);
+    src.set_uint("max_occs", 3);
+    src.set_rat("ratio", rational(5, 2));
+    dst.set_bool("other", true);
+    dst.copy_entry(src, symbol("flat"));
+    dst.copy_entry(src, symbol("max_occs"));
+    dst.copy_entry(src, symbol("ratio"));
+    dst.copy_entry(src, symbol("missing"));
+    ENSURE(dst.is_default("flat") && dst.get_bool("flat", false));
+    ENSURE(!dst.is_default("max_occs") && dst.get_uint("max_occs", 0) == 3);
+    ENSURE(!dst.is_default("ratio") && dst.get_rat("ratio", rational(0)) == rational(5, 2));
+    ENSURE(!dst.contains("missing"));
+    ENSURE(dst.size() == 4 && dst.get_key(1) == symbol("flat") && dst.get_key(3) == symbol("ratio"));
+    // a copied default yields to a later user value, as in src
+    params_ref user;
+    user.set_bool("flat", false);
+    dst.append(user);
+    ENSURE(!dst.get_bool("flat", true));
+    // set_entry sets an unflagged entry
+    params_ref e;
+    e.set_entry(symbol("flat"), src, symbol("flat"));
+    ENSURE(!e.is_default("flat"));
+    // src is not changed
+    ENSURE(src.is_default("flat") && src.size() == 3);
+}
+
 void tst_params() {
     tst_set_default();
     tst_append();
     tst_fallback();
+    tst_copy_entry();
     tst_gparams_reset_keeps_modules();
 }

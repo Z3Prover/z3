@@ -549,6 +549,13 @@ public:
         }
     }
 
+    void collect_module_param_descrs(char const * module_name, param_descrs & r) {
+        lock_guard lock(*gparams_mux);
+        param_descrs * d = nullptr;
+        if (get_module_param_descr(module_name, d))
+            r.copy(*d);
+    }
+
     void display_module(std::ostream & out, char const* module_name) {
         lock_guard lock(*gparams_mux);
         param_descrs * d = nullptr;
@@ -682,6 +689,11 @@ params_ref gparams::get_module(char const * module_name) {
     return g_imp->get_module(module_name);
 }
 
+
+void gparams::collect_module_param_descrs(char const * module_name, param_descrs & r) {
+    SASSERT(g_imp);
+    g_imp->collect_module_param_descrs(module_name, r);
+}
 
 params_ref const& gparams::get_ref() {
     TRACE(gparams, tout << "gparams::get_ref()\n";);
