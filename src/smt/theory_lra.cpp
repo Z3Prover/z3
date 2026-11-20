@@ -2760,8 +2760,8 @@ public:
                 reset_evidence();
                 m_explanation.clear();
                 m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
-                set_proof_params(m_bound, true, lit);
             }
+            set_proof_params(m_bound, true, lit);
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             TRACE(arith,
                   ctx().display_literals_verbose(tout, m_core);
@@ -3999,6 +3999,7 @@ public:
     // a proof consumer cannot replay the step.
     void set_proof_params(symbol const& hint, bool with_consequent, literal consequent = null_literal) {
         m_params.reset();
+        m_lp_proof = nullptr;
         if (!proofs_enabled())
             return;
         lp::evidence_manager::proof_expression proof;

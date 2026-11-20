@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T13:58:05-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T14:06:08-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The current source branch includes master through `bf981cb1b`; the candidate
 checker hash and fresh cohort results are N/M.
@@ -63,14 +63,16 @@ The frozen QF_LIA ring document (`68279bde5cd0...`, checker
 document restores 18 `arith/lp-integer-lattice` PENDING (22 total). This is a
 same-document evidence control, not a whole-cohort or Legacy parity claim.
 
-The current producer candidate reconstructs an LP derivation for a propagated
-bound only when direct coefficient replay fails, then attaches it only if the
-native proof validates and its conclusion exactly matches the bound. On the
-captured AProVE input it emitted 12 `lp-context` nodes and reported PARTIAL 22
-(`assumed:nlsat` 3, `rewrite` 14, `th-lemma` 5), versus a prior non-identical
-document at PARTIAL 24 (`arith/farkas` 3, `assumed:nlsat` 6, `rewrite` 13,
-`th-lemma` 2). The proof hashes differ; this is not matched-proof burn-down
-or a performance result. Its candidate document SHA-256 is
+The producer reconstructs an LP derivation for a propagated bound only when
+direct coefficient replay fails, then attaches it only if the native proof
+validates and its conclusion exactly matches that bound. The per-consequent
+follow-up ensures distinct propagated bounds cannot reuse a proof with another
+conclusion. An earlier AProVE capture, before this follow-up, emitted 12
+`lp-context` nodes and reported PARTIAL 22 (`assumed:nlsat` 3, `rewrite` 14,
+`th-lemma` 5), versus a prior non-identical document at PARTIAL 24
+(`arith/farkas` 3, `assumed:nlsat` 6, `rewrite` 13, `th-lemma` 2). The proof
+hashes differ; neither this capture nor the follow-up is matched-proof
+burn-down or a performance result. The earlier document SHA-256 is
 `a4010d3132426167c23a5eb31e85077af9efcbfd1b0f46b9424453aa1a1c627d`;
 the prior capture is `a223a1c83bccc50ec3a93a34dea312f2862f6091dece34995bdcac35607317bf`.
 
@@ -98,6 +100,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or AProVE capture yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
 | Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
 | Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
@@ -107,18 +110,19 @@ overlapping candidate effects must not be added.
 | Nov 19 13:22 | Cached-root experiment; matched-proof correction | Candidate had 43 PENDING versus baseline 4 on the same 927-node proof; paired median check-time ratio 1.0061. Not promoted | `ring-matched-proof-capture-20261119T1550ET-order2`, `ring-inprocess-route-isolation-20261119T1612ET-order2` |
 | Nov 19 12:28 | fstar-build Farkas provenance triage | Three observed PENDING are in `Algebra.CommMonoid` and `Math.Exp`; native payloads and proof hashes N/M | `fstar-build-incremental-20261119T193000Z` |
 | Nov 19 12:24 | Same-pin fstar-build refresh | 384 completed, 23 TIMEOUT, 176 NOT_RUN; 430 weighted PENDING across completed diagnostics. Not comparable to prior 253-input capture | `fstar-build-incremental-20261119T193000Z` |
-| Nov 19 11:07 | Same-pin SMT-LIB rerun | Sample 100/86/20/19 ACCEPT/PARTIAL/UNKNOWN/TIMEOUT; extended 74/134/70/7. No matched-proof burn-down | `periodic-smtlib-20261119T173100Z`, `periodic-smtlib-20261119T121101Z` |
 
 ## Validation and active cadence
 
 After merging master commit `bf981cb1b`, `cmake --build build --target
 test-z3 --parallel 32`, `test-z3 smt_context`, `test-z3 proof_checker`, and
-`test-z3 lp_evidence` pass. The native bridge's `authentic-bound-parameters`
-test passes; the full bridge suite still fails in unchanged synthetic
-Real-product coverage (`th-lemma`: expected PENDING 1, actual 0; baseline has
-not been rerun). Two full `build_ocaml_checker.ps1 -RunTests` attempts timed
-out at `Z3SortedBv.fst:456`; the native bridge stage was not reached. A
-checker-only strict build had passed before this full-scope attempt.
+`test-z3 lp_evidence` pass. The updated Linux `libz3_ocaml` target and install
+pass; the all-target build hits a stale `examples/ml/z3.cmi` compiled with an
+older OCaml version. The native bridge's `authentic-bound-parameters` test
+passes; the full bridge suite still fails in unchanged synthetic Real-product
+coverage (`th-lemma`: expected PENDING 1, actual 0; baseline has not been
+rerun). Two full `build_ocaml_checker.ps1 -RunTests` attempts timed out at
+`Z3SortedBv.fst:456`; the native bridge stage was not reached. A checker-only
+strict build had passed before this full-scope attempt.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The new candidate has not been run across the cohorts; keep its weighted

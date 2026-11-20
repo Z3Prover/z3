@@ -369,6 +369,9 @@ namespace smt {
         context & ctx = cr.get_context();
         ast_manager & m = cr.get_manager();
         if (m_proof) {
+            expr_ref fact(m);
+            ctx.literal2expr(m_consequent, fact);
+            SASSERT(m.get_fact(m_proof) == fact);
             expr_safe_replace replace(m);
             for (auto* pr : prs)
                 replace.insert(m.mk_hypothesis(m.get_fact(pr)), pr);
