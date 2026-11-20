@@ -871,6 +871,152 @@ static void check_nseq_quantified_decompositions() {
     }
 }
 
+static void check_nseq_ground_arithmetic_replay() {
+    struct {
+        char const* input;
+        lbool expected;
+    } const examples[] = {
+        {
+            "(set-logic ALL)"
+            "(declare-datatypes ()"
+            " ((list_Int (list.int (list.int.seq (Seq Int))"
+            "                     (list.int.content (Array (Seq Int) Int))))))"
+            "(declare-const list.int.empty list_Int)"
+            "(assert (= list.int.empty"
+            " (list.int (as seq.empty (Seq Int))"
+            "           ((as const (Array (Seq Int) Int)) -12345))))"
+            "(declare-const res list_Int)"
+            "(assert (! (not (=> (> (seq.len (list.int.seq res)) 0)"
+            " (exists ((index Int))"
+            "  (and (>= index 0) (< index (seq.len (list.int.seq res)))"
+            "       (< (select (list.int.content res)"
+            "                  (seq.at (list.int.seq res) index)) 5)))))"
+            " :named gen-0))",
+            l_true
+        },
+        {
+            "(declare-const A (Seq Int))"
+            "(declare-const m Int)"
+            "(declare-const f_A (Seq Int))"
+            "(assert (<= 0 m))"
+            "(assert (< m (seq.len A)))"
+            "(assert (forall ((i Int)) (<= (seq.nth A i) (seq.nth A m))))"
+            "(assert (= f_A"
+            " (let ((max (seq.nth A m)) (n (seq.len A)))"
+            "  (ite (or (>= max n) (< max 0))"
+            "       (seq.unit 74)"
+            "       (seq.++ (seq.extract A 0 m)"
+            "               (seq.extract A (+ m 1) (- (- n 1) m)))))))"
+            "(define-fun spec ((s (Seq Int))) Bool"
+            " (and (<= 0 (seq.nth s 0))"
+            "      (< (seq.nth s 0) (seq.len s))))"
+            "(assert (and (spec f_A) (not (spec A))))"
+            "(assert (< 2 (seq.len A)))"
+            "(assert (< (seq.len A) 5))",
+            l_false
+        },
+        {
+            "(declare-const s (Seq Int))"
+            "(assert (> (seq.len s) 0))"
+            "(assert (forall ((i Int)) (>= (seq.nth s i) 0)))"
+            "(assert (< (seq.nth s 0) 0))",
+            l_false
+        }
+    };
+    for (auto const& example : examples) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(example.input);
+        ENSURE(parse_smt2_commands(cmd, input));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("unsat_core", true);
+        ref<solver> slv = mk_smt2_solver(m, p, cmd.get_logic());
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        scoped_rlimit limit(m.limit(), 20000000);
+        lbool result = slv->check_sat(0, nullptr);
+        if (result != example.expected)
+            std::cerr << "nseq quantified arithmetic replay: " << example.input
+                      << "\nreason: " << slv->reason_unknown() << "\n";
+        ENSURE(result == example.expected);
+    }
+}
+
+// A native in-process fixture for seq_foldl_nth_model_validation.smt2
+// (the fold_left + length-coherence regression) intentionally does not
+// live here. A completely free sequence input to a higher-order
+// application (seq.map, seq.foldl, ...) can trigger an unbounded
+// interaction between the HO facet's short-length materialization and
+// the word-search tree's own tail-skolem decomposition
+// (https://github.com/Z3Prover/z3/issues/11790); that issue is
+// memory-layout/process-state sensitive, so even a *bounded-length*
+// version of this regression reproduces the open issue's hang here when
+// preceded by other tests in the shared test-z3 process (confirmed: it
+// passes in isolation, but hangs once check_nseq_arithmetic_normalization
+// and check_nseq_ground_arithmetic_replay run first), while a fresh
+// `z3 -in`/CLI process solves the real, fully-unconstrained regression
+// file reliably in a couple of seconds. The external z3test regression
+// suite (seq_foldl_nth_model_validation.smt2) is the authoritative,
+// reliable coverage for this fix; re-add a native fixture once #11790 is
+// resolved.
+
+static void check_nseq_fixed_itos() {
+    for (char const* number : {"42", "123456789012345678901234567890"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        std::ostringstream text;
+        text << "(define-fun intToStr ((i Int)) String"
+             << " (ite (> i 0) (int.to.str i) (str.++ \"-\" (int.to.str (- i)))))"
+             << "(declare-const t Int)(declare-const s String)"
+             << "(assert (= t " << number << "))"
+             << "(assert (= s (intToStr t)))"
+             << "(assert (distinct s \"" << number << "\"))";
+        cmd_context cmd(false, &m);
+        std::istringstream input(text.str());
+        ENSURE(parse_smt2_commands(cmd, input));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("unsat_core", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        slv->set_model_converter(cmd.get_model_converter());
+        expr_ref value(m.mk_const("value", m.mk_bool_sort()), m);
+        expr_ref different(m.mk_const("different", m.mk_bool_sort()), m);
+        slv->assert_expr(cmd.assertions()[1]);
+        scoped_rlimit limit(m.limit(), 5000000);
+        unsigned model_checks = 0;
+        auto check_model = [&]() {
+            ++model_checks;
+            lbool result = slv->check_sat(0, nullptr);
+            if (result != l_true) {
+                std::cerr << "nseq fixed integer conversion " << number
+                          << " model check " << model_checks
+                          << "\nreason: " << slv->reason_unknown() << "\n";
+                statistics st;
+                slv->collect_statistics(st);
+                st.display(std::cerr);
+            }
+            ENSURE(result == l_true);
+            model_ref mdl;
+            slv->get_model(mdl);
+            ENSURE(mdl);
+            expr_ref evaluated(m);
+            ENSURE(mdl->eval_expr(cmd.assertions()[1], evaluated, true) && m.is_true(evaluated));
+        };
+        check_model();
+        slv->push();
+        slv->assert_expr(cmd.assertions()[0], value);
+        slv->assert_expr(cmd.assertions()[2], different);
+        ENSURE(l_false == slv->check_sat(0, nullptr));
+        expr_ref_vector core(m);
+        slv->get_unsat_core(core);
+        ENSURE(core.size() == 2);
+        slv->pop(1);
+        check_model();
+    }
+}
+
 static void check_nseq_shared_ite_model() {
     for (bool proofs : {false, true}) {
         for (bool regular : {false, true}) {
@@ -1992,6 +2138,8 @@ static void check_inactive_nseq() {
 void tst_smt_context()
 {
     check_nseq_arithmetic_normalization();
+    check_nseq_ground_arithmetic_replay();
+    check_nseq_fixed_itos();
     check_nseq_quantified_decompositions();
     check_inactive_nseq();
     check_late_equality_justification();
