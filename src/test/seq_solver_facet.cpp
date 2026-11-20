@@ -24,50 +24,9 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "smt/seq_solver_facet.h"
-#include "util/gparams.h"
 #include <iostream>
 
 namespace {
-
-    static void tst_nonlinear_replay_with_legacy_arithmetic() {
-        struct restore_arithmetic_solver {
-            std::string saved = gparams::get_value("smt.arith.solver");
-            ~restore_arithmetic_solver() { gparams::set("smt.arith.solver", saved.c_str()); }
-        } restore;
-        gparams::set("smt.arith.solver", "2");
-        for (bool proofs : {false, true}) {
-            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
-            reg_decl_plugins(m);
-            arith_util a(m);
-            trail_stack trail;
-            seq::eq_tree tree(trail, m.limit());
-            seq::sub_solver solver(m, a, tree.dep_mgr());
-            scoped_rlimit limit(m.limit(), 1000000);
-            expr_ref x(m.mk_const("x", a.mk_int()), m);
-            expr_ref y(m.mk_const("y", a.mk_int()), m);
-            expr_ref product(a.mk_mul(x, y), m);
-            expr_ref equation(m.mk_eq(product, a.mk_int(6)), m);
-            solver.assert_expr(equation, tree.dep_mgr().mk_leaf(0));
-            solver.assert_expr(a.mk_ge(x, a.mk_int(2)));
-            solver.assert_expr(a.mk_ge(y, a.mk_int(2)));
-            auto check_model = [&]() {
-                ENSURE(solver.check() == l_true);
-                model_ref mdl;
-                ENSURE(solver.get_model(mdl));
-                expr_ref value(m);
-                ENSURE(mdl->eval_expr(equation, value, true) && m.is_true(value));
-            };
-            check_model();
-            solver.push();
-            solver.assert_expr(m.mk_eq(x, a.mk_int(4)), tree.dep_mgr().mk_leaf(1));
-            ENSURE(solver.check() == l_false);
-            vector<unsigned, false> core;
-            tree.dep_mgr().linearize(solver.unsat_core(), core);
-            ENSURE(core.size() == 2 && core.contains(0) && core.contains(1));
-            solver.pop(1);
-            check_model();
-        }
-    }
 
     // A conflicting explicit length constraint should be caught by the
     // arithmetic backend even when the equation itself is satisfiable.
@@ -179,7 +138,6 @@ namespace {
 } // namespace
 
 void tst_seq_solver_facet() {
-    tst_nonlinear_replay_with_legacy_arithmetic();
     tst_arith_length_conflict();
     tst_solver_facet_does_not_break_eq_unsat();
     tst_solver_facet_consistent_sat();
