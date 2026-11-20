@@ -92,6 +92,11 @@ namespace smt {
         obj_hashtable<expr> m_ubv_done;        // ubv2s terms with added axioms
         obj_hashtable<expr> m_fixed_length_guards;
         obj_hashtable<expr> m_itos_guards;
+        // Bounds the total number of speculative HO-input materializations
+        // within a single top-level search (see final_check_eh and
+        // init_search_eh), capping the worst case for derived HO terms
+        // chaining without bound (issue #11790).
+        static constexpr unsigned m_max_ho_fixed_length_axioms = 100;
 
         // Index of the first assigned literal not yet forwarded to
         // flush_assigned_literals(). Trailed so backtracking rewinds it.
@@ -128,6 +133,7 @@ namespace smt {
         unsigned m_num_unhandled = 0;
         unsigned m_num_index_suffix_axioms = 0;
         unsigned m_num_fixed_length_axioms = 0;
+        unsigned m_num_ho_fixed_length_axioms = 0;
         unsigned m_num_stoi_digit_axioms = 0;
         unsigned m_num_stoi_digit_guesses = 0;
         unsigned m_stoi_sat_head_start = 0;

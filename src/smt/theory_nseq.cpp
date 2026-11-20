@@ -1099,12 +1099,26 @@ namespace smt {
         if (hf.propagate())
             return FC_CONTINUE;
 
-        for (app* term : hf.terms()) {
-            expr* input = nullptr, *elaboration = nullptr;
-            VERIFY(hf.is_ho_term(term, input));
-            if (!hf.is_unfolded(term) &&
-                !find_ho_elaboration(input, elaboration) && check_fixed_length(input, true))
-                return FC_CONTINUE;
+        // Speculatively materializing a short decomposition for a free HO
+        // input can itself spawn new, derived HO terms (e.g. unfolding
+        // map(f, s) over an elaborated s = head ++ tail produces a new,
+        // irreducible map(f, tail) sub-application). Without a cap, that
+        // can chain without bound (https://github.com/Z3Prover/z3/issues/11790).
+        // A small, generous cap still resolves realistic small-model cases
+        // (e.g. seq_foldl_nth_model_validation.smt2 needs only two levels)
+        // while making this a bounded, best-effort strategy rather than an
+        // unbounded search: once exhausted, final_check_eh simply moves on
+        // to its other checks instead of continuing to chase this avenue.
+        if (m_num_ho_fixed_length_axioms < m_max_ho_fixed_length_axioms) {
+            for (app* term : hf.terms()) {
+                expr* input = nullptr, *elaboration = nullptr;
+                VERIFY(hf.is_ho_term(term, input));
+                if (!hf.is_unfolded(term) &&
+                    !find_ho_elaboration(input, elaboration) && check_fixed_length(input, true)) {
+                    ++m_num_ho_fixed_length_axioms;
+                    return FC_CONTINUE;
+                }
+            }
         }
 
         if (check_ubv_strings())
@@ -1297,6 +1311,11 @@ namespace smt {
 
     void theory_nseq::init_search_eh() {
         m_stoi_sat_head_start = m_tree.get_stats().m_num_sat;
+        // Give the bounded HO materialization loop (final_check_eh) a fresh
+        // budget for each top-level search, so an earlier, unrelated search
+        // (e.g. a free, unconstrained check before a push) can't exhaust
+        // the budget a later, more constrained search actually needs.
+        m_num_ho_fixed_length_axioms = 0;
     }
 
     void theory_nseq::push_scope_eh() {
@@ -1324,6 +1343,7 @@ namespace smt {
         st.update("nseq final checks", m_num_final_checks);
         st.update("nseq index suffix axioms", m_num_index_suffix_axioms);
         st.update("nseq fixed length axioms", m_num_fixed_length_axioms);
+        st.update("nseq ho fixed length axioms", m_num_ho_fixed_length_axioms);
         st.update("nseq stoi digit axioms", m_num_stoi_digit_axioms);
         st.update("nseq stoi digit guesses", m_num_stoi_digit_guesses);
         st.update("nseq conflicts", m_num_conflicts);
