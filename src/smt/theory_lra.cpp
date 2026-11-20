@@ -4651,7 +4651,9 @@ public:
         vi = get_lpvar(v);
         u_dependency* dep = nullptr;
         bool dual = upper && m_nla;
-        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true, dual ? &dep : nullptr);
+        // Integer repair may replace the LP optimum with a stale feasible value.
+        // For linear real objectives, retain the hint and let opt_solver validate integrality.
+        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ m_nla || is_int(v), dual ? &dep : nullptr);
         bool is_global;
         if (dual && st == lp::lp_status::OPTIMAL && !m.limit().is_canceled() && bound_premises(dep, is_global)) {
             // The exact reduced costs prove this upper bound. Dropping a
