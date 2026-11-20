@@ -1557,7 +1557,9 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
 
     auto [bounded_a, max_a] = max_length(a);
     if (bounded_a && max_a <= 1) {
-        result = m().mk_or(str().mk_is_empty(b), m().mk_eq(a, b));
+        expr_ref b_is_empty(str().mk_is_empty(b), m());
+        expr_ref a_eq_b(m().mk_eq(a, b), m());
+        result = m().mk_or(b_is_empty, a_eq_b);
         return BR_REWRITE2;
     }
 
