@@ -91,6 +91,7 @@ namespace smt {
         expr_ref_vector     m_ubv_strings;     // relevant ubv2s terms
         obj_hashtable<expr> m_ubv_done;        // ubv2s terms with added axioms
         obj_hashtable<expr> m_fixed_length_guards;
+        obj_hashtable<expr> m_itos_guards;
 
         // Index of the first assigned literal not yet forwarded to
         // flush_assigned_literals(). Trailed so backtracking rewinds it.
@@ -153,6 +154,7 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         void collect_statistics(::statistics& st) const override;
         bool is_shared(theory_var v) const override;
+        bool is_beta_redex(enode* parent, enode* argument) const override;
         void init_model(model_generator& mg) override;
         void finalize_model(model_generator& mg) override;
         model_value_proc* mk_value(enode* n, model_generator& mg) override;
@@ -171,7 +173,7 @@ namespace smt {
         void dequeue_axiom(expr* e);
 
         // Forward relevant assigned literals into solver_facet's backend,
-        // skipping sequence-theory atoms already handled by assign_eh.
+        // skipping quantified formulas and sequence-theory atoms handled by assign_eh.
         // The cursor is trailed so backtracking replays literals in sync
         // with solver_facet's backend scopes.
         void flush_assigned_literals();
@@ -187,14 +189,18 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        bool check_itos_coherence();
         bool branch_stoi_digit(bool stalled = false);
+        bool check_fixed_length(expr* e, bool instantiate);
         bool check_fixed_lengths(bool instantiate = true);
         bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
         bool check_ubv_strings();
-        bool add_ho_eq(expr* lhs, expr* rhs);
+        bool add_ho_eq(expr* lhs, expr* rhs, expr* premise);
         bool find_ho_elaboration(expr* term, expr*& elaboration) const;
-        void ensure_length_var(expr* e) const;
+        void ensure_length_var(expr* e);
+        void ensure_length_var_single(expr* e);
+        void enforce_length_coherence(expr* lhs, expr* rhs);
 
     public:
         theory_nseq(context& ctx);
