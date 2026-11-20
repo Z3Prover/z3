@@ -297,7 +297,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
 let rule_shape (r:U.rule) : U.rule =
   if r = U.Unverified "th-lemma" then r else match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> r
   | _ -> U.Unverified "payload-erased"
 
@@ -314,7 +314,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   if node.U.kind = U.Unverified "th-lemma" then () else match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in
@@ -366,7 +366,10 @@ let lemma_document_read_view (schema:S.schema) (doc:P.document)
    entry formulas of a binder certificate are covered separately, at the
    scopes the guard assigns them, by certificate_covered). *)
 let rule_terms (r:U.rule) : list expr =
-  match r with U.QuantifierInstantiation args -> args | _ -> []
+  match r with
+  | U.QuantifierInstantiation args -> args
+  | U.ArithmeticLattice c -> [c.split]
+  | _ -> []
 
 (* Every entry formula and every binder sort list of a certificate. *)
 let rec binder_entries_covered (sigma:V.signature) (bs:list U.binder_entry) : Tot bool (decreases bs) =

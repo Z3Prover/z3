@@ -11,6 +11,7 @@ module T = Z3SortedSemantics
 module D = Z3ExprScope
 module E = Z3ArrayEqualitySyntax
 module X = Z3SortedArrayEquality
+module U = Z3UnifiedProof
 
 let nested_values_are_full_function_spaces (key:int)
   : Lemma (
@@ -97,6 +98,20 @@ let one_array = App X.const_decl [one]
 let stored_array = App (K.store_decl integer_sort integer_sort)
   [zero_array; Var 0 integer_sort; Var 1 integer_sort]
 let unequal_default_formula = R.mk_eq_expr stored_array one_array
+let read_over_write_formula =
+  let array = Var 0 (ArraySort [integer_sort] integer_sort) in
+  let index = Var 1 integer_sort in
+  let value = Var 2 integer_sort in
+  R.mk_eq_expr
+    (App (K.select_decl integer_sort integer_sort)
+      [App (K.store_decl integer_sort integer_sort) [array; index; value]; index])
+    value
+
+let array_lemma_accepts_irrelevant_premises ()
+  : Lemma (U.checked_theory_lemma (U.Unverified "th-lemma")
+             (U.Holds read_over_write_formula) [U.Holds R.true_expr]) =
+  assert_norm (U.checked_theory_lemma (U.Unverified "th-lemma")
+    (U.Holds read_over_write_formula) [U.Holds R.true_expr])
 
 let symbolic_store_does_not_change_default_inequality ()
   : Lemma (E.unequal_defaults unequal_default_formula) =

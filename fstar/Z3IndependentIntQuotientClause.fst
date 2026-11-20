@@ -6,6 +6,7 @@ module AR = Z3SortedArithmetic
 module D = Z3ExprScope
 module DT = Z3SortedDatatype
 module DV = Z3SortedIntDivision
+module B = Z3BoundedBoolEquiv
 module L = FStar.List.Tot
 module Q = Z3IndependentIntSmallQuotient
 module R = Z3ClauseSyntax
@@ -25,8 +26,9 @@ let guarded (high low result:expr) : bool =
   | _, _, _ -> false
 
 let check (conclusion:expr) : bool =
-  match DT.literals conclusion with
-  | [high; low; result] -> guarded high low result
+  match conclusion with
+  | App f [high; low; result] ->
+    T.classify f = T.Nary B.Or && guarded high low result
   | _ -> false
 
 let rec lemma_literals_scoped (es:list expr) (e:expr)

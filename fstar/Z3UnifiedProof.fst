@@ -7,6 +7,7 @@ open Z3ValueTheory
 open Z3ProofTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
+open FStar.List.Tot
 open Z3Commutativity
 open Z3BooleanRewrite
 open Z3ArrayLemma
@@ -254,16 +255,22 @@ let pac_lemma (kind:rule) (e:expr) : bool =
   | FiniteFieldPac c -> FP.check c e
   | _ -> false
 
+let inferred_integer_contradiction (e:expr) (facts:list expr) : bool =
+  if e <> false_expr || length facts > 32 ||
+     not (LA.linear_facts (length facts + 1) facts) then false
+  else GS.inferred_split e facts || IC.inferred e facts
+
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
-  | ArithmeticGomory c, Some e, Some es -> GS.check c e es
+  | ArithmeticGomory c, Some e, Some es
+  | ArithmeticLattice c, Some e, Some es -> GS.check c e es
   | Unverified "th-lemma", Some e, Some es
   | FiniteFieldPac _, Some e, Some es ->
-    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e || FF.exhaustive_clause e ||
-                 pac_lemma kind e)) ||
+    array_lemma e ||
+    (es = [] && (AR.triangle_equality e || ID.check e || FF.exhaustive_clause e || pac_lemma kind e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
-    GS.inferred_split e es || IC.inferred e es || (es = [] && BE.valid e)
+    inferred_integer_contradiction e es || (es = [] && BE.valid e)
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -1046,7 +1053,7 @@ let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:e
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1075,7 +1082,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -1083,7 +1090,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
           match proposition node.conclusion with
           | Some e ->
             (match node.kind with
-             | ArithmeticGomory c ->
+             | ArithmeticGomory c | ArithmeticLattice c ->
                G.lemma_check_sound c e
                  (Some?.v (propositions (premise_judgments node.premises))) i rho
              | ArithmeticFarkas cs ->
@@ -1105,8 +1112,9 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                  else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
                  else if Some? (LA.comparison e) && LP.inferred_bound e es
                  then LP.lemma_inferred_bound e es i rho
-                 else if GS.inferred_split e es then G.lemma_inferred_split_sound e es i rho
-                 else if IC.inferred e es then IC.lemma_inferred_sound e es i rho
+                 else if inferred_integer_contradiction e es then
+                   if GS.inferred_split e es then G.lemma_inferred_split_sound e es i rho
+                   else IC.lemma_inferred_sound e es i rho
                  else BE.lemma_valid_sound e i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality

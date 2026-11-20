@@ -8,6 +8,8 @@ module U = Z3UnifiedProofSyntax
 module TR = Z3TypedRoot
 module Root = Z3SortedRootDocument
 module Ground = Z3IndependentGroundDefinition
+module Cached = Z3IndependentCachedReplay
+module RootReplay = Z3IndependentRootReplay
 
 type choice (schema:S.checked_schema) (doc:P.document) =
   c:(P.entry & D.definition){
@@ -30,6 +32,14 @@ val selected (schema:S.schema) (doc:P.document)
                  else None)}
 
 val selected_expanded (schema:S.schema) (doc:P.document) : option P.document
+
+val selected_expanded_cached (schema:S.checked_schema) (doc:P.document)
+  (assertions:list Z3AstTheory.expr) (memo:Cached.cache schema assertions)
+  : option P.document
+
+val lemma_selected_expanded_cached (schema:S.checked_schema) (doc:P.document)
+  (assertions:list Z3AstTheory.expr) (memo:Cached.cache schema assertions)
+  : Lemma (selected_expanded_cached schema doc assertions memo == selected_expanded schema doc)
 
 val lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (model:TR.interp u schema)

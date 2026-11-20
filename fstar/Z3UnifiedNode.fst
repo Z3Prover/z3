@@ -36,7 +36,7 @@ let check_node_with_membership
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
+    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier
     | DestructiveEquality | DestructiveEqualityResolution ->

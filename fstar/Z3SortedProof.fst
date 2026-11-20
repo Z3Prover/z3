@@ -40,6 +40,7 @@ module DV = Z3SortedIntDivision
 module IQ = Z3IndependentIntQuotientClause
 module CD = Z3IndependentConditionalDefinition
 module IA = Z3IndependentIteAdd
+module LS = Z3IndependentIntegerSplitReplay
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
 module Reach = Z3RelationalReachability
@@ -1343,6 +1344,11 @@ let division_clause (conclusion:expr) : bool =
   | [a; b] -> NR.shallow conclusion && (division_literals a b || division_literals b a)
   | _ -> false
 
+let integer_quotient_clause (conclusion:expr) : bool =
+  match conclusion with
+  | App f [_; _; _] -> T.classify f = T.Nary B.Or && IQ.check conclusion
+  | _ -> false
+
 let lemma_remainder_lower (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (conclusion guard body:expr)
@@ -2026,6 +2032,11 @@ let arithmetic_farkas (node:U.proof_node) : bool =
   | U.ArithmeticFarkas cs -> AR.check_contradiction (arithmetic_assumptions node) cs
   | _ -> false
 
+let arithmetic_lattice (node:U.proof_node) : bool =
+  match node.kind with
+  | U.ArithmeticLattice c -> LS.check c (proposition node.conclusion) (propositions node.premises)
+  | _ -> false
+
 (* The SAME supplied weights against the SAME literals, replayed by the typed
    Int/Real check (Z3SortedRealLinear.check_numeric_contradiction): enabled
    only when the executed schema check RL.real_primitive s holds (Real is not
@@ -2202,10 +2213,13 @@ let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
    datatype sort of a checked schema, and the laws are derived from R2 of the
    same root model whatever the schema. *)
 let division_order (node:U.proof_node) : bool =
-  order_rule node.kind &&
-  (match node.conclusion with
-   | U.Holds c -> (division_clause c || (c <> R.false_expr && IQ.check c)) && D.scoped [] c && get_sort c = bool_sort
-   | U.Equal _ _ | U.Observational _ _ -> false)
+  if not (order_rule node.kind) then false
+  else match node.conclusion with
+  | U.Holds c ->
+    if not (D.scoped [] c && get_sort c = bool_sort) then false
+    else if division_clause c then true
+    else integer_quotient_clause c
+  | U.Equal _ _ | U.Observational _ _ -> false
 
 (* The node kernels that read the Sorted division laws. *)
 let division_node (node:U.proof_node) : bool = division_order node
@@ -2346,7 +2360,8 @@ let rec integer_cut_facts (steps:list IC.step) (facts:list expr)
   | step :: rest -> integer_cut_facts rest (facts @ [step.IC.bound])
 
 let check_integer_cut (facts:list expr) : bool =
-  if facts = [] || not (linear_inputs (LA.assumptions R.false_expr facts)) then false
+  if facts = [] || not (linear_inputs (LA.assumptions R.false_expr facts)) ||
+     not (LA.linear_facts (length facts + 1) facts) then false
   else match IC.synthesize R.false_expr facts with
   | None -> false
   | Some certificate ->
@@ -3217,7 +3232,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
+      arithmetic_farkas node || arithmetic_lattice node || real_farkas s node ||
+      quantifier_instantiation node || quantifier_flattening node ||
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
       integer_product node || division_order node ||
       nnf = NR.Replayed || conditional_definition node ||
@@ -3462,6 +3478,13 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | U.ArithmeticFarkas cs ->
           AR.lemma_check_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
+    else if arithmetic_lattice node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        match node.kind with
+        | U.ArithmeticLattice c ->
+          LS.lemma_check s bc eq other c conclusion (propositions node.premises)
+        | _ -> ()))
     else if real_farkas s node then (
       if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
         lemma_premise_hypotheses s bc eq other node.premises;
@@ -3694,7 +3717,9 @@ let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot b
 (* An entry whose formula is a guarded Int div/mod clause (division_order reads
    the division laws for exactly those). *)
 let division_order_entry (e:P.entry) : bool =
-  order_rule e.P.rule && (division_clause e.P.formula || (e.P.formula <> R.false_expr && IQ.check e.P.formula))
+  if not (order_rule e.P.rule) then false
+  else if division_clause e.P.formula then true
+  else integer_quotient_clause e.P.formula
 
 let rec needs_division_semantics (entries:list P.entry) : Tot bool (decreases entries) =
   match entries with

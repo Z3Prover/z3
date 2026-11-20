@@ -62,6 +62,7 @@ type rule =
   | IffFalse
   | QuantifierIntroduction : certificate:binder_certificate -> rule
   | QuantifierInstantiation : arguments:list expr -> rule
+  | ArithmeticLattice : certificate:GS.certificate -> rule
 
 type relation =
   | Equality

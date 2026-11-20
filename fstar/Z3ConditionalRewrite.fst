@@ -5,6 +5,7 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 module B = Z3BooleanRewrite
+module BS = Z3BooleanRewriteSyntax
 module A = Z3ArrayRewrite
 module R = Z3ArithmeticRewrite
 module I = Z3IntegerRewrite
@@ -31,7 +32,8 @@ let lemma_fold_sound (i:interpretation value) (rho:env value) (e:expr)
     else if R.boolean_equivalent e false_expr then
       R.lemma_equivalent_with_numeric_model e false_expr i rho
     else match unit_fold e with
-      | Some t -> if B.boolean_equiv 8 10 e t then B.lemma_boolean_equiv_sound 8 10 i rho e t
+      | Some t -> if BS.boolean_equiv 8 10 e t then
+          Z3BooleanRewrite.lemma_boolean_equiv_sound 8 10 i rho e t
       | None -> ()
 
 let rec lemma_choose_sound (i:interpretation value) (rho:env value)

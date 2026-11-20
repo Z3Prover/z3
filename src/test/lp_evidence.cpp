@@ -121,6 +121,57 @@ namespace {
         VERIFY(proof && proof_utils::is_closed(m, proof));
     }
 
+    void test_integer_input_binding() {
+        manager evidence(true);
+        evidence.register_variable(0, true);
+        auto* leaf = evidence.mk_leaf(0);
+        manager::fact bound;
+        bound.lhs.push_back({lp::mpq(1), 0});
+        bound.kind = lp::LE;
+        evidence.set_input_fact(leaf, bound);
+        manager::proof_expression e;
+        evidence.reconstruct(leaf, e);
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref_vector variables(m);
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        variables.push_back(x);
+        proof_ref_vector premises(m), inputs(m);
+        premises.push_back(m.mk_asserted(m.mk_not(a.mk_ge(x, a.mk_int(1)))));
+        VERIFY(lp::bind_evidence_inputs(m, e, variables, premises, inputs));
+        VERIFY(inputs.size() == 1 && inputs.get(0));
+        proof_ref proof = lp::mk_evidence_proof(m, e, variables, inputs);
+        VERIFY(proof && proof_utils::is_closed(m, proof));
+        proof_checker checker(m);
+        expr_ref_vector sides(m);
+        VERIFY(checker.check(proof, sides) && sides.empty());
+
+        premises.reset();
+        premises.push_back(m.mk_asserted(m.mk_not(a.mk_ge(x, a.mk_int(2)))));
+        VERIFY(lp::bind_evidence_inputs(m, e, variables, premises, inputs));
+        VERIFY(inputs.size() == 1 && !inputs.get(0));
+        VERIFY(!lp::mk_evidence_proof(m, e, variables, inputs));
+        premises.reset();
+        premises.push_back(m.mk_asserted(m.mk_eq(x, a.mk_int(0))));
+        VERIFY(lp::bind_evidence_inputs(m, e, variables, premises, inputs));
+        VERIFY(inputs.size() == 1 && !inputs.get(0));
+
+        manager real_evidence(true);
+        real_evidence.register_variable(0, false);
+        auto* real_leaf = real_evidence.mk_leaf(0);
+        real_evidence.set_input_fact(real_leaf, bound);
+        manager::proof_expression real_expression;
+        real_evidence.reconstruct(real_leaf, real_expression);
+        variables.reset();
+        expr_ref y(m.mk_const("y", a.mk_real()), m);
+        variables.push_back(y);
+        premises.reset();
+        premises.push_back(m.mk_asserted(m.mk_not(a.mk_ge(y, a.mk_real(1)))));
+        VERIFY(lp::bind_evidence_inputs(m, real_expression, variables, premises, inputs));
+        VERIFY(inputs.size() == 1 && !inputs.get(0));
+    }
+
     struct counted_dependencies {
         using value = unsigned;
         static constexpr bool ref_count = true;
@@ -1090,6 +1141,7 @@ namespace {
 
 void tst_lp_evidence() {
     test_open_export();
+    test_integer_input_binding();
     test_annotations();
     test_erasure();
     test_shared_weights();

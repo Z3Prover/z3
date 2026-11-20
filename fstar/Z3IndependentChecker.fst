@@ -231,8 +231,9 @@ let combined_binder_augmented (schema:S.schema) (doc:P.document) : option P.docu
     then Some augmented else None
   else None
 
-let check_definition_from (schema:S.schema) (doc:P.document)
-                          (base:Root.root_verdict) : Root.root_verdict =
+let check_definition_from_using (schema:S.schema) (doc:P.document)
+                                (base:Root.root_verdict)
+                                (expanded:unit -> option P.document) : Root.root_verdict =
   match base with
   | Root.RootPending _ ->
     if Some? (definition_augmented schema doc) ||
@@ -248,18 +249,45 @@ let check_definition_from (schema:S.schema) (doc:P.document)
         S.valid schema && Skolem.check schema doc = Root.RootCertified) ||
        (has_definition doc.P.entries &&
         (Some? (GroundDocument.selected schema doc) ||
-         Some? (GroundDocument.selected_expanded schema doc)))
+         Some? (expanded ())))
     then Root.RootCertified else base
   | _ -> base
 
+let check_definition_from (schema:S.schema) (doc:P.document)
+                          (base:Root.root_verdict) : Root.root_verdict =
+  check_definition_from_using schema doc base
+    (fun _ -> GroundDocument.selected_expanded schema doc)
+
+let check_definition_from_cached (schema:S.checked_schema) (doc:P.document)
+  (base:Root.root_verdict) (assertions:list Z3AstTheory.expr)
+  (memo:Cached.cache schema assertions)
+  : result:Root.root_verdict{result == check_definition_from schema doc base} =
+  let verdict =
+    check_definition_from_using schema doc base
+      (fun _ -> GroundDocument.selected_expanded_cached schema doc assertions memo) in
+  GroundDocument.lemma_selected_expanded_cached schema doc assertions memo;
+  verdict
+
 let check_definition (schema:S.schema) (doc:P.document) : Root.root_verdict =
-  check_definition_from schema doc (check schema doc)
+  if S.valid schema && has_definition doc.P.entries then
+    let checked = schema in
+    let base, (_, memo) = RootReplay.check_recovering_diagnosed_cached checked doc in
+    check_definition_from_cached checked doc base (SP.elaborate_full checked doc).P.assertions memo
+  else check_definition_from schema doc (check schema doc)
 
 let check_definition_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
-  let base, diagnostic = check_diagnosed schema doc in
-  let verdict = check_definition_from schema doc base in
-  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+  if S.valid schema && has_definition doc.P.entries then
+    let checked = schema in
+    let base, (diagnostic, memo) =
+      RootReplay.check_recovering_diagnosed_cached checked doc in
+    let verdict =
+      check_definition_from_cached checked doc base (SP.elaborate_full checked doc).P.assertions memo in
+    verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+  else
+    let base, diagnostic = check_diagnosed schema doc in
+    let verdict = check_definition_from schema doc base in
+    verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
 
 let check_array_from (schema:S.schema) (doc:P.document)
   (base:Root.root_verdict{base == check schema doc})

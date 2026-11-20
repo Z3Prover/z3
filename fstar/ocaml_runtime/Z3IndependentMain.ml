@@ -14,6 +14,7 @@ let diagnostic_rule =
   | Unverified name -> name
   | ArithmeticFarkas _ -> "arith/farkas"
   | ArithmeticGomory _ -> "arith/lp-gomory"
+  | ArithmeticLattice _ -> "arith/lp-integer-lattice"
   | FiniteFieldPac _ -> "th-lemma"
   | RewriteRule -> "rewrite"
   | PullQuantifier -> "pull-quant"

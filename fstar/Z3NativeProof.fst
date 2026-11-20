@@ -10,6 +10,7 @@ module N = Z3Native
 module P = Z3DocumentSyntax
 module L = FStar.List.Tot
 module C = Z3LpCertificate
+module IL = Z3IndependentIntegerLatticeSyntax
 module BV = Z3BvSyntax
 module FF = Z3FiniteFieldTags
 module FP = Z3FiniteFieldCertificate
@@ -561,6 +562,19 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
       else if view.proof_name = "quant-inst" then
         QuantifierInstantiation (cached_expressions st view.instantiations),
         cached_premises st view.premises, st
+      else if view.proof_name = "arith/lp-integer-lattice" then
+        let candidate =
+          match view.lp_data, view.premises with
+          | Some ("lp-integer-lattice", [N.ParameterRational index denominator]), context :: _ ->
+            if denominator = 1 && index >= 0 then
+              index_get st.lp_certificates (N.ast_id context) >>= (fun certificate ->
+              IL.candidate certificate index)
+            else None
+          | _, _ -> None in
+        let kind = match candidate with
+          | Some c -> ArithmeticLattice c
+          | None -> Unverified view.proof_name in
+        kind, cached_premises st view.premises, st
       else if view.proof_name = "arith/lp-gomory" then
         let candidate =
           match view.lp_data, view.premises with

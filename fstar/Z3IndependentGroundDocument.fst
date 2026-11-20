@@ -13,6 +13,8 @@ module SP = Z3SortedProof
 module Root = Z3SortedRootDocument
 module Ground = Z3IndependentGroundDefinition
 module GroundRoot = Z3IndependentGroundDefinitionRoot
+module Cached = Z3IndependentCachedReplay
+module RootReplay = Z3IndependentRootReplay
 
 let max_entries : nat = 2000000
 
@@ -125,6 +127,23 @@ let selected_expanded (schema:S.schema) (doc:P.document) : option P.document =
       then Some expanded else None
     | None -> None
   else None
+
+let selected_expanded_cached (schema:S.checked_schema) (doc:P.document)
+  (assertions:list expr) (memo:Cached.cache schema assertions) : option P.document =
+  let formulas = entry_formulas doc.P.entries in
+  if within_budget doc && Some? (arguments_budget 2000000 formulas) then
+    match expand_definitions doc with
+    | Some expanded ->
+      if Some? (arguments_budget 2000000 (entry_formulas expanded.P.entries)) &&
+         RootReplay.check_with_cache schema expanded assertions memo = Root.RootCertified
+      then Some expanded else None
+    | None -> None
+  else None
+
+let lemma_selected_expanded_cached (schema:S.checked_schema) (doc:P.document)
+  (assertions:list expr) (memo:Cached.cache schema assertions)
+  : Lemma (selected_expanded_cached schema doc assertions memo == selected_expanded schema doc) =
+  assert (selected_expanded_cached schema doc assertions memo == selected_expanded schema doc)
 
 let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (model:TR.interp u schema)

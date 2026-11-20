@@ -43,6 +43,24 @@ let check_diagnosed (schema:S.schema) (doc:P.document) =
     gate schema doc dependent checked, diagnostic
   else Root.RootRejected, P.DocumentRejected P.LogicalDeclarations None None
 
+let check_with_cache (schema:S.checked_schema) (doc:P.document)
+                     (assertions:list Z3AstTheory.expr)
+                     (memo:Cached.cache schema assertions) =
+  let expanded, dependent = prepare schema doc in
+  let diagnostic, _ =
+    if expanded.P.assertions = assertions
+    then Cached.diagnose_document schema expanded (Cached.seal schema assertions memo)
+    else Cached.diagnose_document schema expanded (Cached.empty schema expanded.P.assertions) in
+  SP.lemma_diagnose_document schema expanded;
+  gate schema doc dependent (SP.diagnostic_result diagnostic)
+
+let check_diagnosed_cached (schema:S.checked_schema) (doc:P.document) =
+  let expanded, dependent = prepare schema doc in
+  let diagnostic, memo =
+    Cached.diagnose_document schema expanded (Cached.empty schema expanded.P.assertions) in
+  SP.lemma_diagnose_document schema expanded;
+  gate schema doc dependent (SP.diagnostic_result diagnostic), (diagnostic, memo)
+
 let recover_cached (schema:S.checked_schema) (doc:P.document)
                    (assertions:list Z3AstTheory.expr) (memo:Cached.cache schema assertions)
                    (base:Root.root_verdict)
@@ -91,3 +109,19 @@ let check_recovering_diagnosed (schema:S.schema) (doc:P.document) =
     let base = gate schema doc dependent (SP.diagnostic_result diagnostic) in
     recover_cached schema doc expanded.P.assertions memo base, diagnostic
   else Root.RootRejected, P.DocumentRejected P.LogicalDeclarations None None
+
+let check_recovering_cached (schema:S.checked_schema) (doc:P.document) =
+  let expanded, dependent = prepare schema doc in
+  let diagnostic, memo =
+    Cached.diagnose_document schema expanded (Cached.empty schema expanded.P.assertions) in
+  SP.lemma_diagnose_document schema expanded;
+  let base = gate schema doc dependent (SP.diagnostic_result diagnostic) in
+  recover_cached schema doc expanded.P.assertions memo base, memo
+
+let check_recovering_diagnosed_cached (schema:S.checked_schema) (doc:P.document) =
+  let expanded, dependent = prepare schema doc in
+  let diagnostic, memo =
+    Cached.diagnose_document schema expanded (Cached.empty schema expanded.P.assertions) in
+  SP.lemma_diagnose_document schema expanded;
+  let base = gate schema doc dependent (SP.diagnostic_result diagnostic) in
+  recover_cached schema doc expanded.P.assertions memo base, (diagnostic, memo)

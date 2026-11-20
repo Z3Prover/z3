@@ -7,6 +7,10 @@ module US = Z3UnifiedProofSyntax
 module BS = Z3BinderScopeSyntax
 module A = Z3AstTheory
 module C = Z3LpCertificate
+module G = Z3LpGomorySyntax
+module S = Z3DatatypeSignature
+module SP = Z3SortedProof
+module R = Z3ClauseSyntax
 
 let fixture_sort = function
   | "Bool" -> A.SortApp (A.BoolSymbol, [])
@@ -532,6 +536,46 @@ let native_lp_certificates () =
     "fractional LP index was accepted";
   require (C.read_uint [C.Rational (Z.of_string "4294967296", Z.one)] = None)
     "overflowing LP index was accepted"
+
+let native_lp_lattice_certificates () =
+  let assertions, proof = unsat
+      "(declare-const x Int)(declare-const y Int)\
+       (assert (<= (- x y) 0))(assert (>= (- x y) 0))\
+       (assert (>= (+ x y) 1))(assert (<= (+ x y) 3))\
+       (assert (not (= (+ x y) 2)))" in
+  let doc = B.marshal assertions proof in
+  let entries = Array.of_list doc.PS.entries in
+  let lattice = List.filter (fun e -> match e.PS.rule with
+      | US.ArithmeticLattice _ -> true | _ -> false) doc.PS.entries in
+  require (lattice <> []) "native integer-lattice evidence was not consumed";
+  let schema = { S.sorts = []; cases = [] } in
+  List.iter (fun (entry:PS.entry) ->
+      let conclusion = Option.get (US.classify_fact entry.PS.formula) in
+      let facts = List.map (fun index ->
+          let premise = entries.(Z.to_int index) in
+          let formula = premise.PS.formula in
+          { US.conclusion = Option.get (US.classify_fact formula); hypotheses = [formula] })
+          entry.PS.premise_ids in
+      let propositions = List.map (fun (fact:US.checked_fact) -> fact.US.conclusion) facts in
+      let node = { US.kind = entry.PS.rule; conclusion; premises = facts } in
+      require (U.checked_theory_lemma entry.PS.rule conclusion propositions)
+        "native integer-lattice certificate failed arithmetic replay";
+      require (SP.arithmetic_lattice node)
+        "native integer-lattice certificate failed sorted replay";
+      require (match SP.check_node_cached schema [] node with
+        | Some (_, pending) -> Z.equal pending Z.zero
+        | None -> false)
+        "native integer-lattice certificate remained pending";
+      require (not (U.checked_theory_lemma entry.PS.rule
+          (US.Holds R.false_expr) propositions))
+        "native integer-lattice metadata bypassed conclusion checking";
+      match entry.PS.rule with
+      | US.ArithmeticLattice certificate ->
+        let shifted = { certificate with G.threshold = Z.add certificate.G.threshold Z.one } in
+        require (not (U.checked_theory_lemma (US.ArithmeticLattice shifted)
+            conclusion propositions))
+          "shifted integer-lattice threshold was accepted"
+      | _ -> failwith "integer-lattice entry lost its certificate") lattice
 
 (* The walks over the native parameters of an LP context (B.marshal_parameters and
    B.parameter_expressions) keep every parameter's kind, content and position at the size
@@ -3241,8 +3285,22 @@ let check_sorted_product_clause ?(int_kernel_refuses=false) ?(equality_judgment=
                premise_ids = [Z.of_int count; Z.of_int (count + 1)] } in
   let doc = { PS.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
               assertions; entries = entries @ [step; root]; root = Z.of_int (count + 2) } in
-  require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
-      "unexpected product-clause verdict";
+  let actual = K.check_document_epsilon schema doc in
+  let expected_pending = if expected then Z.zero else Z.one in
+  let matches = match actual with
+    | Some pending -> Z.equal pending expected_pending
+    | None -> false in
+  let rule_name = match rule with
+    | US.Unverified name -> name
+    | US.ArithmeticFarkas _ -> "arith/farkas"
+    | US.LemmaRule -> "lemma"
+    | _ -> "other" in
+  let actual_pending = match actual with
+    | Some pending -> Z.to_string pending
+    | None -> "unchecked" in
+  require matches (Printf.sprintf
+    "unexpected product-clause verdict: rule=%s facts=%s goal=%s expected_pending=%s actual_pending=%s"
+    rule_name facts goal (Z.to_string expected_pending) actual_pending);
   if expected then (
     require (K.check_document_epsilon schema { doc with PS.assertions = [] } = None)
       "product clause accepted missing original assertions";
@@ -8698,6 +8756,7 @@ let () =
      "certified-duplicate-distinct-rewrites", distinct_reflexivity;
      "integer-tightening-candidate-mutations", integer_tightening_candidates;
      "typed-native-LP-certificate-decoding", native_lp_certificates;
+     "certified-native-integer-lattice-cuts", native_lp_lattice_certificates;
      "native-LP-parameter-walks", lp_parameter_walks;
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
