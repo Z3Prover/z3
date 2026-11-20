@@ -37,6 +37,7 @@ Notes:
 #include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
+    probe * clone() override { return alloc(quasi_pb_probe); }
     char const* name() const override { return "is-quasi-pb"; }
     result operator()(goal const & g) override {
         bool found_non_01 = false;
@@ -242,4 +243,3 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     st->updt_params(p);
     return st;
 }
-

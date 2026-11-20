@@ -69,10 +69,8 @@ public:
     // parameters (cond, when, fail-if).
     virtual void updt_params(params_ref const & p) {}
 
-    // The probe of a copy of a tactic (tactic::translate). A probe that holds parameters is
-    // copied, so that updt_params on one copy does not change the others; probes without
-    // parameters are shared.
-    virtual probe * clone() { return this; }
+    // The probe of a copy of a tactic (tactic::translate).
+    virtual probe * clone() = 0;
 
     // Display as display_sexpr, with the parameters p that updt_params would pass: a
     // parameter probe is displayed as the constant it takes from p, so the display parses
@@ -187,4 +185,3 @@ probe * mk_is_qfufbv_probe();
 Z3_ADD_PROBE(is_propositional, "is-propositional", "true if the goal is in propositional logic.", mk_is_propositional_probe());
 Z3_ADD_PROBE(is_qfbv, "is-qfbv", "true if the goal is in QF_BV.", mk_is_qfbv_probe());
 Z3_ADD_PROBE(is_qfaufbv, "is-qfaufbv", "true if the goal is in QF_AUFBV.", mk_is_qfaufbv_probe());
-

@@ -360,6 +360,16 @@ static void tst_param_probe() {
     ENSURE(o3.str().find("not parseable: constant too big") != std::string::npos);
 }
 
+static void tst_probe_clone() {
+    probe_ref p(mk_memory_probe());
+    probe_ref p_copy(p->clone());
+    ENSURE(p.get() != p_copy.get());
+
+    probe_ref q(mk_lt(mk_const_probe(1), mk_const_probe(2)));
+    probe_ref q_copy(q->clone());
+    ENSURE(q.get() != q_copy.get());
+}
+
 void tst_tactic_scope() {
     tst_local();
     tst_global();
@@ -368,4 +378,5 @@ void tst_tactic_scope() {
     tst_forced_between_scopes();
     tst_both_spellings();
     tst_param_probe();
+    tst_probe_clone();
 }

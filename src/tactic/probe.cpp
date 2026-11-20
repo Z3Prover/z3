@@ -31,6 +31,7 @@ Revision History:
 
 class memory_probe : public probe {
 public:
+    probe * clone() override { return alloc(memory_probe); }
     char const* name() const override { return "memory"; }
     result operator()(goal const & g) override {
         return result(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024));
@@ -43,6 +44,7 @@ probe * mk_memory_probe() {
 
 class depth_probe : public probe {
 public:
+    probe * clone() override { return alloc(depth_probe); }
     char const* name() const override { return "depth"; }
     result operator()(goal const & g) override {
         return result(g.depth());
@@ -51,6 +53,7 @@ public:
 
 class size_probe : public probe {
 public:
+    probe * clone() override { return alloc(size_probe); }
     char const* name() const override { return "size"; }
     result operator()(goal const & g) override {
         return result(g.size());
@@ -59,6 +62,7 @@ public:
 
 class num_exprs_probe : public probe {
 public:
+    probe * clone() override { return alloc(num_exprs_probe); }
     char const* name() const override { return "num-exprs"; }
     result operator()(goal const & g) override {
         return result(g.num_exprs());
@@ -100,7 +104,8 @@ public:
 
     probe * clone() override {
         probe * a = m_p->clone();
-        return a == m_p ? this : clone1(a);
+        probe_ref ra(a);
+        return clone1(a);
     }
 };
 
@@ -149,8 +154,6 @@ public:
     probe * clone() override {
         probe * a = m_p1->clone();
         probe * b = m_p2->clone();
-        if (a == m_p1 && b == m_p2)
-            return this;
         // a or b may be new: hold them while the copy takes its references
         probe_ref ra(a), rb(b);
         return clone2(a, b);
@@ -252,6 +255,7 @@ class const_probe : public probe {
     double m_val;
 public:
     const_probe(double v):m_val(v) {}
+    probe * clone() override { return alloc(const_probe, m_val); }
 
     std::ostream& display_sexpr(std::ostream& out) const override {
         if (m_val == std::floor(m_val) && std::fabs(m_val) < 1e15)
@@ -450,6 +454,7 @@ struct is_non_qfbv_predicate {
 
 class is_propositional_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_propositional_probe); }
     char const* name() const override { return "is-propositional"; }
     result operator()(goal const & g) override {
         return !test<is_non_propositional_predicate>(g);
@@ -459,6 +464,7 @@ public:
 
 class is_qfbv_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_qfbv_probe); }
     char const* name() const override { return "is-qfbv"; }
     result operator()(goal const & g) override {
         return !test<is_non_qfbv_predicate>(g);
@@ -502,6 +508,7 @@ struct is_non_qfaufbv_predicate {
 
 class is_qfaufbv_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_qfaufbv_probe); }
     char const* name() const override { return "is-qfaufbv"; }
     result operator()(goal const & g) override {
         return !test<is_non_qfaufbv_predicate>(g);
@@ -541,6 +548,7 @@ struct is_non_qfufbv_predicate {
 
 class is_qfufbv_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_qfufbv_probe); }
     char const* name() const override { return "is-qfufbv"; }
     bool has_syntax() const override { return false; } // not registered
     result operator()(goal const & g) override {
@@ -591,6 +599,7 @@ class num_consts_probe : public probe {
     };
 
 public:
+    probe * clone() override { return alloc(num_consts_probe, m_bool, m_family); }
     char const* name() const override {
         if (m_bool)
             return "num-bool-consts";
@@ -631,6 +640,7 @@ probe * mk_num_bv_consts_probe() {
 
 class produce_proofs_probe : public probe {
 public:
+    probe * clone() override { return alloc(produce_proofs_probe); }
     char const* name() const override { return "produce-proofs"; }
     result operator()(goal const & g) override {
         return g.proofs_enabled();
@@ -639,6 +649,7 @@ public:
 
 class produce_models_probe : public probe {
 public:
+    probe * clone() override { return alloc(produce_models_probe); }
     char const* name() const override { return "produce-model"; }
     result operator()(goal const & g) override {
         return g.models_enabled();
@@ -647,6 +658,7 @@ public:
 
 class produce_unsat_cores_probe : public probe {
 public:
+    probe * clone() override { return alloc(produce_unsat_cores_probe); }
     char const* name() const override { return "produce-unsat-cores"; }
     result operator()(goal const & g) override {
         return g.unsat_core_enabled();
@@ -666,6 +678,7 @@ probe * mk_produce_unsat_cores_probe() {
 }
 
 struct has_pattern_probe : public probe {
+    probe * clone() override { return alloc(has_pattern_probe); }
     char const* name() const override { return "has-patterns"; }
     struct found : public std::exception {};
 
@@ -700,6 +713,7 @@ probe * mk_has_pattern_probe() {
 
 
 struct has_quantifier_probe : public probe {
+    probe * clone() override { return alloc(has_quantifier_probe); }
     char const* name() const override { return "has-quantifiers"; }
     struct found : public std::exception {};
 
@@ -728,6 +742,3 @@ public:
 probe * mk_has_quantifier_probe() {
     return alloc(has_quantifier_probe);
 }
-
-
-

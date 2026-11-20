@@ -202,6 +202,7 @@ namespace {
     };
     class has_ff_probe : public probe {
     public:
+        probe * clone() override { return alloc(has_ff_probe); }
         char const* name() const override { return "has-ff"; }
         bool has_syntax() const override { return false; } // not registered
         result operator()(goal const &g) override {

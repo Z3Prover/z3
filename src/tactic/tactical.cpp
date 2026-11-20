@@ -1646,8 +1646,7 @@ public:
 
     tactic * translate(ast_manager & m) override {
         probe * q = m_p->clone();
-        // a probe without parameters is shared, and so is this tactic
-        return q == m_p.get() ? this : alloc(fail_if_tactic, q);
+        return alloc(fail_if_tactic, q);
     }
 
     void collect_statistics(statistics& st) const override {

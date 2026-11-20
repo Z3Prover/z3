@@ -29,6 +29,7 @@ Author:
 namespace {
     class ff_small_field_probe : public probe {
     public:
+        probe * clone() override { return alloc(ff_small_field_probe); }
         char const* name() const override { return "ff-small-field"; }
         bool has_syntax() const override { return false; } // not registered
         result operator()(goal const &g) override {
@@ -51,4 +52,3 @@ tactic *mk_ff_smt_tactic(ast_manager &m, params_ref const &p) {
     q.set_uint("relevancy", 0);
     return cond(alloc(ff_small_field_probe), mk_smt_tactic(m, p), using_params(mk_smt_tactic(m, p), q));
 }
-
