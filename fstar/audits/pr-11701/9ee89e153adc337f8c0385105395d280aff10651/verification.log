@@ -1,0 +1,7 @@
+Command: fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3PR11701ArrayDefault.fst
+Exit: 0
+stdout:
+Verified module: Z3PR11701ArrayDefault
+All verification conditions discharged successfully
+
+stderr: (empty)
