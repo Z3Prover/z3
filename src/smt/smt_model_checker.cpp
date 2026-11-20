@@ -526,6 +526,8 @@ namespace smt {
             p.set_bool("solver.axioms2files", false);
             p.set_bool("solver.lemmas2console", false);
             p.set_sym("solver.proof.log", symbol::null);
+            // Expand finite model tables instead of repeatedly instantiating shifted lambda reads.
+            p.set_bool("blast_select_store", true);
             m_aux_context = m_context->mk_fresh(&logic, m_fparams.get(), p);
         }
     }
