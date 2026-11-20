@@ -26,8 +26,7 @@ Author:
 namespace seq {
 
     class ho_facet : public stx::facet_i {
-        // A non-null premise guards an equality obtained from an input elaboration.
-        using add_eq_t = std::function<bool(expr*, expr*, expr*)>;
+        using add_eq_t = std::function<bool(expr*, expr*)>;
         using find_elaboration_t = std::function<bool(expr*, expr*&)>;
 
         ast_manager& m;
@@ -91,14 +90,12 @@ namespace seq {
 
         app_ref_vector const& terms() const { return m_terms; }
 
-        bool is_unfolded(app* term) const { return m_unfolded.contains(term); }
-
         bool propagate() {
             unsigned num_terms = m_terms.size();
             bool progress = false;
             for (unsigned i = 0; i < num_terms; ++i) {
                 app* term = m_terms.get(i);
-                if (is_unfolded(term))
+                if (m_unfolded.contains(term))
                     continue;
                 expr* f = nullptr, *s = nullptr, *b = nullptr, *idx = nullptr;
                 VERIFY(is_ho_term(term, f, idx, b, s));
@@ -124,8 +121,7 @@ namespace seq {
                     ho_elaboration->get_args(),
                     rewritten);
                 if (status != BR_FAILED) {
-                    expr_ref premise(m.mk_eq(s, elaboration), m);
-                    if (m_add_eq(term, rewritten, premise))
+                    if (m_add_eq(ho_elaboration, rewritten))
                         ++m_num_ho_unfolds;
                     m_unfolded.insert(term);
                     m_trail.push(insert_obj_trail<expr>(m_unfolded, term));
@@ -140,7 +136,7 @@ namespace seq {
                     continue;
                 expr_ref len_map(m_seq.str.mk_length(term), m);
                 expr_ref len_s(m_seq.str.mk_length(s), m);
-                if (m_add_eq(len_map, len_s, nullptr)) {
+                if (m_add_eq(len_map, len_s)) {
                     ++m_num_length_axioms;
                     progress = true;
                 }

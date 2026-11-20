@@ -39,10 +39,8 @@ static void tst_unfolded_obligations() {
     bool elaborate = false;
     seq::ho_facet facet(
         trail, m, seq, rewriter,
-        [&](expr* lhs, expr* rhs, expr* premise) {
+        [&](expr* lhs, expr* rhs) {
             expr_ref equality(m.mk_eq(lhs, rhs), m);
-            if (premise)
-                equality = m.mk_implies(premise, equality);
             if (equalities.contains(equality))
                 return false;
             equalities.push_back(equality);
@@ -86,7 +84,7 @@ void tst_seq_ho_facet() {
         m,
         seq,
         rewriter,
-        [](expr*, expr*, expr*) { return false; },
+        [](expr*, expr*) { return false; },
         [](expr*, expr*&) { return false; });
     app* term = m.mk_true();
 

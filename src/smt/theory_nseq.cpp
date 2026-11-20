@@ -187,7 +187,7 @@ namespace smt {
             m,
             m_seq,
             m_rewriter,
-            [this](expr* lhs, expr* rhs, expr* premise) { return add_ho_eq(lhs, rhs, premise); },
+            [this](expr* lhs, expr* rhs) { return add_ho_eq(lhs, rhs); },
             [this](expr* term, expr*& elaboration) { return find_ho_elaboration(term, elaboration); });
         m_ambient->stoi_facet(*m_root).set_instantiate([this](expr* e, unsigned k) { m_ax.add_stoi_axiom(e, k); });
 
@@ -361,7 +361,6 @@ namespace smt {
             expr_ref_vector lhs = tokenize(dep, e1);
             expr_ref_vector rhs = tokenize(dep, e2);
             m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
-            enforce_length_coherence(e1, e2);
         }
     }
 
@@ -511,9 +510,8 @@ namespace smt {
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
                 if (ctx.has_quantifiers()) {
-                    // Quantified concatenations use the right-associated form.
-                    expr_ref suffix(m_seq.str.mk_concat(e2, y), m);
-                    expr_ref concat(m_seq.str.mk_concat(x, suffix), m);
+                    expr_ref prefix(m_seq.str.mk_concat(x, e2), m);
+                    expr_ref concat(m_seq.str.mk_concat(prefix, y), m);
                     propagate_eq(lit, e1, concat);
                 }
             }
@@ -765,8 +763,7 @@ namespace smt {
             if (!ctx.is_relevant(lit))
                 continue;
             expr* atom = ctx.bool_var2expr(lit.var());
-            // The outer context instantiates quantifiers; this backend only needs ground facts.
-            if (has_quantifiers(atom) || is_seq_theory_atom(m_seq, m_sk, atom))
+            if (is_seq_theory_atom(m_seq, m_sk, atom))
                 continue;
             expr_ref e(lit.sign() ? m.mk_not(atom) : atom, m);
             unsigned idx = mk_dep(assumption(lit));
@@ -781,13 +778,6 @@ namespace smt {
             if (m_seq.str.is_nth_u(p->get_expr()))
                 return true;
         return false;
-    }
-
-    bool theory_nseq::is_beta_redex(enode* parent, enode* argument) const {
-        expr* input = nullptr;
-        auto& hf = m_ambient->ho_facet(*m_root);
-        return hf.is_ho_term(parent->get_expr(), input) &&
-               parent->get_arg(0)->get_root() == argument->get_root();
     }
 
     bool theory_nseq::assume_shared_equalities() {
@@ -820,8 +810,6 @@ namespace smt {
                 ext_theory_eq_propagation_justification(
                     get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
         ctx.assign_eq(n1, n2, eq_justification(js));
-        if (m_seq.is_seq(e1))
-            enforce_length_coherence(e1, e2);
         return true;
     }
 
@@ -1005,53 +993,6 @@ namespace smt {
         return proc;
     }
 
-    bool theory_nseq::check_fixed_length(expr* e, bool instantiate) {
-        expr_ref len(m_seq.str.mk_length(e), m), guard(m);
-        rational lo(0), hi;
-        lower_bound(len, lo);
-        if (!lo.is_unsigned() || lo > rational(20))
-            return false;
-        unsigned end = 20;
-        if (upper_bound(len, hi) && hi.is_unsigned() && hi < rational(end))
-            end = hi.get_unsigned();
-        unsigned length = lo.get_unsigned();
-        for (; length <= end; ++length) {
-            guard = m.mk_eq(len, m_autil.mk_int(length));
-            if (!m_fixed_length_guards.contains(guard) &&
-                (!ctx.b_internalized(guard) || ctx.get_assignment(ctx.get_literal(guard)) != l_false))
-                break;
-        }
-        if (length > end)
-            return false;
-        if (!instantiate)
-            return true;
-        expr_ref seq(e, m), head(m), tail(m);
-        expr_ref_vector units(m);
-        for (unsigned i = 0; i < length; ++i) {
-            m_sk.decompose(seq, head, tail);
-            units.push_back(head);
-            seq = tail;
-        }
-        seq = m_seq.str.mk_concat(units.size(), units.data(), e->get_sort());
-        expr_ref eq(m_sk.mk_eq(e, seq), m);
-        // A short length is a guarded choice, never an unconditional equality.
-        expr_ref value(m_autil.mk_int(length), m);
-        expr_ref lower(m_autil.mk_ge(len, value), m), upper(m_autil.mk_le(len, value), m);
-        // Use bounds, as in SAT-snapshot reconciliation, to avoid equality re-internalization loops.
-        literal lo_lit = mk_literal(lower), hi_lit = mk_literal(upper);
-        literal clause[] = { ~lo_lit, ~hi_lit, mk_literal(eq) };
-        ctx.mk_th_axiom(get_id(), 3, clause);
-        ctx.mark_as_relevant(lo_lit);
-        ctx.mark_as_relevant(hi_lit);
-        ctx.force_phase(lo_lit);
-        ctx.force_phase(hi_lit);
-        pin(guard);
-        m_fixed_length_guards.insert(guard);
-        ctx.push_trail(insert_obj_trail<expr>(m_fixed_length_guards, guard));
-        ++m_num_fixed_length_axioms;
-        return true;
-    }
-
     bool theory_nseq::check_fixed_lengths(bool instantiate) {
         for (unsigned v = 0; v < get_num_vars() && m.inc(); ++v) {
             expr* e = get_expr(v);
@@ -1076,8 +1017,50 @@ namespace smt {
                 if (!selected)
                     continue;
             }
-            if (check_fixed_length(e, instantiate))
+            expr_ref len(m_seq.str.mk_length(e), m), guard(m);
+            rational lo(0), hi;
+            lower_bound(len, lo);
+            if (!lo.is_unsigned() || lo > rational(20))
+                continue;
+            unsigned end = 20;
+            if (upper_bound(len, hi) && hi.is_unsigned() && hi < rational(end))
+                end = hi.get_unsigned();
+            unsigned length = lo.get_unsigned();
+            for (; length <= end; ++length) {
+                guard = m.mk_eq(len, m_autil.mk_int(length));
+                if (!m_fixed_length_guards.contains(guard) &&
+                    (!ctx.b_internalized(guard) || ctx.get_assignment(ctx.get_literal(guard)) != l_false))
+                    break;
+            }
+            if (length > end)
+                continue;
+            if (!instantiate)
                 return true;
+            expr_ref seq(e, m), head(m), tail(m);
+            expr_ref_vector units(m);
+            for (unsigned i = 0; i < length; ++i) {
+                m_sk.decompose(seq, head, tail);
+                units.push_back(head);
+                seq = tail;
+            }
+            seq = m_seq.str.mk_concat(units.size(), units.data(), e->get_sort());
+            expr_ref eq(m_sk.mk_eq(e, seq), m);
+            // A short length is a guarded choice, never an unconditional equality.
+            expr_ref value(m_autil.mk_int(length), m);
+            expr_ref lower(m_autil.mk_ge(len, value), m), upper(m_autil.mk_le(len, value), m);
+            // Use bounds, as in SAT-snapshot reconciliation, to avoid equality re-internalization loops.
+            literal lo_lit = mk_literal(lower), hi_lit = mk_literal(upper);
+            literal clause[] = { ~lo_lit, ~hi_lit, mk_literal(eq) };
+            ctx.mk_th_axiom(get_id(), 3, clause);
+            ctx.mark_as_relevant(lo_lit);
+            ctx.mark_as_relevant(hi_lit);
+            ctx.force_phase(lo_lit);
+            ctx.force_phase(hi_lit);
+            pin(guard);
+            m_fixed_length_guards.insert(guard);
+            ctx.push_trail(insert_obj_trail<expr>(m_fixed_length_guards, guard));
+            ++m_num_fixed_length_axioms;
+            return true;
         }
         return false;
     }
@@ -1099,18 +1082,7 @@ namespace smt {
         if (hf.propagate())
             return FC_CONTINUE;
 
-        for (app* term : hf.terms()) {
-            expr* input = nullptr, *elaboration = nullptr;
-            VERIFY(hf.is_ho_term(term, input));
-            if (!hf.is_unfolded(term) &&
-                !find_ho_elaboration(input, elaboration) && check_fixed_length(input, true))
-                return FC_CONTINUE;
-        }
-
         if (check_ubv_strings())
-            return FC_CONTINUE;
-
-        if (!check_itos_coherence())
             return FC_CONTINUE;
 
         if (!m_pending_assumptions.empty()) {
@@ -1334,56 +1306,14 @@ namespace smt {
         m_tree.collect_statistics(st);
     }
 
-    void theory_nseq::ensure_length_var(expr* e) {
-        SASSERT(e && m_seq.is_seq(e));
-        if (!ctx.e_internalized(e))
-            ctx.internalize(e, false);
-        enode* first = ctx.get_enode(e);
-        enode* curr = first;
-        do {
-            // Expose constructor lengths on every member of the class.
-            expr_ref len(m_seq.str.mk_length(curr->get_expr()), m);
-            if (!ctx.e_internalized(len))
-                ctx.internalize(len, false);
-            enqueue_axiom(len);
-            curr = curr->get_next();
-        }
-        while (curr != first);
-    }
-
-    void theory_nseq::ensure_length_var_single(expr* e) {
+    void theory_nseq::ensure_length_var(expr* e) const {
         SASSERT(e && m_seq.is_seq(e));
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
-        enqueue_axiom(len);
     }
 
-    void theory_nseq::enforce_length_coherence(expr* lhs, expr* rhs) {
-        if (m_seq.str.is_concat(lhs) && m_seq.str.is_concat(rhs))
-            return;
-        expr_ref len_lhs(m_seq.str.mk_length(lhs), m);
-        expr_ref len_rhs(m_seq.str.mk_length(rhs), m);
-        bool has_lhs = ctx.e_internalized(len_lhs);
-        bool has_rhs = ctx.e_internalized(len_rhs);
-        // String-sorted sequences already get thorough length exposure via
-        // the mem/eq facets' own word-level reasoning; walking the full
-        // equivalence class here as well is redundant there and has shown
-        // to perturb unrelated string search (e.g. 3999.smt2). Non-string
-        // element sorts (as used by map/fold accumulators) have no such
-        // separate word-level length tracking and rely on this coherence
-        // call to expose lengths across the whole class.
-        bool walk_class = !m_seq.is_string(lhs->get_sort());
-        if (has_lhs && !has_rhs)
-            walk_class ? ensure_length_var(rhs) : ensure_length_var_single(rhs);
-        else if (has_rhs && !has_lhs)
-            walk_class ? ensure_length_var(lhs) : ensure_length_var_single(lhs);
-    }
-
-    bool theory_nseq::add_ho_eq(expr* lhs, expr* rhs, expr* premise) {
-        expr_ref normalized(rhs, m);
-        m_th_rewriter(normalized);
-        rhs = normalized;
+    bool theory_nseq::add_ho_eq(expr* lhs, expr* rhs) {
         if (!ctx.e_internalized(lhs))
             ctx.internalize(lhs, false);
         if (!ctx.e_internalized(rhs))
@@ -1391,24 +1321,14 @@ namespace smt {
         if (ctx.get_enode(lhs)->get_root() == ctx.get_enode(rhs)->get_root())
             return false;
 
-        expr_ref eq(m);
-        if (m_seq.is_seq(lhs))
-            eq = m_sk.mk_eq(lhs, rhs);
-        else
-            eq = m.mk_eq(lhs, rhs);
+        expr_ref eq(m.mk_eq(lhs, rhs), m);
         if (!ctx.b_internalized(eq))
             ctx.internalize(eq, true);
         literal lit = ctx.get_literal(eq);
         ctx.mark_as_relevant(lit);
         if (ctx.get_assignment(lit) == l_true)
             return false;
-        if (premise) {
-            literal guard = mk_literal(premise);
-            literal clause[] = {~guard, lit};
-            ctx.mk_th_axiom(get_id(), 2, clause);
-        }
-        else
-            ctx.mk_th_axiom(get_id(), 1, &lit);
+        ctx.mk_th_axiom(get_id(), 1, &lit);
         TRACE(seq, tout << "nseq ho equality: "
                         << mk_bounded_pp(lhs, m, 3) << " = "
                         << mk_bounded_pp(rhs, m, 3) << "\n";);
@@ -1421,24 +1341,19 @@ namespace smt {
             return false;
         enode* root = ctx.get_enode(term)->get_root();
         enode* curr = root;
-        expr* concat = nullptr;
         do {
             expr* e = curr->get_expr();
             expr* a1 = nullptr, *a2 = nullptr;
             if (m_seq.str.is_empty(e) ||
-                m_seq.str.is_unit(e, a1)) {
+                m_seq.str.is_unit(e, a1) ||
+                m_seq.str.is_concat(e, a1, a2)) {
                 elaboration = e;
                 return true;
             }
-            if (!concat && m_seq.str.is_concat(e, a1, a2) &&
-                (!ctx.e_internalized(a1) || ctx.get_enode(a1)->get_root() != root) &&
-                (!ctx.e_internalized(a2) || ctx.get_enode(a2)->get_root() != root))
-                concat = e;
             curr = curr->get_next();
         }
         while (curr != root);
-        elaboration = concat;
-        return elaboration != nullptr;
+        return false;
     }
 
     bool theory_nseq::get_num_value(expr* e, rational& val) {
@@ -1514,40 +1429,6 @@ namespace smt {
     // Forward to stoi_facet, which owns the coherence-checking logic.
     bool theory_nseq::check_stoi_coherence() {
         return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
-    }
-
-    bool theory_nseq::check_itos_coherence() {
-        if (m_ambient->stoi_facet(*m_root).terms().empty())
-            return true;
-        for (unsigned v = 0; v < get_num_vars() && m.inc(); ++v) {
-            expr* e = get_expr(v);
-            expr* n = nullptr;
-            rational lo, hi;
-            if (!m_seq.str.is_itos(e, n) || !ctx.is_relevant(get_enode(v)))
-                continue;
-            if (!lower_bound(n, lo) || !upper_bound(n, hi) || lo != hi)
-                continue;
-            expr_ref value(m_autil.mk_numeral(lo, true), m);
-            expr_ref guard(m.mk_eq(n, value), m);
-            if (m_itos_guards.contains(guard))
-                continue;
-            expr_ref word(m_seq.str.mk_string(lo.is_neg() ? "" : lo.to_string()), m);
-            expr_ref equality = m_sk.mk_eq(e, word);
-            literal result = mk_literal(equality);
-            if (ctx.get_assignment(result) == l_true)
-                continue;
-            expr_ref lower(m_autil.mk_ge(n, value), m), upper(m_autil.mk_le(n, value), m);
-            literal lo_lit = mk_literal(lower), hi_lit = mk_literal(upper);
-            literal clause[] = {~lo_lit, ~hi_lit, result};
-            ctx.mk_th_axiom(get_id(), 3, clause);
-            ctx.mark_as_relevant(result);
-            pin(guard);
-            m_itos_guards.insert(guard);
-            ctx.push_trail(insert_obj_trail<expr>(m_itos_guards, guard));
-            m_pending_assumptions.reset();
-            return false;
-        }
-        return true;
     }
 
     bool theory_nseq::branch_stoi_digit(bool stalled) {
