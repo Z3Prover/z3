@@ -212,6 +212,10 @@ public:
     void set_default_str(char const * k, char const * v);
     void set_default_sym(char const * k, symbol const & v);
 
+    // Set k, unflagged, to the value of the entry src_k of src. Nothing happens if src
+    // has no entry src_k.
+    void set_entry(symbol const & k, params_ref const & src, symbol const & src_k);
+
     // true if the entry for k exists and is flagged as a default
     bool is_default(symbol const & k) const;
     bool is_default(char const * k) const;

@@ -91,6 +91,10 @@ statistics_report::~statistics_report() {
 }
 
 
+symbol scope_global_mark(symbol const & k) {
+    return symbol((std::string("scope:global:") + k.str()).c_str());
+}
+
 void display_tactic_params(std::ostream & out, params_ref const & p, param_descrs const * descrs, bool annotate) {
     for (unsigned i = 0; i < p.size(); ++i) {
         symbol k = p.get_key(i);
@@ -100,6 +104,8 @@ void display_tactic_params(std::ostream & out, params_ref const & p, param_descr
         out << " :" << k << " ";
         if (!p.is_default(k)) {
             p.display(out, k);
+            if (annotate && p.contains(scope_global_mark(k)))
+                out << " (global)";
             continue;
         }
         // A default yields to the value the user set in the global module of k
@@ -215,6 +221,12 @@ void tactic_display_ctx::close(std::string const & tail, std::string const & tai
     m_stack.pop_back();
     n.tail = tail;
     n.tail_comment = tail_comment;
+    // (using-params t) without parameters and comments is t: the parser reads it so
+    if (n.head == "(using-params" && tail.empty() && tail_comment.empty() && n.comment.empty() &&
+        n.children.size() == 1) {
+        m_stack.back().children.push_back(std::move(n.children[0]));
+        return;
+    }
     // (then a (then b c)) is the tactic (then a b c) builds: display it flat. A nested
     // sequence can reach here through wrappers that display their child (cleanup, lazy).
     if ((n.head == "(then" || n.head == "(par-then") && !n.children.empty()) {
@@ -227,6 +239,28 @@ void tactic_display_ctx::close(std::string const & tail, std::string const & tai
         }
     }
     m_stack.back().children.push_back(std::move(n));
+}
+
+void tactic_display_ctx::declare(param_descrs & d) {
+    descrs.copy(d);
+    for (auto & f : m_frames)
+        f->copy(d);
+}
+
+void tactic_display_ctx::push_frame() {
+    m_frames.push_back(std::make_unique<param_descrs>());
+}
+
+void tactic_display_ctx::pop_frame(param_descrs & r) {
+    SASSERT(!m_frames.empty());
+    r.copy(*m_frames.back());
+    m_frames.pop_back();
+}
+
+void tactic_display_ctx::comment_last(std::string const & c) {
+    SASSERT(!m_stack.back().children.empty());
+    node & n = m_stack.back().children.back();
+    n.comment = join_comments(n.comment, c);
 }
 
 namespace {
@@ -306,7 +340,7 @@ void tactic::display_pipeline(params_ref const & p, tactic_display_ctx & ctx) {
     else
         ctx.leaf(std::string("(") + name() + ")",
                  join_comments(std::string("not parseable: no registered tactic for ") + name(), comment));
-    ctx.descrs.copy(d);
+    ctx.declare(d);
 }
 
 void display_tactic(std::ostream & out, tactic & t, params_ref const & p, svector<symbol> * unused, bool annotate) {
@@ -343,6 +377,7 @@ class lazy_tactic : public tactic {
     ast_manager& m;
     params_ref p;
     std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
+    std::function<void(param_descrs&)> m_collect;
     tactic* m_tactic = nullptr;
     symbol m_logic;
     void ensure_tactic() {
@@ -353,7 +388,8 @@ class lazy_tactic : public tactic {
         }
     }
 public:
-    lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic* (ast_manager&, params_ref const&)> mk_tactic) : m(m), p(p), m_mk_tactic(mk_tactic) {}
+    lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic* (ast_manager&, params_ref const&)> mk_tactic,
+                std::function<void(param_descrs&)> collect) : m(m), p(p), m_mk_tactic(mk_tactic), m_collect(collect) {}
     ~lazy_tactic() override { dealloc(m_tactic); }
     void operator()(goal_ref const& in, goal_ref_buffer& result) override {
         ensure_tactic();
@@ -362,6 +398,10 @@ public:
     void updt_params(params_ref const& p) override { 
         this->p.append(p);
         if (m_tactic) m_tactic->updt_params(p);
+    }
+    void collect_param_descrs(param_descrs & r) override {
+        if (m_collect)
+            m_collect(r);
     }
     void set_logic(symbol const& l) override {
         m_logic = l;
@@ -393,8 +433,9 @@ public:
 };
 
 
-tactic* mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)> mkt) {
-    return alloc(lazy_tactic, m, p, mkt);
+tactic* mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)> mkt,
+                       std::function<void(param_descrs&)> collect) {
+    return alloc(lazy_tactic, m, p, mkt, collect);
 }
 
 class fail_tactic : public tactic {

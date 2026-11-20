@@ -12,15 +12,24 @@ Abstract:
     when it is given after the tactic is built. The other values stay forced.
 
 --*/
+#include <array>
+#include <cctype>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include "ast/reg_decl_plugins.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "cmd_context/cmd_context.h"
+#include "cmd_context/tactic_cmds.h"
 #include "parsers/smt2/smt2parser.h"
 #include "tactic/goal.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
+#include "tactic/smtlogics/qfbv_tactic_params.hpp"
+#include "tactic/tactical.h"
+#include "solver/solver.h"
 #include "util/gparams.h"
 #include "util/debug.h"
 
@@ -148,6 +157,33 @@ namespace {
     };
 }
 
+
+// The display-tactic output of e (plain mode), as one string.
+static std::string display_cmd_text(std::string const & e) {
+    std::string text;
+    for (auto const & l : display_cmd_leaves(e, false))
+        text += l + "\n";
+    return text;
+}
+
+// The output of display-tactic parses and displays as itself.
+static void ensure_round_trip(std::string const & text) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context ctx(false, &m);
+    std::ostringstream out, err;
+    ctx.set_regular_stream(out);
+    ctx.set_diagnostic_stream(err);
+    std::istringstream in("(display-tactic " + text + ")");
+    bool ok = parse_smt2_commands(ctx, in);
+    ctx.set_regular_stream(std::cout);
+    ctx.set_diagnostic_stream(std::cerr);
+    ENSURE(ok && err.str().empty());
+    if (out.str() != text)
+        std::cerr << text << "--- displays as\n" << out.str();
+    ENSURE(out.str() == text);
+}
+
 // With no user setting, every step gets the same parameters as before the values
 // became defaults. The list is the display of qfbv before the change, with
 // the "(default)" marks removed.
@@ -201,26 +237,26 @@ static void tst_display_default_mode() {
     ENSURE(text.find("(default)") == std::string::npos);
     ENSURE(text.find("(global)") == std::string::npos);
     ENSURE(text.find("not parseable") == std::string::npos);
+    // the tactic language has no scopes: they are not shown
+    ENSURE(text.find("scope") == std::string::npos);
+    ENSURE(text.find("skip") == std::string::npos);
     // round trip: the output parses and displays as itself
-    ast_manager m;
-    reg_decl_plugins(m);
-    cmd_context ctx(false, &m);
-    std::ostringstream out, err;
-    ctx.set_regular_stream(out);
-    ctx.set_diagnostic_stream(err);
-    std::istringstream in("(display-tactic " + text + ")");
-    bool ok = parse_smt2_commands(ctx, in);
-    ctx.set_regular_stream(std::cout);
-    ctx.set_diagnostic_stream(std::cerr);
-    ENSURE(ok && err.str().empty());
-    if (out.str() != text)
-        std::cerr << text << "--- displays as\n" << out.str();
-    ENSURE(out.str() == text);
+    ensure_round_trip(text);
     // the annotated mode has the marks
     std::string a;
     for (auto const & l : display_cmd_leaves("qfbv"))
         a += l + "\n";
     ENSURE(a.find("(default)") != std::string::npos);
+    // and names the scopes
+    for (char const * sc : { "qfbv", "qfbv.preamble", "qfbv.preamble.solve_eqs", "qfbv.preamble.simp2", "qfbv.preamble.hoist" }) {
+        std::string h = std::string("scope ") + sc;
+        bool found = false;
+        for (size_t i = a.find(h); !found && i != std::string::npos; i = a.find(h, i + 1)) {
+            char c = a[i + h.size()];
+            found = c != '.' && c != '_' && !isalnum(static_cast<unsigned char>(c));
+        }
+        ENSURE(found);
+    }
     {
         scoped_gparam g("rewriter", "flat", "false");
         text.clear();
@@ -228,7 +264,10 @@ static void tst_display_default_mode() {
             text += l + "\n";
     }
     ENSURE(text.find("(global)") == std::string::npos);
-    ENSURE(text.find(":flat false") != std::string::npos);
+    // the default flat of the second simplify pass is written with the global value
+    // that replaces it (the pass is the one with local_ctx_limit)
+    ENSURE(text.find(":local_ctx_limit 10000000 :flat false") != std::string::npos);
+    ENSURE(text.find(":local_ctx_limit 10000000 :flat true") == std::string::npos);
 }
 
 // A user's flat=false reaches the second simplify pass: given locally around
@@ -263,6 +302,321 @@ static void tst_display_overrides() {
     }
     ENSURE(l.find(":solve_eqs.max_occs 5 (global)") != std::string::npos);
     ENSURE(l.find(":solve_eqs.max_occs 2") == std::string::npos);
+}
+
+// Global settings (module, key, value) for the scope of the object.
+struct gsettings {
+    std::vector<std::unique_ptr<scoped_gparam>> m_gs;
+    gsettings(std::vector<std::array<char const *, 3>> const & kvs) {
+        for (auto const & kv : kvs)
+            m_gs.push_back(std::make_unique<scoped_gparam>(kv[0], kv[1], kv[2]));
+    }
+};
+
+// The statistics, without time and memory, and the result goals of the strategy text
+// applied to a QF_BV goal on which the scoped keys of tst_scope_replay have an effect.
+static std::string run_text(std::string const & text) {
+    bv_fixture f;
+    auto & bv = f.bv;
+    cmd_context ctx(false, &f.m);
+    std::istringstream is(text);
+    sexpr_ref se = parse_sexpr(ctx, is, params_ref(), "");
+    ENSURE(se);
+    tactic_ref t = sexpr2tactic(ctx, se.get());
+    t->updt_params(params_ref());
+    goal_ref g = alloc(goal, f.m, false, true, false);
+    g->assert_expr(f.m.mk_eq(f.x, bv.mk_bv_add(f.y, f.z)));
+    g->assert_expr(bv.mk_ult(bv.mk_bv_mul(f.x, f.y), f.z));
+    g->assert_expr(bv.mk_ult(bv.mk_bv_xor(f.x, bv.mk_bv_xor(f.y, f.z)), bv.mk_bv_add(f.x, f.y)));
+    g->assert_expr(bv.mk_ult(bv.mk_bv_mul(bv.mk_bv_add(f.x, f.y), bv.mk_bv_add(f.z, f.y)), bv.mk_bv_xor(f.z, f.x)));
+    goal_ref_buffer result;
+    (*t)(g, result);
+    t->cleanup();
+    statistics st;
+    t->collect_statistics(st);
+    std::ostringstream out;
+    for (unsigned i = 0; i < st.size(); ++i) {
+        std::string k = st.get_key(i);
+        if (k.find("time") != std::string::npos || k.find("memory") != std::string::npos)
+            continue;
+        out << k << " ";
+        if (st.is_uint(i))
+            out << st.get_uint_value(i) << "\n";
+        else
+            out << st.get_double_value(i) << "\n";
+    }
+    for (goal * r : result)
+        r->display(out);
+    return out.str();
+}
+
+// Replay: the plain display of e under the global settings gs, run as a strategy under
+// the global settings rs, gives every step the same effective parameters and does
+// the same: same statistics and result on a goal. Returns the display.
+static std::string check_replay(std::string const & e, std::vector<std::array<char const *, 3>> const & gs,
+                                std::vector<std::array<char const *, 3>> const & rs) {
+    std::string text, run;
+    std::vector<std::string> original;
+    {
+        gsettings g(gs);
+        text = display_cmd_text(e);
+        original = display_cmd_leaves(e, false);
+        run = run_text(e);
+    }
+    gsettings r(rs);
+    std::vector<std::string> replay = display_cmd_leaves(text, false);
+    if (replay != original) {
+        std::cerr << "display of " << e << ":\n" << text << "--- replayed:\n";
+        for (auto const & x : replay)
+            std::cerr << x << "\n";
+    }
+    ENSURE(replay == original);
+    ensure_round_trip(text);
+    std::string rerun = run_text(text);
+    if (rerun != run)
+        std::cerr << "run of " << e << ":\n" << run << "--- replayed:\n" << rerun;
+    ENSURE(rerun == run);
+    return text;
+}
+
+// Replay with scoped settings: a global scoped key, a local scoped key, and a step
+// disabled globally, replayed without them. Also user values that replace author
+// defaults outside scopes, locally, and globally (replayed under the same global).
+static void tst_scope_replay() {
+    std::string const e = "(using-params qfbv :qfbv.preamble.solve_eqs.max_occs 7)";
+    std::string text = check_replay(e, { { "tactic", "qfbv.preamble.simp2.flat", "false" },
+                                         { "tactic", "qfbv.preamble.hoist.enabled", "false" } }, {});
+    // the settings are in it
+    std::string l = simp2(display_cmd_leaves(text));
+    ENSURE(l.find(":flat false") != std::string::npos);
+    ENSURE(text.find(":solve_eqs.max_occs 7") != std::string::npos);
+    ENSURE(text.find(":solve_eqs.max_occs 2") == std::string::npos);
+    // the hoist pass is skipped: no step has its hoist_mul=true
+    for (auto const & x : display_cmd_leaves(text))
+        ENSURE(x.find(":hoist_mul true") == std::string::npos);
+    ENSURE(text.find("skip") != std::string::npos);
+    // no scope syntax
+    ENSURE(text.find("scope") == std::string::npos);
+    // the settings change what qfbv does on the goal of run_text
+    ENSURE(run_text(e) != run_text(text));
+    // user values that replace defaults outside scopes
+    text = check_replay("(using-params qfbv :flat false)", {}, {});
+    ENSURE(text.find(":local_ctx_limit 10000000 :flat false") != std::string::npos);
+    text = check_replay("qfbv", { { "rewriter", "flat", "false" } }, { { "rewriter", "flat", "false" } });
+    ENSURE(text.find(":local_ctx_limit 10000000 :flat false") != std::string::npos);
+}
+
+// A key of a using-params that only a disabled step declares is left out of the
+// display: the tactic it parses to has skip instead of the step.
+static void tst_skipped_key() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    p.set_uint("solve_eqs.max_occs", 5);
+    tactic_ref t = using_params(and_then(scope_tactic("qfbv.preamble.solve_eqs", mk_solve_eqs_tactic(m)),
+                                         mk_simplify_tactic(m)), p);
+    std::string text, a;
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.solve_eqs.enabled", "false");
+        std::ostringstream out, ann;
+        display_tactic(out, *t, params_ref());
+        display_tactic(ann, *t, params_ref(), nullptr, true);
+        text = out.str();
+        a = ann.str();
+    }
+    if (text != "(then skip simplify)\n")
+        std::cerr << text;
+    ENSURE(text == "(then skip simplify)\n");
+    ensure_round_trip(text);
+    ENSURE(a.find("for skipped steps: :solve_eqs.max_occs 5") != std::string::npos);
+    // enabled, the key is written
+    std::ostringstream out;
+    display_tactic(out, *t, params_ref());
+    ENSURE(out.str().find(":solve_eqs.max_occs 5") != std::string::npos);
+    ensure_round_trip(out.str());
+}
+
+// A scoped key reaches only the steps of its scope, locally and globally, and the
+// display shows a disabled step; the output still round-trips.
+static void tst_scope_display() {
+    // local: the second simplify pass gets flat=false, the hoist pass keeps its values
+    auto ls = display_cmd_leaves("(using-params qfbv :qfbv.preamble.simp2.flat false)");
+    std::string l = simp2(ls);
+    ENSURE(l.find(":flat false") != std::string::npos);
+    for (auto const & x : ls)
+        if (x.find(":hoist_mul true") != std::string::npos)
+            ENSURE(x.find(":flat ") == std::string::npos);
+    // the module prefix is optional locally
+    l = simp2(display_cmd_leaves("(using-params qfbv :tactic.qfbv.preamble.simp2.flat false)"));
+    ENSURE(l.find(":flat false") != std::string::npos);
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.simp2.flat", "false");
+        l = simp2(display_cmd_leaves("qfbv"));
+    }
+    ENSURE(l.find(":flat false (global)") != std::string::npos);
+    // global scoped beats global unscoped
+    {
+        scoped_gparam g1("rewriter", "som", "false");
+        scoped_gparam g2("tactic", "qfbv.preamble.simp2.som", "true");
+        l = simp2(display_cmd_leaves("qfbv"));
+    }
+    ENSURE(l.find(":som true (global)") != std::string::npos);
+    // local unscoped beats global scoped
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.simp2.flat", "false");
+        l = simp2(display_cmd_leaves("(using-params qfbv :flat true)"));
+    }
+    ENSURE(l.find(":flat true") != std::string::npos);
+    ENSURE(l.find(":flat false") == std::string::npos);
+    // max_occs of solve-eqs in the preamble
+    l = solve_eqs_line(display_cmd_leaves("(using-params qfbv :qfbv.preamble.solve_eqs.max_occs 7)"));
+    ENSURE(l.find(":solve_eqs.max_occs 7") != std::string::npos);
+    // a disabled step, set locally or globally, is displayed as skip; the scoped key
+    // is not written (the tactic it parses to has no scope to read it)
+    std::string text = display_cmd_text("(using-params qfbv :qfbv.preamble.solve_eqs.enabled false)");
+    ENSURE(text.find("qfbv.preamble") == std::string::npos);
+    ENSURE(text.find("skip") != std::string::npos);
+    ENSURE(text.find("solve_eqs.max_occs") == std::string::npos);
+    ENSURE(text.find("solve-eqs") != std::string::npos); // after bit-blasting
+    ensure_round_trip(text);
+    std::string a;
+    for (auto const & x : display_cmd_leaves("(using-params qfbv :qfbv.preamble.solve_eqs.enabled false)"))
+        a += x + "\n";
+    ENSURE(a.find("skip ; scope qfbv.preamble.solve_eqs disabled") != std::string::npos);
+    ENSURE(a.find("scoped: :qfbv.preamble.solve_eqs.enabled false") != std::string::npos);
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.solve_eqs.enabled", "false");
+        std::string t2 = display_cmd_text("qfbv");
+        ENSURE(t2 == text);
+        ensure_round_trip(t2);
+        a.clear();
+        for (auto const & x : display_cmd_leaves("qfbv"))
+            a += x + "\n";
+        ENSURE(a.find("skip ; scope qfbv.preamble.solve_eqs disabled (global)") != std::string::npos);
+    }
+    // a scoped value is written on its step
+    text = display_cmd_text("(using-params qfbv :qfbv.preamble.simp2.flat false)");
+    ENSURE(text.find("qfbv.preamble") == std::string::npos);
+    ensure_round_trip(text);
+}
+
+// Forced values of the author still win over scoped keys. The key is not declared,
+// so only C++ callers, which are not validated, can pass it.
+static void tst_scope_forced() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    tactic_ref t = mk_qfbv_tactic(m, params_ref());
+    params_ref p;
+    p.set_bool("qfbv.preamble.simp2.pull_cheap_ite", false);
+    p.set_bool("qfbv.preamble.simp2.flat_and_or", true);
+    std::string l = simp2(display_leaves(*t, p));
+    ENSURE(l.find(":pull_cheap_ite true") != std::string::npos);
+    ENSURE(l.find(":flat_and_or false") != std::string::npos);
+    ENSURE(l.find(":pull_cheap_ite false") == std::string::npos);
+    ENSURE(l.find(":flat_and_or true") == std::string::npos);
+}
+
+// The line of the step a row of qfbv_tactic_params routes to, and the key of the
+// step it sets.
+static std::string row_step_line(std::vector<std::string> const & ls, std::string const & row, std::string & key) {
+    auto starts = [&](char const * pre) {
+        if (row.compare(0, strlen(pre), pre) != 0)
+            return false;
+        key = row.substr(strlen(pre));
+        return true;
+    };
+    if (starts("qfbv.preamble.simp2."))
+        return simp2(ls);
+    if (starts("qfbv.preamble.hoist.")) {
+        // the step after the second simplify pass
+        std::string s2 = simp2(ls);
+        for (unsigned i = 0; i + 1 < ls.size(); ++i)
+            if (ls[i] == s2)
+                return ls[i + 1];
+    }
+    if (starts("qfbv.preamble.solve_eqs.")) {
+        key = "solve_eqs." + key;
+        return solve_eqs_line(ls);
+    }
+    ENSURE(false);
+    return "";
+}
+
+// the leaves of qfbv, annotated
+static std::vector<std::string> qfbv_leaves() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    tactic_ref t = mk_qfbv_tactic(m, params_ref());
+    return display_leaves(*t, params_ref());
+}
+
+// Each row of qfbv_tactic_params is live: set globally to another value than its
+// default, it changes the step it names. Its default is the value of the factory.
+static void tst_rows_live() {
+    std::vector<std::string> base = qfbv_leaves();
+    param_descrs d;
+    qfbv_tactic_params::collect_param_descrs(d);
+    ENSURE(d.size() > 0);
+    for (unsigned i = 0; i < d.size(); ++i) {
+        symbol k = d.get_param_name(i);
+        std::string row = k.str(), def = d.get_default(k), v;
+        if (d.get_kind(k) == CPK_BOOL)
+            v = def == "true" ? "false" : "true";
+        else {
+            ENSURE(d.get_kind(k) == CPK_UINT);
+            v = std::to_string(std::stoul(def) + 1);
+        }
+        if (row.size() > 8 && row.compare(row.size() - 8, 8, ".enabled") == 0) {
+            ENSURE(def == "true");
+            std::string path = row.substr(0, row.size() - 8), text;
+            {
+                scoped_gparam g("tactic", row.c_str(), v.c_str());
+                for (auto const & x : display_cmd_leaves("qfbv"))
+                    text += x + "\n";
+            }
+            if (text.find("skip ; scope " + path + " disabled") == std::string::npos)
+                std::cerr << "row has no effect: " << row << "\n" << text;
+            ENSURE(text.find("skip ; scope " + path + " disabled") != std::string::npos);
+            continue;
+        }
+        std::string key;
+        std::string l = row_step_line(base, row, key);
+        if (l.find(":" + key + " " + def) == std::string::npos)
+            std::cerr << "default of " << row << " is not the value of the step: " << l << "\n";
+        ENSURE(l.find(":" + key + " " + def) != std::string::npos);
+        {
+            scoped_gparam g("tactic", row.c_str(), v.c_str());
+            l = row_step_line(qfbv_leaves(), row, key);
+        }
+        if (l.find(":" + key + " " + v) == std::string::npos)
+            std::cerr << "row has no effect: " << row << " " << v << ": " << l << "\n";
+        ENSURE(l.find(":" + key + " " + v) != std::string::npos);
+    }
+}
+
+// A typo in a scoped key is rejected: globally by the tactic module, locally by the
+// descriptors of qfbv.
+static void tst_scope_typo() {
+    bool thrown = false;
+    try {
+        gparams::set("tactic.qfbv.preamble.solve_eqs.enabeld", "false");
+    }
+    catch (z3_exception &) {
+        thrown = true;
+    }
+    gparams::reset();
+    ENSURE(thrown);
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context ctx(false, &m);
+    std::ostringstream out, err;
+    ctx.set_regular_stream(out);
+    ctx.set_diagnostic_stream(err);
+    std::istringstream in("(display-tactic (using-params qfbv :qfbv.preamble.solve_eqs.enabeld false))");
+    parse_smt2_commands(ctx, in);
+    ctx.set_regular_stream(std::cout);
+    ctx.set_diagnostic_stream(std::cerr);
+    ENSURE((out.str() + err.str()).find("unknown parameter") != std::string::npos);
 }
 
 // The second simplify pass flattens bvxor under flat=true, and max-bv-sharing
@@ -373,6 +727,98 @@ static void tst_solve_eqs_max_occs() {
     ENSURE(b);
 }
 
+// solve-eqs in the preamble eliminates x (2 occurrences) by default. With
+// qfbv.preamble.solve_eqs.enabled=false it does not, and the solve-eqs after
+// bit-blasting still runs. smt.solve_eqs=false disables both, and a scoped
+// enabled=true does not enable the preamble step again.
+struct solve_eqs_run {
+    bool     preamble_keeps_x;  // x is in the result of the preamble
+    unsigned elim_vars;         // solve-eqs-elim-vars of qfbv without the sat/smt back ends
+};
+
+static solve_eqs_run run_solve_eqs(params_ref const & p, params_ref const * late = nullptr) {
+    bv_fixture f;
+    auto & bv = f.bv;
+    expr_ref_vector fmls(f.m);
+    fmls.push_back(f.m.mk_eq(f.x, bv.mk_bv_add(f.y, f.z)));
+    fmls.push_back(bv.mk_ult(bv.mk_bv_mul(f.x, f.y), f.z));
+    solve_eqs_run r;
+    r.preamble_keeps_x = false;
+    for (expr * e : subterms::all(run_preamble(f.m, fmls, p, late)))
+        r.preamble_keeps_x |= e == f.x;
+    tactic_ref t = mk_qfbv_tactic(f.m, p, mk_skip_tactic(), mk_skip_tactic());
+    t->updt_params(p);
+    if (late)
+        t->updt_params(*late);
+    goal_ref g = alloc(goal, f.m);
+    for (expr * e : fmls)
+        g->assert_expr(e);
+    goal_ref_buffer result;
+    (*t)(g, result);
+    t->cleanup();
+    statistics st;
+    t->collect_statistics(st);
+    r.elim_vars = 0;
+    for (unsigned i = 0; i < st.size(); ++i)
+        if (strcmp(st.get_key(i), "solve-eqs-elim-vars") == 0)
+            r.elim_vars += st.get_uint_value(i);
+    return r;
+}
+
+static void tst_solve_eqs_enabled() {
+    params_ref none, off, on;
+    off.set_bool("qfbv.preamble.solve_eqs.enabled", false);
+    on.set_bool("qfbv.preamble.solve_eqs.enabled", true);
+    solve_eqs_run d = run_solve_eqs(none);
+    ENSURE(!d.preamble_keeps_x);
+    ENSURE(d.elim_vars > 0);
+    // local, at construction or later
+    solve_eqs_run r = run_solve_eqs(off);
+    ENSURE(r.preamble_keeps_x);
+    // the solve-eqs after bit-blasting eliminates bits of x
+    ENSURE(r.elim_vars > 0);
+    r = run_solve_eqs(none, &off);
+    ENSURE(r.preamble_keeps_x && r.elim_vars > 0);
+    r = run_solve_eqs(off, &on);
+    ENSURE(!r.preamble_keeps_x);
+    {
+        scoped_gparam g("tactic", "qfbv.preamble.solve_eqs.enabled", "false");
+        r = run_solve_eqs(none);
+    }
+    ENSURE(r.preamble_keeps_x && r.elim_vars > 0);
+    // smt.solve_eqs=false still disables every solve-eqs step
+    {
+        scoped_gparam g("smt", "solve_eqs", "false");
+        r = run_solve_eqs(on);
+    }
+    ENSURE(r.preamble_keeps_x && r.elim_vars == 0);
+}
+
+// The default solver builds the QF_BV tactic lazily; it still declares the keys,
+// so a local setting (solver.set) of a scoped key is validated and accepted.
+static void tst_default_solver_declares() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    scoped_ptr<solver_factory> f = mk_smt_strategic_solver_factory();
+    ref<solver> s = (*f)(m, params_ref(), false, true, false, symbol::null);
+    param_descrs d;
+    s->collect_param_descrs(d);
+    ENSURE(d.get_kind("qfbv.preamble.solve_eqs.enabled") == CPK_BOOL);
+    params_ref p;
+    p.set_bool("qfbv.preamble.solve_eqs.enabled", false);
+    p.validate(d);
+    params_ref typo;
+    typo.set_bool("qfbv.preamble.solve_eqs.enabeld", false);
+    bool thrown = false;
+    try {
+        typo.validate(d);
+    }
+    catch (z3_exception &) {
+        thrown = true;
+    }
+    ENSURE(thrown);
+}
+
 void tst_qfbv_default_params() {
     tst_defaults_unchanged();
     tst_display_default_mode();
@@ -380,4 +826,12 @@ void tst_qfbv_default_params() {
     tst_flat();
     tst_som_follows_flat();
     tst_solve_eqs_max_occs();
+    tst_scope_display();
+    tst_scope_forced();
+    tst_rows_live();
+    tst_scope_typo();
+    tst_solve_eqs_enabled();
+    tst_default_solver_declares();
+    tst_scope_replay();
+    tst_skipped_key();
 }

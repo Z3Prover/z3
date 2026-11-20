@@ -26,6 +26,7 @@ Notes:
 #include "tactic/ff/ff2bv_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
+#include "tactic/smtlogics/qfbv_tactic_params.hpp"
 #include "tactic/smtlogics/qflia_tactic.h"
 #include "tactic/smtlogics/qflra_tactic.h"
 #include "tactic/smtlogics/qfnia_tactic.h"
@@ -46,7 +47,7 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m, p),
                                         cond(mk_and(mk_is_propositional_probe(), mk_not(mk_produce_proofs_probe())),
                                              mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_fd_tactic(m, p); }),
-                                        cond(mk_is_qfbv_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfbv_tactic(m, p); }),
+                                        cond(mk_is_qfbv_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfbv_tactic(m, p); }, qfbv_tactic_params::collect_param_descrs),
                                         cond(mk_is_qfaufbv_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfaufbv_tactic(m, p); }),
                                         cond(mk_is_qflia_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qflia_tactic(m, p); }),
                                         cond(mk_is_qfauflia_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfauflia_tactic(m, p); }),

@@ -31,6 +31,7 @@ Notes:
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/smtlogics/qfbv_tactic_params.hpp"
 
 #define MEMLIMIT 300
 
@@ -38,11 +39,18 @@ Notes:
 // the global module of the key, replaces them. The other values are kept forced.
 // som requires flat: when the user sets flat=false, the rewriter turns som off
 // (poly_rewriter::updt_params), and with som on it turns hoist_mul off.
+//
+// Steps are named with scope_tactic: tactic.qfbv.preamble.simp2.flat=false sets flat
+// for the second simplify pass only, and tactic.qfbv.preamble.solve_eqs.enabled=false
+// skips solve-eqs in the preamble. The keys are declared in qfbv_tactic_params.hpp,
+// with the tuned values as their defaults. A scope is placed outside the using_params
+// of its step, so that the forced values still win.
 tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+    typedef qfbv_tactic_defaults d;
 
     params_ref solve_eq_p;
     // conservative gaussian elimination.
-    solve_eq_p.set_default_uint("solve_eqs.max_occs", 2);
+    solve_eq_p.set_default_uint("solve_eqs.max_occs", d::preamble_solve_eqs_max_occs);
 
     params_ref flat_and_or_p = p;
     flat_and_or_p.set_bool("flat_and_or", false);
@@ -50,29 +58,29 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     // not a copy of p: user values in it would beat user values set later
     // (they reach the step through updt_params)
     params_ref simp2_p;
-    simp2_p.set_default_bool("som", true);
+    simp2_p.set_default_bool("som", d::preamble_simp2_som);
     simp2_p.set_bool("pull_cheap_ite", true);
-    simp2_p.set_default_bool("push_ite_bv", false);
+    simp2_p.set_default_bool("push_ite_bv", d::preamble_simp2_push_ite_bv);
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
-    simp2_p.set_default_bool("flat", true); // required by som
-    simp2_p.set_default_bool("hoist_mul", false); // required by som
+    simp2_p.set_default_bool("flat", d::preamble_simp2_flat); // required by som
+    simp2_p.set_default_bool("hoist_mul", d::preamble_simp2_hoist_mul); // required by som
     simp2_p.set_bool("flat_and_or", false);
 
     params_ref hoist_p;
-    hoist_p.set_default_bool("hoist_mul", true);
-    hoist_p.set_default_bool("som", false);
+    hoist_p.set_default_bool("hoist_mul", d::preamble_hoist_hoist_mul);
+    hoist_p.set_default_bool("som", d::preamble_hoist_som);
     hoist_p.set_bool("flat_and_or", false);
 
-    return
+    return scope_tactic("qfbv.preamble",
         and_then(
             using_params(mk_simplify_tactic(m), flat_and_or_p),
             using_params(mk_propagate_values_tactic(m), flat_and_or_p),
-            using_params(mk_solve_eqs_tactic(m), solve_eq_p),
+            scope_tactic("qfbv.preamble.solve_eqs", using_params(mk_solve_eqs_tactic(m), solve_eq_p)),
             mk_elim_uncnstr_tactic(m),
             mk_bv_divrem_bounds_tactic(m),
             if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-            using_params(mk_simplify_tactic(m), simp2_p),
+            scope_tactic("qfbv.preamble.simp2", using_params(mk_simplify_tactic(m), simp2_p)),
 
             //
             // Z3 can solve a couple of extra benchmarks by using hoist_mul
@@ -80,10 +88,10 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             // Moreover, it impacted negatively some easy benchmarks.
             // We should decide later, if we keep it or not.
             //
-            using_params(mk_simplify_tactic(m), hoist_p),
+            scope_tactic("qfbv.preamble.hoist", using_params(mk_simplify_tactic(m), hoist_p)),
             mk_max_bv_sharing_tactic(m),
             if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m,p)))
-            );
+            ));
 }
 
 static tactic * main_p(tactic* t) {
@@ -95,7 +103,7 @@ static tactic * main_p(tactic* t) {
 }
 
 
-static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
+tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);
@@ -106,7 +114,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
 
     tactic* preamble_st = mk_qfbv_preamble(m, p);
-    tactic * st = main_p(and_then(preamble_st,
+    tactic * st = scope_tactic("qfbv", main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                   // symbols. In this case, we should not use the `sat', but instead `smt'. Alternatively,
                                   // the UFs can be eliminated by eager ackermannization in the preamble.
@@ -121,7 +129,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
                                                                                 local_ctx_p),
                                                                    if_no_proofs(mk_aig_tactic()))),
                                                      sat),
-                                            smt))));
+                                            smt)))));
 
     st->updt_params(p);
     return st;

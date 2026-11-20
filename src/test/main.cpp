@@ -73,6 +73,7 @@
     X(params) \
     X(tactic_unused_params) \
     X(qfbv_default_params) \
+    X(tactic_scope) \
     X(timeout) \
     X(proof_checker) \
     X(proof_replay) \
