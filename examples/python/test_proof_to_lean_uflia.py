@@ -683,10 +683,18 @@ class TestIntegerMixedValidation(unittest.TestCase):
             self.assertNotIn("Or.elim", structural)
             self.assertNotIn("Classical.em", structural)
             self.assertNotIn("Decidable", structural)
-            for first, second in re.findall(
-                    r"have _f\d+ : \(Iff \(formula_(\d+) [^)]*\) \(formula_(\d+) [^)]*\)\) := by unfold [^;]*; "
-                    r"first \| omega \| grind \(splits := 64\)", structural):
-                first, second = int(first), int(second)
+            # The facts: the binders of one function and, in their order, its arguments (_stated_facts).
+            binders = re.findall(r"\n {12}\(_f\d+ : ([^\n]*)\)(?=\n)", structural)
+            proofs = re.findall(r"\n {10}\(((?:by|eq_comm)[^\n]*)", structural)
+            self.assertEqual(len(binders), len(proofs))
+            self.assertNotRegex(structural, r"have _f\d+ : [^\n]* := by")
+            for statement, proof in zip(binders, proofs):
+                match = re.fullmatch(r"\(Iff \(formula_(\d+) [^)]*\) \(formula_(\d+) [^)]*\)\)", statement)
+                if match is None or re.fullmatch(
+                        r"by first \| \(\(unfold [^;]*; first \| omega \| grind \(splits := 64\)\); done\) \| fail\)",
+                        proof) is None:
+                    continue
+                first, second = int(match.group(1)), int(match.group(2))
                 self.assertNotEqual(first, second)
                 self.assertEqual(proof_to_lean._leaf_key(graph, first), proof_to_lean._leaf_key(graph, second))
                 self.assertEqual([graph.kind(first), graph.kind(second)], [z3.Z3_OP_EQ, z3.Z3_OP_EQ])
@@ -1372,11 +1380,18 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
                     # ((>= (+ (* -1 (cnt 1)) (* 1 (cnt 0))) -1) from the
                     # premise (>= (+ (cnt 0) (* -1 (cnt 1))) -1)), one
                     # premise each, which grind proves as the implication.
+                    # Since upstream #11698 (the rewriter leaves an equality
+                    # between sums as written) it also restates a bound of
+                    # the numeral 1, (<= (* 1 1) 1), from no premise: a
+                    # closed fact that Lean proves like the others. Every
+                    # premise is an arithmetic atom (upstream #11731).
                     graph = proof_to_lean._validate_graph(source, certificate)
                     smt = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("smt",)]
-                    self.assertTrue(smt)
+                    self.assertTrue(any(len(graph.arguments(node)) == 2 for node in smt))
                     for node in smt:
-                        self.assertEqual(len(graph.arguments(node)), 2)
+                        self.assertIn(len(graph.arguments(node)), (1, 2))
+                        for premise in graph.arguments(node)[:-1]:
+                            proof_to_lean._atom_constraint(graph, graph.conclusion(premise))
                         self.assertTrue(graph.is_arith(graph.arguments(graph.conclusion(node))[0]))
         self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith", "smt"})
         # The legacy core's congruences are monotonicity steps, never euf hints.

@@ -151,14 +151,20 @@ entry), and linked in `ocamldep -sort` order; a call outside a
 refinement's domain raises `Match_failure` rather than returning a value.
 
 **Verify all Pulse checker files** (`.github/workflows/pulse-checker-full.yml`)
-runs `build_ocaml_checker.ps1 -RunTests -BuildCherry`: on both pinned F*
+runs OCaml and Cherry verification in parallel jobs: the OCaml job uses
+`build_ocaml_checker.ps1 -RunTests`, and the Cherry job uses
+`build_cherry_checker.py --run-tests`. On both pinned F*
 versions it verifies every module and test registered in
 `tools/checker_modules.json` (plus `Z3Cherry` and `Z3CherryTests` for Cherry),
 then extracts every registered production module as before, links the same
 modules as the checker-only build, and runs the native bridge,
-CLI, and Cherry test suites. It uploads only **`pulse-checker-full-report`**
-(`source.json`, `build.json`, the scope reports, and the log), never checker
-packages, and has no write permission.
+CLI, and Cherry test suites. Both jobs build their own checkout Z3 and retain
+the existing verification limits. A failure in one backend does not cancel
+the other. The **verify** check requires both jobs to pass and combines their
+reports as **`pulse-checker-full-report`**, with a subdirectory per backend
+containing `source.json`, `build.json`, the scope report, and the log.
+The individual backend reports are also retained. It never uploads checker
+packages and has no write permission.
 
 The checker-only build also runs after a successful default-branch
 **Nightly Build**, building that nightly's exact source commit rather than
@@ -177,9 +183,11 @@ instructions. Extract the tarball to preserve executable permissions.
 Neither executable needs a build-time F* or OCaml installation, an external
 `z3`, or Python to run. Standard Linux shared libraries are still required;
 the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
-with a clean environment. Both report artifacts contain `build.json` with
-`mode` (`checker` or `full`) and the exit code, and `scope-ocaml.json` and
-`scope-cherry.json` with the selected and unselected registered modules. A
+with a clean environment. Reports contain `build.json` with `mode` (`checker`
+or `full`) and the exit code, plus scope reports listing the selected and
+unselected registered modules. The checker-only report includes both
+`scope-ocaml.json` and `scope-cherry.json`; the full report keeps them in
+separate backend subdirectories. A
 checker-only report never claims test coverage; identical executables from
 the two workflows still have different verified scopes.
 

@@ -64,6 +64,39 @@ tactic * clean(tactic * t);
 tactic * using_params(tactic * t, params_ref const & p);
 tactic * annotate_tactic(char const* name, tactic * t);
 
+/**
+   \brief Name the step \c t: route the keys of the \c tactic module under \c path to it.
+
+   \c path is relative to the \c tactic module, e.g. "qfbv.preamble". updt_params(p)
+   passes p to \c t, and also sets <rest> for every key <path>.<rest>:
+   - a local entry of p (also written tactic.<path>.<rest>) sets <rest>, unflagged;
+   - a global tactic.<path>.<rest> sets <rest>, unflagged, unless a local value for
+     <rest> is present.
+   The scoped keys stay in the parameters, so nested scopes are more specific. The
+   key <path>.enabled, local before global, is read and not passed on: if it is false,
+   the scope passes the goal through unchanged, like skip.
+
+   The resulting precedence for a key at a step is: forced value of the author (set_*),
+   local scoped, local unscoped, global scoped, global unscoped, author default
+   (set_default_*). For forced values to win, place the scope outside the
+   using_params of the step: scope_tactic(path, using_params(t, p)).
+
+   collect_param_descrs adds the keys of the tactic module that start with <path>.
+   Only the keys declared there can be set by users (local and global settings are
+   validated), so a scope routes only the keys its rows declare, <path>.enabled included.
+
+   Scope paths share the namespace of the tactic module with its other keys: a scope
+   named "solve_eqs" would take tactic.solve_eqs.max_occs as its key max_occs. Prefix
+   paths with the logic, e.g. "qfbv.preamble".
+
+   The tactic language has no scopes. display-tactic shows a scope as what it does
+   under the current settings: skip if it is disabled (or (when 0 t), if an enclosing
+   using-params has keys that only t declares), else t with the values it routes as
+   explicit using-params keys. Run without the scoped settings, the output does what
+   the pipeline does with them.
+*/
+tactic * scope_tactic(char const * path, tactic * t);
+
 // Create a tactic that fails if the result returned by probe p is true.
 tactic * fail_if(probe * p);
 tactic * fail_if_not(probe * p);

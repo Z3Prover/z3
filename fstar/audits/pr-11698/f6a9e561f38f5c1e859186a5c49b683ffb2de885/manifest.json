@@ -1,0 +1,22 @@
+{
+  "pull_request": 11698,
+  "head_sha": "f6a9e561f38f5c1e859186a5c49b683ffb2de885",
+  "base_sha": "1a1d88dde7cc567e2ed6beeea05321aa5a223c8a",
+  "path_prefix": "fstar/audits/pr-11698/f6a9e561f38f5c1e859186a5c49b683ffb2de885/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43624009422",
+  "files": [
+    {
+      "name": "ArithLhsGuard.fst",
+      "sha256": "603217924f635b120d152071ce45ac5fe0717d9f5e12fce12ffb14fc91cb27f5"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "a271011c8273572ecdbcb53938ecbe4c6d172844708349fba44c1e47f022ea5e"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "85ebc19d30e83f91de4bbc54e62ddb528ee4b1f0962bd73eee3196859123f3cb"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -699,6 +700,120 @@ def gate_inputs():
     return structure, {structure, ("iff", g, h), ("iff", g, ("not", h)), ("not", h)}, g
 
 
+def swept_frames(count, extra=False):
+    """A clause tying two forms of one formula over count frames, and the names of its gates.
+
+    The first form is the conjunction of (ite p false (ite q true a)) over
+    the frames, the second the conjunction, in the other order, of what
+    Z3's rewriter makes of each: (and (not p) (or q a)). The clause is
+    (or (not first) second); with extra, the second form has one more
+    conjunct and the clause does not hold. Every gate that would be a node
+    of a certificate has a name, n<index> applied to _atoms, as
+    _structure_names gives; the two branches of an ite have none.
+    """
+    true, false = ("true",), ("false",)
+    named, first, second = [], [], []
+    for frame in range(count):
+        p, q, a = (("atom", 3 * frame + offset) for offset in range(3))
+        inner = ("or", ("and", q, true), ("and", ("not", q), a))
+        outer = ("or", ("and", p, false), ("and", ("not", p), inner))
+        disjunction = ("or", q, a)
+        rewritten = ("and", ("not", p), disjunction)
+        named += [inner, outer, disjunction, rewritten]
+        first.append(outer)
+        second.insert(0, rewritten)
+    if extra:
+        second.append(("atom", 3 * count))
+    first, second = ("and",) + tuple(first), ("and",) + tuple(second)
+    clause = ("or", ("not", first), second)
+    named += [first, second, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def opened_frames(count):
+    """A clause tying two forms of one formula whose sweep ties a named gate on demand, and the gates' names.
+
+    The first form is the conjunction over the frames of (or (and c a)
+    (and (not c) e)), the second the conjunction, in the other order, of
+    (ite c (or a false) e). The named gate (and c a) of the first form comes
+    first, so it stands for its class, and the unnamed branch (and c (or a
+    false)) of the ite shares that class: the link between the two frames
+    reads through the branch and must read the named gate too (_open).
+    """
+    false = ("false",)
+    named, first, second = [], [], []
+    for frame in range(count):
+        c, a, e = (("atom", 3 * frame + offset) for offset in range(3))
+        conjunction, then = ("and", c, a), ("or", a, false)
+        rewritten = ("or", conjunction, ("and", ("not", c), e))
+        ite = ("or", ("and", c, then), ("and", ("not", c), e))
+        named += [conjunction, then, rewritten, ite]
+        first.append(rewritten)
+        second.insert(0, ite)
+    first, second = ("and",) + tuple(first), ("and",) + tuple(second)
+    clause = ("or", ("not", first), second)
+    named += [first, second, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def nested_conjunction(count):
+    """A clause tying a conjunction nested count deep to the flat one over its operands, and the gates' names."""
+    gates = [("or", ("atom", 2 * index), ("atom", 2 * index + 1)) for index in range(count)]
+    named, nested = list(gates), gates[-1]
+    for gate in reversed(gates[:-1]):
+        nested = ("and", gate, nested)
+        named.append(nested)
+    flat = ("and",) + tuple(reversed(gates))
+    clause = ("or", ("not", nested), flat)
+    named += [flat, clause]
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def simplified_under_a_unit(depth):
+    """A clause tying a formula nested depth levels deep to its form under a unit, and the gates' names.
+
+    The formula is (or (and .. p) r) over the one of the level below, down
+    to (or x (not u)); the second form is what it becomes with u true, x
+    at the bottom, its operands in the other order. The clause is (or (not
+    u) (not first) second). No gate of one form shares a class with a gate
+    of the other, so nothing is linked: the two meet at x, 2 * depth gates
+    down.
+    """
+    unit, x = ("atom", 0), ("atom", 1)
+    first, second = ("or", x, ("not", unit)), x
+    named = [first]
+    for level in range(depth):
+        p, r = ("atom", 2 * level + 2), ("atom", 2 * level + 3)
+        conjunction, simplified = ("and", first, p), ("and", p, second)
+        first, second = ("or", conjunction, r), ("or", r, simplified)
+        named += [conjunction, simplified, first, second]
+    clause = ("or", ("not", unit), ("not", first), second)
+    named.append(clause)
+    return clause, {structure: "(n%d _atoms)" % index for index, structure in enumerate(named)}
+
+
+def chained_text(count, namespace="Z3Proofs.NativeCertificate.pchained"):
+    """A Lean text laid out as proof_to_lean.reconstruct writes a certificate: `count` definitions,
+    each over the one before it, a private lemma per definition with its `set_option .. in` and
+    comment lines, and the theorem, which uses every lemma. Lean accepts it."""
+    signature = "(_atoms : Nat -> Prop)"
+    lines = ["import Init", "", "-- Original input SHA-256: chained", "-- Atom 0: \"p\"", "namespace " + namespace,
+             "", "set_option maxRecDepth 100000", "", "structure Interpretation where", "  U : Type", "",
+             "def formula_0 %s : Prop := _atoms 0" % signature]
+    lines += ["def formula_%d %s : Prop := (And (formula_%d _atoms) (_atoms %d))" % (index, signature, index - 1, index)
+              for index in range(1, count)]
+    proof = "_h0"
+    for index in range(count - 1, 0, -1):
+        lines += ["", "set_option maxHeartbeats 1000000 in", "-- the left conjunct of formula_%d" % index,
+                  "private theorem lemma_%d %s" % (index, signature),
+                  "    : (formula_%d _atoms) -> (formula_%d _atoms) := by" % (index, index - 1),
+                  "  intro _h", "  unfold formula_%d at _h" % index, "  exact _h.left"]
+        proof = "(lemma_%d _atoms %s)" % (index, proof)
+    lines += ["", "theorem unsat %s" % signature, "    (_h0 : (formula_%d _atoms))" % (count - 1),
+              "    (_h1 : Not (formula_0 _atoms))", "    : False :=", "  _h1 %s" % proof, "", "end " + namespace, ""]
+    return "\n".join(lines)
+
+
 # x + 10 and x + 5 + 5 modulo 17, each step an ite, said to differ (depth 2
 # of test_proof_to_lean_lia.modular_chains_instance).
 MODULAR_CHAINS = """\
@@ -782,6 +897,171 @@ class TestProofToLean(unittest.TestCase):
                     self.assertIsInstance(node, tuple)
                     node = node[int(field) - 1]
                 self.assertEqual(node, name)
+
+    def test_inputs_are_a_structure_over_chunks_of_the_assertions(self):
+        # The hypothesis of the outlined lemmas: a structure (which Lean does
+        # not unfold where a lemma is named, `proof_step_N _inputs`) whose
+        # field is the balanced conjunction of the assertions, or above a
+        # chunk of them of the chunks' definitions. _input_select must follow
+        # the trees _input_definitions writes, and _input_term must build them.
+        def parse(text):
+            if not text.startswith("(") or " " not in text or text.startswith(("(formula_", "(Inputs_c")):
+                return text
+            depth, parts, start = 0, [], 1
+            for index, char in enumerate(text[1:-1], 1):
+                if char == " " and depth == 0:
+                    parts.append(text[start:index])
+                    start = index + 1
+                depth += (char == "(") - (char == ")")
+            parts.append(text[start:-1])
+            self.assertEqual(len(parts), 3)
+            self.assertIn(parts[0], ("And", "And.intro"))
+            return parse(parts[1]), parse(parts[2])
+
+        def leaves(tree):
+            return leaves(tree[0]) + leaves(tree[1]) if isinstance(tree, tuple) else [tree]
+
+        def follow(tree, fields):
+            for field in fields:
+                self.assertIsInstance(tree, tuple)
+                tree = tree[int(field) - 1]
+            return tree
+
+        chunk = proof_to_lean._INPUT_CHUNK
+        signature = "(_atoms : Nat -> Prop) (_vars : Nat -> Int)"
+        for count in [1, 2, 3, chunk - 1, chunk, chunk + 1, 2 * chunk, 2 * chunk + 1, 5 * chunk + 7, 40 * chunk + 1]:
+            graph = SimpleNamespace(assertions=list(range(100, 100 + count)), valuation=" _vars")
+            lines = proof_to_lean._input_definitions(graph, signature)
+            self.assertEqual(lines[-2], "private structure Inputs %s : Prop where" % signature)
+            self.assertTrue(lines[-1].startswith("  all : "))
+            field = parse(lines[-1][len("  all : "):])
+            definitions = {}
+            for line in lines[:-2]:
+                if line:
+                    name, body = re.fullmatch(r"private def (Inputs_c\d+) %s : Prop := (.*)" % re.escape(signature),
+                                              line).groups()
+                    definitions["(%s _atoms _vars)" % name] = parse(body)
+            chunks = -(-count // chunk) if count > chunk else 0
+            self.assertEqual(len(definitions), chunks)
+            self.assertEqual(leaves(field), ["(Inputs_c%d _atoms _vars)" % index for index in range(chunks)]
+                             or ["(formula_%d _atoms _vars)" % node for node in graph.assertions])
+            self.assertTrue(all(len(leaves(tree)) <= chunk for tree in definitions.values()))
+            term = proof_to_lean._input_term(count)
+            self.assertTrue(term.startswith("(Inputs.mk ") and term.endswith(")"))
+            proof = parse(term[len("(Inputs.mk "):-1])
+            self.assertEqual(leaves(proof), ["_h%d" % position for position in range(count)])
+            depth = (max(chunks, 1) - 1).bit_length() + (min(count, chunk) - 1).bit_length()
+            for position, node in enumerate(graph.assertions):
+                path = proof_to_lean._input_select(position, count)
+                self.assertTrue(path.startswith("_inputs.all"))
+                fields = path[len("_inputs.all"):].split(".")[1:]
+                self.assertLessEqual(len(fields), depth)
+                # The path passes a chunk's name where the field's tree ends,
+                # and goes on in that chunk's definition.
+                tree, passed = field, 0
+                while isinstance(tree, tuple):
+                    tree, passed = tree[int(fields[passed]) - 1], passed + 1
+                if chunks:
+                    self.assertEqual(tree, "(Inputs_c%d _atoms _vars)" % (position // chunk))
+                    tree = follow(definitions[tree], fields[passed:])
+                else:
+                    self.assertEqual(passed, len(fields))
+                self.assertEqual(tree, "(formula_%d _atoms _vars)" % node)
+                self.assertEqual(follow(proof, fields), "_h%d" % position)
+
+    def test_facts_of_a_cnf_lemma_are_the_binders_and_arguments_of_one_function(self):
+        # The bridges and theory clauses of a cnf lemma's attempt: no `have`
+        # (a tactic proof of the k-th would run over the k-1 before it), but
+        # one `refine` by a function of the facts applied to their proofs,
+        # in the same order, the goal left to the refutation. Every line
+        # after the first is indented past the column of an alternative of
+        # `first` (seven), a proof of several lines past its argument.
+        self.assertEqual(proof_to_lean._stated_facts([], "(formula_9 _atoms)"), [])
+        split = proof_to_lean._fact_tactics(["omega"], ["grind"])
+        single = proof_to_lean._fact_tactics(["unfold formula_2 formula_1; grind"])
+        facts = [("_f1", "(Iff (formula_1 _atoms) (formula_2 _atoms))", single),
+                 ("_f2", "(Iff (a = b) (b = a))", "eq_comm"),
+                 ("_f3", "(Or (Not (formula_3 _atoms)) (formula_4 _atoms))", split)]
+        (tactic,) = proof_to_lean._stated_facts(facts, "(formula_9 _atoms)")
+        lines = tactic.split("\n")
+        self.assertEqual(lines[0], "refine (fun")
+        self.assertEqual(lines[1:4], [" " * 12 + "(%s : %s)" % (name, statement) for name, statement, _ in facts])
+        self.assertEqual(lines[4], " " * 12 + "=> (?_ : (formula_9 _atoms)))")
+        self.assertEqual(lines[5:7], [" " * 10 + "(by first | ((unfold formula_2 formula_1; grind); done) | fail)",
+                                      " " * 10 + "(eq_comm)"])
+        self.assertEqual("\n".join(lines[7:]), " " * 10 + "(" + split + ")")
+        self.assertTrue(all(len(line) - len(line.lstrip()) > 7 for line in lines[1:]))
+        self.assertTrue(all(len(line) - len(line.lstrip()) > 10 for line in lines[8:]))
+        self.assertNotIn("have ", tactic)
+        self.assertNotIn("\n    | (", tactic)  # where the tests and `first` split the alternatives
+        self.assertEqual(tactic.count("("), tactic.count(")"))
+
+    def test_a_lemma_step_is_one_chain_linear_in_its_clause(self):
+        # A `lemma` step of an outlined classical lemma: one function from
+        # the refutations of the clause's literals to False (the premise
+        # applied to them in the order of its hypotheses, a hypothesis whose
+        # literal negates it proved by contradiction, a literal that
+        # discharges nothing bound as `_`), under one classical_or_intro per
+        # literal but the last. Through the negated clause every hypothesis
+        # had an Or.inr per literal before its own.
+        chain = proof_to_lean._cases_lemma
+        self.assertEqual(chain(7, 1, [(0, False)]), "(classical_by_contradiction (fun _n0 => (_step_7 _n0)))")
+        self.assertEqual(chain(7, 1, [(0, True)]),
+                         "(classical_by_contradiction (fun _n0 => (_step_7 (classical_by_contradiction _n0))))")
+        self.assertEqual(chain(7, 2, [(1, False), (0, False)]),
+                         "(classical_or_intro classical_by_contradiction (fun _n0 _n1 => (_step_7 _n1 _n0)))")
+        self.assertEqual(
+            chain(9, 4, [(3, False), (1, True), (0, False)]),
+            "(classical_or_intro (classical_or_intro (classical_or_intro classical_by_contradiction)) "
+            "(fun _n0 _n1 _ _n3 => (_step_9 _n3 (classical_by_contradiction _n1) _n0)))")
+        # One literal that discharges two hypotheses is bound once.
+        self.assertIn("(fun _n0 _n1 => (_step_9 (classical_by_contradiction _n0) _n0 _n1))",
+                      chain(9, 2, [(0, True), (0, False), (1, False)]))
+        sizes = []
+        for count in (16, 32, 64, 512, 1024):
+            term = chain(3, count, [(position, False) for position in reversed(range(count))])
+            self.assertEqual(term.count("("), term.count(")"))
+            self.assertEqual(term.count("(classical_or_intro "), count - 1)
+            self.assertNotIn("Or.in", term)
+            sizes.append(len(term))
+        self.assertLess(sizes[1], 2.1 * sizes[0])
+        self.assertLess(sizes[2], 2.1 * sizes[1])
+        self.assertLess(sizes[4], 2.1 * sizes[3])
+        self.assertLess(sizes[4], 34 * 1024)  # a literal whose hypothesis is its negation: about 32 bytes
+        # A literal that negates its hypothesis costs the proof by
+        # contradiction besides, 29 bytes more.
+        negated = chain(3, 1024, [(position, True) for position in reversed(range(1024))])
+        self.assertEqual(negated.count("(classical_by_contradiction _n"), 1024)
+        self.assertEqual(len(negated), sizes[4] + 29 * 1024)
+        # The helper is by cases on the witness of classical_by_contradiction,
+        # so a chain depends on the axioms of that witness (propext,
+        # Classical.choice, Quot.sound), which Lean reports in test_proof_to_lean_uf's
+        # test_lemma_step_chains_prove_their_clause_and_nothing_else.
+        helper = "\n".join(proof_to_lean._CLASSICAL_DISJUNCT_LEMMA)
+        self.assertIn("private theorem classical_or_intro {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \\/ q :=",
+                      helper)
+        self.assertIn("(Classical.propDecidable p)", helper)
+        self.assertIn("(Classical.propDecidable p)", "\n".join(proof_to_lean._CLASSICAL_CONTRADICTION_LEMMA))
+
+    def test_tactics_of_a_fact_fail_when_they_do_not_prove_it(self):
+        # A fact's tactics are an argument `(by ...)`, which Lean runs with
+        # error recovery on: a failure under a bullet, or a goal left open,
+        # would be logged and the fact admitted, and the lemma's fallback
+        # never tried. So they are alternatives of a `first` that ends in
+        # `fail` (no recovery in the ones before it), each closed by `done`
+        # as a tactic of its own: after the parenthesized line, or on a line
+        # at the column of the alternative's first tactic, where it is not
+        # read into a `first` that ends that line.
+        tactic = "unfold formula_2; first | omega | grind (splits := 64)"
+        self.assertEqual(proof_to_lean._fact_tactics([tactic]), "by first | ((%s); done) | fail" % tactic)
+        pad = " " * 16
+        self.assertEqual(proof_to_lean._fact_tactics(["have _i0 : p := by", "  omega", "exact _i0"], [tactic]).split("\n"), [
+            "by", pad + "first",
+            pad + "  | (have _i0 : p := by", pad + "       omega", pad + "     exact _i0", pad + "     done)",
+            pad + "  | (" + tactic, pad + "     done)",
+            pad + "  | fail"])
+        self.assertEqual(proof_to_lean._fact_tactics(["· omega", "· grind"]).split("\n"), [
+            "by", pad + "first", pad + "  | (· omega", pad + "     · grind", pad + "     done)", pad + "  | fail"])
 
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{
@@ -1253,12 +1533,22 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(sum(line.startswith("· ") for line in lines), 2)
             self.assertEqual(lines[-1], "  exact _f7")
             self.assertEqual(prover.needed, {0})
-        for structure, split in ((("or", p, ("not", p)), "(_atoms 0)"), (("or", a, ("not", a)), "(formula_3 _atoms _vars)")):
+        for operand, split in ((p, "(_atoms 0)"), (a, "(formula_3 _atoms _vars)")):
+            structure = ("or", ("and", operand, operand), ("not", operand))
             prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
             lines = prover.implication(("true",), structure)
             self.assertIsNotNone(lines)
             term = "\n".join(lines)
             self.assertIn("\nrefine (Or.elim (Classical.em %s)" % split, term)
+            self.assertEqual(prover.needed, set())
+            # The disjunction of an operand and its negation is no case of
+            # an implication: it is one of its facts, by excluded middle.
+            structure = ("or", operand, ("not", operand))
+            prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
+            term = "\n".join(prover.implication(("true",), structure))
+            self.assertNotIn("refine (Or.elim", term)
+            self.assertIn(" := (Or.elim (Classical.em %s) (fun _g => (Or.inl _g)) (fun _g => (Or.inr _g)))\n"
+                          % split, term)
             self.assertEqual(prover.needed, set())
         self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
             ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode
@@ -1352,6 +1642,280 @@ class TestProofToLean(unittest.TestCase):
         term = "\n".join(lines)
         self.assertIn("refine (Or.elim (Classical.em %s)" % prover.named[g], term)
         self.assertNotIn("Classical.em (_atoms", term)
+
+    def test_sweep_relates_two_forms_of_a_formula_gate_by_gate(self):
+        # A cnf lemma whose search gives up is swept (_PropositionalProver.
+        # sweep): the gates of the assertion and of the clause Z3 logged
+        # over its rewriter's form are put in classes, each named gate is
+        # linked to the representative or the canonical gate of its class,
+        # and each link is a theorem proved over the few gates between its
+        # ends. Lean checks the declarations in test_proof_to_lean_integration.
+        def sweep(count, **options):
+            clause, names = swept_frames(count, **options)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return clause, prover, prover.sweep(("not", clause), [])
+
+        clause, prover, (declarations, refutation) = sweep(3)
+        first, second = clause[1][1], clause[2]
+        # The two forms and their frames share classes; the classes follow
+        # the rewriter: (ite p false e) is (and (not p) e), (ite q true a)
+        # is (or q a), and the conjunction is the flat set of its members.
+        self.assertEqual(prover.classes[first], prover.classes[second])
+        for outer, rewritten in zip(first[1:], reversed(second[1:])):
+            self.assertEqual(prover.classes[outer], prover.classes[rewritten])
+            self.assertEqual(prover.classes[outer[2][2]], prover.classes[rewritten[2]])
+        self.assertEqual(len(prover.keys[prover.classes[first]][1]), 6)
+        # The canonical gates are definitions, stated before the links; a
+        # link is an Iff between a gate and its class's gate or
+        # representative, and a fact of the later ones by its name.
+        kinds = [statement is None for _, statement, _ in declarations]
+        self.assertEqual(kinds, sorted(kinds, reverse=True))
+        self.assertTrue(all(name.startswith("lemma_k") for name, statement, _ in declarations if statement is None))
+        links = [(name, statement, lines) for name, statement, lines in declarations if statement is not None]
+        self.assertEqual([name for name, _, _ in links], sorted((name for name, _, _ in links),
+                                                                 key=lambda name: int(name[7:])))
+        for name, statement, lines in links:
+            self.assertTrue(name.startswith("lemma_s") and statement.startswith("(Iff ("), (name, statement))
+            self.assertEqual(lines[0][:17], "refine Iff.intro ")
+            later = int(name[7:])
+            self.assertTrue(all(int(used) < later for line in lines for used in re.findall(r"lemma_s(\d+)", line)))
+        text = "\n".join(refutation)
+        self.assertIn("(lemma_s", text)  # the clause is refuted through the links of the two forms
+        self.assertNotIn("Classical.em", text)
+        # The declarations grow linearly with the frames, and so do their
+        # characters: one canonical gate over all frames, the rest per frame.
+        sizes = {}
+        for count in (4, 8, 16):
+            _, _, (declarations, _) = sweep(count)
+            sizes[count] = (len(declarations), sum(len(statement or "") + sum(map(len, lines))
+                                                   for _, statement, lines in declarations))
+        self.assertEqual(sizes[16][0] - sizes[8][0], 2 * (sizes[8][0] - sizes[4][0]))
+        self.assertLess(sizes[16][1], 2.5 * sizes[8][1])
+        # A clause that does not hold is not refuted, and a link the
+        # classes do not give is proved only if it holds: the classes are
+        # hints, the searches are what is stated.
+        self.assertIsNone(sweep(3, extra=True)[2])
+        clause, names = swept_frames(3)
+        prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                    scope=("lemma", " _atoms"))
+        wrong = ("iff", clause[1][1][1], clause[2][1])  # the first frame of one form, the last of the other
+        prover._index(wrong)
+        prover.links.insert(0, wrong)
+        declarations, _ = prover.sweep(("not", clause), [])
+        self.assertNotIn(prover._render(wrong), [statement for _, statement, _ in declarations])
+        self.assertIn(wrong[1], prover.failed)
+        # A sweep states its links outside the proof: it needs the caller's names.
+        with self.assertRaises(ValueError):
+            proof_to_lean._PropositionalProver(("not", clause), classical=True, joined=[])
+
+    def test_sweep_ties_a_named_gate_a_link_reads_through(self):
+        # A named gate that stands for its class has no link, and a search
+        # takes it for an input, as it takes an atom. The link of a frame
+        # of opened_frames needs what is under it (the unnamed branch of
+        # the ite it is tied to is read through): when a link's search
+        # fails, the named gates it met without a fact are tied to their
+        # canonical gates (_open) and the search is repeated.
+        def sweep(count):
+            clause, names = opened_frames(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return clause, prover, prover.sweep(("not", clause), [])
+
+        clause, prover, found = sweep(3)
+        self.assertIsNotNone(found)
+        self.assertEqual(prover.failed, set())
+        conjunctions = [frame[1] for frame in clause[1][1][1:]]
+        self.assertTrue(all(conjunction in prover.gates for conjunction in conjunctions))
+        self.assertIn("(lemma_s", "\n".join(found[1]))
+        with patch.object(proof_to_lean._PropositionalProver, "_open", lambda self, untied, blocks: False):
+            clause, prover, found = sweep(3)
+        self.assertIsNone(found)
+        self.assertNotEqual(prover.failed, set())
+        self.assertFalse(any(conjunction in prover.gates for conjunction in conjunctions))
+
+    def test_sweep_gives_up_beyond_its_limits(self):
+        # A link's search has its own limits; the sweep as a whole has two.
+        # n nested conjunctions have and classes of 2 to n members: beyond
+        # _SWEEP_MEMBERS members the formula is not swept (the thousand
+        # nested ands of QF_IDL FISCHER6-4-ninc have two million; their
+        # sweep took half an hour without an end, and now none of the
+        # time). And a sweep stops once its links and its failed searches
+        # have written more than it may (_SWEEP_CHARS for the sweeps of a
+        # file), not after the last link: here over thirty frames, four
+        # links each. The limits as they are, on a conjunction a thousand
+        # deep: test_proof_to_lean_integration (its structures are too deep
+        # for an interpreter that does not cache the hash of a tuple).
+        def sweep(family, count, **options):
+            clause, names = family(count)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [], **options)
+
+        prover, found = sweep(swept_frames, 30)
+        self.assertIsNotNone(found)
+        links, written = len(prover.proved), prover.spent
+        declarations = sum(len(statement or "") + sum(map(len, lines)) for _, statement, lines in found[0])
+        self.assertTrue(declarations <= written < 2 * declarations, (declarations, written))
+        self.assertIsNotNone(sweep(swept_frames, 30, chars=written)[1])
+        prover, found = sweep(swept_frames, 30, chars=written // 2)
+        self.assertIsNone(found)
+        self.assertTrue(0 < len(prover.proved) < links, len(prover.proved))
+        self.assertLess(prover.spent, written // 2 + proof_to_lean._SWEEP_LINK_CHARS)
+        with patch.object(proof_to_lean, "_SWEEP_CHARS", written // 2):  # the default of chars
+            self.assertIsNone(sweep(swept_frames, 30)[1])
+        prover, found = sweep(nested_conjunction, 30)
+        self.assertIsNotNone(found)
+        members = sum(range(2, 31)) + 30 * 2  # the nested ands' classes and those of the thirty ors
+        self.assertEqual(prover.members, members)
+        with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members - 1):
+            prover, found = sweep(nested_conjunction, 30)
+            self.assertIsNone(found)
+            self.assertIsNone(prover.links)
+            self.assertEqual(prover.proved, {})
+        with patch.object(proof_to_lean, "_SWEEP_MEMBERS", members):
+            self.assertIsNotNone(sweep(nested_conjunction, 30)[1])
+
+    def test_sweep_reads_through_the_gates_inside_a_nested_conjunction(self):
+        # An and whose parents are all ands has its class flattened into
+        # theirs: it is not linked (_swept_structures, `inner`) and a search
+        # reads through it. With a link for every prefix of a conjunction
+        # nested n deep, each to a canonical gate of the prefix's width, a
+        # sweep wrote 0.2, 0.9, and 3.6 million characters for 50, 100, and
+        # 200 levels, and 15 of the 16 million a file may hold for 400
+        # (QF_IDL qlock-4-10-8, whose one assertion nests 395, got no
+        # further than 316). Now the outermost and is tied to the flat
+        # conjunction by one link, proved through the chain.
+        def sweep(clause, names):
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            return prover, prover.sweep(("not", clause), [])
+
+        spent = {}
+        for count in (50, 100, 200):
+            clause, names = nested_conjunction(count)
+            prover, (declarations, refutation) = sweep(clause, names)
+            nested, flat = clause[1][1], clause[2]
+            self.assertEqual(len(prover.inner), count - 2)  # every nested and but the outermost
+            self.assertNotIn(nested, prover.inner)
+            self.assertEqual(prover.failed, set())
+            self.assertEqual(prover.definitions, [])  # no canonical gate: the two forms are the ends of the link
+            (name, statement, lines), = declarations
+            self.assertEqual(statement, "(Iff %s %s)" % (names[flat], names[nested]))
+            self.assertIn("(%s _atoms)" % name, "\n".join(refutation))
+            self.assertLess(len(lines), 5 * count)
+            spent[count] = prover.spent
+        self.assertLess(spent[200], 2.5 * spent[100])
+        self.assertLess(spent[100], 2.5 * spent[50])
+        self.assertLess(spent[200], 50000)
+        # An and that is also under a gate of another kind is tied as
+        # before: what is outside its and parents may need it as a whole.
+        a, b, c, d = (("atom", index) for index in range(4))
+        inside = ("and", a, b)  # its canonical gate is (and b a): the flat conjunction is read first
+        conjunction, disjunction, flat = ("and", inside, c), ("or", inside, d), ("and", c, b, a)
+        clause = ("or", flat, ("not", conjunction), ("not", disjunction))
+        names = {structure: "(n%d _atoms)" % index
+                 for index, structure in enumerate([inside, conjunction, disjunction, flat, clause])}
+        prover, found = sweep(clause, names)
+        self.assertIsNotNone(found)
+        self.assertEqual(prover.inner, set())
+        self.assertIn(inside, prover.proved)
+
+    def test_sweep_refutes_a_clause_simplified_under_a_unit_rounds_further_down(self):
+        # The refutation of a swept clause reads the gates above the links,
+        # the operands of the canonical gates it meets tied a few rounds
+        # down, and what is below that is an input. When Z3 logged the
+        # clause over the formula simplified under a unit, no gate of one
+        # form is in a class with a gate of the other, and the two meet
+        # only at the atoms: the search ends in an assignment of the inputs
+        # at the cut. It is then repeated a round further down, up to
+        # _SWEEP_DEPTH rounds, each with its openings (QF_IDL qlock-4-10-8
+        # and -9: five rounds; with the three there were, their lemmas were
+        # left to the unfolded fallback, which ran out of heartbeats).
+        searches, read = [], []
+        refutation = proof_to_lean._PropositionalProver.refutation
+
+        def counted(self, structure, facts=()):
+            searches.append(len(self.relevant))
+            read.append((frozenset(self.relevant), tuple(facts)))
+            return refutation(self, structure, facts)
+
+        def sweep(depth, family=simplified_under_a_unit):
+            del searches[:], read[:]
+            clause, names = family(depth)
+            prover = proof_to_lean._PropositionalProver(("not", clause), classical=True, names=names, joined=[],
+                                                        scope=("lemma", " _atoms"))
+            with patch.object(proof_to_lean._PropositionalProver, "refutation", counted):
+                return prover, prover.sweep(("not", clause), [])
+
+        rounds, openings = proof_to_lean._SWEEP_ROUNDS[-1], proof_to_lean._SWEEP_OPENINGS
+        self.assertLess(rounds, proof_to_lean._SWEEP_DEPTH)
+        for depth in (1, 2, 3, 4):
+            prover, found = sweep(depth)
+            self.assertIsNotNone(found, depth)
+            self.assertEqual(prover.links, [])
+            self.assertNotIn("Classical.em", "\n".join(found[1]))
+            self.assertEqual(searches, sorted(searches))  # each search reads at least the gates of the one before
+            self.assertEqual(len(set(read)), len(read))  # and never the gates and facts of one that failed
+            if depth > 1:
+                self.assertGreater(len(searches), openings)
+        # Beyond the last round the clause is left to the lemma's other
+        # proofs, after a bounded number of searches.
+        prover, found = sweep(5)
+        self.assertIsNone(found)
+        self.assertLessEqual(len(searches), openings * (proof_to_lean._SWEEP_DEPTH - rounds + 1))
+        self.assertEqual(len(set(read)), len(read))
+        # A round further down that meets no gate the search before did not
+        # read, and nothing to open, is not searched: a clause that does
+        # not hold costs the searches of its openings, not one more for
+        # every round (eight searches, the last six the same one).
+        prover, found = sweep(30, lambda count: swept_frames(count, extra=True))
+        self.assertIsNone(found)
+        self.assertEqual(len(prover.proved), 92)  # the links of the frames, and what the refutation opened
+        self.assertEqual(len(set(read)), len(read))
+        self.assertLessEqual(len(searches), openings)
+        with patch.object(proof_to_lean, "_SWEEP_DEPTH", rounds):  # as it was
+            self.assertIsNotNone(sweep(1)[1])
+            self.assertIsNone(sweep(2)[1])
+            self.assertLessEqual(len(searches), openings)
+        # A search that runs out of its limits is not repeated further
+        # down: more gates do not make it shorter.
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_STEPS", 2):
+            self.assertIsNone(sweep(3)[1])
+            self.assertLessEqual(len(searches), openings)
+
+    def test_sweep_classes_follow_the_rewriter(self):
+        # The classes of _swept_structures on single rules: equal classes
+        # for a formula and what Z3's rewriter makes of it, distinct ones
+        # for formulas that differ. Joined leaves share a class, or have
+        # complementary ones.
+        a, b, c = (("atom", index) for index in range(3))
+        x, y, z = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (3, 5, 7))
+        true, false = ("true",), ("false",)
+
+        def ite(condition, then, other):
+            return ("or", ("and", condition, then), ("and", ("not", condition), other))
+
+        same = [(ite(a, false, true), ("not", a)), (ite(a, true, false), a), (ite(a, false, b), ("and", ("not", a), b)),
+                (ite(a, true, b), ("or", a, b)), (ite(a, b, true), ("or", ("not", a), b)),
+                (ite(a, b, false), ("and", a, b)), (ite(a, b, a), ("and", a, b)), (ite(a, a, b), ("or", a, b)),
+                (ite(a, b, ("not", b)), ("iff", a, b)), (ite(true, b, c), b), (ite(a, b, b), b),
+                (ite(("not", a), b, c), ite(a, c, b)), (ite(a, b, c), ("or", ("and", b, a), ("and", c, ("not", a)))),
+                (("and", a, ("and", b, c)), ("and", ("and", c, a), b, true)), (("or", a, ("or", b, false)), ("or", b, a)),
+                (("and", a, ("not", a), b), false), (("or", b, ("not", b)), true), (("not", ("not", a)), a),
+                (("implies", a, b), ("or", ("not", a), b)), (("iff", a, false), ("not", a)), (("iff", true, a), a),
+                (("iff", ("not", a), b), ("not", ("iff", b, a))), (("iff", ("not", a), ("not", b)), ("iff", a, b)),
+                (("and", x, a), ("and", a, y)), (("or", x, z), true), (("iff", y, ("not", z)), true)]
+        differ = [(("and", a, b), ("or", a, b)), (ite(a, b, c), ite(a, c, b)), (("iff", a, b), ("iff", a, c)),
+                  (("not", ("and", a, b)), ("or", ("not", a), ("not", b))), (x, c)]
+        joined = [("iff", x, y), ("iff", x, ("not", z))]
+        roots = [side for pair in same + differ for side in pair]
+        prover = proof_to_lean._PropositionalProver(*roots, *joined, classical=True, names={}, joined=joined,
+                                                    scope=("lemma", ""))
+        for left, right in same:
+            self.assertEqual(prover.classes[left], prover.classes[right], (left, right))
+        for left, right in differ:
+            self.assertNotEqual(prover.classes[left], prover.classes[right], (left, right))
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"
@@ -1974,6 +2538,211 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("@ite", statement)
                 self.assertLessEqual(set(re.findall(r"(?:term|formula)_\d+", statement)), unfolded, statement)
         self.assertNotIn("sorry", text)
+
+
+class TestCertificateModules(unittest.TestCase):
+    """proof_to_lean.modules: a certificate above _MODULE_CHARS is checked as a chain of modules, one
+    Lean process each, because one process keeps what it elaborated of the whole file (no Lean here;
+    test_proof_to_lean_integration checks chains in Lean)."""
+
+    @staticmethod
+    def body(module):
+        """The lines of a module between its namespace's options and its end."""
+        lines = module.split("\n")
+        start = next(index for index, line in enumerate(lines) if line.startswith("namespace "))
+        end = lines.index("end " + lines[start][len("namespace "):])
+        return lines[:start], lines[start + 4:end], lines[end + 1:]
+
+    def test_a_text_within_the_limit_is_one_module(self):
+        text = chained_text(40)
+        self.assertEqual(proof_to_lean.modules(text), [(None, text)])
+        self.assertEqual(proof_to_lean.modules(text, len(text)), [(None, text)])
+        self.assertGreater(len(proof_to_lean.modules(text, len(text) // 2)), 1)
+        # The limit in force is read at the call, so a test or a caller can lower it.
+        with patch.object(proof_to_lean, "_MODULE_CHARS", 2000):
+            self.assertGreater(len(proof_to_lean.modules(text)), 3)
+        self.assertEqual((proof_to_lean._MODULE_CHARS, proof_to_lean._MODULE_SIZE), (8000000, 1000000))
+        # Above the limit a module holds _MODULE_SIZE characters of declarations, not the limit.
+        coarse = proof_to_lean.modules(text, 4000)
+        self.assertEqual(coarse, proof_to_lean.modules(text, 4000, 4000))
+        with patch.object(proof_to_lean, "_MODULE_CHARS", 4000), patch.object(proof_to_lean, "_MODULE_SIZE", 1000):
+            modules = proof_to_lean.modules(text)
+            self.assertEqual(modules, proof_to_lean.modules(text, 4000, 1000))
+            self.assertGreater(len(modules), 2 * len(coarse))
+            self.assertLessEqual(max(len(module) for _, module in modules[:-1]), 1000 + 400)
+            self.assertEqual(proof_to_lean.modules(text[:4000]), [(None, text[:4000])])
+
+    def test_a_large_text_is_split_into_a_chain_of_modules(self):
+        text = chained_text(40) + "\n#print axioms Z3Proofs.NativeCertificate.pchained.unsat\n"
+        limit = 2000
+        modules = proof_to_lean.modules(text, limit)
+        names = [name for name, _ in modules]
+        self.assertGreater(len(modules), 5)
+        self.assertIsNone(names[-1])
+        self.assertEqual(len(set(names)), len(names))
+        for index, name in enumerate(names[:-1]):
+            self.assertRegex(name, r"\AZ3Certificate_[0-9a-f]{16}_%d\Z" % index)
+        # The indices are zero-padded to one width: sorted by name the modules are in checking
+        # order, so `check_lean.sh --chain DIR/Z3Certificate_<digest>_*.lean LAST` is the chain.
+        finer = [name for name, _ in proof_to_lean.modules(text, limit, 500)[:-1]]
+        self.assertGreater(len(finer), 11)
+        self.assertLess(len(finer), 100)
+        self.assertEqual(finer, ["%s_%02d" % (names[0][:-2], index) for index in range(len(finer))])
+        self.assertEqual(sorted(finer), finer)
+        original, declarations = self.body(text)[1], []
+        for index, (name, module) in enumerate(modules):
+            head, body, tail = self.body(module)
+            # Imports: Init and the module before it, which imports the ones before that.
+            imports = [line for line in module.split("\n") if line.startswith("import ")]
+            self.assertEqual(imports, ["import Init"] + (["import " + names[index - 1]] if index else []))
+            self.assertEqual(head[:len(imports)], imports)
+            # The namespace and its options are those of the text, in every module.
+            self.assertIn("\nnamespace Z3Proofs.NativeCertificate.pchained\n\nset_option maxRecDepth 100000\n\n",
+                          module)
+            self.assertEqual(module.count("namespace "), 1)
+            # Whole declarations: a module starts at one and never ends on a prefix line.
+            self.assertTrue(body[0].startswith(("def ", "theorem ", "structure ", "set_option ")), body[0])
+            last = [line for line in body if line][-1]
+            self.assertFalse(last.startswith(("set_option ", "-- ")), last)
+            self.assertLessEqual(sum(len(line) + 1 for line in body), limit)
+            self.assertFalse([line for line in body if line.startswith("private ")])
+            declarations += body
+            if name is None:
+                self.assertIn("-- Original input SHA-256: chained", head)
+                self.assertIn("-- Atom 0: \"p\"", head)
+                self.assertIn("chain of %d modules" % len(modules), module)
+                self.assertIn(names[0], module)
+                self.assertIn("\ntheorem unsat ", module)
+                self.assertEqual(tail, ["", "#print axioms Z3Proofs.NativeCertificate.pchained.unsat", ""])
+            else:
+                self.assertNotIn("theorem unsat", module)
+                self.assertNotIn("#print", module)
+                self.assertEqual(tail, [""])
+        # Nothing is lost, reordered, or rewritten but the `private` of the declarations.
+        self.assertEqual(declarations, [line[len("private "):] if line.startswith("private ") else line
+                                        for line in original])
+        self.assertEqual(sum(line.startswith("private theorem ") for line in original), 39)
+        # A lemma's option and comment lines stay with it.
+        for _, module in modules:
+            self.assertEqual(module.count("set_option maxHeartbeats 1000000 in\n-- the left conjunct of formula_"),
+                             module.count("\ntheorem lemma_"))
+        # The names are the text's: another text has other modules.
+        self.assertNotEqual(names[0], proof_to_lean.modules(chained_text(41), limit)[0][0])
+        self.assertEqual(modules, proof_to_lean.modules(text, limit))
+
+    def test_the_number_of_modules_is_linear_in_the_text(self):
+        counts = []
+        for size in (50, 100, 200):
+            text = chained_text(size)
+            modules = proof_to_lean.modules(text, 3000)
+            counts.append(len(modules))
+            # (The last module holds the theorem, whose one proof term names every lemma.)
+            self.assertLessEqual(max(len(module) for _, module in modules[:-1]), 3000 + 400)
+            self.assertLess(abs(len(modules) - len(text) / 3000), 0.25 * len(modules) + 2)
+        self.assertLess(counts[2], 2.3 * counts[1])
+        self.assertLess(counts[1], 2.3 * counts[0])
+        # A declaration above the limit is a module of its own, not an error.
+        text = chained_text(12)
+        modules = proof_to_lean.modules(text, 40)
+        self.assertEqual(len(modules), text.count("\ndef ") + text.count(" theorem ") + text.count("\ntheorem ") + 1)
+
+    def test_a_text_that_is_not_laid_out_as_a_certificate_is_not_split(self):
+        text = chained_text(20)
+        marker = "\ndef formula_7 "
+        self.assertIn(marker, text)
+        for label, changed in (
+                ("an axiom", text.replace(marker, "\naxiom absurd : False" + marker)),
+                ("an instance", text.replace(marker, "\ninstance : Inhabited Nat := (Inhabited.mk 0)" + marker)),
+                ("an open command", text.replace(marker, "\nopen Classical" + marker)),
+                ("an option for the rest of the file", text.replace(marker, "\nset_option maxHeartbeats 0" + marker)),
+                ("a section", text.replace(marker, "\nsection\nend" + marker)),
+                ("a block comment", text.replace(marker, "\n/- def formula_7 -/" + marker)),
+                ("a second namespace", text + text.partition("\n")[2]),
+                ("no namespace", text.replace("namespace ", "-- ").replace("\nend ", "\n-- ")),
+                ("a block comment after a line comment",
+                 text.replace(marker, "\n-- then\n/- def formula_7 -/" + marker)),
+                ("a block comment opened inside a declaration",
+                 text.replace(marker, " /-\n-- hidden" + marker).replace("\ndef formula_9 ", " -/\ndef formula_9 ")),
+                ("a command before the namespace", text.replace("\nnamespace ", "\nopen Classical\nnamespace ")),
+                ("an option before the namespace",
+                 text.replace("\nnamespace ", "\nset_option maxHeartbeats 0\nnamespace ")),
+                ("text before the first declaration", text.replace("\nstructure ", "\n  trivial\nstructure "))):
+            with self.subTest(label=label):
+                self.assertEqual(proof_to_lean.modules(changed), [(None, changed)])  # one file, as it is
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot split Lean text"):
+                    proof_to_lean.modules(changed, 2000)
+        # A line comment cannot open a block comment: `/-` in one (an SMT symbol named in the
+        # header, or in the comment of a lemma) does not stop the split, and stays where it was.
+        changed = text.replace("-- Atom 0: \"p\"", "-- Atom 0: \"a/-b\"").replace(
+            "-- the left conjunct of formula_7\n", "-- the left conjunct of formula_7, a/-b\n")
+        self.assertEqual(changed.count("/-"), 2)
+        modules = proof_to_lean.modules(changed, 2000)
+        self.assertEqual(len(modules), len(proof_to_lean.modules(text, 2000)))
+        self.assertIn("\n-- Atom 0: \"a/-b\"\n", modules[-1][1])
+        self.assertEqual(sum(module.count("/-") for _, module in modules), 2)
+        self.assertEqual(sum("formula_7, a/-b\ntheorem lemma_7 " in module for _, module in modules), 1)
+
+    def test_modules_are_written_next_to_the_file_and_checked_as_a_chain(self):
+        text = chained_text(30)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "proof.lean"
+            self.assertEqual(proof_to_lean.write_modules(text, output), [output])
+            self.assertEqual(output.read_text(), text)
+            self.assertEqual(proof_to_lean.check_command([output]), [str(proof_to_lean._CHECK_LEAN), str(output)])
+            modules = proof_to_lean.modules(text, 2000)
+            paths = proof_to_lean.write_modules(text, output, 2000)
+            self.assertEqual(paths, [Path(directory) / (name + ".lean") for name, _ in modules[:-1]] + [output])
+            self.assertEqual([path.read_text() for path in paths], [module for _, module in modules])
+            self.assertEqual(sorted(Path(directory).iterdir()), sorted(paths))
+            self.assertEqual(proof_to_lean.check_command(paths),
+                             [str(proof_to_lean._CHECK_LEAN), "--chain"] + [str(path) for path in paths])
+
+    def test_a_split_certificate_is_published_with_its_modules_only_after_the_chain_is_checked(self):
+        certificate = proof_certificate.export_certificate(BRANCHING)
+        text = proof_to_lean.reconstruct(BRANCHING, certificate)
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean, "_MODULE_CHARS", 600):
+            directory = Path(directory)
+            modules = proof_to_lean.modules(text)
+            self.assertGreater(len(modules), 3)
+            output = directory / "proof.lean"
+            output.write_text("old proof")
+            commands = []
+
+            def checker(command, **options):
+                # What Lean is given: the staged chain in its order, nothing published yet.
+                commands.append(command)
+                self.assertTrue(options["check"])
+                self.assertEqual(command[:2], [str(proof_to_lean._CHECK_LEAN), "--chain"])
+                paths = [Path(path) for path in command[2:]]
+                self.assertEqual([path.name for path in paths],
+                                 [name + ".lean" for name, _ in modules[:-1]] + ["proof.lean"])
+                self.assertEqual([path.read_text() for path in paths], [module for _, module in modules])
+                self.assertEqual({path.parent for path in paths}, {paths[0].parent})
+                self.assertEqual(sorted(directory.iterdir()), sorted([output, paths[0].parent]))
+                # The chain's compiled modules go to the staging directory, removed with it.
+                self.assertEqual(options["env"]["Z3_LEAN_CHAIN_DIR"], str(paths[0].parent.resolve()))
+                self.assertIn("PATH", options["env"])  # the caller's environment, plus that
+                self.assertEqual(output.read_text(), "old proof")
+                if len(commands) == 1:
+                    raise subprocess.CalledProcessError(1, command, stderr="rejected")
+
+            with patch.object(proof_to_lean.subprocess, "run", side_effect=checker):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    proof_to_lean.check_and_write(BRANCHING, certificate, output)
+                self.assertEqual(output.read_text(), "old proof")
+                self.assertEqual(list(directory.iterdir()), [output])
+                published = proof_to_lean.check_and_write(BRANCHING, certificate, output)
+            self.assertEqual(len(commands), 2)
+            self.assertEqual(published, [directory / (name + ".lean") for name, _ in modules[:-1]] + [output])
+            self.assertEqual([path.read_text() for path in published], [module for _, module in modules])
+            self.assertEqual(sorted(directory.iterdir()), sorted(published))
+        # Under the limit in force nothing changes: one file, checked alone.
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            self.assertEqual(proof_to_lean.check_and_write(BRANCHING, certificate, output), [output])
+            self.assertEqual(checker.call_args.args[0][0], str(proof_to_lean._CHECK_LEAN))
+            self.assertEqual(len(checker.call_args.args[0]), 2)
+            self.assertEqual(output.read_text(), text)
 
 
 if __name__ == "__main__":

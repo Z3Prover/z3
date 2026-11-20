@@ -16,6 +16,7 @@ Notes:
 
 --*/
 #include<sstream>
+#include <algorithm>
 #include "cmd_context/tactic_cmds.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/cmd_util.h"
@@ -106,6 +107,71 @@ void help_tactic(cmd_context & ctx) {
 }
 
 ATOMIC_CMD(help_tactic_cmd, "help-tactic", "display the tactic combinators and primitives.", help_tactic(ctx););
+
+// One line listing each [unused] key once, most frequent first: "; unused parameters: k (n), ...".
+static void display_unused_summary(std::ostream & out, svector<symbol> const & unused) {
+    if (unused.empty())
+        return;
+    svector<symbol> keys;
+    svector<unsigned> counts;
+    for (symbol const & k : unused) {
+        unsigned i = 0;
+        for (; i < keys.size(); ++i)
+            if (keys[i] == k)
+                break;
+        if (i == keys.size()) {
+            keys.push_back(k);
+            counts.push_back(0);
+        }
+        counts[i]++;
+    }
+    svector<unsigned> order;
+    for (unsigned i = 0; i < keys.size(); ++i)
+        order.push_back(i);
+    std::stable_sort(order.begin(), order.end(), [&](unsigned a, unsigned b) { return counts[a] > counts[b]; });
+    out << "; unused parameters:";
+    bool first = true;
+    for (unsigned i : order) {
+        out << (first ? " " : ", ") << keys[i] << " (" << counts[i] << ")";
+        first = false;
+    }
+    out << "\n";
+}
+
+// Display a tactic without running it, in the tactic language: the steps, the probes
+// guarding them, and in comments the parameters each step receives (see display_tactic).
+class display_tactic_cmd : public parametric_cmd {
+    sexpr * m_tactic = nullptr;
+public:
+    display_tactic_cmd(): parametric_cmd("display-tactic") {}
+
+    char const * get_usage() const override { return "<tactic> (<keyword> <value>)*"; }
+    char const * get_main_descr() const override {
+        return "display a tactic in the tactic language, with the parameters each step receives in comments, without running it. The output is valid tactic language.";
+    }
+    void prepare(cmd_context & ctx) override {
+        parametric_cmd::prepare(ctx);
+        m_tactic = nullptr;
+    }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_tactic == nullptr) return CPK_SEXPR;
+        return parametric_cmd::next_arg_kind(ctx);
+    }
+    void set_next_arg(cmd_context & ctx, sexpr * arg) override { m_tactic = arg; }
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
+        p.insert("annotate", CPK_BOOL, "(default: false) mark default parameter values \"(default)\" and values taken from the global parameters \"(global)\"; the output then is not valid tactic language.");
+    }
+    void execute(cmd_context & ctx) override {
+        if (!m_tactic)
+            throw cmd_exception("display-tactic needs a tactic argument");
+        // the parameters check-sat-using passes to its tactic
+        params_ref p = ctx.params().merge_default_params(params_ref());
+        tactic_ref t = sexpr2tactic(ctx, m_tactic);
+        svector<symbol> unused;
+        display_tactic(ctx.regular_stream(), *t, p, &unused, ps().get_bool("annotate", false));
+        display_unused_summary(ctx.regular_stream(), unused);
+    }
+};
 
 class exec_given_tactic_cmd : public parametric_cmd {
 protected:
@@ -395,6 +461,7 @@ void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));
     ctx.insert(alloc(help_tactic_cmd));
+    ctx.insert(alloc(display_tactic_cmd));
     ctx.insert(alloc(check_sat_using_tactic_cmd));
     ctx.insert(alloc(apply_tactic_cmd));
     install_tactics(ctx);
@@ -753,7 +820,7 @@ static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                   
     if (num_children == 2)                                                                                      \
         return r;                                                                                               \
     ref<probe> prev = r;                                                                                        \
-    unsigned i = 1;                                                                                             \
+    unsigned i = 2;                                                                                             \
     while (true) {                                                                                              \
         r = NAME(prev.get(), sexpr2probe(ctx, n->get_child(i)));                                                \
         if (i == num_children - 1)                                                                              \

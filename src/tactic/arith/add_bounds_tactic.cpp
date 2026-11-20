@@ -49,6 +49,8 @@ bool is_unbounded(goal const & g) {
 
 class is_unbounded_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_unbounded_probe); }
+    char const* name() const override { return "is-unbounded"; }
     result operator()(goal const & g) override {
         return is_unbounded(g);
     }

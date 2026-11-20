@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include <sstream>
 #include "tactic/tactic.h"
 #include "tactic/probe.h"
 #include "cmd_context/cmd_context.h"
@@ -26,6 +27,14 @@ class echo_tactic : public skip_tactic {
     bool          m_newline;
 public:
     echo_tactic(cmd_context & ctx, char const * msg, bool newline):m_ctx(ctx), m_msg(msg), m_newline(newline) {}
+
+    char const* name() const override { return "echo"; }
+
+    // (echo "a" "b") builds a sequence of echo tactics; only the last prints a newline.
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        ctx.leaf("(echo " + tactic_display_string(m_msg) + ")",
+                 m_newline ? std::string() : std::string("not parseable: echo without newline"));
+    }
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
@@ -49,6 +58,18 @@ public:
     probe_value_tactic(cmd_context & ctx, char const * msg, probe * p, bool newline):m_ctx(ctx), m_msg(msg), m_p(p), m_newline(newline) {
         SASSERT(m_p);
         m_p->inc_ref(); 
+    }
+
+    char const* name() const override { return "probe-value"; }
+
+    void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
+        std::ostringstream out;
+        m_p->display_sexpr(out << "(echo ");
+        out << ")";
+        std::string comment;
+        if (m_msg || !m_newline)
+            comment = "not parseable: probe-value with a message or without newline";
+        ctx.leaf(out.str(), comment);
     }
     
     ~probe_value_tactic() override {

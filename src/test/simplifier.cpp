@@ -6,9 +6,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 #include "util/util.h"
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
@@ -34,6 +36,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "ast/bv_decl_plugin.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -817,6 +821,116 @@ static void test_solve_eqs_macro_constants() {
     }
 }
 
+// solve-eqs must honor solve_eqs_max_occs: a variable with more occurrences
+// than the bound is not eliminated. Occurrences are argument positions in
+// distinct subterms, and the defining equation counts (the QF_BV preamble
+// sets the bound to 2 for conservative Gaussian elimination).
+static void test_solve_eqs_max_occs() {
+    // xx occurs in its definition and in three other formulas.
+    // yy occurs in its definition and in one other formula.
+    char const* source =
+        "(declare-const a (_ BitVec 8)) (declare-const b (_ BitVec 8))"
+        "(declare-const xx (_ BitVec 8)) (declare-const yy (_ BitVec 8))"
+        "(assert (= xx (bvadd a b)))"
+        "(assert (bvult xx #x10)) (assert (bvult #x01 xx)) (assert (distinct xx b))"
+        "(assert (= yy (bvmul a b))) (assert (bvult yy #x20))"
+        // a and b occur often enough that only xx and yy are candidates.
+        "(assert (distinct a b)) (assert (bvult a #x05))";
+    // Returns the printed result goal of solve-eqs with the given bound.
+    auto run = [&](unsigned max_occs) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source, 0, nullptr, nullptr,
+                                                        0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+            Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+        Z3_params p = Z3_mk_params(ctx);
+        Z3_params_inc_ref(ctx, p);
+        Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "solve_eqs_max_occs"), max_occs);
+        Z3_tactic tactic = Z3_tactic_using_params(ctx, Z3_mk_tactic(ctx, "solve-eqs"), p);
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+        Z3_apply_result_inc_ref(ctx, result);
+        ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+        std::string out = Z3_goal_to_string(ctx, Z3_apply_result_get_subgoal(ctx, result, 0));
+        Z3_apply_result_dec_ref(ctx, result);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_params_dec_ref(ctx, p);
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+        return out;
+    };
+    auto has = [](std::string const& goal, char const* name) { return goal.find(name) != std::string::npos; };
+    // Unbounded: both xx and yy are eliminated.
+    std::string unbounded = run(UINT_MAX);
+    ENSURE(!has(unbounded, "xx") && !has(unbounded, "yy"));
+    // Bound 2: yy (2 occurrences) is eliminated; xx (4 occurrences) is kept.
+    std::string bounded = run(2);
+    ENSURE(has(bounded, "xx") && !has(bounded, "yy"));
+}
+
+// A simplifier-backed tactic (dependent_expr_state_tactic) rebuilds its
+// simplifier after every application. The rebuilt simplifier must use the
+// tactic's parameters: those given to the factory, and those received by
+// updt_params before an earlier application. solve-eqs ignores the params
+// argument of its factory, so it shows the property through max_occs.
+static void test_solve_eqs_tactic_keeps_params() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    bv_util bv(m);
+    sort* s = bv.mk_sort(8);
+    expr_ref a(m.mk_const("a", s), m), b(m.mk_const("b", s), m), xx(m.mk_const("xx", s), m);
+    // xx occurs in its definition and in three other formulas; a and b occur
+    // often enough that xx is the only candidate (as in test_solve_eqs_max_occs).
+    auto mk_goal = [&]() {
+        goal_ref g = alloc(goal, m, false, false, false);
+        g->assert_expr(m.mk_eq(xx, bv.mk_bv_add(a, b)));
+        g->assert_expr(bv.mk_ult(xx, bv.mk_numeral(16, 8)));
+        g->assert_expr(bv.mk_ult(bv.mk_numeral(1, 8), xx));
+        g->assert_expr(m.mk_not(m.mk_eq(xx, b)));
+        g->assert_expr(m.mk_not(m.mk_eq(a, b)));
+        g->assert_expr(bv.mk_ult(a, bv.mk_numeral(5, 8)));
+        return g;
+    };
+    // true iff xx survives one application of t.
+    auto keeps_xx = [&](tactic& t) {
+        goal_ref_buffer result;
+        t(mk_goal(), result);
+        ENSURE(result.size() == 1);
+        goal const& r = *result[0];
+        for (unsigned i = 0; i < r.size(); ++i)
+            if (occurs(xx, r.form(i)))
+                return true;
+        return false;
+    };
+    params_ref p;
+    p.set_uint("solve_eqs_max_occs", 2);
+
+    // Without a bound xx is eliminated.
+    tactic_ref unbounded = mk_solve_eqs_tactic(m);
+    ENSURE(!keeps_xx(*unbounded));
+
+    // Params given to the factory, no updt_params.
+    tactic_ref t1 = mk_solve_eqs_tactic(m, p);
+    ENSURE(keeps_xx(*t1));
+    ENSURE(keeps_xx(*t1));
+
+    // Params given through updt_params, then two applications.
+    tactic_ref t2 = mk_solve_eqs_tactic(m);
+    t2->updt_params(p);
+    ENSURE(keeps_xx(*t2));
+    ENSURE(keeps_xx(*t2));
+
+    // A translated copy keeps the params.
+    tactic_ref t3 = t2->translate(m);
+    ENSURE(keeps_xx(*t3));
+}
+
 static void test_solve_eqs_proof_scope() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -1146,6 +1260,60 @@ static void test_nested_symbolic_rotations() {
     Z3_del_context(ctx);
 }
 
+// max-bv-sharing must rewrite n-ary bvadd into binary trees that reuse
+// common pairs. It does so without a preceding push: the operator kinds it
+// handles are registered when it first rewrites a term.
+static void test_max_bv_sharing() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx,
+        "(declare-const a (_ BitVec 8)) (declare-const b (_ BitVec 8))"
+        "(declare-const c (_ BitVec 8)) (declare-const d (_ BitVec 8))"
+        "(assert (distinct (bvadd a b c) (bvadd a b d)))",
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+        Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "max-bv-sharing");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+    Z3_goal out = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(Z3_goal_size(ctx, out) == 1);
+    // Collect the distinct bvadd nodes of the result.
+    std::vector<Z3_ast> todo{ Z3_goal_formula(ctx, out, 0) };
+    std::vector<unsigned> adds;
+    bool all_binary = true;
+    while (!todo.empty()) {
+        Z3_ast e = todo.back();
+        todo.pop_back();
+        if (Z3_get_ast_kind(ctx, e) != Z3_APP_AST)
+            continue;
+        Z3_app a = Z3_to_app(ctx, e);
+        if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, a)) == Z3_OP_BADD) {
+            unsigned id = Z3_get_ast_id(ctx, e);
+            if (std::find(adds.begin(), adds.end(), id) != adds.end())
+                continue;
+            adds.push_back(id);
+            all_binary &= Z3_get_app_num_args(ctx, a) == 2;
+        }
+        for (unsigned i = 0; i < Z3_get_app_num_args(ctx, a); ++i)
+            todo.push_back(Z3_get_app_arg(ctx, a, i));
+    }
+    // (bvadd a b) is shared: (bvadd (bvadd a b) c), (bvadd (bvadd a b) d).
+    ENSURE(all_binary);
+    ENSURE(adds.size() == 3);
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
     test_proof_mode_simplifier_pipeline();
@@ -1165,10 +1333,13 @@ void tst_simplifier() {
     test_solve_eqs_proofs();
     test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
+    test_solve_eqs_max_occs();
+    test_solve_eqs_tactic_keeps_params();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
     test_lambda_simplifier_proofs();
     test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
     test_demodulator_quantified_proofs();
+    test_max_bv_sharing();
 }

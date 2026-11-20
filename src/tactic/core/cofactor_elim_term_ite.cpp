@@ -301,6 +301,7 @@ struct cofactor_elim_term_ite::imp {
     }
 
     void collect_param_descrs(param_descrs & r) {
+        insert_max_memory(r);
         r.insert("cofactor_equalities", CPK_BOOL, "(default: true) use equalities to rewrite bodies of ite-expressions. This is potentially expensive.");
     }
 

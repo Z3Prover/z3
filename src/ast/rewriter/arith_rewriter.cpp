@@ -764,10 +764,11 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     expr *orig_arg1 = arg1, *orig_arg2 = arg2;
     expr_ref new_arg1(m);
     expr_ref new_arg2(m);
+    bool arith_lhs = m_arith_lhs || (kind != EQ && m_arith_ineq_lhs);
     if ((is_zero(arg1) && is_reduce_power_target(arg2, kind == EQ)) ||
         (is_zero(arg2) && is_reduce_power_target(arg1, kind == EQ)))
         return reduce_power(arg1, arg2, kind, result);
-    br_status st = cancel_monomials(arg1, arg2, m_arith_ineq_lhs || m_arith_lhs, new_arg1, new_arg2);
+    br_status st = cancel_monomials(arg1, arg2, arith_lhs, new_arg1, new_arg2);
     TRACE(mk_le_bug, tout << "st: " << st << " " << new_arg1 << " " << new_arg2 << "\n";);
     if (st != BR_FAILED) {
         arg1 = new_arg1;
@@ -892,7 +893,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             return BR_REWRITE3;
         }        
     }
-    if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
+    if (arith_lhs && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
         switch (kind) {

@@ -33,11 +33,15 @@ solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mo
 }
 
 static tactic * mk_seq_fd_tactic(ast_manager & m, params_ref const& p) {
-    return mk_solver2tactic(mk_fd_solver(m, p, false));
+    tactic * t = mk_solver2tactic(mk_fd_solver(m, p, false));
+    t->set_display_name("qffd");
+    return t;
 }
 
 tactic * mk_parallel_qffd_tactic(ast_manager& m, params_ref const& p) {
-    return mk_parallel_tactic(mk_fd_solver(m, p), p);
+    tactic * t = mk_parallel_tactic(mk_fd_solver(m, p), p);
+    t->set_display_name("pqffd");
+    return t;
 }
 
 

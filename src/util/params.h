@@ -150,7 +150,8 @@ public:
     static params_ref const & get_empty() { return g_empty_params_ref; }
     
         
-    // copy params from src
+    // copy params from src. An unflagged entry of src replaces the entry of this,
+    // a default entry of src replaces only a default or missing entry.
     void copy(params_ref const & src);
     void append(params_ref const & src) { copy(src); }
 
@@ -177,6 +178,10 @@ public:
     bool contains(symbol const & k) const;
     bool contains(char const * k) const;
 
+    // number of entries and the key of the idx-th entry, in insertion order
+    unsigned size() const;
+    symbol get_key(unsigned idx) const;
+
     void reset();
     void reset(symbol const & k);
     void reset(char const * k);
@@ -193,6 +198,31 @@ public:
     void set_rat(char const * k, rational const & v); 
     void set_sym(symbol const & k, symbol const & v);
     void set_sym(char const * k, symbol const & v);
+
+    /*
+      \brief Set a default value: an entry flagged as a default.
+
+      A default does not replace an unflagged entry for \c k, and it is replaced by an
+      unflagged one (see copy). The getters with a fallback prefer the fallback's value
+      for \c k over a flagged local entry.
+    */
+    void set_default_bool(char const * k, bool v);
+    void set_default_uint(char const * k, unsigned v);
+    void set_default_double(char const * k, double v);
+    void set_default_str(char const * k, char const * v);
+    void set_default_sym(char const * k, symbol const & v);
+
+    // Set k, unflagged, to the value of the entry src_k of src. Nothing happens if src
+    // has no entry src_k.
+    void set_entry(symbol const & k, params_ref const & src, symbol const & src_k);
+
+    // Set the entry k to the entry k of src as it is: its value and, unlike set_entry,
+    // its default flag. Nothing happens if src has no entry k.
+    void copy_entry(params_ref const & src, symbol const & k);
+
+    // true if the entry for k exists and is flagged as a default
+    bool is_default(symbol const & k) const;
+    bool is_default(char const * k) const;
 
     void display(std::ostream & out) const;
     void display_smt2(std::ostream& out, char const* module, param_descrs& module_desc) const;

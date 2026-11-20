@@ -13,6 +13,12 @@ async function publish({ github, context, core, artifactDir }) {
         !/^[0-9a-f]{40}$/.test(run.head_sha))
         throw new Error("Publication requires a successful default-branch nightly build");
 
+    const source = JSON.parse(fs.readFileSync(path.join(artifactDir, "build", "source.json"), "utf8"));
+    if (!/^[0-9a-f]{40}$/.test(source.source_sha) ||
+        source.source_ref !== "feat/fstar-independent-proof-checker" ||
+        source.ocaml_checker !== "independent-definition")
+        throw new Error("Publication requires independent checker source metadata");
+
     const files = [];
     for (const backend of ["ocaml", "cherry"]) {
         const name = `pulse-checker-${backend}-linux-x86_64.tar.gz`;
@@ -52,7 +58,8 @@ async function publish({ github, context, core, artifactDir }) {
         });
     }
     await core.summary.addLink("Nightly checker packages", release.html_url)
-        .addRaw(`\n\nBuilt from \`${run.head_sha}\`.\n`).write();
+        .addRaw(`\n\nChecker source: \`${source.source_sha}\` (${source.source_ref}); ` +
+                `OCaml uses independent definition replay. Nightly solver: \`${run.head_sha}\`.\n`).write();
     return { status: "published" };
 }
 

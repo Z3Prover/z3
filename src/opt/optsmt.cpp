@@ -120,7 +120,10 @@ namespace opt {
         while (m.inc()) {
             is_sat = m_s->check_sat(0, nullptr);
             if (is_sat == l_true) { 
-                bound = update_lower();
+                if (!update_lower(bound)) {
+                    is_sat = l_undef;
+                    break;
+                }
                 if (!m.is_true(bound))
                     has_bound = true;
                 step.update(can_increment_delta(previous_lower, delta_index));
@@ -658,7 +661,7 @@ namespace opt {
                 is_sat = m_s->check_sat(1,vars);
                 if (is_sat == l_true) {
                     disj.reset();
-                    if (!m_s->maximize_objectives1(disj)) 
+                    if (!m_s->maximize_objectives1(disj, 1, vars))
                         return l_undef;
                     m_s->get_model(m_model);       
                     m_s->get_labels(m_labels);            
@@ -733,16 +736,17 @@ namespace opt {
         return out;
     }
 
-    expr_ref optsmt::update_lower() {
+    bool optsmt::update_lower(expr_ref& bound) {
         expr_ref_vector disj(m);
         m_s->get_model(m_model);
         m_s->get_labels(m_labels);
         if (!m_s->maximize_objectives1(disj))
-            return expr_ref(m.mk_true(), m);
+            return false;
         set_max(m_lower, m_s->get_objective_values(), disj);
         TRACE(opt, model_pp(tout << m_lower << "\n", *m_model););
         IF_VERBOSE(2, verbose_stream() << "(optsmt.lower " << m_lower << ")\n";);
-        return mk_or(disj);
+        bound = mk_or(disj);
+        return true;
     }
 
     void optsmt::setup(opt_solver& solver) {
@@ -1039,6 +1043,15 @@ namespace opt {
         else if (lo.is_finite()) {
             // Only assert bounds for bounded objectives
             m_s->assert_expr(m_s->mk_ge(i, lo));
+            if (arith.is_int_real(m_objs.get(i)) && lo.get_infinitesimal().is_zero()) {
+                // Some arithmetic theories represent mk_ge as an opaque Boolean
+                // atom. Independent unboundedness proofs need the arithmetic
+                // meaning of committed bounds as well.
+                bool is_int = arith.is_int(m_objs.get(i));
+                rational value = is_int ? ceil(lo.get_rational()) : lo.get_rational();
+                expr_ref bound(arith.mk_ge(m_objs.get(i), arith.mk_numeral(value, is_int)), m);
+                m_s->assert_expr(bound);
+            }
         }
     }
 

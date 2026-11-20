@@ -7,7 +7,13 @@ namespace nla {
 
 intervals::intervals(core* c, reslimit& lim):
     m_dep_intervals(c->lra.dep_manager(), lim),
-    m_core(c) {}
+    m_core(c),
+    m_limit(lim) {}
+
+void intervals::checkpoint(unsigned cost) const {
+    if (!m_limit.inc(cost))
+        throw default_exception(m_limit.get_cancel_msg());
+}
 
 typedef enum dep_intervals::with_deps_t e_with_deps;
 
@@ -22,6 +28,7 @@ const nex* intervals::get_inf_interval_child(const nex_sum& e) const {
 bool intervals::mul_has_inf_interval(const nex_mul& e) const {
     bool has_inf = false;
     for (const auto & p : e) {
+        checkpoint();
         const nex &c = *p.e();
         if (!c.is_elementary())
             return false; 
@@ -33,6 +40,7 @@ bool intervals::mul_has_inf_interval(const nex_mul& e) const {
 }
 
 bool intervals::has_inf_interval(const nex& e) const {
+    checkpoint();
     if (e.is_var())
         return m_core->no_bounds(e.to_var().var());
     if (e.is_mul()) 
@@ -52,6 +60,7 @@ bool intervals::has_zero_interval(const nex& e) const {
 
 const nex* intervals::get_zero_interval_child(const nex_mul& e) const {
     for (const auto & p : e) {
+        checkpoint();
         const nex * c = p.e();
         if (has_zero_interval(*c))
             return c;        
@@ -360,6 +369,7 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
         return false;
     }
     TRACE(nla_intervals_details, tout << "a = "; display(tout, a););
+    checkpoint(e.size());
     if (e.is_a_linear_term()) {
         SASSERT(e.is_sum() && e.size() > 1);
         scoped_dep_interval i_from_term(get_dep_intervals());
@@ -436,6 +446,7 @@ void intervals::to_power(scoped_dep_interval& a, unsigned p) {
 }
 template <e_with_deps wd, typename T>
 bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& a, const std::function<void (const T&)>& f) {
+    checkpoint();
     switch (e->type()) {
     case expr_type::SCALAR:
         {
@@ -478,4 +489,3 @@ const lp::lar_solver& intervals::ls() const { return m_core->lra; }
 
 
 } // end of nla namespace
-

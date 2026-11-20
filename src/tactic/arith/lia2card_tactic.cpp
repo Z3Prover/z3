@@ -400,6 +400,11 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         r.insert("compile_equality", CPK_BOOL,
                  "(default:false) compile equalities into pseudo-Boolean equality");
+        // read through tactic_params in updt_params
+        r.insert("lia2card.max_range", CPK_UINT,
+                 "(default: 100) maximal range of integers to compilation into Booleans");
+        r.insert("lia2card.max_ite_nesting", CPK_UINT,
+                 "(default: 4) maximal nesting depth for ite expressions to be compiled into PB constraints");
     }
 
     void cleanup() override {

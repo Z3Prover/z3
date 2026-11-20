@@ -244,23 +244,50 @@ namespace opt {
             return s->check_sat(0, nullptr);
         };
 
-        // every hard constraint holds at every point of the curve
-        expr_ref_vector violations(m);
+        expr_ref_vector on_curve(m), violations(m);
         for (expr* f : hard) {
             expr_ref g(m);
             subst(f, g);
+            on_curve.push_back(g);
             violations.push_back(mk_not(m, g));
         }
+        expr_ref p(m);
+        subst(obj, p);
+        expr_ref p0 = ev(obj);
+        rational r0, r;
+        if (!a.is_numeral(p0, r0))
+            return false;
+
+        // A point of the curve that violates a hard constraint or lowers the
+        // objective refutes the certificate. Evaluating the curve at a few
+        // parameters often finds such a point without a solver call: a
+        // coordinate that is not constant along the curve leaves every bounded
+        // range, so a curve through a bounded feasible region fails here. The
+        // solver's search for the same point can be arbitrarily more expensive.
+        rational t0(1);
+        for (unsigned i = 0; i < num_samples; ++i) {
+            model_ref point = alloc(model, m);
+            rational b(1);
+            for (unsigned j = 1; j <= degree; ++j) {
+                b = b * (t0 + rational(j - 1)) / rational(j);
+                point->register_decl(to_app(basis.get(j))->get_decl(), a.mk_int(b));
+            }
+            model_evaluator at(*point);
+            at.set_model_completion(true);
+            for (expr* g : on_curve)
+                if (m.is_false(at(g)))
+                    return false;
+            expr_ref v = at(p);
+            if (a.is_numeral(v, r) && r < r0)
+                return false;
+            t0 = t0.is_one() ? rational(2) : t0 * t0;
+        }
+
+        // every hard constraint holds at every point of the curve
         if (!violations.empty() && check(mk_or(violations)) != l_false)
             return false;
 
         // the objective never drops below its value at the latest model
-        expr_ref p(m);
-        subst(obj, p);
-        expr_ref p0 = ev(obj);
-        rational r;
-        if (!a.is_numeral(p0, r))
-            return false;
         if (check(a.mk_lt(p, p0)) != l_false)
             return false;
 

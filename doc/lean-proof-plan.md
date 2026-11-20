@@ -334,6 +334,17 @@ Lean source, not JSON. The separate `examples/python/proof_to_lean.py` consumer
 validates JSON and invokes the helper before publishing generated Lean source.
 Installation and usage are documented in `lean/README.md`.
 
+2026-11-14: `./scripts/check_lean.sh --chain FILE...` checks one certificate
+split into modules, one `lean` process per file under the same flags; each
+file but the last is compiled to an `.olean` that the later files of the run
+import (see "Certificates above 8 MB of Lean are checked as a chain of
+modules"). Measured there: `--trust=0` makes the kernel check every
+declaration of the file being elaborated; a module that is imported is read
+from its `.olean` and not checked again (a later module of a chain takes no
+longer than an earlier one of the same text). So "rechecks imported modules"
+above holds for the modules of a chain only in that each was checked by the
+process that compiled it, in the same run.
+
 The reconstruction tests (`examples/python/test_proof_to_lean*.py`) check
 Lean through `examples/python/lean_test_support.py`. Most of their
 certificates check in a tenth of a second, while each run of the helper
@@ -1595,7 +1606,10 @@ on `20220307-SMPT/BART-PT-002/RF-00.smt2` (1,211 assertions) and
 (a 601-assertion disjunction reproduces it). `Inputs` and its
 `And.intro` term are now balanced trees (`_balanced`,
 `_balanced_select`), so no assertion is more than log2(count)
-projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s. (2) A
+projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s.
+(2026-11-16: `Inputs` is a structure whose field is that tree, over chunks
+of 32 assertions; see "`Inputs` is a structure over chunks of the
+assertions".) (2) A
 theory rewrite over more than 16 arithmetic atoms is proved atom by atom
 and then propositionally over the atoms' names (`_normalized_rewrite`)
 only when its linear forms range over variables; `mathsat/Wisa/
@@ -1685,7 +1699,7 @@ none touching the trust boundary: (1) `_PropositionalProver` emits a tactic
 script (`have` lines, `refine` over `Or.elim`/`Iff.intro` with one hole per
 case and a bullet each, `exact`; `equivalence`, `implication` and
 `refutation` return lines), (2) the cnf lemmas and the propositional rewrites
-name the gates by the nodes' own definitions (`names=_structure_names`), so
+name the gates by the nodes' own definitions (the `names` of `_structure_names`), so
 the proof binds no `let` and the lemma unfolds nothing before the attempt
 (Lean unfolds a definition when a step unifies with it, one level per step),
 and the steps through conjunctions and disjunctions leave their operands to
@@ -1735,6 +1749,1398 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### A wide unit resolution keeps its literals where they are (2026-11-17)
+
+Scale, not breadth: a cost that grew with the square of a clause's width. A
+unit resolution that keeps literals of its clause (Z3 logs a clause it
+simplified under units; the replay ties it to its source by one such step)
+was a case split per kept literal, each injected at its position in the
+conclusion:
+
+    (Or.elim (_step_8.resolve_left _step_5) (fun _literal => (Or.inl _literal))
+      (fun _tail => (Or.elim _tail (fun _literal => (Or.inr (Or.inl _literal)))
+        (fun _tail => (Or.elim _tail (fun _literal => (Or.inr (Or.inr (Or.inl _literal)))) ...
+
+one `Or.inr` per literal before it, 8 bytes times half the square of the
+kept literals, for a proof that is the identity on each of them. Measured
+before changing anything, on one assertion `(and (not b) (or b (<= 1 x0) ...
+(<= 1 x399)) (< x0 1) ... (< x399 1))`: the step that cuts `b` is a line of
+745 kB in a text of 1.57 MB, and the outlined lemma that holds it runs out
+of the default 200,000 heartbeats at `isDefEq` (Lean rejects the file after
+17 s); at 200 bounds the line is 192 kB and the file verifies in 8.1 s.
+
+When the conclusion is the clause without the cut literals, in the same
+order, and keeps more than eight of them, the step is now written by
+`_ordered_resolution`, and no literal moves:
+
+    (_step_8.resolve_left _step_5)
+    ((Or.imp_right (Or.imp_right (resolve_first _step_5 id))) _step_8)
+    ((Or.imp_right (resolve_rest (resolve_first _step_5 _step_6))) _step_8)
+
+for `b` cut off `(or b l1 ... ln)`, off `(or l1 l2 b l3 ... ln)`, and `b`
+and `c` cut off `(or l1 l2 b c)`. Literals cut in front are resolved away
+by field notation, as they were, and with no cut left the proof at hand is
+the conclusion as it stands. Cuts further on are one function applied to
+that proof, composed literal by literal without a binder: `Or.imp_right`
+passes over a kept literal, `resolve_first` cuts one and hands the rest to
+its second argument (`id` after the last cut), and `resolve_rest` cuts
+everything after the last kept literal by a refutation of those literals.
+The two helpers are theorems written once in a text that names them,
+
+    private theorem resolve_first {p q r : Prop} (n : Not p) (f : q -> r) : p \/ q -> r :=
+      fun h => f (h.resolve_left n)
+    private theorem resolve_rest {p q : Prop} (n : Not q) : p \/ q -> p :=
+      fun h => h.resolve_right n
+
+and depend on no axiom (the propositional slice stays axiom-free). A cut
+literal `(not p)` whose unit proves `p` is refuted by `(not_not_intro u)`,
+a false literal by `not_false`. The text is 14 bytes and a parenthesis for
+a kept literal that is passed over and about 25 bytes for a cut.
+
+A function per cut was tried first (`(fun _tail => ...)`, each under the
+ones before it): Lean elaborates such a function only once the proof it is
+applied to is known, and a 200-literal clause with every other literal cut
+ran out of heartbeats after 12 s at 3.1 GB, where the case splits verify in
+2 s. Composed without binders the same step takes 0.7 s.
+
+Resolutions that keep at most eight literals (nearly all: of the 5,200
+case-split resolutions in the 73 sample texts with outlined `lemma` steps,
+5,164 keep two literals and 14 keep nine or more) or
+keep them in another order (a reordered or factored conclusion, a double
+negation read through) are case splits as before, so that the texts of the
+sample change in six files only. The limit is `_RESOLUTION_SPLITS`. (Over
+all 152 sample texts that export, a larger set than the 73 surveyed, the
+resolutions rewritten are 15, keeping 10 to 76 literals; see below.)
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules; "before" is the exporter of
+fork master 336498c4c on the same certificate).
+
+The generated family above, n bounds kept (Z3's clause log; the cut is in
+front, so the step is the clause's tail, a line of 43 to 57 bytes):
+
+| bounds kept | 200 | 400 | 800 | 1,600 |
+| --- | --- | --- | --- | --- |
+| line of the step, before | 192 kB | 745 kB | 2.93 MB | 11.62 MB |
+| text, before -> after | 0.63 -> 0.44 MB | 1.57 -> 0.82 MB | 4.59 -> 1.66 MB | 14.97 -> 3.35 MB |
+| Lean, before | verifies in 8.1 s at 0.98 GB | FAILS after 16.7 s at 1.47 GB: the step's lemma out of heartbeats | FAILS after 60.7 s at 3.01 GB: the same | not checked |
+| Lean, after | verifies in 4.5 s at 0.75 GB | **verifies in 10.4 s at 1.13 GB** | **verifies in 48.7 s at 2.26 GB** | **verifies in 408.0 s at 5.55 GB** |
+
+What is left grows faster than the clause: the cnf lemma that ties the
+simplified clause to the assertion states a bridge per bound (800 facts at
+800 bounds; the `refine` that takes them is 20 s of the 49). Not part of
+this change.
+
+Hand-made certificates over `(or p0 ... p(n-1))` (the generator of the
+tests, `wide_resolution`: cuts anywhere, so the function form):
+
+| clause | cut | before | after |
+| --- | --- | --- | --- |
+| 400 literals | the middle one | 0.87 MB; FAILS after 7.4 s at 1.12 GB (heartbeats) | 0.13 MB; verifies in 1.0 s at 0.47 GB |
+| 800 | the middle one | 3.31 MB; FAILS after 8.9 s at 1.95 GB | 0.39 MB; verifies in 1.3 s at 0.61 GB |
+| 1,600 | the middle one | 12.39 MB; not checked | 0.80 MB; verifies in 2.5 s at 0.86 GB |
+| 200 | every other one | 0.11 MB; verifies in 1.9 s at 0.49 GB | 0.06 MB; verifies in 0.6 s at 0.43 GB |
+| 400 | every other one | 0.32 MB; verifies in 13.5 s at 0.73 GB | 0.13 MB; verifies in 1.0 s at 0.47 GB |
+| 800 | every other one | 1.10 MB; FAILS after 7.0 s at 1.25 GB | 0.37 MB; verifies in 1.6 s at 0.62 GB |
+| 1,600 | every other one | 3.69 MB; not checked | 0.78 MB; verifies in 3.3 s at 0.85 GB |
+
+Sample files. All 152 files of z3test's `smtlib-sample` that export were
+exported again and reconstructed with both exporters: 146 texts are the
+same byte for byte, and six differ, only in 15 resolutions that cut in
+front and keep 10 to 76 literals (332 kB before and 1.1 kB after; no sample
+step needs the function form). All six were checked with both texts, back
+to back:
+
+| file | steps rewritten; most literals kept | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `ckt_PROP1_tf_10` | 1; 10 | 0.85 MB; verifies in 2.7 s at 0.95 GB | 0.85 MB; verifies in 2.6 s at 0.96 GB |
+| QF_IDL `ckt_PROP1_tf_20` | 1; 20 | 9.64 MB; verifies as 10 modules in 30.5 s at 0.88 GB | 9.64 MB; verifies as 10 modules in 30.6 s at 0.88 GB |
+| QF_IDL `ckt_PROP3_tf_30` | 1; 30 | 18.16 MB; verifies as 19 modules in 58.4 s at 0.92 GB | 18.16 MB; verifies as 19 modules in 58.2 s at 0.92 GB |
+| QF_IDL `PO4-10-PO4` | 10; 76 | 23.52 MB; verifies as 24 modules in 78.7 s at 0.95 GB | 23.21 MB; verifies as 24 modules in 75.9 s at 0.95 GB |
+| QF_IDL `qlock-4-10-8` | 1; 32 | 38.82 MB; verifies as 39 modules in 135.7 s at 0.99 GB | 38.81 MB; verifies as 39 modules in 135.2 s at 0.99 GB |
+| QF_IDL `qlock-4-10-9` | 1; 36 | 77.83 MB; verifies as 78 modules in 252.2 s at 1.14 GB | 77.83 MB; verifies as 78 modules in 251.7 s at 1.14 GB |
+
+Their cost does not move: the lines were 0.3 MB of 169 MB.
+
+### A lemma step proves its clause literal by literal (2026-11-17)
+
+Scale, not breadth: the largest texts of z3test's `smtlib-sample` that
+verify (QF_IDL `vlsat3_c27`, 141 MB; the QF_UF `gensys_*` files, 32 to 195
+MB; the QF_AUFLIA swap files, 36 to 124 MB) take Lean 3 to 10 s per MB, as
+chains of 1 MB modules, so their cost is their text.
+
+What dominated, measured before changing anything on the texts of
+2026-11-16: the lines of the `lemma` steps, which discharge the hypotheses
+of a subproof into the clause of their negations. A step was a proof by
+contradiction with the negated clause, each hypothesis refuted through it:
+
+    (classical_by_contradiction (fun _not_clause => (_step_4439
+      (classical_by_contradiction (fun _literal => _not_clause (Or.inl _literal)))
+      (fun _literal => _not_clause (Or.inr (Or.inr (Or.inr (Or.inl _literal)))))
+      ...)))
+
+with one `Or.inr` per literal before the hypothesis's own: the square of the
+clause's width up to 32 literals, and about 200 bytes a literal above (the
+refutations start from tails of the negated clause bound every 32
+literals). Over all 152 sample files that export these lines were 316.6 of
+2,149 MB of Lean: 38.8 of the 141.4 MB of `vlsat3_c27` (7,539 steps, clauses
+of up to 110 literals), 13 to 21% of the `gensys_*` texts, 16 to 18% of the
+three largest swap texts.
+
+In the outlined lemmas of the arithmetic and uninterpreted slices, which
+are classical already, a step is now one chain (`_cases_lemma`):
+
+    (classical_or_intro (classical_or_intro classical_by_contradiction)
+      (fun _n0 _n1 _n2 => (_step_7 _n2 (classical_by_contradiction _n0) _n1)))
+
+One function takes a refutation of every literal to False: the premise
+applied to them in the order of its hypotheses, `_nK` itself for a
+hypothesis `(not l)`, the proof by contradiction from `_nK : Not (Not h)`
+for a hypothesis h whose literal is `(not h)`; a literal that discharges no
+hypothesis is bound as `_`. One helper theorem,
+
+    private theorem classical_or_intro {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \/ q :=
+      @Decidable.byCases p (p \/ q) (Classical.propDecidable p) (fun _p => Or.inl _p) (fun _n => Or.inr (g (f _n)))
+
+turns the function's first binder into the clause's first literal and
+leaves the rest to g, the chain of the remaining literals, which ends in
+`classical_by_contradiction` for the last. The chain names no formula
+(each follows from the clause the step states) and nests no binder. A
+literal costs about 33 bytes when its hypothesis is its negation and 29
+more when it negates its hypothesis (the proof by contradiction): over the
+158,787 chains of the sample, 42.5 bytes a literal (32.6 on `vlsat3_c27`,
+37.2 on `gensys_icl1079`, 58.7 on `swap_t1_pp_sf_ai_00010_008`). Nesting a
+binder was tried first (`classical_or_intro (fun _n0
+=> classical_or_intro (fun _n1 => ...))`, each literal's refutation bound
+under the ones before): the two lemmas over 779 and 512 literals of a
+negated 40-term distinct took Lean 22 s more that way (27.8 s for the file
+against 5.2 s; 5.6 s through the negated clause).
+
+Lemmas that are not classical keep the proof through the negated clause,
+which needs one decidability witness, the clause's: the propositional
+slice, whose lemmas take their witnesses as parameters so that it stays
+axiom-free, and refutations of at most 500 proof steps, which are not
+outlined. The helper depends on the axioms `classical_by_contradiction`
+depends on (those of `Classical.propDecidable`) and no other. Nothing else
+changes: the same premise is applied to refutations of the same literals,
+and Lean checks each chain against the clause its step states.
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 79 texts are the same byte for byte, and 73
+differ only in the lines of the `lemma` steps and the helper theorem.
+Together the 152 texts go from 2,149 to 1,930 MB (the lemma lines from
+316.6 to 97.1 MB) and their reconstruction from 389 to 361 s. Checked with
+both exporters the same day:
+
+| file | `lemma` steps; widest clause | their lines | before | after |
+| --- | --- | --- | --- | --- |
+| QF_IDL `vlsat3_c27` | 7,539; 110 | 38.84 -> 7.39 MB | 141.38 MB; verifies as 142 modules in 534.1 s at 1.15 GB | 109.93 MB; verifies as 110 modules in 353.6 s at 1.14 GB |
+| QF_AUFLIA `swap_t1_pp_sf_ai_00010_008` | 2,369; 41 | 4.48 -> 1.78 MB | 35.69 MB; verifies as 36 modules in 332.2 s at 2.66 GB | 32.99 MB; verifies as 33 modules in 318.1 s at 2.66 GB |
+| QF_UF `gensys_icl1079` | 3,335; 48 | 4.75 -> 1.50 MB | 31.73 MB; verifies as 32 modules in 111.3 s at 0.95 GB | 28.48 MB; verifies as 29 modules in 94.7 s at 0.95 GB |
+| QF_UFLIA `xs-11-18-3-3-4-1` | 908; 17 | 1.16 -> 0.54 MB | 6.99 MB; verifies in 27.8 s at 2.49 GB | 6.38 MB; verifies in 26.0 s at 2.26 GB |
+
+The 55 changed texts of at most 25 MB were all checked after the change:
+54 verify, in 1,541 s together where their last measurements (2026-11-13
+to 2026-11-17) sum to 1,562 s, and QF_AUFLIA `dlx-regfile` fails in its cnf
+lemma as before (7.52 MB where it was 8.54, so it is one file now and not
+a chain: the failure is reported after 73 s at 3.04 GB). Of the 18 changed
+texts above 25 MB six were checked: the three in the table and, after the
+change only, QF_IDL `qlock-4-10-8` (38.8 MB, 145.2 s as 39 modules; 159.0
+s on 2026-11-17 before it), QF_UF `gensys_brn023` (29.4 MB, 104.0 s; 127.8
+s on 2026-11-14), and `gensys_icl388` (40.6 MB, 148.6 s; 175.5 s on
+2026-11-14). Review and integration checked five more, again after the
+change only and against their last measurements: `gensys_icl665` (46.3
+MB, 154.6 s as 47 modules; 214.1 s on 2026-11-14), `gensys_brn1262` (55.0
+MB, 181.9 s as 55 modules at 1.17 GB; 233.5 s on 2026-11-14),
+`qlock-4-10-9` (77.8 MB, 251.5 s as 78 modules at 1.14 GB; 321.8 s on
+2026-11-17 before the change), QF_AUFLIA `swap_t3_pp_sf_ai_00009_006`
+(68.3 MB, 590.5 s as 69 modules at 2.76 GB; 676.3 s on 2026-11-14), and
+`gensys_icl565`, which had not been checked in Lean before: 105.5 MB (125.4
+before the change), it verifies as 106 modules in 320.9 s at 1.11 GB. The
+other 7 (five `gensys_*` files, two swap files) are 9 to 12% shorter and
+were not checked again. The sample: 152 of 175 files export, 146 verify
+(145 before, and `gensys_icl565`), 1 fails, 5 were not checked.
+
+Generated: `(not (distinct x0 ... xn-1))` with every `xi` pinned, whose
+proof refutes each pair (`pinned_negated_distinct_source`; three `lemma`
+steps, the widest over all pairs but one):
+
+| terms; pairs | 20; 190 | 40; 780 | 56; 1,540 | 80; 3,160 |
+| --- | --- | --- | --- | --- |
+| line of the widest step, before -> after | 38.4 -> 6.0 kB | 161.1 -> 25.5 kB | 321.0 -> 51.7 kB | 659.6 -> 108.4 kB |
+| text, before -> after | 0.35 -> 0.30 MB | 1.56 -> 1.31 MB | 3.00 -> 2.55 MB | 6.04 -> 5.20 MB |
+| Lean, before | not checked | verifies in 5.6 s at 1.23 GB | FAILS after 12.9 s at 1.96 GB: the step over 1,539 literals out of the default 200,000 heartbeats | FAILS after 52.8 s at 2.49 GB: the two widest steps and the De Morgan rewrite of the distinct out of heartbeats |
+| Lean, after | not checked | verifies in 5.2 s at 1.38 GB | verifies in 19.8 s at 2.88 GB | FAILS after 110.1 s at 5.75 GB: the rewrite alone |
+
+The chain's text is linear in the clause; Lean's time and memory on it are
+not, above a few hundred literals, and nothing bounds or splits a chain. A
+file of one chain, every second hypothesis discharged by a literal that
+negates it (0.6 to 0.8 s with the chain left out):
+
+| literals | 100 | 200 | 400 | 800 | 1,600 | 3,200 | 4,800 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lean | 0.5 s | 0.6 s | 0.8 s | 2.0 s at 0.72 GB | 12.0 s at 1.56 GB | 56.9 s at 4.89 GB | FAILS after 130.4 s: `(kernel) excessive memory consumption` at the 8 GB cap |
+
+Above 800 literals a doubling costs about five times the time and three
+times the memory, so one `lemma` step over about 4,000 literals or more is
+rejected for memory inside one declaration, after two minutes. That is not
+a regression in what verifies: through the negated clause a step ran out
+of heartbeats between 780 and 1,539 literals, after seconds (the 80-term
+distinct fails with both exporters, after 110 s at 5.75 GB now against 53
+s at 2.49 GB). The widest clause of a `lemma` step in the sample has 154
+literals (QF_IDL `PO4-10-PO4`). Where the time and the memory go was not
+traced, beyond that the memory is the kernel's; a chain in pieces of 32
+literals, each over the tail of the clause, would bound both, and is not
+done.
+
+Tests: `test_proof_to_lean.py`
+(`test_a_lemma_step_is_one_chain_linear_in_its_clause`: the layout, the
+length), `test_proof_to_lean_uf.py`
+(`test_lemma_step_chains_prove_their_clause_and_nothing_else`: chains over
+four propositions accepted by Lean, with an unused literal, a literal
+discharging two hypotheses, and clauses of one literal, and seven wrong ones
+rejected; `test_long_refutations_are_outlined_into_bounded_lemmas`: the 136
+chains of the 7-level equality diamond, at most 70 bytes a literal),
+`test_proof_to_lean_lia.py`
+(`test_negated_wide_distincts_are_reconstructed_linearly`, `..._verify`: the
+chains over 779, 512, and 139 literals, under 40 bytes a literal, and the 66
+pairs of a refutation that is not outlined, still through the negated
+clause's tails), and the slow
+`test_a_lemma_step_over_fifteen_hundred_literals_verifies` (the 56-term
+distinct) and
+`test_a_certificate_above_the_memory_of_one_lean_process_verifies_as_modules`
+(`gensys_icl1079` under 29.5 MB).
+
+### The facts of a cnf lemma are proved apart from one another (2026-11-17)
+
+Scale, not breadth: QF_LRA `tta_startup/simple_startup_15nodes.synchro.base`
+of z3test's `smtlib-sample` verified on 2026-11-13 and failed since some
+change of its certificate after that: its one cnf lemma (`th_lemma_17023`,
+recorded as "a theory lemma") ran out of its 1,000,000 thousand heartbeats
+after 33 s.
+
+What dominated, measured before changing anything on the text of
+2026-11-16 (4.85 MB), cut after the lemma: the text before the lemma checks
+in 17.7 s, with the lemma it fails after 50.4 s. The lemma's structural
+attempt states 694 facts, 665 bridges between two comparisons denoting one
+constraint (Z3 logged its clause over the rewriter's form of the
+assertion) and 29 theory clauses, each `have _fK : T := by unfold ...;
+grind (splits := 64)`, and then refutes the clause in 2,300 lines of
+propagation steps, which name 32 of the facts. With each `have` moved into a
+theorem of its own (by text substitution) the same cut checks in 18.4 s:
+the 694 proofs and the refutation take under a second together. The cost
+was the context: `grind` (and `omega`) take every hypothesis of the goal
+they are run on, so the k-th fact was proved over the k-1 before it, and
+the facts of a lemma cost their number squared. The lemma had 311 facts
+when the file verified.
+
+The facts are now the binders of one function that the goal is refined by,
+and their proofs are its arguments (`_stated_facts`):
+
+    refine (fun
+            (_f1 : (Iff (formula_265 _atoms _vars) (formula_14560 _atoms _vars)))
+            ...
+            => (?_ : (formula_17022 _atoms _vars)))
+          (by first | ((unfold formula_14560 formula_265 term_237 term_222; grind (splits := 64)); done) | fail)
+          ...
+    refine Classical.byContradiction ?_
+
+Each proof is elaborated in the lemma's own context, and the refutation
+that follows has every fact under the name it had. The statements, the
+tactics that prove them, and the refutation are the same text as before;
+the lemma keeps its one heartbeat limit, and no limit of the check moved.
+A sweep's bridges were theorems of their own already (`th_lemma_N_bK`).
+
+A fact that Lean cannot prove must fail the `refine`, so that the lemma's
+`first` takes the unfolded fallback, as it did when a `have` failed. A
+`have`'s tactics were tactics of the lemma's own block, where a failure
+under `first` is an exception. The tactics of an argument `(by ...)` are
+run by the term elaborator, which recovers from errors whatever block the
+term is in: a tactic that fails under a bullet, a `case`, or braces, or a
+block that ends with its goal open, is logged and the fact admitted; the
+`refine` succeeds, the fallback is never tried, and Lean rejects a
+certificate its fallback would have proved (never an acceptance: the error
+is reported and `sorryAx` is among the axioms). The proofs written today
+do not get there (a single line `unfold ...; grind` throws, and the sign
+split was a non-last alternative of a `first`, which turns recovery off),
+but the next shape of proof could. So a fact's tactics are the
+alternatives of a `first` that ends in `fail`, each closed by `done`
+(`_fact_tactics`): one line as above, or, for a theory clause with a sign
+split,
+
+          (by
+                first
+                  | (have _i0 : ...
+                     ...
+                     done)
+                  | (unfold ...; first | omega | grind (splits := 64)
+                     done)
+                  | fail)
+
+A fact that is not proved fails the `refine`, whatever the shape of its
+proof.
+
+Measured on 2026-11-17 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 116 texts are the same byte for byte, and
+the 36 that state a fact differ only in how the facts are stated (the new
+text with each fact written back as a `have` is the old text, byte for
+byte). All 36 new texts were checked in Lean and verify; the old texts of
+the eight files with the most facts in one lemma were checked the same
+day:
+
+| file | cnf lemmas with facts; facts; most in one lemma | before | after |
+| --- | --- | --- | --- |
+| QF_LRA `simple_startup_15nodes.synchro.base` | 1; 694; 694 | 4.85 MB; FAILS after 51.5 s at 3.35 GB (`th_lemma_17023` out of 1,000,000 heartbeats) | 4.88 MB; **verifies** in 19.4 s at 3.50 GB |
+| QF_LRA `simple_startup_11nodes.synchro.base` | 1; 446; 446 | 3.03 MB; verifies in 24.9 s at 2.30 GB | 3.05 MB; verifies in 10.9 s at 2.17 GB |
+| QF_IDL `BubbleSort_safe_bgmc007` | 1; 342; 342 | 2.96 MB; verifies in 9.6 s at 1.61 GB | 2.97 MB; verifies in 9.0 s at 1.60 GB |
+| QF_LRA `clocksynchro_8clocks.main_invar.base` | 19; 791; 203 | 4.27 MB; verifies in 23.1 s at 2.31 GB | 4.30 MB; verifies in 21.7 s at 2.32 GB |
+| QF_LRA `clocksynchro_3clocks.main_invar.base` | 8; 143; 63 | 1.00 MB; verifies in 6.9 s at 0.99 GB | 1.01 MB; verifies in 6.9 s at 0.98 GB |
+| QF_IDL `FISCHER6-4-ninc` | 7; 378; 54 | 2.25 MB; verifies in 5.4 s at 1.14 GB | 2.26 MB; verifies in 5.4 s at 1.14 GB |
+| QF_LRA `current_frame.base` | 13; 415; 35 | 1.81 MB; verifies in 4.0 s at 1.06 GB | 1.82 MB; verifies in 4.0 s at 1.08 GB |
+| QF_IDL `ckt_PROP1_tf_10` | 4; 50; 47 | 0.85 MB; verifies in 2.9 s at 0.95 GB | 0.85 MB; verifies in 2.9 s at 0.96 GB |
+
+The other 28 have at most 28 facts in a lemma (QF_IDL `qlock-4-10-8` and
+`-9`: 101 and 123 lemmas of up to 24 facts) and all verify. The old texts
+of three of the larger ones were checked the same day: QF_UF
+`NEQ004_size4` 38.7 s before and 39.6 s after, QF_IDL `ckt_PROP1_tf_20`
+31.7 s and 32.5 s, `plan-21` 88.0 s and 88.8 s (chains of 10 to 21
+modules; 1 to 3% apart, not looked into). The other 25 against their last
+measurements (2026-11-13 to 2026-11-16; their old texts were not checked
+again): none is slower by more than 0.3 s but `ckt_PROP3_tf_30` (62.1 s;
+59.7 s) and `qlock-4-10-9` (87.1 MB, 88 modules, 321.8 s; 313.5 s), by 4
+and 3%, about what the old texts above lost against their own last
+measurements (`plan-21` 88.0 s against 85.1 s, `NEQ004_size4` 38.7 s
+against 37.2 s); `qlock-4-10-8` takes 159.0 s (159.0 s). Sample: 152 of
+175 export, 145 verify, 1 fails in Lean (QF_AUFLIA `dlx-regfile`), 6 not
+checked.
+
+The text grows by two lines per lemma and 36 bytes per fact (a line
+break, the indentation, two parentheses, and the 25 bytes of the guard):
+25,055 bytes over the 694 facts of `simple_startup_15nodes`, 0.5% of its
+text. The guard itself costs nothing measurable: the 36 texts were
+checked without it as well, 867 s of Lean in all against 861 s with it
+(no file apart by more than 0.4 s but `qlock-4-10-9`, 329.3 s without
+and 321.8 s with). The bound on an attempt kept after the search over
+theory clauses (`_STRUCTURAL_REWRITE_CHARS`, 1,000,000 characters) counts
+the attempt as written, 43 characters more for a fact than the `have` it
+was: an attempt within 30 kB of the bound at 694 facts is now left to
+the fallback alone. No sample lemma is (every changed text is the old one
+but for how its facts are stated).
+
+Generated family `bridged_comparisons(n)` (`test_proof_to_lean_arith.py`):
+one assertion, `(not b)`, `(or b (<= 1 x))`, `(< x 1)`, and n conjuncts
+`(or (<= 1 yi) (< yi 1))` the refutation does not need; each of its two
+cnf lemmas bridges the n + 1 pairs of comparisons. "Heartbeats" is the
+least limit, of those tried, under which both lemmas are accepted
+(thousands; the exporter gives a lemma 1,000,000):
+
+| pairs | 100 | 200 | 400 | 800 | 1,600 |
+| --- | --- | --- | --- | --- | --- |
+| before | 0.09 MB: 2.3 s | 0.19 MB: 5.9 s | 0.38 MB: 19.6 s (19.8 s) | 0.76 MB: FAILS after 41.6 s, both lemmas out of heartbeats | 1.53 MB: not checked |
+| after | 0.10 MB: 1.4 s | 0.20 MB: 2.1 s | 0.41 MB: 3.8 s | 0.82 MB: 7.1 s | 1.64 MB: 14.0 s at 1.28 GB |
+| heartbeats, before | not measured | fails at 100,000 | fails at 400,000; passes at 600,000 | above 1,000,000 | not measured |
+| heartbeats, after | not measured | not measured | fails at 40,000; passes at 80,000 | fails at 80,000; passes at 160,000 | within 1,000,000 |
+
+Tests: `test_proof_to_lean.py`
+(`test_facts_of_a_cnf_lemma_are_the_binders_and_arguments_of_one_function`,
+no Lean: the layout), `test_proof_to_lean_arith.py`
+(`test_facts_of_a_cnf_lemma_are_proved_apart_from_one_another`: 400 pairs,
+both lemmas under 200,000 thousand heartbeats, a fifth of their limit,
+where the old text needs more than 400,000;
+`test_a_fact_of_a_cnf_lemma_that_fails_is_caught_or_rejected`: a false
+fact leaves the lemma to its fallback, and without the fallback, with a
+proof dropped, or with two proofs exchanged Lean rejects the certificate;
+slow: 1,600 pairs under the exporter's limit, and
+`simple_startup_15nodes` itself, copied to `examples/python/data`;
+`test_a_fact_that_fails_under_a_bullet_or_is_left_open_is_caught`: a
+false fact whose tactic fails under a bullet and a fact whose proof stops
+with its goal open leave the lemma to its fallback when written by
+`_fact_tactics`, and as a bare `by` Lean rejects the same text), and
+`test_proof_to_lean.py`
+(`test_tactics_of_a_fact_fail_when_they_do_not_prove_it`, no Lean: the
+guard's layout).
+
+Still open:
+
+- A refutation names few of the facts its lemma states (32 of 694 in
+  `simple_startup_15nodes`, 12 of 415 in `current_frame`, none of the 23 of
+  `BinarySearch_safe_bgmc002`): the bridges are found over every pair of
+  leaves, before the search. Stating only the facts used would shorten the
+  lemmas (a line and a proof per fact, about 3 ms of Lean each).
+- The unfolded fallback of a lemma states its scaled-gate facts the old
+  way, `have _sN : ... := by unfold ...; grind` after the gate hypotheses
+  (QF_LRA `clocksynchro_8clocks`: 3,338 of them, up to 184 in one lemma).
+  Not measured.
+- `bridged_comparisons(n)` with the comparisons in one clause (`(or b (<= 1
+  x0) ... (<= 1 xn))`, every `xi < 1`) fails at 400 on another declaration
+  with both exporters: the unit resolution over the 401-literal clause
+  runs out of the default 200,000 heartbeats (770 kB in one proof step).
+
+### `Inputs` is a structure over chunks of the assertions (2026-11-16)
+
+Scale, not breadth: QF_IDL `20210312-Bouvier/vlsat3_c27` of z3test's
+`smtlib-sample` (15,332 assertions, 119,722 certificate nodes) exports to 141 MB
+of Lean, and its chain of 143 modules had no verdict in the 40 minutes its
+measurement of 2026-11-14 gave it: 92 modules checked, 14 to 45 s each
+after the definitions, 26 s of Lean per MB where the other large files take
+4 to 10.
+
+What dominated, measured before changing anything (the profile of the 15th
+module, 1 MB of 666 outlined lemmas, 37.4 s: elaboration 26.2 s, linting
+6.5 s, type checking 2.5 s; then `trace.profiler` on its first twelve
+lemmas): every `proof_step_N _inputs`, a lemma naming another, took 12 ms,
+8.7 of them in two `whnf` of `Inputs _atoms _vars` at 4.1 ms each. `Inputs`
+was a definition, the balanced conjunction of all assertions (531 kB
+here). Lean's elaborator weak-head-normalizes the type expected of an
+argument (to see whether it is a function type with implicit binders) and
+the type of an applied head (to see whether it is a function type at all),
+and unfolding the definition copies the conjunction with the
+interpretation put in. The 2,470 references of that module were 25 of its
+26 s of elaboration, and the file has 316,556 of them: the cost of the
+lemmas was their number times the number of assertions. A projection of
+an assertion, `_inputs.1.2...`, unfolded the definition as well, and
+carried the conjunction in its proof term: the 14th module (the
+definition, 459 lemmas with 169 projections) took 27.7 s, 7.0 of them
+writing its `.olean` and 6.0 type checking.
+
+`Inputs` is now a structure with one field, `all` (`_input_definitions`):
+`whnf` of a structure type does nothing. Up to 32 assertions the field is
+their balanced conjunction; above, it is the balanced conjunction of
+chunks of 32 assertions, each a definition `Inputs_cK` that is such a
+conjunction, so a projection `_inputs.all.<path to the chunk>.<path inside
+it>` (`_input_select`) copies the chunks' names and one chunk. The theorem
+`unsat` is stated as before, over one hypothesis per assertion, and builds
+`Inputs.mk` of the same tree from them (`_input_term`). Nothing about the
+trust boundary changes: `Inputs` is a private declaration of the
+certificate, a projection that names another assertion than its step's
+type says is a type error, and no limit of the check moved.
+
+Measured on 2026-11-16 (`scripts/check_lean.sh`, `--memory=8192`, one
+`lean` process at a time; wall time, largest resident size of one process;
+texts above 8 MB as chains of 1 MB modules). All 152 sample files that
+export were exported again and reconstructed with the exporter before and
+after on the same certificate: 74 texts are the same byte for byte (not
+outlined), and the 78 outlined ones differ only in the definitions of
+`Inputs`, the projection paths, and the last line of the theorem (checked
+by comparing the texts with those taken out). The 60 changed texts of at
+most 25 MB and `vlsat3_c27` were checked in Lean:
+
+| file | assertions; references; projections | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `vlsat3_c27` | 15,332; 316,556; 579 | 141.33 MB; in the 517 s the new chain takes, the chain of 143 modules had 33 checked, without an error (13.4 to 39.7 s for a module of lemmas, 2.21 GB) | 141.38 MB; **verifies** as 142 modules in 516.7 s at 1.15 GB (3.2 to 5.0 s for a module of lemmas, 13.8 s for the theorem's) |
+| QF_UF `sokoban.3.prop1_ab_br_max` | 7,643; 2,313; 1,384 | 8.52 MB; verifies as 9 modules in 217.8 s at 5.11 GB (one module 179.5 s) | 8.55 MB; verifies as 9 modules in 38.2 s at 1.14 GB |
+| QF_AUFLIA `storecomm_t3_pp_sf_ai_00060_005` | 1,894; 12,042; 1,247 | 5.37 MB; verifies in 72.2 s at 4.43 GB | 5.38 MB; verifies in 50.9 s at 3.67 GB |
+| QF_AX `storecomm_t2_np_sf_ai_00050_005` | 1,326; 8,325; 849 | 3.71 MB; verifies in 20.1 s at 3.53 GB | 3.72 MB; verifies in 11.7 s at 2.57 GB |
+| QF_AX `storecomm_t3_np_sf_ai_00040_001` | 861; 6,460; 679 | 2.63 MB; verifies in 11.0 s at 2.41 GB | 2.63 MB; verifies in 7.3 s at 1.82 GB |
+
+The other 56: 54 verify, none slower than its last measurement by more
+than a second (most have one assertion or a few dozen, where a reference
+cost little: QF_AX `storecomm_t2_np_nf_ai_00050_007`, 1,226 assertions,
+138.5 s to 122.4 s; QF_UF `gensys_icl1228`, 136 assertions and 26,654
+references, 24.5 s to 22.6 s). Two fail, both with the exporter before and
+after: QF_AUFLIA `dlx-regfile` (its cnf lemma, as recorded), and QF_LRA
+`tta_startup/simple_startup_15nodes.synchro.base`, a theory lemma
+(`th_lemma_17023`) out of its 1,000,000 heartbeats at `whnf`: its text is
+4.85 MB today and was 5.20 MB when it verified on 2026-11-13, so the
+certificate changed in between; recorded in BACKLOG, not looked at here.
+(2026-11-17: it is the file's cnf lemma, whose 694 facts were each proved
+over the ones before; it verifies, see "The facts of a cnf lemma are
+proved apart from one another".)
+Of the 17 changed texts above 25 MB (QF_UF `gensys_*`, the QF_AUFLIA swap
+files, the two qlock files; 73 to 142 assertions or one), QF_UF
+`gensys_icl1079` (verifies as 32 modules in 110.4 s at 0.95 GB; 121.9 s on
+2026-11-14) and QF_IDL `qlock-4-10-8` (as 42 modules in 159.0 s at 1.01 GB;
+157.5 s) were checked, and in the review and the integration of the change
+seven more, which all verify: QF_UF `gensys_brn023` (33 modules, 119.7 s
+at 1.04 GB), `gensys_icl388` (45 modules, 165.7 s at 1.10 GB),
+`gensys_icl665` (55 modules, 199.6 s at 1.10 GB) and `gensys_brn1262` (60
+modules, 222.4 s at 1.18 GB), QF_AUFLIA `swap_t1_pp_sf_ai_00010_008` (36
+modules, 333.3 s at 2.66 GB) and `swap_t3_pp_sf_ai_00009_006` (77 modules,
+651.9 s at 2.76 GB), and QF_IDL `qlock-4-10-9` (88 modules, 321.6 s at
+1.16 GB; 305.7 s before). The other eight (92.6 to 194.8 MB: six
+`gensys_*` and two swap files, 73 to 140 assertions) were not checked
+again.
+
+Generated family `shared_units_among_assertions(unused)`
+(`test_proof_to_lean_wide.py`): a chain of 150 clauses in which every unit
+derived is used by the next six clauses (154 lemmas that name one another
+893 times and project 157 assertions), among `unused` further assertions
+that the refutation does not use. "Heartbeats" is the least limit, of the
+values tried, under which every lemma is accepted (`set_option
+maxHeartbeats` before each, in thousands):
+
+| assertions | 157 | 1,157 | 4,157 | 16,157 |
+| --- | --- | --- | --- | --- |
+| before: Lean | 0.21 MB: 0.9 s, 0.48 GB | 0.37 MB: 2.1 s, 0.62 GB | 0.88 MB: 6.0 s, 1.00 GB | 2.95 MB: 25.1 s, 2.61 GB |
+| after: Lean | 0.21 MB: 0.9 s, 0.47 GB | 0.38 MB: 1.3 s, 0.56 GB | 0.89 MB: 3.1 s, 0.83 GB | 2.99 MB: 18.6 s, 1.91 GB |
+| before: heartbeats of a lemma | not measured | not measured | over 240 for more than 100 lemmas, 640 for all | over 800 for more than 100 lemmas, 3,200 for all |
+| after | not measured | not measured | 100 | 200 |
+
+What is left at 16,157 assertions is the theorem itself (one binder per
+assertion) and the definitions of the assertions' formulas.
+
+Tests: `test_proof_to_lean.py`
+(`test_inputs_are_a_structure_over_chunks_of_the_assertions`: the paths of
+`_input_select` end at their assertion in the trees `_input_definitions`
+writes and at their hypothesis in `_input_term`'s, for 1 to 1,281
+assertions; no Lean), `test_proof_to_lean_wide.py`
+(`test_lemmas_naming_one_another_do_not_pay_for_the_assertions`: the family
+at 4,157 assertions verifies with every lemma under 160 thousand
+heartbeats; `test_projection_of_another_assertion_is_rejected`: a
+projection through another chunk or to another assertion of its chunk, and
+two hypotheses exchanged in the theorem's term, are type mismatches in
+Lean, in a text that is accepted without them; slow:
+`test_lemmas_among_sixteen_thousand_assertions_stay_within_their_heartbeats`,
+under 400 thousand; the 601-assertion test pins the 19 chunks).
+
+Still open:
+
+- A projection still copies the chunks' names, a 32nd of the assertions.
+  Chunks of chunks would make it logarithmic; no input measured needs it
+  (the family's root lemma, with three projections the one that needs the
+  most, is within 100 thousand heartbeats at 4,157 assertions and within
+  200 at 16,157).
+- The theorem `unsat` takes one hypothesis per assertion: 13.8 s for the
+  15,332 of `vlsat3_c27`, and most of the 18.6 s of the family at 16,157.
+  It is the statement being certified.
+- QF_LRA `simple_startup_15nodes.synchro.base` fails in a theory lemma
+  since some change after 2026-11-13 (see above). (2026-11-17: verifies,
+  see "The facts of a cnf lemma are proved apart from one another".)
+
+### A sweep reads through nested gates and refutes further below the clause (2026-11-16)
+
+Scale, not breadth: QF_IDL `qlock/qlock-4-10-8.base.cvc` and
+`qlock-4-10-9.base.cvc` of z3test's `smtlib-sample` (eight and nine steps
+of a queuing lock; one assertion of 395 and 434 conjuncts in binary ands
+nested 378 and 417 deep) export
+since the leaf cores, to 45.96 and 93.77 MB of Lean, and failed in Lean
+after 70 s: a lemma that unfolds 1,194 definitions for `first | omega |
+grind` ran out of its 1,000,000 heartbeats. It was taken for an arithmetic
+lemma; it is a cnf lemma whose two searches and whose sweep ("A cnf lemma
+the search gives up on is swept gate by gate" below) had all given up, so
+that only the unfolded fallback was left. Of the 125 cnf lemmas of
+qlock-4-10-8 the searches prove 118; the other seven were swept, five in
+1.33 MB each, and two not at all, for two reasons.
+
+**A chain of nested conjunctions was quadratic.** Every named and/or was
+linked to the canonical gate of its class, the flat set of its operands'
+classes. Each prefix of a conjunction nested n deep is such a class: n
+canonical gates of 2 to n operands, and n links, each proved by projecting
+every operand of the gate below and building the next. This was the limit
+recorded under "Still open" on 2026-11-14. The lemma over the whole
+assertion of qlock-4-10-8 (`th_lemma_18377`: 4,042 links) had written 13.6
+MB when it reached what the sweeps of the file may still write
+(`_SWEEP_CHARS`, 16 million less the two sweeps before it), after 316 of
+the 395 nested ands; without the limit it writes 23.7 MB. The five lemmas
+that were swept paid the same for the nested ands of one step: 532 links
+and 972 declarations kept each, against 94 and 97 now.
+
+An and whose parents are all ands (an or whose parents are all ors) is now
+*inner* (`_swept_structures`): its class is flattened into the class of
+every parent, what is outside those parents meets it through its operands
+(a structure of its class elsewhere is tied to the class's canonical gate,
+not to it), and it gets neither a link nor a canonical gate. A search reads through it (`_local`)
+down to the operands of the parent's class, which are tied as before. The
+outermost gate of a chain keeps its link, proved through the chain in one
+search; when the chain is longer than a link's search may be (1,000 steps,
+50,000 characters: from about 400 levels on) the link is dropped as any
+unproved link is, and the refutation reads the chain itself.
+
+**The refutation stopped three rounds below the clause.** The clause of a
+swept lemma is refuted over the gates above the links, the operands of the
+canonical gates it meets tied `_SWEEP_ROUNDS[-1]` = 3 rounds down; what is
+below is an input of the search. Z3 logs a clause of a formula as the
+units asserted before it leave it, and the exporter ties that clause to
+the units and the formula as written. The two forms then share no class
+above the atoms the units decide: in `th_lemma_9887` of qlock-4-10-8 the
+clause is the transition relation, a disjunction over the four processes
+of conjunctions of disjunctions of conjunctions, with the 32 state bits of
+the step before put in. Every link was proved, and the refutation ended,
+after four searches, in an assignment of the gates at the cut. Such a
+search is now repeated a round further down, with its openings, up to
+`_SWEEP_DEPTH` = 8 rounds, unless it ran out of its own limits (then more
+gates do not help): `th_lemma_9887` is refuted five rounds down, at the
+seventh search, and so is the one lemma of qlock-4-10-9 that had no proof.
+A round that reads no gate and no fact the search before did not read is
+not searched again, only what it opens is: a clause that does not hold
+(`swept_frames(100, extra=True)` of the tests) ran eight searches, the last
+six the same one, and runs three; over 1,000 frames that was 14.1 s and is
+3.3 s.
+
+Both are heuristics of the exporter's search. What they find is a tactic
+proof that Lean checks as before; a link or a refutation that does not
+hold is an error there. No heartbeat, memory, or time limit of the check
+changes, and nothing is added to the trusted base.
+
+Measured on 2026-11-16, before (the exporter of fork master `c233f1e7f`)
+and after on the same certificate; Lean as chains of 1 MB modules under
+`--memory=8192`, wall time and the largest resident size of one process:
+
+| file (QF_IDL) | before | after |
+| --- | --- | --- |
+| qlock-4-10-8 | 45.96 MB; 5 lemmas swept (6.68 MB), 2 without a structural proof; text stage 11.9 s; Lean FAILS as 47 modules after 69.6 s at 1.13 GB (fifth module, heartbeats) | 41.50 MB; 7 swept (2.22 MB), none without; text stage 10.5 s; Lean verifies as 42 modules in 157.5 s at 1.01 GB (150.5 s in a run of the same text with nothing beside it) |
+| qlock-4-10-9 | 93.77 MB; 7 swept (9.36 MB), 1 without; Lean FAILS as 95 modules after 72.7 s at 1.06 GB (seventh module, heartbeats) | 86.95 MB; 8 swept (2.53 MB), none without; Lean verifies as 88 modules in 313.5 s at 1.16 GB |
+| RTCL ckt_PROP1_tf_20 | 10.00 MB; 5,463 links over 1,469 canonical gates; verifies as 10 modules in 32.8 s at 0.87 GB | 9.64 MB; 5,001 links over 1,434 gates; verifies as 10 modules in 31.8 s at 0.88 GB |
+| RTCL ckt_PROP3_tf_30 | 18.69 MB; 9,786 links over 2,586 gates; verifies as 19 modules in 60.9 s at 0.91 GB | 18.19 MB; 9,088 links over 2,541 gates; verifies as 19 modules in 60.2 s at 0.92 GB |
+
+The other 148 sample files that export keep their Lean text byte for byte
+(all 152 were exported with both exporters), so 144 of the 175 sample files
+verify (142 before) and one fails in Lean (QF_AUFLIA dlx-regfile).
+
+Generated families. `nested_conjunction(n)` of `test_proof_to_lean.py`, a
+conjunction nested n deep against the flat one, swept at the prover's
+level and written out with its definitions as a Lean file:
+
+| n | 100 | 200 | 400 | 600 |
+| --- | --- | --- | --- | --- |
+| characters the sweep writes, before | 881,432 | 3,636,223 | 14,854,384 | gives up at 16.0 million (385 of 599 links, 2.0 s) |
+| after | 19,665 | 39,043 | 79,585 | 276,604 (the link is beyond its limits; the refutation, 40 kB, reads the chain) |
+| the Lean file, before | 0.93 MB: 2.1 s, 1.42 GB | 3.78 MB: 9.0 s, 5.05 GB | 15.3 MB as one file: stopped by the loop's watchdog at 16.2 GB after 26 s | no proof |
+| after | 37 kB: 0.6 s, 0.43 GB | 74 kB: 0.8 s, 0.49 GB | 150 kB: 1.4 s, 0.62 GB | 145 kB: 0.9 s, 0.55 GB |
+
+At 1,000 levels neither sweeps: the classes themselves, kept as sets, have
+half a million members (`_SWEEP_MEMBERS`). `simplified_under_a_unit(d)`, a
+formula nested d levels of `(or (and .. p) r)` deep against its form under
+a unit: swept for d = 1 before, for d up to 4 now (the limit is
+`_SWEEP_DEPTH`); `nested_under_units(d)` of `test_proof_to_lean_lia.py` is
+the same through the pipeline, with the searches made to give up.
+
+Tests: `test_proof_to_lean.py`
+(`test_sweep_reads_through_the_gates_inside_a_nested_conjunction`: one
+link and no canonical gate at 50, 100, and 200 levels, the characters
+linear; an and that is also under an or keeps its link;
+`test_sweep_refutes_a_clause_simplified_under_a_unit_rounds_further_down`:
+the depths found, the number of searches bounded, no two searches of a
+sweep over the same gates and facts, no repetition after a search out of
+its limits; `test_sweep_gives_up_beyond_its_limits` now
+takes its character limit on `swept_frames(30)`),
+`test_proof_to_lean_integration.py`
+(`test_sweep_declarations_check_in_lean`: Lean checks the nested
+conjunction at 64 levels, one link, and at 600, none, and the formula
+under a unit at depth 4; `test_sweep_gives_up_on_a_thousand_nested_conjunctions_before_any_search`:
+400 levels in under 100,000 characters),
+`test_proof_to_lean_lia.py`
+(`test_cnf_lemma_over_a_formula_simplified_under_units_is_swept_rounds_down`:
+`nested_under_units(4)`, the lemma not swept with three rounds, Lean on
+the sweep's refutation alone; the slow
+`test_queuing_lock_transition_lemmas_verify_by_the_sweep`,
+`data/QF_IDL_qlock-4-10-8.base.cvc.smt2`).
+
+Still open: the classes of the inner gates are still computed and kept
+(sets of 2 to n members for a chain of n), so a chain above about 630
+levels is not swept at all; a link's search is bounded, so the outermost
+gate of a chain above about 400 levels is read through rather than
+linked; an untied `iff` or implication that stands for its class is an
+input of every search and is never read through (no input measured needs
+it). What is left of Lean's time on the two qlock files is linear in the
+text: 3 to 9 s per 1 MB module.
+
+### and-elim out of a chunked conjunction starts from its tail theorems (2026-11-16)
+
+Scale, not breadth: QF_IDL `parity/10.700.graph` of z3test's
+`smtlib-sample` is one assertion of 115,040 operands. Since the leaf cores
+(next section) it exports, to 45.73 MB of Lean, and 43 of its 44 modules
+check; the last one, the main theorem, ran out of the default 200,000
+heartbeats at `whnf`. The theorem was 386 kB, of which 370 kB were 3,339
+lets: an and-elim step projects its operand from a tail of the conjunction,
+and the tails were bound by a let every 32 operands
+(`let _tail_P_K := _tail_P_(K-32).2...2`, see "and-elim from shared
+conjunction tails" below) up to the last operand eliminated, in every proof
+that eliminates one. The refutation has 36 and-elims; the lets reached
+operand 106,848 and Lean gave up at operand 52,832. `parity/13.400.graph`
+(36,440 operands) verified, but its 253 outlined proof-step lemmas each
+bound the tails up to their operands again: 25,553 lets, 2.8 of the 17.2
+MB, and four modules that took 34 to 65 s each of a chain of 264 s.
+
+A conjunction of more than 256 operands is defined in chunks, with a
+theorem per chunk that proves the chunk from the conjunction
+(`formula_N_tk`, "Wide conjunctions are defined in chunks" below); the
+prover of the cnf lemmas projects from those. and-elim did not ("the tails
+it binds every 32 operands are the chunks"): each let was cheap, but their
+number is the operand's position, per proof, and Lean's time for them grew
+faster than their number. Now `_and_elim` starts the projection of operand
+i of a chunked conjunction, i >= 32, from the theorem of chunk i / 32
+applied to the premise:
+
+    let _step_315283 : (formula_123334 _atoms _vars) :=
+      (formula_315163_t1212 _atoms _vars _step_315170).2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1
+
+Nothing is bound, a premise under hypotheses is projected the same way, and
+an outlined lemma imported once is applied in place there
+(`_merge_single_imports` kept a let for a lemma whose tails were bound). A
+conjunction of at most 256 operands keeps its lets. No limit, heartbeat
+budget, or axiom changes; the tail theorems are 32 projections each of the
+one before and the kernel checks them like everything else. A projection
+from the theorem of another chunk, or of another operand, is a type error
+(a test mutates a text both ways).
+
+Measured on 2026-11-16, before (the exporter of fork master `c805a240c`)
+and after, through `proof_to_lean.write_modules` and
+`scripts/check_lean.sh` (`--memory=8192`; wall time, largest resident size
+of one `lean` process; texts above 8 MB as chains of 1 MB modules). All 152
+sample files that export were exported again, counting the and-elims that
+start from a tail theorem (past operand 31 of a chunked conjunction), the
+one place where the text can differ. Six files have any; their texts were
+written by both exporters and checked. The other 146 have none, so their
+texts cannot differ and were not compared:
+
+| file | and-elims (from a tail theorem) | before | after |
+| --- | --- | --- | --- |
+| QF_IDL `parity/10.700.graph` (115,040 operands) | 36 (34) | 45.73 MB, 3,339 lets; FAILS as 44 modules after 189.6 s at 1.58 GB (`whnf` out of heartbeats in the main theorem) | 45.36 MB; **verifies** as 43 modules in 162.7 s at 1.16 GB |
+| QF_IDL `parity/13.400.graph` (36,440) | 160 (155) | 17.23 MB, 25,553 lets; verifies as 17 modules in 264.2 s at 1.39 GB | 14.42 MB; verifies as 14 modules in 49.9 s at 1.13 GB |
+| QF_IDL `parity/24.100.graph` (2,942) | 32 (31) | 1.243 MB, 75 lets; verifies, 4.0 s, 0.99 GB | 1.236 MB; verifies, 3.8 s, 0.97 GB |
+| QF_LIA `bofill-scheduling/SMT_real_LIA/ex2360_2400_100` (1,537) | 304 (282) | 1.77 MB, 3,140 lets; verifies, 15.4 s, 3.17 GB | 1.45 MB; verifies, 14.8 s, 2.97 GB |
+| QF_LIA `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` (2,009) | 202 (187) | 1.51 MB, 1,621 lets; verifies, 10.9 s, 2.63 GB | 1.34 MB; verifies, 10.2 s, 2.48 GB |
+| QF_UF `NEQ/NEQ004_size4` (338) | 162 (150) | 10.14 MB, 867 lets; verifies as 11 modules, 40.0 s, 1.02 GB | 10.05 MB; verifies as 10 modules, 38.6 s, 1.02 GB |
+
+The exports are otherwise unchanged (10.700: solve 7.5 s, trim 0.9 s,
+replay 45.3 s, Lean text 29.2 s, 2.07 GB of Python; 13.400: 1.3, 0.2, 14.4,
+9.3 s, 0.81 GB). So 142 of the 175 sample files verify (141 before).
+
+Generated family: `(and b1 ... bn)` refuted by a clause over its last two
+operands (`last_operands_conjunction` of `test_proof_to_lean_wide.py`, two
+and-elims), Lean's time for the whole file:
+
+| n | 8,000 | 16,000 | 32,000 | 64,000 | 128,000 |
+| --- | --- | --- | --- | --- | --- |
+| lets in the theorem before | 249 | 499 | 999 | 1,999 | 3,999 |
+| theorem text before / after | 26.8 / 0.8 kB | 54.5 / 0.8 kB | 109 / 0.8 kB | 218 / 0.8 kB | 446 / 0.9 kB |
+| Lean before | 3.3 s, 0.90 GB | 7.6 s, 1.42 GB | 23.7 s, 2.49 GB | 68.5 s, 1.27 GB (7 modules) | FAILS after 78.7 s at 1.70 GB (`whnf` out of heartbeats in the theorem; 14 modules) |
+| Lean after | 2.7 s, 0.83 GB | 5.2 s, 1.28 GB | 13.4 s, 2.18 GB | 23.0 s, 1.14 GB | verifies, 46.6 s, 1.15 GB |
+
+Each and-elim names the theorem's application, about 40 characters more
+than a let's name, so a proof with many and-elims per chunk repeats it
+where it shared one let. With every operand eliminated (the implication
+chain of `test_proof_to_lean_wide.py`, legacy core) the text grows by 0.7%
+at 600 operands (1,139,147 to 1,147,361 bytes), 0.6% at 1,200, and 0.2% at
+2,400, and Lean's time does not (2.7 s and 5.2 s before and after, 27.7 s
+before and 26.1 s after). No sample text grows.
+
+Tests: `examples/python/test_proof_to_lean_wide.py`:
+`test_and_elim_out_of_a_chunked_conjunction_starts_from_its_tail_theorems`
+(checked by Lean; 257 operands: the last operand alone in the last chunk,
+the one before it the last of its chunk; 288: both in a full last chunk),
+`test_and_elim_from_another_chunk_or_of_another_operand_is_rejected` (the
+257-operand text with the theorem of the chunk before, or one projection
+fewer: Lean reports a type mismatch),
+`test_and_elim_far_into_a_conjunction_binds_nothing` (the theorem's text
+at 1,000 to 4,000 operands),
+`test_outlined_conjunction_with_every_operand_eliminated_is_checked` (600
+operands through the legacy core, every chunk's theorem used, no let),
+`test_outlined_lemmas_bind_the_tails_of_a_conjunction_that_is_not_chunked`
+(256 operands, the lets as before),
+`test_and_elim_under_a_hypothesis_starts_from_the_tail_theorems` (steps
+written by hand, since no proof of Z3's in the tests has such a step: the
+conjunction a hypothesis, a step that follows from one, or such a step
+eliminated twice, which each and-elim applies to the hypothesis inside the
+theorem's application, inline and as an outlined lemma),
+`test_a_conjunction_above_the_limit_is_defined_in_chunks_that_unfold_to_it`
+(the and-elim is the one line that differs from the conjunction written
+out); slow: `test_last_operands_of_a_conjunction_of_128000_are_eliminated`.
+
+What is left of Lean's time on the two parity files is their definitions:
+2.2 to 5.8 s for each of the 42 and 13 modules of formula and term
+definitions; the last module, with the proof steps and the theorem, takes
+4.4 and 2.7 s.
+
+### Deeply nested conjunctions: linear replay tables, clauses tied by leaf cores (2026-11-16)
+
+Scale, not breadth: QF_IDL `mathsat/post_office/PO4-10-PO4` of z3test's
+`smtlib-sample` is one assertion of 41,822 nested binary ands over 41,823
+leaf conjuncts (a CVC Lite translation). Z3 answers it in 0.5 s and the
+clause log is trimmed in 0.4 s, but the Python replay grew past 17 GB
+without reading the first line of the log (3.4 GB after 6 s, inside
+`_Replay.__init__`, when the measurement of this change stopped it). Four
+costs were quadratic in the nesting depth, measured one after the other:
+
+- **And-elim paths.** `_conjuncts` gave every conjunct the tuple of its
+  and-elim steps: 1.75e9 steps for PO4 (about 14 GB). A source now holds
+  its position; `source_parents` gives the and above it, and
+  `_derive_assumption` walks up to the nearest source an earlier clause
+  reached and makes each and-elim step once (`and_elim_nodes`). The nodes
+  and their order are those of walking each path from the assertion.
+- **Canonical keys.** The form of an and (or an or) held the keys of its
+  flattened operands as a sorted tuple, so the and at level k repeated the
+  operands of all levels below it (8.7e8 keys for PO4, about 7 GB). The
+  operands are now a set named by one integer (`_KeySets`): a search tree
+  over the keys whose
+  shape the keys alone determine (each key's priority is a fixed
+  permutation of it), with interned nodes, so equal sets built in any order
+  are one node and a set that extends another shares all but a path of it.
+  Two formulas still get one key exactly when their flattened operand sets
+  are equal; nothing about the matching is approximate.
+- **The search index.** `sources_by_symbol` listed every and under each of
+  its symbols, and a symbol set was kept per and while the index was built
+  (with the two tables above fixed PO4's replay still peaked at 3.7 GB, and
+  at 0.5 GB without these). The index lists leaf conjuncts only; an and
+  shares a symbol with a clause exactly when a leaf below it does, so the
+  ands are
+  found from the leaves by `source_parents`. The hash of an and's symbol
+  set (`symbol_signatures`, for the equivalence candidates) is a sum over
+  its symbols, updated while the symbol sets of its conjuncts are merged
+  small into large.
+- **Solver checks of the whole and.** One implication check from PO4's
+  assertion took 24 s and 10 GB inside `Z3_solver_assert`, whatever the
+  resource limit of the check (presumably the rewriter flattening the
+  nested ands a level at a time; the cause inside Z3 was not traced; the
+  next two checks, of the ands one and two levels down, took 23 s each). An
+  and with more than `_CHECKED_CONJUNCTS` =
+  8192 sources at and below it is never handed to a solver, in an
+  equivalence check, an implication check, or as a tracked assertion of the
+  unsat-core fallback; of such ands only the assertion is listed as a
+  candidate.
+
+With the ands undecided the implication pass used to walk on, one solver
+call per and and per leaf below (QF_IDL qlock-4-10-8: 7,751 undecided
+checks in 116 s when profiled on 2026-11-13; its replay took 137.2 s
+today). Now the first and that is not decided, because it is above the
+limit or because its check is cut off, sends the clause to
+`_implying_leaves`: an unsat core of the negated clause with the leaf
+conjuncts that share a symbol with it, or, when those do not imply it, with
+all leaf conjuncts (one solver for the replay; a clause Z3 simplified under
+a unit conjunct shares no symbol with that unit, as PO4's `(not
+AT4_PO4_WAIT)` and a disjunction of 40 atoms). The core is checked again on
+its own while that shrinks it. The clause is then derived by a cnf lemma
+over the core's leaves, each and-eliminated from its assertion, or over
+the assertions themselves when the core is more than a quarter of their
+sources (the empty clause of a chain of implications needs every conjunct,
+and keeps the lemma over the assertion it had). When no core is found the
+search goes on as before, and the last resort (`_implying_assertions`)
+uses the leaves too when an assertion is above the limit. Nothing is
+trusted: Z3's core only chooses the sources of the lemma, and Lean proves
+the lemma from them or the certificate fails.
+
+Measured 2026-11-16 (exports with 300 s per stage, `lean` under `--memory=8192`
+as chains of 1 MB modules; before is the exporter of fork master 7abc8fabe):
+
+| file (QF_IDL) | before | after |
+| --- | --- | --- |
+| PO4-10-PO4 | no export: replay above 17 GB (2026-11-13), 3.4 GB after 6 s | replay 15.7 s at 0.70 GB, 24.36 MB of Lean, verifies as 25 modules in 88.3 s at 0.95 GB |
+| qlock-4-10-8 | replay 137.2 s, 78,004 nodes | replay 16.9 s, 78,160 nodes, 45.96 MB of Lean; Lean FAILS as 47 modules after 67.9 s at 1.13 GB, on `th_lemma_9887`, then taken for an arithmetic lemma (`first | omega | grind`; it is a cnf lemma left to its unfolded fallback, see "A sweep reads through nested gates" above) out of heartbeats at `isDefEq`: the Lean side of this file was open before (iter-119, iter-120) |
+| qlock-4-10-9 | not measured (above 120 s on 2026-11-13) | replay 23.1 s, 93.77 MB of Lean; Lean FAILS as 95 modules after 71.1 s at 1.06 GB, a lemma of the same kind in the seventh module |
+| parity 13.400.graph | no export: resource limit while tying an assumed clause | replay 14.3 s at 0.81 GB, 17.23 MB of Lean, verifies as 17 modules in 267.3 s at 1.39 GB |
+| parity 10.700.graph | no export: the same | replay 46.0 s at 2.08 GB, 45.73 MB of Lean; Lean FAILS as 44 modules after 193.1 s at 1.58 GB: the main theorem (386 kB, under the default 200,000 heartbeats) times out at `whnf` where it binds the tail of the assertion at operand 52,832 of 115,040 |
+| planning/plan-21 | 20.37 MB, 297 and-elim steps, verifies in 88.8 s (2026-11-14) | some clauses tied by leaf cores (300 and-elim steps): 20.28 MB, verifies as 21 modules in 89.4 s at 0.95 GB |
+
+The two parity files are one flat and of 36,440 and 115,040 conjuncts:
+above the limit, so the last resort ties their clauses by leaf cores
+instead of tracking the whole assertion. So five more sample files export
+(152 of 175) and two more verify (PO4-10-PO4, parity 13.400); the three
+others fail in Lean on costs this change does not touch (a lemma of the
+qlock files that was taken for an arithmetic one and is a cnf lemma left
+to its fallback, and-elim far into a conjunction of 115,040 operands: both
+closed the same day, see the two sections above). Of the 147 sample
+files that
+exported before, 146 give the same certificate byte for byte (plan-21 is
+the one that differs); their replays take 345.7 s in all against 345.3 s.
+
+Generated families (`test_proof_to_lean_deep.py`), export time and the
+resident size of the exporter:
+
+| input | before | after |
+| --- | --- | --- |
+| `deep_implication_chain`, 2,000 / 4,000 / 8,000 levels | 2.1 / 4.9 / 12.2 s; 261 / 795 / 2,818 MB | 1.9 / 3.9 / 7.9 s; 112 / 190 / 371 MB, the same certificates |
+| the same, 16,000 / 32,000 levels | stopped at 6 GB after 17.7 s / not run | 15.5 / 32.6 s; 617 / 1,073 MB |
+| `guarded_chain`, 2,500 / 5,000 links (10,007 / 20,007 sources) | stopped at 300 s and 1,279 MB / not run | 14.3 / 47.8 s; 200 / 338 MB; 7.25 / 14.57 MB of Lean |
+
+Limits. Below `_CHECKED_CONJUNCTS` nothing changes while every check is
+decided, and that is not always the cheap side: `guarded_chain` at 500 and
+1,000 links (2,007 and 4,007 sources) ties every clause to the first and
+that implies it, 30.7 and 122.2 MB of Lean after 11 and 79 s of export, with
+either exporter, and at 2,000 links (8,007 sources) neither exports in 300 s;
+above the limit the lemmas are over two leaves each and 2,500 links write
+7.25 MB in 14 s. Preferring leaf cores to and sources below the limit too
+(or lowering the limit) would change certificates that verify today, and
+was not done.
+A clause that needs the core over all leaves costs one check of a solver
+holding every leaf, so `guarded_chain`, where every clause does, still
+grows faster than linearly (14 s at 2,500 links, 48 s at 5,000).
+
+Tests: `test_proof_certificate.py` (`test_key_sets_name_equal_sets_alike`,
+`test_assumption_sources_of_a_deep_conjunction_are_linear`,
+`test_and_above_the_solver_limit_is_tied_through_its_leaves`, and the cut-off
+cases of `test_implication_search_skips_conjuncts_a_model_refutes`),
+`test_proof_to_lean_deep.py` (`test_conjunction_above_the_solver_limit_is_checked`,
+the reduced PO4 checked by Lean with the limit lowered;
+`test_clause_needing_every_conjunct_keeps_the_assertion_as_its_source`; slow:
+`test_conjunction_of_20000_levels_is_checked`, 5,000 links above the limit as
+it is, 102 s).
+
+### Wide conjunctions are defined in chunks (2026-11-16)
+
+Scale, not breadth: QF_UF `2018-Goel-hwbench/QF_UF_sokoban.3.prop1_ab_br_max`
+of z3test's `smtlib-sample` exported to 40.1 MB of Lean and did not verify:
+71 of its 1,422 theory lemmas were 430 to 480 kB each, and the first ran out
+of 1,000,000 heartbeats at `whnf`. Each is the clause `(or (not (distinct c1
+... c209)) (not (= ci cj)))` that Z3 logs for a distinct too wide to expand,
+and its proof refuted the distinct, a right-nested conjunction of 21,736
+pairs written out in its definition, from one pair by up to 21,735 steps of
+`mt (@And.right _ _)`.
+
+What dominates (measured first, on hand-written conjunctions of pairs,
+`Not (elems i = elems (i + 1))`): the time Lean takes for such a chain grows
+with the product of the operand reached and the operands of the
+conjunction, 1.2, 3.3, and 13.0 s for the last of 1,000, 2,000, and 4,000
+pairs. Spelling the steps as projections (`_h.2.2...` in one term, or bound
+every 64 steps in the term or in tactic lines) does not help: 5.0 to 7.7 s
+at 4,000 pairs. `And.right` takes the two sides as implicit arguments
+however it is written, and each step is given what is left of the
+conjunction as one of them; which part of the elaborator walks it was not
+profiled. What helps is a type that is not written out: with the
+conjunction defined in chunks, the same projection takes 1.3 s at 4,000
+pairs and 5.1 s at 22,000.
+
+So a conjunction of more than 256 operands (`_CHUNKED_OPERANDS`: an `and`,
+or the pairs of a `distinct` over terms or over Booleans, that is 24
+arguments or more) is defined in chunks of 32 operands
+(`_formula_definitions`): `formula_N_ck` holds operands 32k to 32k + 31 and
+then the next chunk by its name, the first chunk being `formula_N` itself.
+Unfolded, the chunks are the conjunction as it was written before, so every
+statement about it holds as before, and wherever a tactic unfolds
+`formula_N` it unfolds the chunks after it (`_formula_names`). One theorem
+per chunk, `formula_N_tk : formula_N -> formula_N_ck`, is 32 projections of
+the theorem before it, and the propositional prover of the cnf and theory
+lemmas reaches an operand through them (`_structure_names`,
+`_PropositionalProver._tails` and the refutation of a conjunction from one
+conjunct): at most 31 projections from a chunk whose type is 32 operands
+and a name. and-elim needs no change: the tails it binds every 32 operands
+are the chunks (it starts from the chunks' theorems too since later that
+day, see "and-elim out of a chunked conjunction starts from its tail
+theorems": the lets were restated in every proof up to the operand
+eliminated). No trust setting, limit, or axiom changes: the chunks are
+definitions, the theorems are proved by projections, and Lean's kernel
+checks all of it as before.
+
+Measured on 2026-11-16, before (the exporter of fork master `9d3e01240`)
+and after, both through `proof_to_lean.write_modules` and
+`scripts/check_lean.sh` (wall time, largest resident size of one `lean`
+process). The benchmark files are those of z3test's `smtlib-sample` whose
+Lean text defines a conjunction above the limit (a scan of the 129 texts
+of at most 30 MB, and sokoban):
+
+| input | before | after |
+| --- | --- | --- |
+| QF_UF `sokoban.3.prop1_ab_br_max` (a distinct over 209 constants, 21,736 pairs) | 40.11 MB in 44 modules, FAILS in its sixth module (`whnf` out of heartbeats), 81.2 s, 1.57 GB; Lean text written in 10.9 s | 8.52 MB in 9 modules, verifies, 213.0 s, 5.11 GB; Lean text written in 5.5 s |
+| QF_IDL `parity/24.100.graph` (an `and` of 2,942 operands) | 1.21 MB, verifies, 9.1 s, 1.21 GB | 1.24 MB, verifies, 3.9 s, 0.99 GB |
+| QF_LIA `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` (2,009 operands) | 1.49 MB, verifies, 32.5 s, 3.20 GB | 1.51 MB, verifies, 10.6 s, 2.61 GB |
+| QF_LIA `bofill-scheduling/SMT_real_LIA/ex2360_2400_100` (1,537 operands) | 1.75 MB, verifies, 40.9 s, 3.79 GB | 1.77 MB, verifies, 14.9 s, 3.18 GB |
+| QF_UF `NEQ/NEQ004_size4` (338 operands) | 10.13 MB in 11 modules, verifies, 46.6 s, 1.03 GB | 10.14 MB in 11 modules, verifies, 38.6 s, 1.01 GB |
+| distinct over 209 constants refuted from single pairs (the reduced sokoban, `distinct_through_ites`) | 1.76 MB, FAILS (`whnf` out of heartbeats), 37.5 s, 1.68 GB | 1.53 MB, verifies, 4.0 s, 0.98 GB |
+| the same over 100 constants | 13.6 s, 0.84 GB | 1.3 s, 0.54 GB |
+| `(or p (and b1 ... bn))` refuted from its last operand (`guarded_conjunction`), n = 2,000, 4,000, 8,000, 16,000 | 1.9, 5.1, 17.6 s (1.23 GB), FAILS (`whnf` out of heartbeats, 33.5 s) | 1.0, 1.6, 3.2, 7.5 s (1.28 GB) |
+| and-elim of the last operands of `(and b1 ... bn)` (`last_operands_conjunction`), n = 2,000, 4,000, 8,000 | 1.6, 5.6 s, FAILS (`isDefEq` out of heartbeats, 7.4 s) | 1.0, 1.7, 3.2 s (0.90 GB) |
+| a true distinct over 50, 100, 150 constants in one cnf lemma (`distinct_with_equalities`) | 1.0, 8.2, 49.8 s (2.77 GB) | 0.7, 1.3, 2.3 s (0.70 GB) |
+| the same over 190 constants (17,955 pairs) | FAILS (`grind` over the unfolded pairs), 50.6 s, 2.84 GB | FAILS the same way, 74.6 s, 5.10 GB |
+
+Sokoban's export is otherwise unchanged (solve 0.7 s, trim 1.2 s, replay
+33.2 s). The texts of the four files that verified before grow by 0.04 to
+2.7% (the chunk names and theorems); Lean takes 17 to 67% less time on them.
+
+Tests: `examples/python/test_proof_to_lean_wide.py`
+(`TestChunkedConjunctionDefinitions`, `TestChunkedConjunctionsClauseLog`;
+the 16,000-operand conjunction and the 8,000-operand and-elim are slow
+tests). They include the chunks of a term and of a Boolean distinct
+unfolding to its pairs in order, and a distinct and the conjunction of its
+pairs written out meeting as one structure in one lemma, which must take
+the tail theorems of the definition that names it.
+
+Still open:
+
+- Sokoban's remaining time is one module of nine, 177.6 of the 213 s: eight
+  outlined proof-step lemmas of about 345 steps and 43 kB each (a profile
+  of the module on 2026-11-15: elaboration 9.6 to 14.4 s, type checking
+  1.3 to 1.5 s, and pre-definitions 1.6 to 2.2 s apiece). They do not
+  mention the distinct; each takes about 75 projections out of `Inputs`,
+  the balanced conjunction of the file's 7,643 assertions. Not traced
+  further. Its replay is 33 of the 42 s of its export. (2026-11-16: the
+  cost was the definition of `Inputs`, unfolded at every projection and
+  at every reference to a lemma; the file verifies in 38.2 s at 1.14 GB,
+  see "`Inputs` is a structure over chunks of the assertions".)
+- A true conjunction of 17,955 operands in a cnf lemma (the last row
+  above): the prover states every operand before it prunes the ones it did
+  not use, 1.44 million characters against its budget of 1 million
+  (`_STRUCTURAL_REWRITE_CHARS`; 17,965 of 20,000 steps), and gives up; the
+  lemma then rests on `grind` over the unfolded pairs, which fails as it
+  did before. The failure now takes 24 s and 2.3 GB more: `unfold` takes
+  the 561 chunk names one at a time, a pass over the goal each. Measured
+  on hand-written conjunctions of 2,000, 4,000, and 8,000 atoms, a file
+  that only unfolds one takes 0.6, 0.8, 1.2 s written out and 0.8, 1.6,
+  5.5 s in chunks; with one `delta` over the chunk names instead, 1.0 s at
+  8,000 and 1.7 s at 16,000 (not adopted here: every `unfold` the exporter
+  writes would have to be split). A lemma that verifies only by its
+  unfolded fallback pays this, under a second below about 4,000 operands;
+  the four files above that verified before all take less time.
+- `_negated_distinct_rewrite`, `_distinct_gate_contradiction`, and
+  `_boolean_distinct_facts` still step through the conjunction written
+  out; no input at this width was measured for them.
+
+### Certificates above 8 MB of Lean are checked as a chain of modules (2026-11-14)
+
+Scale, not breadth: the largest class of files of z3test's `smtlib-sample`
+that are inside the supported fragments, export in under two minutes, and
+did not certify, seventeen files of 31 to 195 MB of Lean (eleven QF_UF
+`gensys_*`, four QF_AUFLIA `swap_t*_pp`, QF_UF sokoban, QF_IDL
+`vlsat3_c27`), plus the eleven files of 8 to 23 MB that verified at 3 to
+7.6 GB of the 8 GB cap.
+
+What dominates (measured first): Lean's command line keeps what it
+elaborated of every command, the info trees, until the end of its file
+(`Lean/Language/Lean.lean`, `infoTree? := infoTree` in the command's
+snapshot, which `runFrontend` holds to the end; no option of a file that
+imports only `Init` turns it off, see "Ite gates stated over folded
+definitions" below). So the memory
+of one `lean` process grows with the text it has read, not with the
+largest proof: about 0.25 GB per MB of proof steps written as terms, 0.5
+GB per MB of QF_AX files, and about 2 GB per MB of the tactic lemmas of
+the QF_AUFLIA swap files. `gensys_icl1079` (31.7 MB) stops with `(kernel)
+excessive memory consumption` at the cap after 94 s, at line 229,170 of
+275,409; `swap_t1_pp_sf_ai_00010_008` (35.7 MB) after 123 s, at line
+38,148 of 170,990, inside its array lemmas.
+
+A certificate of more than 8 MB (`_MODULE_CHARS`) is now checked as a chain
+of modules, one `lean` process each (`proof_to_lean.modules`,
+`write_modules`, `check_command`; `scripts/check_lean.sh --chain`):
+
+- `modules(text)` splits the one text `reconstruct` returns at its
+  top-level declarations into modules of at most 1 MB of declarations
+  (`_MODULE_SIZE`; one declaration that is longer is a module of its own).
+  Every module is the text's namespace under the text's options, and
+  imports the module before it, so transitively all earlier ones. The last
+  module is the published file: it keeps the header comments and holds the
+  theorem `unsat`. The others are named
+  `Z3Certificate_<16 hex digits of the text's SHA-256>_<k>`, `k` zero-padded
+  to one width: sorted by name they are in checking order, so
+  `check_lean.sh --chain DIR/Z3Certificate_<digest>_*.lean DIR/proof.lean`
+  re-checks a published chain (unpadded, a shell lists `_10` before `_2`
+  and a valid chain of eleven modules or more is rejected).
+- The only rewriting is that `private` is dropped from the declarations
+  (later modules name them; the namespace is the certificate's own). A text
+  that is not laid out as `reconstruct` writes one (one namespace; options;
+  then `def`, `theorem`, `structure` declarations with their own
+  `set_option .. in` and comment lines) is rejected, not split: any other
+  command at column 0, anything but imports and comments before the
+  namespace, a block comment, a second namespace. `/-` inside a line
+  comment opens no block comment and is not one: the header names the SMT
+  symbols, and `a/-b` is a symbol.
+- `check_lean.sh --chain FILE...` checks the files in order, each with its
+  own `lean --trust=0 -DwarningAsError=true --memory=8192`, the flags of a
+  single file. Each file but the last is also compiled (`-o`) to an
+  `.olean` in a fresh temporary directory that is put on `LEAN_PATH` for
+  the later files and removed when the run ends. The run stops at the
+  first file Lean rejects.
+- Disk: the `.olean` files of a chain take 5 to 9 MB per MB of Lean text
+  while it runs (176 MB for the 31.7 MB of `gensys_icl1079`, 190 MB for the
+  23.2 MB of DTP, 706 MB for the first 92 modules of `vlsat3_c27`); that is
+  not in the memory columns below, and it is memory where the temporary
+  directory is a tmpfs. A run killed with SIGKILL cannot remove the
+  directory (the `vlsat3_c27` measurement, stopped by its deadline, left
+  those 706 MB in the system's temporary directory). So the fresh
+  directory is made inside the one `Z3_LEAN_CHAIN_DIR` names, if set, and
+  the caller removes that: `check_and_write` names its staging directory,
+  `lean_test_support.run_check_lean` the directory of the chain's files.
+- `check_and_write` stages the modules in a temporary directory next to
+  the output, checks the chain, and only then moves the modules and, last,
+  the output file into place; it returns the published files.
+  `lean_test_support.check` checks a text the same way, so every test of a
+  large certificate goes through the chain.
+
+Trust boundary: every declaration is still checked by Lean's kernel under
+`--trust=0`, once, in the process of its module; a `sorry` or an error in
+any module fails the chain there (the tests corrupt a middle module), and
+an axiom declared in an earlier module is in the `#print axioms` report of
+the theorem. What is new on the path of a certificate above 8 MB is Lean's
+own module mechanism: a later process reads the `.olean` files the earlier
+processes of the same run wrote, as every Lean file reads the `.olean`
+files of `Init`. They are not checked again on import (the time of a
+module does not grow along the chain). No limit is raised: the cap per
+process is the same 8 GB, and the processes run one after another.
+
+Measured on 2026-11-14 (`scripts/check_lean.sh`, wall time and the largest
+resident size of a `lean` process of the run). Files that verified as one
+file (the texts of the 2026-11-14 scan):
+
+| input | Lean text | one file | chain of 1 MB modules |
+| --- | --- | --- | --- |
+| QF_UF `qg7/iso_brn043` | 8.8 MB | 36.1 s, 3.10 GB | 9 modules, 38.3 s, 1.09 GB |
+| QF_AX `storecomm_t2_np_nf_ai_00040_006` | 9.0 MB | 74.1 s, 4.82 GB | 9 modules, 74.1 s, 1.03 GB |
+| QF_AX `storecomm_t1_np_nf_ai_00040_005` | 9.5 MB | 81.3 s, 5.19 GB | 10 modules, 81.0 s, 1.04 GB |
+| QF_UFLIA `hard20` | 9.5 MB | 60.4 s, 3.94 GB | 10 modules, 66.9 s, 1.24 GB |
+| QF_IDL `ckt_PROP1_tf_20` | 10.0 MB | 29.2 s, 4.20 GB | 10 modules, 32.8 s, 0.87 GB |
+| QF_UF `NEQ004_size4` | 10.1 MB | 42.3 s, 3.31 GB | 11 modules, 48.6 s, 1.03 GB |
+| QF_AX `storecomm_t2_np_nf_ai_00050_007` | 14.3 MB | 137.0 s, 7.64 GB | 15 modules, 138.5 s, 1.13 GB |
+| QF_AX `swap_t2_np_sf_ai_00009_002` | 15.2 MB | 109.0 s, 7.27 GB | 16 modules, 118.9 s, 2.23 GB |
+| QF_IDL `ckt_PROP3_tf_30` | 18.7 MB | 55.6 s, 7.14 GB | 19 modules, 63.1 s, 0.91 GB |
+| QF_IDL `plan-21` | 20.4 MB | 81.2 s, 6.47 GB | 21 modules, 88.8 s, 0.96 GB |
+| QF_IDL `DTP_k2_n35_c245_s9` | 23.2 MB | 122.2 s, 7.45 GB | 24 modules, 142.8 s, 1.75 GB |
+
+Files that did not verify as one file:
+
+| input | Lean text | one file | chain of 1 MB modules |
+| --- | --- | --- | --- |
+| QF_UF `gensys_icl1079` | 31.7 MB | kernel memory at the cap, 93.8 s, 8.04 GB | 32 modules, verifies, 121.9 s, 0.95 GB |
+| QF_UF `gensys_brn023` | 33.0 MB | kernel memory at the cap, 96.0 s, 8.05 GB | 33 modules, verifies, 127.8 s, 1.03 GB |
+| QF_AUFLIA `swap_t1_pp_sf_ai_00010_008` | 35.7 MB | kernel memory at the cap, 123.1 s, 8.26 GB | 36 modules, verifies, 348.7 s, 2.66 GB |
+| QF_UF `sokoban.3.prop1_ab_br_max` | 40.1 MB | no verdict in 30 minutes (5.19 GB) | 44 modules, fails in the sixth: a lemma out of heartbeats, 84.7 s, 1.57 GB |
+| QF_UF `gensys_icl388` | 44.5 MB | not tried | 45 modules, verifies, 175.5 s, 1.10 GB |
+| QF_UF `gensys_icl665` | 54.2 MB | not tried | 55 modules, verifies, 214.1 s, 1.10 GB |
+| QF_UF `gensys_brn1262` | 60.0 MB | not tried | 60 modules, verifies, 233.5 s, 1.18 GB |
+| QF_AUFLIA `swap_t3_pp_sf_ai_00009_006` | 76.5 MB | not tried | 77 modules, verifies, 676.3 s, 2.76 GB |
+| QF_AUFLIA `swap_t3_pp_sf_ai_00010_007` | 92.6 MB | not tried | 93 modules, verifies, 912.0 s, 2.99 GB |
+| QF_UF `gensys_icl588` | 194.8 MB | not tried | 195 modules, verifies, 745.4 s, 1.41 GB |
+
+The time is that of the whole chain; no module of the quasigroup files takes
+more than 16 s, none of the array files more than 34 s. QF_AUFLIA
+`dlx-regfile` (8.5 MB) is a chain too and fails on the cnf lemma it failed
+on as one file, after 55.4 s at 0.88 GB instead of 82.7 s at 3.45 GB.
+
+The module size was chosen on `swap_t1_pp_sf_ai_00010_008`: with 8 MB
+modules the module of its array lemmas still stops at the cap (8.39 GB);
+with 2 MB modules the file verifies in 346 s at 4.85 GB; with 1 MB modules
+in 348 s at 2.66 GB. `modules` itself takes 0.9 s on the 195 MB of
+`gensys_icl588`, next to the 27 s of its reconstruction.
+
+Tests: `test_proof_to_lean.py` (`TestCertificateModules`, no Lean: the
+split of a generated text `chained_text(count)`, its linear growth, what is
+rejected, publication only after the chain is checked),
+`scripts/tests/test_check_lean.py` (the `--chain` commands, with a fake
+`elan`), `test_proof_to_lean_integration.py`
+(`test_certificates_split_into_modules_verify_as_chains`: one small
+certificate per kind of text, split into four modules or more, with the
+axioms of the one file; `test_a_chain_is_rejected_with_any_module_lean_rejects`;
+`test_a_split_certificate_is_published_with_the_modules_it_imports`;
+`test_check_requires_every_reconstructed_text_to_split_into_modules`:
+`lean_test_support.check` splits every text it reconstructs, of any size,
+so a top-level command the splitter does not know fails the fast tier and
+not only a certificate above 8 MB; the 1,632 distinct texts the tests
+reconstruct all split),
+`test_proof_to_lean_uf.py`
+(`test_quasigroup_certificate_verifies_as_a_chain_of_modules`:
+`iso_brn041` in four modules; the slow
+`test_a_certificate_above_the_memory_of_one_lean_process_verifies_as_modules`,
+`data/QF_UF_QG_gensys_icl1079.smt2`).
+
+Still open:
+
+- QF_UF `sokoban.3.prop1_ab_br_max`: 71 of its 1,422 theory lemmas are 430
+  to 480 kB each and hold 32.8 of the 40 MB. Each reaches one conjunct of a
+  4.3 MB right-nested conjunction (a `distinct` as pairwise disequalities)
+  through one term of 21,735 nested `mt (@And.right _ _)`, and the first of
+  them runs out of 1,000,000 heartbeats at `whnf`. As a chain that is
+  reported after 85 s; the size of the text was never the obstacle.
+  (2026-11-16: verifies, 8.5 MB in 9 modules, see "Wide conjunctions are
+  defined in chunks".)
+- Not measured as chains: QF_UF `gensys_icl565`, `icl551`, `brn805`,
+  `brn420`, `icl766` (125 to 177 MB; at the 3.8 s per MB of the six
+  measured `gensys_*` files, 8 to 11 minutes each) and QF_AUFLIA
+  `swap_t3_pp_sf_ai_00010_003` (124 MB).
+- QF_IDL `vlsat3_c27` (141 MB, 143 modules): no verdict in the 40 minutes
+  the measurement gave it. 92 modules were checked without an error at up
+  to 2.2 GB, 14 to 45 s each after the definitions (one 67 s), so the
+  whole chain would take about an hour: 26 s of Lean per MB of its text.
+  (2026-11-16: verifies as 142 modules in 517 s, see "`Inputs` is a
+  structure over chunks of the assertions".)
+- The modules of a chain are checked one after another, 4 to 10 s per MB.
+  A module imports the one before it; checking modules in parallel would
+  need each to import only what it uses.
+- The array lemmas of the swap files cost about 30 s and up to 3 GB per
+  MB of text even in 1 MB modules: the lemma text is the lever there.
+
+### A cnf lemma the search gives up on is swept gate by gate (2026-11-14)
+
+Scale, not breadth: the two RTCL circuits of z3test's `smtlib-sample`
+QF_IDL that were exported and then failed in Lean on one lemma (open since
+2026-11-07, see "Propositional proofs keep the steps they use" below).
+`ckt_PROP1_tf_20` and `ckt_PROP3_tf_30` assert one formula, a circuit of
+Boolean ite chains unrolled over 20 and 30 frames. Z3 logs its clauses over
+the rewriter's form of it: `(ite c false e)` as `(and (not c) e)`,
+`(ite c true e)` as `(or c e)`, conjunctions flattened, the difference
+atoms normalized. One clause, the property over all frames (19 or 29
+cases), is tied to the assertion by a cnf lemma whose two sides are two
+forms of the whole circuit, about 4,000 gates each way. The search of
+`_PropositionalProver` relates them only by case splits on the leaves they
+share: it ran out of its budget, over z3's unsat core too (3,123 of 12,943
+gates), and the unfolded fallback ran out of heartbeats (and, on `tf_30`,
+memory: 10.5 GB).
+
+When both searches give up, the lemma is now swept, as an equivalence
+checker sweeps two circuits (`_PropositionalProver.sweep`, called by
+`_cnf_refutation`):
+
+- Every structure gets a class: what the rewriter makes of it
+  (`_swept_structures`). Bridged leaves share a class, and/or are flat
+  sets of member classes (false with a member and its negation), negations
+  cancel, an iff is keyed by its sides up to negation, and a Boolean ite
+  follows `mk_ite_core`. The classes are computed bottom up in one pass.
+- A named gate (a node's definition) is linked to the representative of
+  its class, the first structure of the class, or to the class's canonical
+  gate when the class is flattened into another: the flat and/or of the
+  members' representatives, a definition of its own, where two structures
+  that group one conjunction differently meet.
+- Each link is proved by the prover's search restricted to the few gates
+  between its two ends and the links below them (`_local`), and written as
+  a theorem of its own before the lemma (`th_lemma_N_sK`, the canonical
+  gates `th_lemma_N_kK`, the leaf bridges `th_lemma_N_bK`): a tactic block
+  counts against the heartbeats of its declaration, and the links of a
+  circuit take megabytes. A link whose search fails is retried once with
+  the structures it met tied to their canonical gates, then dropped.
+- The lemma refutes the clause through the links, in a few hundred steps.
+
+The classes are hints, like z3's unsat core: a link is stated only with a
+proof found for it, Lean checks every theorem, and the lemma keeps its
+unfolded fallback. No axiom is added and no limit is raised (a link over
+5,000 characters gets the `maxHeartbeats 1000000` every lemma has).
+
+The sweep is bounded as a whole, where a link's search is bounded by itself
+(1,000 steps, 50,000 characters). Two forms of a conjunction nested n deep
+have classes of 2 to n members and n canonical gates of as many operands,
+each a parent of its operands in every search. The and/or classes of one
+sweep may have 200,000 members in all (`_SWEEP_MEMBERS`: `tf_30` has 21
+thousand, a 400-deep conjunction 81 thousand and 1.4 s, the thousand nested
+ands of QF_IDL `FISCHER6-4-ninc` 2 million); a wider formula is not swept,
+and that is known before any link is searched. The canonical gates, the
+links proved, and the searches that failed count their characters while the
+sweep runs, and it stops at `_SWEEP_CHARS` (16 million; `tf_30` counts
+11.4), which the sweeps of one file share (`_Graph.swept`): Lean's memory
+grows with the file, not with the lemma. A lemma whose sweep gives up keeps
+the text it has without it. No file of the sample reaches either bound by
+itself; with both searches made to give up, `FISCHER6-4-ninc` reconstructs
+in 3.5 s where its sweep had not ended after 1,700 s, and the swept lemmas
+of QF_LRA `current_frame.base` stop at 16.7 MB of text where twelve wrote
+27 MB. A sweep that refutes the clause over the gates as they are writes no
+declaration at all, and its lemma then states no bridge either: the
+refutation names the bridges as theorems.
+
+Measured on 2026-11-14 (`lake env lean --trust=0 -DwarningAsError=true
+--memory=8192`, wall time and peak resident memory):
+
+| input | Lean text | reconstruction | Lean before | Lean after |
+| --- | --- | --- | --- | --- |
+| `ckt_PROP1_tf_20` | 2.22 to 10.00 MB | 6.1 to 3.0 s | fails (heartbeats), 30.5 s, 4.45 GB | verifies, 29.1 s, 4.20 GB |
+| `ckt_PROP3_tf_30` | 5.23 to 18.69 MB | 12.2 to 4.8 s | fails (heartbeats, kernel memory), 139.0 s, 10.54 GB | verifies, 55.5 s, 7.14 GB |
+
+`tf_20` takes 5,463 links over 1,469 canonical gates and 77 bridges (0.8 s
+of sweep), `tf_30` 9,786 over 2,586 and 53 (1.4 s). The text grows because
+the proof is now written out, about 1.2 kB a link; the reconstruction is
+faster because the search over a relevant set no longer walks every
+structure at each split. The other 128 sample files that export to at most
+30 MB of Lean keep their text byte for byte. `tf_10` verifies by the
+search as before, and by the sweep when the search's limit is lowered
+(2.1 MB, 3.2 s, 1.3 GB). Tests: `test_proof_to_lean.py`
+(`test_sweep_relates_two_forms_of_a_formula_gate_by_gate`: the generated
+family `swept_frames(count)`, linear in the frames;
+`test_sweep_ties_a_named_gate_a_link_reads_through`: `opened_frames(count)`,
+whose links need a named gate tied on demand;
+`test_sweep_gives_up_beyond_its_limits`: `nested_conjunction(count)`;
+`test_sweep_classes_follow_the_rewriter`),
+`test_proof_to_lean_integration.py`
+(`test_sweep_declarations_check_in_lean`, both families),
+`test_proof_to_lean_lia.py`
+(`test_circuit_cnf_lemma_is_swept_when_the_search_gives_up`: `tf_10` with
+the fallback removed;
+`test_cnf_lemma_swept_without_a_declaration_states_no_bridge` and
+`test_sweeps_of_a_file_share_their_characters`: small inputs whose searches
+are made to give up; the slow
+`test_twenty_frame_circuit_verifies_by_the_sweep`,
+`data/QF_IDL_ckt_PROP1_tf_20.smt2`).
+
+Still open: the sweep is linear in the gates but a chain of n nested
+conjunctions has n canonical gates of up to n operands, quadratic in all
+(the RTCL chains have at most 30), so a deep chain is given up on by the
+bounds above, not swept: canonical gates nested like the class's first
+structure would make it linear (closed on 2026-11-16 another way: the
+nested gates are read through and only the outermost is linked, see "A
+sweep reads through nested gates and refutes further below the clause"
+above). `tf_30` is at 7.1 GB of the 8 GB cap (0.9 GB since it is checked
+as a chain of modules).
+The rules read here are those these circuits needed; a rewriter step the
+classes miss costs links, never soundness. Theory clauses
+(`_theory_clauses`) are not combined with a sweep.
+
+### Regrouping rewrites over theory atoms proved by their structure (2026-11-13)
+
+Scale, not breadth: a QF_UF family inside the supported fragment whose
+certificates were exported and then failed in Lean on one kind of lemma.
+The quasigroup inputs of SMT-LIB's QF_UF `QG-classification` (z3test's
+`smtlib-sample`, `qg5/iso_*` and `gensys_*`) assert five-way disjunctions
+of conjunctions of 20 or 25 clauses `(or (not A) B)` over the equalities
+`(= (op ei ej) ek)` of a 5 by 5 operation table, written as binary gates.
+Z3 logs such an assertion flattened and without its tautologous clauses
+`(or (not A) A)`, and the replay ties the logged clause to the assertion
+by a rewrite. A rewrite over theory atoms that are not arithmetic went to
+`grind` over the unfolded sides, which case-splits the disjunctions and
+ran out of the lemma's heartbeats: five of the seven `iso_*` files of the
+sample (0.5 to 3 MB of Lean) failed after 20 to 85 s, and `gensys_icl1228`
+(6 MB) after 180 s.
+
+- `_leaf_equivalence` (`proof_to_lean.py`): a rewrite between two formulas
+  over more than 16 theory atoms (`_NORMALIZED_REWRITE_ATOMS`, the size
+  from which arithmetic rewrites leave grind) is first proved by the
+  Boolean structure of its sides, every atom an opaque leaf shared by node
+  and the goal folded, with the prover and the links of the normalized
+  rewrites and the cnf lemmas. The unfolded theory tactic stays the
+  fallback of the `first`; a rewrite the structure does not prove (an
+  equality reoriented or decided) gets no attempt.
+- `_PropositionalProver`: a disjunction holding a disjunct and its
+  negation is a fact of every implication it proves (classical mode), by
+  `Classical.em`, and is not a case split of that proof. Without it the
+  search split on a leaf for every dropped tautology, 2^k cases for k of
+  them, and gave up from seven. Refutations (the cnf lemmas) are searched
+  as before.
+
+Nothing is trusted: the structural proof is one more alternative that Lean
+checks, and no limit was raised.
+
+Measured (Lean text, wall time and peak memory of `lean`, before to after):
+
+| input | Lean text | before | after |
+| --- | --- | --- | --- |
+| `qg5/iso_brn041` | 0.49 to 0.54 MB | fails, 20.7 s, 2.22 GB | 1.4 s, 0.67 GB |
+| `qg5/iso_icl478` | 0.90 to 1.03 MB | fails, 37.8 s, 1.81 GB | 2.2 s, 0.91 GB |
+| `qg5/iso_brn085` | 1.31 to 1.49 MB | fails, 82.4 s, 4.90 GB | 2.7 s, 0.98 GB |
+| `qg5/iso_icl093` | 1.53 to 1.70 MB | fails, 80.8 s, 4.59 GB | 3.0 s, 1.05 GB |
+| `qg5/iso_icl701` | 2.97 to 3.28 MB | fails, 84.8 s, 3.88 GB | 5.1 s, 1.56 GB |
+| `qg5/gensys_icl1228` | 6.01 to 6.15 MB | fails, 179.7 s, 3.40 GB | 24.5 s, 2.31 GB |
+| `qg5/iso_icl484`, `iso_icl458`, `qg7/iso_brn043` | +0.03 MB each | verify | verify, same time |
+
+The other 121 sample files that export to at most 30 MB of Lean keep their
+text byte for byte. On the generated family
+`regrouped_gates_instance(disjuncts, clauses)` (`test_proof_to_lean_uf.py`)
+grind alone verifies 3 by 10 in 2.8 s and fails from 5 by 15 (heartbeats
+after 48 s; `grind` failed at 5 by 40), while the structural proof grows
+linearly: 5 by 40, 5 by 80, 8 by 80, 8 by 160 are 0.15, 0.26, 0.41, 0.74
+MB and verify in 0.9, 1.2, 1.7, 3.3 s. Tests: `test_proof_to_lean_uf.py`
+(`test_regrouping_rewrites_are_proved_by_their_structure`,
+`test_tautological_disjunctions_are_facts_of_the_prover`, the two Lean
+tests with the grind fallback dropped, and the slow `gensys_icl1228`) and
+`test_proof_to_lean_arith.py`
+(`test_normalized_regrouping_rewrite_verifies_by_its_tautology_facts`: the
+same gates over bounds on sums of Reals, `regrouped_gates_instance(...,
+logic="QF_LRA")`, where the tautology facts reach the propositional lemma
+of a normalized rewrite, checked in Lean without its grind fallback).
+
+Still open in the family: the other `gensys_*` files are 31 to 195 MB of
+Lean (80,000 to 440,000 proof nodes), beyond the memory cap whatever their
+rewrites cost: the smallest, `gensys_icl1079` (31.7 MB), now gets through
+its rewrites and runs out of kernel memory at the 8 GB cap after 93 s.
+(2026-11-14: as chains of modules `gensys_icl1079`, `brn023`, `icl388`,
+`icl665`, and `brn1262`, 31.7 to 60 MB, verify at about 1 GB; see
+"Certificates above 8 MB of Lean are checked as a chain of modules".)
+
+Still open for the rewrite: leaves are shared by node, so a regrouping
+whose equalities Z3 also reorients gets no structural proof. The same
+gates over `(= (f xi xj) k)` in QF_UFLIA (5 by 15) are logged with the
+numeral first: 77 leaves on the assertion's side, 149 over both, no proof
+found, and Lean rejects the certificate after 36 s on the heartbeats of
+that rewrite, as before this change. The `eq_comm` bridges of the cnf
+lemmas (`_leaf_bridges`) are the natural next step.
 
 ### Int negations rendered as differences (2026-11-11, every negation and negative quotients 2026-11-12)
 
@@ -2234,8 +3640,8 @@ plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
 hits kernel memory errors in outlined proof steps (verifies since
 2026-11-10, see "Steps under hypotheses bound inside the step using
 them"). RTCL `tf_20`/`tf_30`
-are unchanged: their cores have about 3,000 gates, and the search over
-them still runs out of budget. That retry is not free: on `tf_20` the core
+are unchanged (they verify since 2026-11-14, by the sweep): their cores
+have about 3,000 gates, and the search over them still runs out of budget. That retry is not free: on `tf_20` the core
 (3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction
 from 0.7 s to 5.4 s for identical output. The cores that help are smaller
 (plan-21 6%, the FISCHER6-4 lemmas under a 25,000-character budget 7%,
@@ -2267,8 +3673,9 @@ Results:
 - BubbleSort's cnf proof shrinks from about ten thousand steps to 853, and
   the file checks in 9 s at 1.8 GB (about a minute at 4.5 GB before).
 
-Still open: `tf_20` and `tf_30` keep the fallback. Their search explodes
-even with 100 times the budget. Restricting the search to the gates of a
+Still open (closed on 2026-11-14 by the sweep, see "A cnf lemma the search
+gives up on is swept gate by gate"): `tf_20` and `tf_30` keep the
+fallback. Their search explodes even with 100 times the budget. Restricting the search to the gates of a
 z3 unsat core (about 2,600 of 13,000) did not help, nor did other split
 orders. The search seems to need clause learning or proof guidance from
 a SAT solver's refutation.
@@ -3528,7 +4935,11 @@ conjunction once every 32 operands (`let _tail_P_K := ...`, each tail
 projected from the one before with an inferred type) in every lemma and
 theorem that eliminates from it, and each and-elim projects at most 32
 levels from the nearest tail. Premises that take hypotheses still project
-from the start. The 600-operand implication chain checks in 6 s and
+from the start. (Both hold up to 256 operands only since 2026-11-16: out
+of a conjunction defined in chunks an and-elim binds no tail and starts
+from the chunk's theorem, under hypotheses too; see "and-elim out of a
+chunked conjunction starts from its tail theorems".) The 600-operand
+implication chain checks in 6 s and
 `mixed1200` in 28 s. Tests: `test_proof_to_lean_wide.py`, outlined (600
 operands), inline (150), and outlined with the conjunction's proof local to
 the eliminating lemma (80).

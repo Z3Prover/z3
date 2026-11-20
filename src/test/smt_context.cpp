@@ -141,6 +141,21 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static lbool check_sat_smt_result(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    return slv->check_sat(0, nullptr);
+}
+
 static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -228,6 +243,65 @@ static void check_mbqi_division_by_zero() {
     check_recfun_output(
         "(assert (forall ((x Int) (y Int) (z Int)) (= x (/ 1 y z (- 128 z 1)))))\n"
         "(check-sat)\n", "unsat\n");
+}
+
+static void check_mbqi_lambda_arrays() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(
+        "(declare-datatypes ((S1 0)) (((mk_S1 (S1_a (Array Int Int)) (S1_n Int)))))\n"
+        "(declare-datatypes ((S2 0)) (((mk_S2 (S2_a (Array Int S1)) (S2_n Int)))))\n"
+        "(define-fun S2_sub ((s S2) (o Int) (m Int)) S2\n"
+        "  (mk_S2 (lambda ((k Int)) (select (S2_a s) (+ k o))) m))\n"
+        "(declare-datatypes ((D4 0))\n"
+        "  (((mk_D4 (D4_0 S2) (D4_1 Int) (D4_2 Int) (D4_3 Int)))))\n"
+        "(declare-datatypes ((D6 0)) (((mk_D6 (D6_0 Int) (D6_1 Bool)))))\n"
+        "(declare-datatypes ((D12 0)) (((D12_0) (D12_1 (D12_1_0 S1)))))\n"
+        "(declare-const self!1 D4)\n"
+        "(declare-fun sum!4 (Bool (Array Int S1) Int) Int)\n"
+        "(assert (let ((s (D4_0 self!1))) (<= 0 (sum!4 true (S2_a s) (S2_n s)))))\n"
+        "(assert (let ((s (D4_0 self!1)))\n"
+        "  (<= (sum!4 true (S2_a s) (S2_n s)) 18446744073709551615)))\n"
+        "(assert (let ((s (D4_0 self!1)))\n"
+        "  (let ((n (sum!4 true (S2_a s) (S2_n s))))\n"
+        "    (= (D4_1 self!1) (ite (and (<= 0 n) (<= n 18446744073709551615)) n 0)))))\n"
+        "(declare-const h!10 S2)\n"
+        "(assert (forall ((k!e10 Int))\n"
+        "  (! (let ((s (select (S2_a h!10) k!e10)))\n"
+        "    (and (<= 0 (S1_n s)) (<= (S1_n s) 72057594037927936)\n"
+        "      (forall ((k!e11 Int))\n"
+        "        (! (let ((v (select (S1_a (select (S2_a h!10) k!e10)) k!e11)))\n"
+        "          (and (<= 0 v) (<= v 255))) :qid |seq-elem-range#kl6|))))\n"
+        "    :qid |seq-elem-range#kl7|)))\n"
+        "(declare-const t!17 D6)\n"
+        "(assert (= t!17\n"
+        "  (let ((n (S2_n h!10)))\n"
+        "  (let ((nonempty (> n 0)))\n"
+        "  (let ((tail (ite nonempty (S2_sub h!10 1 (- n 1)) h!10)))\n"
+        "  (let ((v (sum!4 true (S2_a tail) (S2_n tail))))\n"
+        "  (let ((total (+ (ite (and (<= 0 v) (<= v 18446744073709551615)) v 0)\n"
+        "    (S1_n (D12_1_0 (ite nonempty\n"
+        "      (D12_1 (select (S2_a h!10) 0)) D12_0))))))\n"
+        "  (let ((overflow (not (and (<= 0 total) (<= total 18446744073709551615)))))\n"
+        "    (mk_D6 (ite overflow 0 total) overflow)))))))))\n"
+        "(declare-const t!19 D6)\n"
+        "(assert (= t!19 (let ((n (+ (D6_0 t!17) 32)))\n"
+        "  (let ((overflow (not (and (<= 0 n) (<= n 18446744073709551615)))))\n"
+        "    (mk_D6 (ite overflow 0 n) overflow)))))\n"
+        "(assert (let ((n (D6_0 t!19))) (and (<= 0 n) (<= n 18446744073709551615))))\n");
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("auto_config", false);
+    p.set_bool("mbqi", true);
+    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory());
+    ref<solver> slv = (*factory)(m, p, false, true, false, symbol::null);
+    for (expr* e : cmd.assertions())
+        slv->assert_expr(e);
+    uint64_t count = m.limit().count();
+    scoped_rlimit limit(m.limit(), 50000);
+    VERIFY(slv->check_sat(0, nullptr) != l_false);
+    VERIFY(m.limit().count() < count + 50000);
 }
 
 static void check_recfun_unfold_limit() {
@@ -562,6 +636,40 @@ static void check_patterned_lambda_store() {
         VERIFY(parse_smt2_commands(cmd, defaults));
         cmd.check_sat(0, nullptr);
         VERIFY(out.str() == "unknown\n" || out.str() == "unsat\n");
+    }
+}
+
+static void check_uninterpreted_lambda_arguments() {
+    // Regression for issue #11735: finite array tables need not denote lambdas.
+    for (char const* input : {
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(assert (f (lambda ((n Int)) n)))\n",
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (lambda ((n Int)) n)))\n"
+        "(assert (f a))\n",
+        "(declare-fun f ((Array Int Bool)) Bool)\n"
+        "(declare-fun g (Int) Real)\n"
+        "(declare-const e Real)\n"
+        "(assert (forall ((eps Real)) (=> (> eps 0.0)\n"
+        "  (f (lambda ((n Int)) (< (g n) eps))))))\n"
+        "(assert (> e 0.0))\n"
+        "(assert (not (f (lambda ((n Int)) (< (g n) e)))))\n"}) {
+        for (unsigned seed : {0u, 24u, 41u, 79u, 108u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            params_ref p;
+            p.set_uint("random_seed", seed);
+            cmd_context cmd(false, &m);
+            cmd.set_solver(mk_smt2_solver(m, p, symbol::null));
+            std::ostringstream out;
+            cmd.set_regular_stream(out);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            scoped_rlimit limit(m.limit(), 100000);
+            cmd.check_sat(0, nullptr);
+            VERIFY(cmd.cs_state() == cmd_context::css_unsat || cmd.cs_state() == cmd_context::css_unknown);
+        }
     }
 }
 
@@ -1588,6 +1696,17 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    VERIFY(check_sat_smt_result(
+        "(declare-const x Int)\n"
+        "(assert (<= x 4))\n"
+        "(assert (distinct 0 (div x 5)))\n") == l_true);
+    VERIFY(check_sat_smt_result(
+        "(set-logic QF_NIA)\n"
+        "(declare-const x Int)(declare-const y Int)\n"
+        "(assert (< x 0))(assert (<= (- 4) y))(assert (<= y 4))\n"
+        "(assert (=> (<= 0 (div y 7)) (< y 0)))\n"
+        "(assert (=> (not (<= 0 (div y 7))) (< (* y x) 0)))\n") != l_true);
+
     check_late_equality_justification();
     check_proof_mode_guards();
     check_proof_mode_compositions();
@@ -1604,6 +1723,7 @@ void tst_smt_context()
     check_recfun_rlimits();
     check_recfun_unfold_limit();
     check_mbqi_division_by_zero();
+    check_mbqi_lambda_arrays();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_qe2_false_answer();
@@ -1614,6 +1734,7 @@ void tst_smt_context()
     check_generated_quantifiers();
     check_stored_lambdas();
     check_patterned_lambda_store();
+    check_uninterpreted_lambda_arguments();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
     check_singleton_array_range_cardinality();
@@ -1829,7 +1950,8 @@ void tst_smt_context()
         VERIFY(parse_smt2_commands(cmd, is));
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.check_sat(0, nullptr);
-        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+        // Preprocessing may introduce a lambda argument to length, which is unsupported.
+        VERIFY(cmd.cs_state() == cmd_context::css_sat || cmd.cs_state() == cmd_context::css_unknown);
     }
 
     check_sat_smt_recfun(

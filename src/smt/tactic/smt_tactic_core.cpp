@@ -98,6 +98,8 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
+        // read by smt_params::updt_params; not in smt_params_helper (hidden from the smt module)
+        r.insert("preprocess", CPK_BOOL, "(default: true) apply the smt preprocessor to the goal");
         smt_params_helper::collect_param_descrs(r);
     }
 
@@ -430,7 +432,9 @@ static tactic * mk_seq_smt_tactic(ast_manager& m, params_ref const & p) {
 
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
     parallel_params pp(p);
-    return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
+    tactic * t = mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
+    t->set_display_name("psmt");
+    return t;
 }
 
 tactic * mk_smt_tactic_core(ast_manager& m, params_ref const& p, symbol const& logic) {

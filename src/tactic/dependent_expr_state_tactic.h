@@ -42,6 +42,8 @@ private:
             push();
             for (expr* e : m_frozen)
                 freeze(e);
+            // not every factory applies its params argument
+            m_simp->updt_params(m_params);
         }
         if (!m_model_trail)
             m_model_trail = alloc(model_reconstruction_trail, m, m_trail);

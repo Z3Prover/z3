@@ -24,6 +24,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -142,13 +143,42 @@ _OUTLINE_WIDE_STEP = 64
 # A step under hypotheses used by one other step is bound inside it
 # (_step_blocks), at most this many such steps deep.
 _NESTED_STEP_DEPTH = 32
+# The outlined lemmas take the assertions as one hypothesis, `_inputs :
+# Inputs ..`, and name each other as `proof_step_N _inputs`. Inputs is a
+# structure with one field, `all`, the balanced conjunction of the assertions;
+# above _INPUT_CHUNK assertions that is the balanced conjunction of chunks of
+# _INPUT_CHUNK assertions, each a definition `Inputs_cK` (_input_definitions).
+# As a definition of the whole conjunction, Lean's elaborator unfolded Inputs
+# twice at every `proof_step_N _inputs` (to see whether the type expected of
+# `_inputs`, and then its own type, is a function type), copying the
+# conjunction each time: 4.1 ms apiece over the 15,332 assertions of QF_IDL
+# vlsat3_c27, whose 316,556 such references left its chain of modules without
+# a verdict after 40 minutes. A structure is not unfolded. A projection of an
+# assertion copies the field's type: the chunks' names and one chunk, not
+# every assertion.
+_INPUT_CHUNK = 32
 # and-elim projects an operand by field notation, one `.2` per operand before
 # it, so eliminating every operand of a wide conjunction is quadratic: 250
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
 # lemma) exhausted its heartbeats. The rest of the conjunction is let-bound
 # once every _AND_ELIM_STRIDE operands (_tail_lets) and a projection starts
-# from the nearest such tail.
+# from the nearest such tail. (A conjunction above _CHUNKED_OPERANDS has
+# theorems for its tails, and nothing is bound: _and_elim.)
 _AND_ELIM_STRIDE = 32
+# A conjunction of more operands than this (an and, the pairs of a distinct)
+# is defined in chunks of _AND_ELIM_STRIDE operands, each chunk a definition
+# ending in the next one's name, with a theorem per chunk that projects it
+# from the conjunction (_formula_definitions). Unfolded, the chunks are the
+# same right-nested conjunction. As measured, a projection out of a
+# conjunction written out costs Lean's elaborator the size of what is left
+# of the conjunction, however the projection is spelled (And.right takes the
+# two sides as implicit arguments): reaching operand k of n by k steps took
+# time k * n (13 s for the last of 4,000 pairs), and each of the 71 lemmas
+# refuting the 21,736 pairs of a distinct over 209 constants from one pair
+# (QF_UF sokoban) ran out of heartbeats. Through the chunks' theorems a
+# projection passes at most a chunk, whose type is a chunk long: the cnf
+# and theory lemmas' prover and and-elim both start from them.
+_CHUNKED_OPERANDS = 256
 _NORMALIZED_REWRITE_ATOMS = 16
 # Condition leaves (Boolean variables and linear atoms) an ite term of a
 # normalized rewrite may have to be keyed by its value table, which has one
@@ -225,6 +255,35 @@ _STRUCTURAL_REWRITE_CHARS = 1000000
 # verifies.
 _LINK_STEPS = 100
 _LINK_CHARS = 5000
+# The limits of a sweep (_PropositionalProver.sweep). The steps and characters
+# the search of one link may take: a link is proved over the few gates between
+# its ends and the links below them (the 16,400 links of the three RTCL
+# circuits take at most 15,000 characters each). How many times the operands
+# of the canonical gates a link's search meets are tied in turn, at first and
+# when that fails, and how many times the refutation of the clause may open
+# the structures it meets (the RTCL circuits take one), and up to how many
+# rounds it is repeated a round further (_SWEEP_DEPTH; the two qlock inputs
+# of the SMT-LIB sample take five rounds and seven searches). The characters of
+# all the declarations of the sweeps of a file: ckt_PROP3_tf_30 takes 12
+# million, in a 19 MB file that Lean checks in 56 s at 7.1 GB, under the
+# 8 GB of check_lean.sh. A sweep stops when its canonical gates, the links
+# it has proved, and the searches that failed have written more than what
+# the earlier sweeps of the file left of that (ckt_PROP3_tf_30 counts 11.4
+# million), and a longer sweep is not written. The members of all the
+# and/or classes of a sweep: n nested conjunctions have classes of 2 to n
+# members, sets that are kept though only the outermost gets a canonical
+# gate (_swept_structures) (ckt_PROP3_tf_30 has 21 thousand members and
+# sweeps in 1.4 s; two forms of a 400-deep conjunction have 81 thousand;
+# the thousand nested ands of QF_IDL FISCHER6-4-ninc have 2 million, and
+# their sweep did not end in 1,700 s when every class had its gate).
+# A wider formula is not swept.
+_SWEEP_LINK_STEPS = 1000
+_SWEEP_LINK_CHARS = 50000
+_SWEEP_ROUNDS = (1, 3)
+_SWEEP_OPENINGS = 4
+_SWEEP_DEPTH = 8
+_SWEEP_CHARS = 16000000
+_SWEEP_MEMBERS = 200000
 # Resource limit of z3's unsat core over a cnf lemma's propositional
 # abstraction (_relevant_structures), which steers the prover when its own
 # search gives up: the 5,649 gates of the QF_IDL plan-21 cnf lemma take
@@ -251,6 +310,27 @@ _THEORY_CLAUSE_BUDGET = 10
 # Farkas lemmas over twenty variables) exhausts the cap in parallel and
 # peaks at 6.7 GB serially. No other test file exceeds 4 MB.
 _SERIAL_ELABORATION_CHARS = 5000000
+# Characters of Lean text above which a certificate is checked as a chain of
+# modules (`modules`), one Lean process each, and the characters of
+# declarations per module. Lean's command line keeps what it elaborated of
+# every command (the info trees) until the end of its file, so the memory of
+# one process grows with the text it has read: about 0.25 GB per MB of proof
+# steps written as terms, about 2 GB per MB of the tactic lemmas of array
+# certificates. Up to 8 MB every measured file checks as one file below 5.5
+# GB; above, one file is near the 8 GB `--memory` cap of check_lean.sh (the
+# 23 MB of QF_IDL DTP_k2_n35: 7.45 GB) or past it (the 31.7 MB of QF_UF
+# gensys_icl1079 after 94 s, the 35.7 MB of QF_AUFLIA
+# swap_t1_pp_sf_ai_00010_008 after 123 s, inside its array lemmas). The
+# module size is from that swap file: with 8 MB modules the one holding its
+# lemmas still stops at the cap, with 2 MB modules the file checks in 346 s
+# at 4.85 GB, with 1 MB modules in 348 s at 2.66 GB. DTP as 24 modules: 143 s
+# (122 s as one file) at 1.75 GB.
+_MODULE_CHARS = 8000000
+_MODULE_SIZE = 1000000
+# What a top-level declaration of `reconstruct`'s text starts with (after its
+# own `set_option .. in` and comment lines, if any).
+_MODULE_DECLARATIONS = ("def ", "private def ", "noncomputable def ", "theorem ", "private theorem ", "structure ",
+                        "private structure ")
 _RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
 # The uninterpreted sorts are one type variable; constants, functions, and
 # predicates are indexed families over argument lists, so one signature serves
@@ -1380,6 +1460,9 @@ class _Graph:
     # each unbounded index sort of the certificate's arrays -> the index
     # nodes of the stores over it, in order. Empty otherwise.
     generic: dict = field(default_factory=dict, compare=False, repr=False)
+    # The characters of the declarations each swept cnf lemma has written, by
+    # node (_cnf_refutation): the sweeps of a file share _SWEEP_CHARS.
+    swept: dict = field(default_factory=dict, compare=False, repr=False)
 
     def constructor_index(self, name, sort):
         """The index of a constructor in _m.ctors: the enumerations by sort name, each in declaration order."""
@@ -1511,6 +1594,20 @@ class _Graph:
         return Counter(tuple(sorted(self.arguments(node))) for node in range(len(self.nodes))
                        if self.kind(node) == z3.Z3_OP_DISTINCT and self.arguments(node)
                        and self.is_term(self.arguments(node)[0]))
+
+    @functools.cached_property
+    def wide_conjunctions(self):
+        """The number of operands of every conjunction defined in chunks (_CHUNKED_OPERANDS), by node."""
+        wide = {}
+        for node in range(len(self.nodes)):
+            count = len(self.arguments(node))
+            if self.kind(node) == z3.Z3_OP_DISTINCT:
+                count = count * (count - 1) // 2  # its pairs, as _conjuncts renders them
+            elif self.kind(node) != z3.Z3_OP_AND:
+                continue
+            if count > _CHUNKED_OPERANDS:
+                wide[node] = count
+        return wide
 
     @functools.cached_property
     def integer_products(self):
@@ -2656,6 +2753,8 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
     arguments = graph.arguments(node)
+    if kind in (z3.Z3_OP_AND, z3.Z3_OP_DISTINCT):
+        return _fold("And", _conjuncts(graph, node, term, formula), "True")
     if kind == z3.Z3_OP_DT_IS:
         # SMT-LIB's recognizer of a nullary constructor c: (= t c).
         return "(%s = _m.ctors %d)" % (term(arguments[0]),
@@ -2680,10 +2779,6 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         if kind == z3.Z3_OP_SET_SUBSET:
             # Every member of the first set is one of the second (_SUBSET_DEFINITION).
             return "(_subset %s %s)" % tuple(args)
-        if kind == z3.Z3_OP_DISTINCT:
-            pairs = ["(Not (%s = %s))" % (left, right)
-                     for index, left in enumerate(args) for right in args[index + 1:]]
-            return _fold("And", pairs, "True")
         raise ReconstructionError("unsupported arithmetic atom")
     if kind in _PSEUDO_BOOLEAN:
         return _pseudo_boolean_body(graph, node, formula)
@@ -2696,8 +2791,6 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         return "False"
     if kind == z3.Z3_OP_NOT:
         return "(Not %s)" % args[0]
-    if kind == z3.Z3_OP_AND:
-        return _fold("And", args, "True")
     if kind == z3.Z3_OP_OR:
         return _fold("Or", args, "False")
     if kind == z3.Z3_OP_IMPLIES:
@@ -2715,11 +2808,66 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
         return "(Or (And %s (Not %s)) (And (Not %s) %s))" % (args[0], args[1], args[0], args[1])
     if kind == z3.Z3_OP_ITE:
         return "(Or (And %s %s) (And (Not %s) %s))" % (args[0], args[1], args[0], args[2])
-    if kind == z3.Z3_OP_DISTINCT:
-        pairs = ["(Not (Iff %s %s))" % (left, right)
-                 for index, left in enumerate(args) for right in args[index + 1:]]
-        return _fold("And", pairs, "True")
     raise ReconstructionError("unsupported Boolean expression")
+
+
+def _conjuncts(graph, node, term, formula):
+    """The rendered operands of the conjunction an and or a distinct node is: the arguments, or the pairs.
+
+    The pairs of a distinct are in the order of the first argument, then
+    the second: over terms the negated equalities, over Booleans the
+    negated equivalences.
+    """
+    arguments = graph.arguments(node)
+    if graph.kind(node) == z3.Z3_OP_AND:
+        return [formula(arg) for arg in arguments]
+    if arguments and graph.is_term(arguments[0]):
+        args, pair = [term(arg) for arg in arguments], "(Not (%s = %s))"
+    else:
+        args, pair = [formula(arg) for arg in arguments], "(Not (Iff %s %s))"
+    return [pair % (left, right) for index, left in enumerate(args) for right in args[index + 1:]]
+
+
+def _formula_names(graph, node):
+    """The definitions a Bool node unfolds through: its own, then the chunks of a wide conjunction."""
+    count = graph.wide_conjunctions.get(node, 0)
+    return ["formula_%d" % node] + ["formula_%d_c%d" % (node, chunk)
+                                    for chunk in range(1, (count + _AND_ELIM_STRIDE - 1) // _AND_ELIM_STRIDE)]
+
+
+def _chunk_tail(graph, node):
+    """The format of a wide conjunction's tail from operand chunk * _AND_ELIM_STRIDE on: (chunk, the proof)."""
+    return "(formula_%d_t%%d _atoms%s %%s)" % (node, graph.valuation)
+
+
+def _formula_definitions(graph, node, signature, atom_indices):
+    """The definition of a Bool node; a wide conjunction (graph.wide_conjunctions) is defined in chunks.
+
+    Chunk k is formula_N_ck: _AND_ELIM_STRIDE operands and then the next
+    chunk by its name, the first chunk being formula_N itself, so the
+    definitions unfold (_formula_names) to the conjunction written out and
+    whatever is stated of that still holds. Theorem formula_N_tk proves
+    chunk k from formula_N by _AND_ELIM_STRIDE projections of chunk k - 1,
+    so all of them are linear in the conjunction, and a proof reaches
+    operand i in less than a chunk's projections from formula_N_t(i //
+    _AND_ELIM_STRIDE) (_chunk_tail), over types a chunk long: see
+    _CHUNKED_OPERANDS.
+    """
+    if node not in graph.wide_conjunctions:
+        return ["def formula_%d %s : Prop := %s" % (node, signature, _formula_body(graph, node, atom_indices))]
+    operands = _conjuncts(graph, node, lambda child: _term(graph, child), lambda child: _formula(graph, child))
+    names = _formula_names(graph, node)
+    applied = ["(%s _atoms%s)" % (name, graph.valuation) for name in names]
+    lines = []
+    for chunk in reversed(range(len(names))):  # a chunk's definition names the next one
+        parts = operands[chunk * _AND_ELIM_STRIDE:(chunk + 1) * _AND_ELIM_STRIDE] + applied[chunk + 1:chunk + 2]
+        lines.append("def %s %s : Prop := %s" % (names[chunk], signature, _fold("And", parts, "True")))
+    tail = _chunk_tail(graph, node)
+    for chunk in range(1, len(names)):
+        lines.append("theorem formula_%d_t%d %s (_h : %s) : %s := %s%s" % (
+            node, chunk, signature, applied[0], applied[chunk],
+            "_h" if chunk == 1 else tail % (chunk - 1, "_h"), ".2" * _AND_ELIM_STRIDE))
+    return lines
 
 
 def _pseudo_boolean_literal(graph, node):
@@ -2865,7 +3013,8 @@ def _balanced(operator, arguments, identity):
 def _balanced_select(position, count, name):
     """Project a conjunct of a balanced conjunction (_balanced) by field notation.
 
-    The outlined proof steps receive the assertions as one conjunction, Inputs.
+    The outlined proof steps receive the assertions as one conjunction, the
+    field of Inputs (_input_select: of chunks that are such conjunctions).
     Right-nested, the last of 1,211 assertions sat under 1,210 projections,
     and elaborating such a chain against the unfolded definition exhausted
     maxHeartbeats; balanced, every assertion is at most log2(count) levels down.
@@ -2878,6 +3027,55 @@ def _balanced_select(position, count, name):
         else:
             path, position, count = path + ".2", position - middle, count - middle
     return name + path
+
+
+def _input_chunks(count):
+    """The chunks of Inputs, each the range of its assertions' positions; one chunk is no chunk (_INPUT_CHUNK).
+
+    The one place that says which assertions a chunk holds: the definitions
+    (_input_definitions), the projections (_input_select), and the theorem's
+    proof of Inputs (_input_term) all take the chunks from here.
+    """
+    if count <= _INPUT_CHUNK:
+        return []
+    return [range(start, min(start + _INPUT_CHUNK, count)) for start in range(0, count, _INPUT_CHUNK)]
+
+
+def _input_definitions(graph, signature):
+    """The lines defining Inputs, the hypothesis of the outlined lemmas (_INPUT_CHUNK)."""
+    formulas = [_formula(graph, node) for node in graph.assertions]
+    lines, operands = [], formulas
+    chunks = _input_chunks(len(formulas))
+    if chunks:
+        operands = []
+        for index, chunk in enumerate(chunks):
+            name = "Inputs_c%d" % index
+            lines.extend(["", "private def %s %s : Prop := %s" % (
+                name, signature, _balanced("And", [formulas[position] for position in chunk], "True"))])
+            operands.append("(%s _atoms%s)" % (name, graph.valuation))
+    return lines + ["", "private structure Inputs %s : Prop where" % signature,
+                    "  all : %s" % _balanced("And", operands, "True")]
+
+
+def _input_select(position, count):
+    """Project assertion `position` of `count` out of `_inputs` (_input_definitions)."""
+    chunks = _input_chunks(count)
+    if not chunks:
+        return _balanced_select(position, count, "_inputs.all")
+    index = position // _INPUT_CHUNK
+    # `range.index` raises unless the chunk at that index holds the position.
+    return _balanced_select(chunks[index].index(position), len(chunks[index]),
+                            _balanced_select(index, len(chunks), "_inputs.all"))
+
+
+def _input_term(count):
+    """The proof of Inputs from the hypotheses `_h0`, ... of the theorem (_input_definitions)."""
+    def conjunction(positions):
+        return _balanced("And.intro", ["_h%d" % position for position in positions], "True.intro")
+    chunks = _input_chunks(count)
+    if not chunks:
+        return "(Inputs.mk %s)" % conjunction(range(count))
+    return "(Inputs.mk %s)" % _balanced("And.intro", [conjunction(chunk) for chunk in chunks], "True.intro")
 
 
 def _modus_ponens(graph, terms, node):
@@ -3156,6 +3354,15 @@ def _and_elim(graph, terms, node, shared):
 
     With shared, the premise is a plain proof whose tails the caller binds
     (_tail_lets); a premise taking hypotheses is projected from its start.
+
+    A conjunction defined in chunks (_CHUNKED_OPERANDS) has its tails as
+    theorems (_chunk_tail): the projection starts from the theorem of the
+    operand's chunk applied to the premise, with or without hypotheses, and
+    nothing is bound. Bound by lets, the tails up to the operand were
+    restated in every proof that projected one: the 36 and-elims out of the
+    115,040-operand assertion of QF_IDL parity 10.700 put 3,339 lets into
+    the main theorem, which ran out of heartbeats at operand 52,832, and the
+    253 outlined lemmas of parity 13.400 held 25,553.
     """
     premise, conclusion = graph.arguments(node)
     conjunction = graph.conclusion(premise)
@@ -3164,6 +3371,10 @@ def _and_elim(graph, terms, node, shared):
     arguments = graph.arguments(conjunction)
     for position, argument in enumerate(arguments):
         if terms[argument] == terms[conclusion]:
+            if conjunction in graph.wide_conjunctions and position >= _AND_ELIM_STRIDE:
+                base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
+                tail = _chunk_tail(graph, conjunction) % (base // _AND_ELIM_STRIDE, "_step_%d" % premise)
+                return _select(position - base, len(arguments) - base, tail), None
             base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE if shared else 0
             if not base:
                 return _select(position, len(arguments), "_step_%d" % premise), None
@@ -4238,8 +4449,8 @@ def _definition_names(graph, nodes, roots=None):
                 visible.add(node)
                 pending.extend(graph.arguments(node))
         nodes = visible
-    return ["%s_%d" % ("term" if graph.is_term(formula) else "formula", formula)
-            for formula in sorted(nodes, reverse=True)]
+    return [name for formula in sorted(nodes, reverse=True)
+            for name in (["term_%d" % formula] if graph.is_term(formula) else _formula_names(graph, formula))]
 
 
 def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments=False, array_facts=()):
@@ -7285,6 +7496,10 @@ def _reject_disjunction(proofs):
     return result
 
 
+class _SweepLimit(Exception):
+    """A sweep is beyond its limits (_SWEEP_MEMBERS, _SWEEP_CHARS): _PropositionalProver.sweep gives up."""
+
+
 class _PropositionalProver:
     """Prove a propositional equivalence by a direct Lean proof, without a truth table.
 
@@ -7310,7 +7525,9 @@ class _PropositionalProver:
     case and a bullet each, `exact`; see _prove) and every and, or, implies
     and iff structure has a name: the caller's (`names`, the definitions of
     the nodes the structures were read from, see _structure_names) or,
-    without, a tactic `let` (`_bindings`, children first). Propositions are
+    without, a tactic `let` (`_bindings`, children first). With the names
+    come `tails`: the theorems that project the operands of the named
+    conjunctions defined in chunks (_formula_definitions). Propositions are
     stated over the names, so a step costs a few names however deep or wide
     the gates are; with the propositions written out at every step, a chain
     through a nested gate was quadratic in the gate, and the 74-way
@@ -7342,17 +7559,30 @@ class _PropositionalProver:
     reaching the one the clause is about, and exhausted its budget.
 
     budget scales the step and character limits (see _cnf_lemma).
+
+    With joined (a cnf lemma's leaf bridges, iff structures between a leaf
+    and a leaf or its negation) and scope (the name the declarations start
+    with and the arguments they are applied to), the prover relates the two
+    forms of the clause's formulas gate by gate instead of searching the
+    clause as a whole (sweep): classical mode, over the caller's names.
     """
 
-    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None, budget=1):
-        if relevant is not None and not classical:
+    def __init__(self, *roots, classical=False, names=None, tails=None, links=False, relevant=None, budget=1,
+                 joined=None, scope=None):
+        if (relevant is not None or joined is not None) and not classical:
             raise ValueError("a relevant set splits gates by Classical.em, so it needs classical mode")
+        if tails and names is None:
+            raise ValueError("the tail theorems are those of the caller's names")
         self.relevant = relevant
+        self.inputs = (None, None)  # a relevant set and the operands of its gates (_frontier)
         self.budget = budget
+        self.limits = None  # the steps and characters of one search of a sweep, in place of the budget's
         self.positions = None
         self.parents = {}
         self.order = []  # every structure, children before parents
         self.named = {}  # the and, or, implies and iff structures by their names
+        # The conjunctions defined in chunks, with their tail theorems (_structure_names).
+        self.tails = tails or {}
         self.bound = []  # the named structures bound by a tactic `let`, in order
         self.needed = set()
         self.names = set()
@@ -7376,9 +7606,64 @@ class _PropositionalProver:
                 self.bound.append(structure)
             elif structure in names:
                 self.named[structure] = names[structure]
+        self.scope = scope if joined is not None else None
+        if joined is not None:  # a sweep, see sweep
+            if names is None or scope is None:
+                raise ValueError("a sweep states its links outside the proof, over the caller's names")
+            self.gates, self.proved, self.failed, self.definitions = set(), {}, set(), []
+            self.inner = set()  # the gates under gates of their own kind only (_swept_structures)
+            self.spent, self.allowed = 0, None  # the characters written, and how many may be (sweep)
+            try:
+                self.links = self._swept_structures(joined)
+            except _SweepLimit:
+                self.links = None  # too wide: sweep gives up
+            for link in self.links or ():
+                self._index(link)
         self.constants = [(structure, structure[0] == "true", "True.intro" if structure[0] == "true"
                            else "(fun _absurd => _absurd)")
                           for structure in (("true",), ("false",)) if structure in self.parents]
+        self._tautologies = None  # see tautologies
+        self.stated = frozenset()  # those of them that are facts of the proof under way
+
+    @property
+    def tautologies(self):
+        """The excluded-middle facts (_excluded_middles), found when the first implication asks for them.
+
+        A prover that only refutes (the cnf lemmas, a dozen provers over a
+        400-operand assertion each in QF_UF NEQ004) never states them, so it
+        does not render them either.
+        """
+        if self._tautologies is None:
+            self._tautologies = self._excluded_middles() if self.classical else []
+        return self._tautologies
+
+    def _excluded_middles(self):
+        """The disjunctions holding a disjunct and its negation, each true by excluded middle, with the proof.
+
+        A fact of every implication proved (_implication). Nothing
+        propagates into such a disjunction before one of its disjuncts has
+        a value, so the search split on an atom or leaf for each one it
+        met, both branches going on to the next: Z3's rewriter drops the
+        clauses (or (not A) A) of a conjunction, and proving the
+        conjunction with them from the one without took 2^k cases for k
+        of them (each of the five 25-clause conjunctions of a QF_UF
+        quasigroup input has five; from seven on the search gave up). The
+        case analysis of such a proof skips these disjunctions (_case_split).
+        A refutation (the cnf lemmas) is searched as before, without them.
+        """
+        found = []
+        for structure in self.order:
+            if structure[0] != "or":
+                continue
+            children = _structure_children(structure)
+            positions = {child: position for position, child in reversed(list(enumerate(children)))}
+            for negative, child in enumerate(children):
+                if child[0] == "not" and child[1] in positions:
+                    found.append((structure, True, "(Or.elim (Classical.em %s) (fun _g => %s) (fun _g => %s))" % (
+                        self._render(child[1]), _inject(positions[child[1]], len(children), "_g"),
+                        _inject(negative, len(children), "_g"))))
+                    break
+        return found
 
     def _index(self, root):
         """Index root's structures depth first, children before parents, on an explicit stack (deep chains)."""
@@ -7434,17 +7719,29 @@ class _PropositionalProver:
         refutation that holds whatever its value would end with it
         undetermined.
         """
-        if self.positions is None:
-            self.positions = {structure: position for position, structure in enumerate(self.order)}
-        return sorted((-len(self.parents[structure]), self.positions[structure], structure)
-                      for structure in self.parents
+        if self.inputs[0] is not self.relevant:
+            # The operands of the relevant gates, once per relevant set: a
+            # search over a few gates of a large clause (sweep) must not walk
+            # the clause at every split.
+            self.inputs = (self.relevant, {child for gate in self.relevant for child in _structure_children(gate)})
+        positions = self._positions()
+        return sorted((-len(self.parents[structure]), positions[structure], structure)
+                      for structure in self.inputs[1]
                       if structure not in state and structure[0] not in ("true", "false")
-                      and (structure[0] in self.decidable or structure not in self.relevant)
-                      and any(parent in self.relevant for parent in self.parents[structure]))
+                      and (structure[0] in self.decidable or structure not in self.relevant))
+
+    def _positions(self):
+        """The index of every structure in the order, those indexed since the last call included."""
+        if self.positions is None:
+            self.positions = {}
+        for position in range(len(self.positions), len(self.order)):
+            self.positions[self.order[position]] = position
+        return self.positions
 
     def _exhausted(self):
-        return (self.steps > _STRUCTURAL_REWRITE_STEPS * self.budget
-                or self.chars > _STRUCTURAL_REWRITE_CHARS * self.budget)
+        steps, chars = self.limits or (_STRUCTURAL_REWRITE_STEPS * self.budget,
+                                       _STRUCTURAL_REWRITE_CHARS * self.budget)
+        return self.steps > steps or self.chars > chars
 
     def equivalence(self, left, right):
         """Tactic lines proving the goal Iff left right (as Lean reads the two structures), or None."""
@@ -7596,6 +7893,427 @@ class _PropositionalProver:
         self.steps, self.chars = max(self.steps, start[0]), max(self.chars, start[1])
         return lines, facts
 
+    def _swept_structures(self, joined):
+        """The classes of the structures and the links a sweep starts from, children first.
+
+        A class is what Z3's rewriter makes of a structure before it logs
+        the clauses of a formula, as far as that is read here:
+
+        - the leaves that joined ties (a cnf lemma's leaf bridges: iff
+          structures between a leaf and a leaf or its negation) share a
+          class or have complementary ones;
+        - an and/or is the set of its operands' classes, flattened, without
+          units, and false (true) when it holds a member and its negation;
+        - a negation is its operand's class negated, cancelling a double
+          negation, an implication the disjunction it is rewritten to, and
+          an iff is keyed by its sides without their negations (one with a
+          constant side is the other side or its negation);
+        - a Boolean ite, read (or (and c t) (and (not c) e)), follows the
+          rewriter's mk_ite_core: (ite c false e) is (and (not c) e),
+          (ite c true e) is (or c e), (ite c t (not t)) is (= c t), and so
+          on; any other ite is the or of its two guarded branches.
+
+        The representative of a class is its first structure, or the
+        negation of the first structure of the complementary class. A
+        structure the caller named (a node's definition) is linked to its
+        class's representative unless it is that; a named structure whose
+        class is flattened into the class of some gate is linked to the
+        class's canonical gate instead, as is every other of its class:
+        the and/or of the members' representatives in the order of the
+        classes, where two structures that group the operands of one
+        conjunction differently meet (_canonical). Negations, atoms,
+        leaves, and the unnamed gates (the two branches of an ite) are
+        never linked: a search reads through them. Nor is an and/or whose
+        parents are all gates of its own kind (`inner`, named or not): its
+        class is flattened into each parent's, so what is outside them
+        meets it through its operands, and a search reads through it too,
+        down to the operands of the parent's class. Linked, every prefix of a
+        conjunction nested n deep had a canonical gate as wide as itself
+        and a link as long: 15 million characters for 400 levels, and the
+        chain of 395 that is the one assertion of QF_IDL qlock-4-10-8
+        used up what the sweeps of the file may write after 316; read
+        through, the chain costs its top one link, 80 thousand characters
+        for 400 levels. The classes only propose the links; each is
+        proved or dropped (sweep).
+        """
+        self.group = {}  # a joined leaf: the leaf it is tied to, and whether as its negation
+        for _, left, right in joined:
+            negated = right[0] == "not"
+            right = right[1] if negated else right
+            for leaf in (left, right):
+                self.group.setdefault(leaf, (leaf, False))
+            (root, sign), (other, other_sign) = self._find(left), self._find(right)
+            if root != other:
+                self.group[other] = (root, sign ^ other_sign ^ negated)
+        keys, interned, flattened = [], {}, set()
+        self.classes, self.keys, self.representatives, self.canonical = {}, keys, {}, {}
+        self.members = 0  # of the and/or classes, within _SWEEP_MEMBERS
+
+        def intern(key):
+            if key not in interned:
+                interned[key] = len(keys)
+                keys.append(key)
+            return interned[key]
+
+        true, false = intern(("true",)), intern(("false",))
+        self.representatives[true], self.representatives[false] = (("true",), False), (("false",), False)
+
+        def negate(cls):
+            if cls in (true, false):
+                return true + false - cls
+            return keys[cls][1] if keys[cls][0] == "not" else intern(("not", cls))
+
+        def gate(kind, operands):
+            unit, zero = (true, false) if kind == "and" else (false, true)
+            members = set()
+            for operand in operands:
+                if keys[operand][0] == kind:
+                    flattened.add(operand)
+                    members |= keys[operand][1]
+                else:
+                    members.add(operand)
+            members.discard(unit)
+            if zero in members or any(keys[member][0] == "not" and keys[member][1] in members for member in members):
+                return zero
+            if len(members) < 2:
+                return next(iter(members)) if members else unit
+            key = (kind, frozenset(members))
+            if key not in interned:
+                self.members += len(members)
+                if self.members > _SWEEP_MEMBERS:
+                    raise _SweepLimit()
+            return intern(key)
+
+        def iff(left, right):
+            sides = [keys[side][1] if keys[side][0] == "not" else side for side in (left, right)]
+            negated = (sides[0] != left) != (sides[1] != right)
+            if sides[0] == sides[1]:
+                cls = true
+            elif sides[0] in (true, false) or sides[1] in (true, false):
+                constant, other = sides if sides[0] in (true, false) else reversed(sides)
+                cls = other if constant == true else negate(other)
+            else:
+                cls = intern(("iff", frozenset(sides)))
+            return negate(cls) if negated else cls
+
+        def ite(condition, then, other):
+            if condition in (true, false) or then == other:
+                return then if condition != false else other
+            if then in (true, false):
+                return gate("or", [condition, other]) if then == true else gate("and", [negate(condition), other])
+            if other in (true, false):
+                return gate("or", [negate(condition), then]) if other == true else gate("and", [condition, then])
+            if condition == other:
+                return gate("and", [condition, then])
+            if condition == then:
+                return gate("or", [condition, other])
+            if then == negate(other):
+                return iff(condition, then)
+            return gate("or", [gate("and", [condition, then]), gate("and", [negate(condition), other])])
+
+        for structure in self.order:
+            kind = structure[0]
+            operands = [self.classes[child] for child in _structure_children(structure)]
+            if structure in self.group:
+                leaf, negated = self._find(structure)
+                cls = negate(intern(leaf)) if negated else intern(leaf)
+            elif kind == "not":
+                cls = negate(operands[0])
+            elif (kind == "or" and len(structure) == 3 and structure[1][0] == structure[2][0] == "and"
+                  and len(structure[1]) == len(structure[2]) == 3 and structure[2][1] == ("not", structure[1][1])):
+                # A Boolean ite as _boolean_connective reads it.
+                cls = ite(self.classes[structure[1][1]], self.classes[structure[1][2]], self.classes[structure[2][2]])
+            elif kind in ("and", "or"):
+                cls = gate(kind, operands)
+            elif kind == "implies":
+                cls = gate("or", [negate(operands[0]), operands[1]])
+            elif kind == "iff":
+                cls = iff(*operands)
+            else:
+                cls = intern(structure)
+            self.classes[structure] = cls
+            if kind != "not":
+                negated = keys[cls][0] == "not"
+                self.representatives.setdefault(keys[cls][1] if negated else cls, (structure, negated))
+        links = []
+        for structure in self.order:
+            if structure[0] in ("not", "atom", "leaf", "true", "false"):
+                continue
+            cls = self.classes[structure]
+            if keys[cls][0] == structure[0] and self.parents[structure] and all(
+                    parent[0] == structure[0] for parent in self.parents[structure]):
+                self.inner.add(structure)  # its class is flattened into every parent's: read through
+                continue
+            base = keys[cls][1] if keys[cls][0] == "not" else cls
+            if structure not in self.named and (base not in flattened
+                                                 or self.representatives[base][0] is not structure):
+                continue  # read through, unless it stands for a class that is flattened
+            target = self._canonical(structure) if base in flattened else self._literal(cls)
+            if target != structure:
+                links.append(("iff", structure, target))
+        return links
+
+    def _literal(self, cls):
+        """The representative of a class: its first structure, or the negation of the complementary class's."""
+        negated = self.keys[cls][0] == "not"
+        representative, sign = self.representatives[self.keys[cls][1] if negated else cls]
+        return representative if sign == negated else ("not", representative)
+
+    def _canonical(self, structure):
+        """The canonical gate of a structure's and/or class (negated for the complementary class), or None."""
+        cls = self.classes[structure]
+        negated = self.keys[cls][0] == "not"
+        base = self.keys[cls][1] if negated else cls
+        if self.keys[base][0] not in ("and", "or"):
+            return None
+        if base not in self.canonical:
+            gate = self.canonical[base] = (self.keys[base][0],) + tuple(
+                self._literal(member) for member in sorted(self.keys[base][1]))
+            self.gates.add(gate)
+            if gate not in self.named:
+                # Named by a definition of its own, as the nodes' gates are:
+                # a step states it by that name however wide it is.
+                self.definitions.append(("%s_k%d" % (self.scope[0], len(self.definitions)), self._shallow(gate)))
+                self.spent += len(self.definitions[-1][1])
+                self.named[gate] = "(%s%s)" % (self.definitions[-1][0], self.scope[1])
+        return ("not", self.canonical[base]) if negated else self.canonical[base]
+
+    def _find(self, leaf):
+        """The leaf a joined leaf is tied to through the joining facts, and whether as its negation."""
+        root, negated = self.group[leaf]
+        while self.group[root][0] != root:
+            root, sign = self.group[root]
+            negated ^= sign
+        return root, negated
+
+    @staticmethod
+    def _end(link):
+        """The structure a link ties its structure to, without the negation."""
+        return link[2][1] if link[2][0] == "not" else link[2]
+
+    def _local(self, roots, rounds):
+        """The gates from roots down to the named structures, the facts that tie those, and the untied ones.
+
+        The search of a link's proof, and of the refutation after the
+        sweep, is restricted to these gates (`relevant`). Below a named
+        structure nothing is read: its link's fact stands for it, and
+        without one it is an input, as an atom is (unless its link was
+        tried and not proved, or it is an inner gate of its parents' class,
+        see _swept_structures: then it is read through). A fact ties the
+        structure to a representative, whose own fact is taken with it, or
+        to a canonical gate. A canonical gate propagates between its
+        operands, which are not walked either: the operands of the gates
+        met are tied by their facts in turn, rounds times. The facts are
+        these links, the joining facts of the joined leaves met, and the
+        constants met; the untied structures are the named ones met
+        without a fact.
+        """
+        gates, facts, groups, opened, untied = set(), {}, set(), {}, []
+        seen = set(roots)
+
+        def walk(pending, depth):
+            while pending:
+                structure = pending.pop()
+                if structure in self.gates:
+                    opened.setdefault(structure, depth)
+                elif structure not in roots and structure in self.proved:
+                    facts[structure] = self.proved[structure]
+                    end = self._end(facts[structure][0])
+                    if end not in seen:
+                        # A representative stands for its class: it is not read.
+                        seen.add(end)
+                        if end in self.gates or end in self.proved:
+                            pending.append(end)
+                        elif end in self.named and end not in self.failed:
+                            untied.append(end)
+                elif (structure not in roots and structure in self.named and structure not in self.failed
+                      and structure not in self.inner):
+                    untied.append(structure)
+                else:
+                    if structure in self.group:
+                        groups.add(self._find(structure)[0])
+                    children = _structure_children(structure)
+                    if children:
+                        gates.add(structure)
+                    for child in children:
+                        if child not in seen:
+                            seen.add(child)
+                            pending.append(child)
+
+        walk(list(roots), 0)
+        for depth in range(rounds):
+            for gate in [gate for gate, level in opened.items() if level == depth]:
+                operands = [operand for operand in gate[1:] if operand not in seen]
+                seen.update(operands)
+                walk(operands, depth + 1)
+        for gate in opened:
+            gates.add(gate)
+            gates.update(operand for operand in gate[1:] if operand[0] == "not")
+            seen.update(gate[1:])
+        facts = list(facts.values())
+        facts.extend(fact for group in sorted(groups, key=self._positions().get) for fact in self.joins[group])
+        for fact in facts:  # the facts propagate as gates, and so do the negations they tie
+            gates.add(fact[0])
+            gates.update(side for side in fact[0][1:] if side[0] == "not")
+        return gates, facts + [constant for constant in self.constants if constant[0] in seen], untied
+
+    def _tie(self, link, blocks):
+        """Prove a link over its local gates and record its fact and its theorem, or return the untied structures."""
+        _, left, right = link
+        for rounds in _SWEEP_ROUNDS:
+            self.relevant, below, untied = self._local((left, self._end(link)), rounds)
+            self.relevant.add(right)
+            directions = []
+            for source, target in ((left, right), (right, left)):
+                self.steps, self.chars = 0, 0
+                hypothesis, negation = self.name(), self.name()
+                lines = self._prove(dict(), ("false",),
+                                    below + [(source, True, hypothesis), (target, False, negation)])
+                if lines is None:
+                    self._spend(self.chars)  # what the search wrote before it gave up
+                    break
+                directions.append([hypothesis, "refine Classical.byContradiction (fun %s => ?_)" % negation] + lines)
+            if len(directions) == 2:
+                break
+        else:
+            return untied
+        name = "%s_s%d" % (self.scope[0], len(blocks))
+        lines = ["refine Iff.intro (fun %s => ?_) (fun %s => ?_)" % (directions[0][0], directions[1][0])]
+        blocks.append((name, self._render(link), lines + _bullets([direction[1:] for direction in directions])))
+        self._spend(len(blocks[-1][1]) + sum(len(line) + 1 for line in blocks[-1][2]))
+        fact = "(%s%s)" % (name, self.scope[1])
+        self.names.add(fact)
+        self.proved[left] = (link, True, fact)
+        return None
+
+    def _spend(self, chars):
+        """Count characters a sweep wrote against what it may write (sweep); _SweepLimit beyond that."""
+        self.spent += chars
+        if self.spent > self.allowed:
+            raise _SweepLimit()
+
+    def _open(self, untied, blocks):
+        """Tie the untied structures of and/or classes to their canonical gates; whether any was."""
+        tied = False
+        for structure in untied:
+            target = None if structure in self.proved or structure in self.failed else self._canonical(structure)
+            if target is None:
+                continue
+            if target == structure:
+                tied = True  # its own canonical gate, known as one from here on
+                continue
+            link = ("iff", structure, target)
+            self._index(link)
+            if self._tie(link, blocks) is None:
+                tied = True
+            else:
+                self.failed.add(structure)
+        return tied
+
+    def sweep(self, structure, facts, chars=None):
+        """Tactic lines proving the goal Not structure under the named facts through the links, or None.
+
+        The plain search (refutation) relates a clause Z3 logged over its
+        rewriter's form of an assertion to the assertion itself only by
+        case splits on the atoms and leaves the two forms share: over two
+        forms of one circuit (QF_IDL RTCL ckt_PROP1_tf_20: twenty frames of
+        Boolean ite chains, 4,000 gates each way, 77 pairs of bridged
+        leaves) it splits without end, with or without z3's unsat core.
+        Here the two forms are swept bottom up, as an equivalence checker
+        sweeps two circuits: the named structures are linked to the
+        representatives or canonical gates of their classes
+        (_swept_structures), and each link is proved, children first, by a
+        search over the few gates between its two ends and the links below
+        them (_local), within _SWEEP_LINK_STEPS steps and _SWEEP_LINK_CHARS
+        characters. When that search fails, the named structures it met
+        without a fact are tied to their canonical gates (_open) and it is
+        repeated once; a link still not proved is dropped, and the gates
+        under its structure are read by the links above. The clause is then
+        refuted over the gates above the links, opening what it meets up to
+        _SWEEP_OPENINGS times, with the operands of the canonical gates
+        tied _SWEEP_ROUNDS[-1] rounds down. A search that ends there
+        without a refutation, and not for its limits, has met the cut as
+        inputs: it is repeated a round further down, opening as before, up
+        to _SWEEP_DEPTH rounds, but not over the very gates and facts of
+        the search before (a round that met nothing new: only what it
+        opens is tried). A clause Z3 simplified under the units
+        among the assertions shares no class with the assertion above the
+        atoms the units decide: the transition relation of QF_IDL
+        qlock-4-10-8, a disjunction of conjunctions of disjunctions of
+        conjunctions logged with the values of the present state put in,
+        is refuted five rounds down, at the seventh search, and was left to
+        the unfolded fallback, which ran out of heartbeats.
+        facts are the joining facts (see __init__)
+        with their proofs. Returns the declarations the refutation needs
+        and its tactic lines: a canonical gate as (name, None, [body]), a
+        link as (name, statement, tactic lines), the gates first and the
+        links in the order they were proved. A link is a theorem of its
+        own and a fact by its name applied to the scope's arguments, where
+        a `have` would count its proof against the heartbeats of the
+        lemma. The sweep is bounded as a whole, where a link's search is
+        bounded by itself: it gives up when the and/or classes have more
+        than _SWEEP_MEMBERS members (_swept_structures), and as soon as the
+        canonical gates, the links proved, and the searches that failed
+        have written more than chars characters (_SWEEP_CHARS by default),
+        so that a formula it does not fit (a thousand nested conjunctions)
+        costs seconds and the lemma keeps its other proofs.
+        """
+        if self.links is None:
+            return None
+        self.allowed = _SWEEP_CHARS if chars is None else chars
+        try:
+            return self._swept(structure, facts)
+        except _SweepLimit:
+            return None
+
+    def _swept(self, structure, facts):
+        """The declarations and the refutation of a sweep within its limits (sweep)."""
+        self.joins = {}  # the joining facts by the leaf their leaves are tied to
+        for fact, name in facts:
+            self.joins.setdefault(self._find(fact[1])[0], []).append((fact, True, name))
+        self.names.update(name for _, name in facts)
+        blocks = []
+        self.limits = (_SWEEP_LINK_STEPS, _SWEEP_LINK_CHARS)
+        for link in self.links:
+            untied = self._tie(link, blocks)
+            if untied is not None and not (self._open(untied, blocks) and self._tie(link, blocks) is None):
+                self.failed.add(link[1])
+        refutation, lost, searched = None, False, None
+        for rounds in range(_SWEEP_ROUNDS[-1], _SWEEP_DEPTH + 1):
+            for _ in range(_SWEEP_OPENINGS):
+                self.relevant, below, untied = self._local((structure, structure[1]), rounds)
+                # A round further down often meets no gate the search before
+                # did not read (a clause that does not hold: five of eight
+                # searches), only named structures to open: over the same
+                # gates and facts the search would end as that one did.
+                if (self.relevant, below) != searched:
+                    searched = (self.relevant, below)
+                    self.limits = None
+                    self.steps, self.chars = 0, 0
+                    refutation = self.refutation(structure, [(fact, name) for fact, truth, name in below
+                                                             if _structure_children(fact)])
+                    lost = refutation is None and self._exhausted()
+                    self.limits = (_SWEEP_LINK_STEPS, _SWEEP_LINK_CHARS)
+                if refutation is not None or not self._open(untied, blocks):
+                    break
+            if refutation is not None or lost:
+                break  # a search that ran out of its limits does not end sooner over more gates
+        if refutation is None:
+            return None
+        # The links the refutation uses, those their proofs use, and the
+        # canonical gates all of them state.
+        stated = re.compile(r"\b%s_[ks]\d+\b" % re.escape(self.scope[0]))
+        needed, kept = set(stated.findall("\n".join(refutation))), []
+        for name, statement, lines in reversed(blocks):
+            if name in needed:
+                needed.update(stated.findall(statement + "\n".join(lines)))
+                kept.append((name, statement, lines))
+        for name, body in reversed(self.definitions):
+            if name in needed:
+                needed.update(stated.findall(body))
+                kept.append((name, None, [body]))
+        return kept[::-1], refutation
+
     def _descendants(self, root):
         """The structures under root, root included."""
         seen, pending = set(), [root]
@@ -7625,15 +8343,22 @@ class _PropositionalProver:
         on the other side, exceeded the character budget that way).
         """
         hypothesis = self.name()
+        constants = self.constants
+        if self.tautologies:
+            # Those under the two sides: a link is proved from what is below it.
+            below = self._descendants(source) | self._descendants(target)
+            stated = [fact for fact in self.tautologies if fact[0] in below]
+            constants = constants + stated
+            self.stated = frozenset(fact[0] for fact in stated)
         if self.linked:
             negation = self.name()
-            lines = self._prove(dict(), ("false",), self.constants + list(facts)
+            lines = self._prove(dict(), ("false",), constants + list(facts)
                                 + [(source, True, hypothesis), (target, False, negation)])
             if lines is None:
                 return None
             return hypothesis, ["refine Classical.byContradiction (fun (%s : Not %s) => ?_)" % (
                 negation, self._render(target))] + lines
-        lines = self._prove(dict(), target, self.constants + list(facts) + [(source, True, hypothesis)])
+        lines = self._prove(dict(), target, constants + list(facts) + [(source, True, hypothesis)])
         if lines is None:
             return None
         return hypothesis, lines
@@ -7641,6 +8366,7 @@ class _PropositionalProver:
     def refutation(self, structure, facts=()):
         """Tactic lines proving the goal Not structure under the named facts (hypotheses in scope), or None."""
         hypothesis = self.name()
+        self.stated = frozenset()
         self.names.update(name for _, name in facts)
         lines = self._prove(dict(), ("false",), self.constants + [(fact, True, name) for fact, name in facts]
                             + [(structure, True, hypothesis)])
@@ -7773,10 +8499,17 @@ class _PropositionalProver:
         comes first, then the earliest indexed.
         """
         best = None
-        for position, structure in enumerate(self.order):
+        if self.relevant is None:
+            candidates = enumerate(self.order)
+        else:
+            positions = self._positions()
+            candidates = ((positions[structure], structure) for structure in self.relevant)
+        for position, structure in candidates:
             value = state.get(structure)
             if structure[0] != "or" or value is None or not value[0] or not self._relevant(structure):
                 continue
+            if structure in self.stated:
+                continue  # true whatever its disjuncts are: its cases are the two values of one of them
             truths = [state.get(child, (None,))[0] for child in _structure_children(structure)]
             unknown = truths.count(None)
             if True in truths or unknown < 2:
@@ -7813,7 +8546,10 @@ class _PropositionalProver:
             proof = name
         state[structure] = (truth, proof)
         pending.append(structure)
-        pending.extend(self.parents[structure])
+        if self.relevant is None:
+            pending.extend(self.parents[structure])
+        else:  # the other gates draw no consequence (_consequences)
+            pending.extend(parent for parent in self.parents[structure] if parent in self.relevant)
         return None
 
     def _propagate(self, state, lines, pending):
@@ -7827,7 +8563,7 @@ class _PropositionalProver:
                     return conflict
         return None
 
-    def _tails(self, lines, proof, last):
+    def _tails(self, lines, structure, proof, last):
         """Bind the rest of a true conjunction from every _AND_ELIM_STRIDE-th operand on, up to operand last.
 
         As _tail_lets does for and-elim: each tail projects from the one
@@ -7836,8 +8572,14 @@ class _PropositionalProver:
         proof itself, the conjuncts of a 400-operand assertion (a cnf lemma
         of QF_UF NEQ004) took 80,000 projections, longer in Lean than grind
         over the whole unfolded assertion. Returns the tail names by base.
+        The tails of a conjunction defined in chunks are its tail theorems
+        applied to the proof, with nothing to bind.
         """
         tails = {0: proof}
+        if structure in self.tails:
+            for base in range(_AND_ELIM_STRIDE, last + 1, _AND_ELIM_STRIDE):
+                tails[base] = self.tails[structure] % (base // _AND_ELIM_STRIDE, proof)
+            return tails
         for base in range(_AND_ELIM_STRIDE, last + 1, _AND_ELIM_STRIDE):
             tails[base] = self.name()
             line = "have %s := %s%s" % (tails[base], tails[base - _AND_ELIM_STRIDE], ".2" * _AND_ELIM_STRIDE)
@@ -7903,7 +8645,7 @@ class _PropositionalProver:
                 # here keeps a conjunction of n operands from building its n
                 # projections each time one of them is assigned (cubic in n).
                 positions = [i for i in range(count) if truths[i] is not True]
-                tails = self._tails(lines, value[1], positions[-1]) if positions else {}
+                tails = self._tails(lines, structure, value[1], positions[-1]) if positions else {}
                 for i in positions:
                     base = i // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
                     add(children[i], True, _select(i - base, count - base, tails[base]), typed=False)
@@ -7915,7 +8657,14 @@ class _PropositionalProver:
                                                   _fold("And.intro", parts, "True.intro")), typed=False)
             if False in truths:
                 position = truths.index(False)
-                add(structure, False, _reject_conjunct(position, count, proofs[position]))
+                if structure in self.tails:
+                    # Defined in chunks: the conjunct projected from the chunk's tail theorem.
+                    base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE
+                    tail = self.tails[structure] % (base // _AND_ELIM_STRIDE, "_conj") if base else "_conj"
+                    add(structure, False, "(fun (_conj : %s) => %s %s)" % (
+                        self._render(structure), proofs[position], _select(position - base, count - base, tail)))
+                else:
+                    add(structure, False, _reject_conjunct(position, count, proofs[position]))
             elif None not in truths:
                 add(structure, True, _fold("And.intro", proofs, "True.intro"), typed=False)
         elif kind == "or":
@@ -7959,7 +8708,17 @@ class _PropositionalProver:
             (left, right), (truth_a, truth_b), (proof_a, proof_b) = children, truths, proofs
             if left == right:
                 add(structure, True, "Iff.rfl")
-            if value is not None and value[0]:
+            if value is not None and value[0] and self.scope is not None:
+                # A sweep: the type follows from the fact, a link's theorem.
+                if truth_a is True:
+                    add(right, True, "(Iff.mp %s %s)" % (value[1], proof_a), typed=False)
+                elif truth_a is False:
+                    add(right, False, "(mt (Iff.mpr %s) %s)" % (value[1], proof_a), typed=False)
+                if truth_b is True:
+                    add(left, True, "(Iff.mpr %s %s)" % (value[1], proof_b), typed=False)
+                elif truth_b is False:
+                    add(left, False, "(mt (Iff.mp %s) %s)" % (value[1], proof_b), typed=False)
+            elif value is not None and value[0]:
                 if truth_a is True:
                     add(right, True, "(Iff.mp %s %s)" % (value[1], proof_a))
                 elif truth_a is False:
@@ -8003,17 +8762,26 @@ def _structure_names(graph, memo):
     and no `unfold` expands them in the goal: a cnf lemma over a 13,000-node
     assertion (QF_IDL BubbleSort) spent its heartbeats unfolding the 13,000
     definitions one at a time. Two nodes reading alike share a structure;
-    either definition names it.
+    either definition names it. Returned as the prover's keyword arguments:
+    `names`, and `tails`, the conjunctions among them that are defined in
+    chunks, with the format of their tail theorems (_chunk_tail), from
+    which the prover projects their operands.
     """
-    return {structure: _formula(graph, node) for node, structure in memo.items()
-            if structure[0] in ("and", "or", "implies", "iff")}
+    names, tails = {}, {}
+    for node, structure in memo.items():
+        if structure[0] in ("and", "or", "implies", "iff"):
+            names[structure] = _formula(graph, node)
+            tails.pop(structure, None)  # of the node that names it, not of another reading alike
+            if structure[0] == "and" and graph.wide_conjunctions.get(node) == len(structure) - 1:
+                tails[structure] = _chunk_tail(graph, node)
+    return {"names": names, "tails": tails}
 
 
 def _structural_equivalence(graph, left, right, atom_indices):
     """Tactic lines proving the Boolean equivalence of two formulas, with the atoms it needs decidable."""
     memo = {}
     left, right = (_boolean_structure(graph, side, atom_indices, memo) for side in (left, right))
-    prover = _PropositionalProver(left, right, names=_structure_names(graph, memo))
+    prover = _PropositionalProver(left, right, **_structure_names(graph, memo))
     return prover.equivalence(left, right), sorted(prover.needed)
 
 
@@ -8046,12 +8814,18 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     assertion with a disjunction per time step (QF_IDL planning plan-21)
     the search took the earlier steps' disjunctions first and exhausted its
     budget, and over the core it splits the one step the clause is about.
-    When neither search refutes the clause, it rests on what the leaves
+    When the core's search gives up too, the clause is swept
+    (_PropositionalProver.sweep): Z3 logged it over its rewriter's form of
+    the assertion, and the two forms of a circuit (QF_IDL RTCL
+    ckt_PROP1_tf_20, 4,000 gates each way) are related gate by gate, each
+    link a small theorem before the lemma, where the search split without
+    end. When no search refutes the clause, it rests on what the leaves
     denote beyond the bridges, and the search is repeated with theory
-    clauses over the leaves (_theory_clauses), each a `have` the theory
+    clauses over the leaves (_theory_clauses), each a fact the theory
     tactic proves, within _THEORY_CLAUSE_BUDGET times the limits; the proof
-    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The
-    unfolded theory
+    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The bridges and
+    the theory clauses are proved apart from one another (_stated_facts).
+    The unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
     prover gives up (the clause needs a theory fact no theory clause
@@ -8063,7 +8837,17 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     leaves, memo, synthetic = {}, {}, {}
     structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves, synthetic)
     bridges = _leaf_bridges(graph, leaves, synthetic)
-    refutation, names, order = _cnf_refutation(graph, memo, structure, bridges)
+    refutation, names, order, declarations = _cnf_refutation(graph, memo, structure, bridges, sweep=node)
+    if declarations is not None:
+        # Found by the sweep: the links are theorems of their own before
+        # this one, and so are the bridges they rest on; the names are
+        # those theorems applied, not hypotheses to state (there may be no
+        # declaration at all: a clause refuted over the canonical gates it
+        # is written in, without a bridge).
+        lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
+                                   opaque_tactic=_opaque_tactic(graph, node),
+                                   structural=["refine Classical.byContradiction ?_"] + refutation)
+        return declarations + lemma, term
     clauses = None
     if refutation is None:
         # The propositional abstraction may not refute the clause: once more
@@ -8072,7 +8856,7 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
                                   atom_indices)
         if clauses:
             bridges = bridges + clauses
-            refutation, names, _ = _cnf_refutation(graph, memo, structure, bridges, _THEORY_CLAUSE_BUDGET)
+            refutation, names, _, _ = _cnf_refutation(graph, memo, structure, bridges, _THEORY_CLAUSE_BUDGET)
     if refutation is None:
         # A clause over products that Z3 assumed on its nonlinear solver's
         # word (nlsat) holds by what the products denote: by a polynomial
@@ -8089,38 +8873,97 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     # the definition of a node side unfolded by unification).
     # The theory clauses come after the leaf bridges.
     bridged = len(bridges) - len(clauses or ())
-    attempt = ["have %s : %s := %s" % (name, _render_structure(bridge), "eq_comm" if definitions is None else
-                                       _theory_clause_proof(graph, bridge, definitions, position >= bridged))
-               for position, ((bridge, definitions), name) in enumerate(zip(bridges, names))]
+    attempt = _stated_facts([(name, _render_structure(bridge), "eq_comm" if definitions is None else
+                              _theory_clause_proof(graph, bridge, definitions, position >= bridged))
+                             for position, ((bridge, definitions), name) in enumerate(zip(bridges, names))],
+                            _formula(graph, conclusion))
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
     if clauses and sum(len(line) + 1 for line in attempt) > _STRUCTURAL_REWRITE_CHARS:
         # The search over the theory clauses may look further, but the proof
         # kept stays within what the first searches could keep: a longer one
         # risks the lemma's heartbeats, which `first` does not catch (a
-        # runtime exception fails the whole lemma, fallback included).
+        # runtime exception fails the whole lemma, fallback included). The
+        # count is of the text as written: a fact as a binder and a guarded
+        # argument (_stated_facts, _fact_tactics) is 43 characters more
+        # than the `have` it was, 30 kB of the limit at 694 facts.
         attempt = None
     return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
 
 
+def _stated_facts(facts, goal):
+    """The tactic that states the facts (name, statement, proof) of a cnf lemma's attempt, each proved apart.
+
+    The bridges and theory clauses were a `have` each, one after the other,
+    and the theory tactic that proves one takes every hypothesis of its
+    context: the k-th fact was proved over the k-1 before it, and the facts
+    of a lemma cost their number squared. The cnf lemma of QF_LRA tta_startup
+    simple_startup_15nodes states 694 of them (665 bridges of comparisons
+    Z3 logged the other way round, 29 theory clauses): 33 s, and the lemma
+    out of its heartbeats, where the facts and the refutation together take
+    under a second as theorems of their own. They are stated as the binders
+    of one function, which the goal is refined by, and proved as its
+    arguments: every proof is elaborated in the context of the lemma,
+    without the other facts, and the refutation that follows has them all,
+    by the same names. A proof is a term (eq_comm) or tactics written by
+    _fact_tactics, which fail when they do not prove the fact: an argument
+    that fails is an error of the `refine`, which `first` catches as it
+    caught a failing `have`. One tactic, its lines indented past the column
+    of an alternative (_grind_lemma); a multi-line proof (_fact_tactics) is
+    indented further still.
+    """
+    if not facts:
+        return []
+    pad = "\n" + " " * 12
+    return ["refine (fun" + "".join("%s(%s : %s)" % (pad, name, statement) for name, statement, _ in facts)
+            + "%s=> (?_ : %s))" % (pad, goal) + "".join("%s(%s)" % (pad[:-2], proof) for _, _, proof in facts)]
+
+
+def _fact_tactics(*alternatives):
+    """A fact's proof by tactics, as an argument of _stated_facts: the first alternative (tactic lines) proving it.
+
+    A `have`'s tactics were tactics of the lemma's block, under its `first`,
+    where a tactic that fails is an exception and the lemma's fallback is
+    taken. The tactics of an argument `(by ...)` are run by the term
+    elaborator, which recovers from errors whatever block the term is in: a
+    tactic failing under a bullet, a `case`, or braces, or a block ending
+    with its goal open, is logged and the fact admitted; the `refine`
+    succeeds, the fallback is never tried, and Lean rejects a certificate
+    its fallback would have proved (never an acceptance: the error is
+    reported). So the alternatives are those of a `first` that ends in
+    `fail`, which turns recovery off in the ones before it, and each is
+    closed by `done`: a fact that is not proved fails the `refine`, whatever
+    the shape of its proof. One alternative of one line stays on the line
+    of its argument; otherwise the lines are indented past the column the
+    argument starts at.
+    """
+    if len(alternatives) == 1 and len(alternatives[0]) == 1:
+        return "by first | ((%s); done) | fail" % alternatives[0][0]
+    pad = "\n" + " " * 16
+    return "by%sfirst%s%s  | fail" % (pad, "".join(
+        "%s  | (%s)" % (pad, (pad + "     ").join(list(lines) + ["done"])) for lines in alternatives), pad)
+
+
+def _unfolded_theory_tactic(graph, definitions):
+    """The theory tactic over the unfolded definitions of a bridge or theory clause, one line."""
+    return "unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph))
+
+
 def _theory_clause_proof(graph, structure, definitions, clause):
-    """The proof of a bridge or theory clause of a cnf lemma: the theory tactic over the unfolded leaves.
+    """The proof of a bridge or theory clause as a fact of a cnf lemma: the theory tactic over the unfolded leaves.
 
     A theory clause (_theory_clauses) over products of Int terms is first
     proved by the signs of their factors (_sign_split_clause), which the
-    theory tactic does not find. The lines of that proof are indented past
-    any column the `have` may start at.
+    theory tactic does not find. An argument of _stated_facts: the tactics
+    fail when they do not prove the fact (_fact_tactics).
     """
-    unfolded = "unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph))
+    unfolded = [_unfolded_theory_tactic(graph, definitions)]
     split = _sign_split_clause(graph, structure) if clause else None
-    if split is None:
-        return "by " + unfolded
-    pad = "\n" + " " * 16
-    return "by%sfirst%s  | (%s)%s  | (%s)" % (pad, pad, (pad + "     ").join(split), pad, unfolded)
+    return _fact_tactics(unfolded) if split is None else _fact_tactics(split, unfolded)
 
 
-def _cnf_refutation(graph, memo, structure, bridges, budget=1):
+def _cnf_refutation(graph, memo, structure, bridges, budget=1, sweep=None):
     """The prover's refutation of a cnf lemma's negated clause under the bridges, their names, and its structures.
 
     The search runs over every gate first and, when it gives up, once more
@@ -8128,21 +8971,71 @@ def _cnf_refutation(graph, memo, structure, bridges, budget=1):
     (_relevant_structures), each within budget times the prover's limits.
     The refutation is None when neither finds one; the structures (children
     before parents) are the first prover's.
+
+    With sweep, the node of the lemma, a clause neither search refutes is
+    swept (_PropositionalProver.sweep). The fourth result is None unless
+    the refutation is the sweep's: then it is the lines of the declarations
+    to write before the lemma (possibly none), and the names are the
+    bridges' theorems among them, applied.
     """
     facts = [("not", structure)] + [bridge for bridge, _ in bridges]
     relevant, order = None, None
     while True:
-        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant,
+        prover = _PropositionalProver(*facts, classical=True, **_structure_names(graph, memo), relevant=relevant,
                                       budget=budget)
         order = order or prover.order
         names = [prover.name() for _ in bridges]
         refutation = prover.refutation(("not", structure),
                                        [(bridge, name) for (bridge, _), name in zip(bridges, names)])
-        if refutation is not None or relevant is not None:
-            return refutation, names, order
+        if refutation is not None:
+            return refutation, names, order, None
+        if relevant is not None:
+            break
         relevant = _relevant_structures(prover.order, facts)
         if relevant is None:
-            return None, names, order
+            return None, names, order, None
+    if sweep is None:
+        return None, names, order, None
+    # The clause follows propositionally and the search is lost in it: the
+    # sweep relates the two forms of the assertion gate by gate
+    # (_PropositionalProver.sweep). Its links, the canonical gates they
+    # state, and the bridges are declarations of their own, th_lemma_N_sK,
+    # _kK, and _bK: a tactic block is elaborated within the heartbeats of
+    # its declaration, and the links of a circuit take megabytes. The sweeps
+    # of a file share _SWEEP_CHARS (graph.swept): Lean's memory grows with
+    # the file.
+    allowed = _SWEEP_CHARS - sum(chars for node, chars in graph.swept.items() if node != sweep)
+    scope = ("th_lemma_%d" % sweep, " _atoms" + graph.valuation)
+    binder = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
+    prover = _PropositionalProver(*facts, classical=True, **_structure_names(graph, memo), budget=budget,
+                                  joined=[bridge for bridge, _ in bridges], scope=scope)
+    stated = ["(%s_b%d%s)" % (scope[0], position, scope[1]) for position in range(len(bridges))]
+    found = prover.sweep(("not", structure), [(bridge, name) for (bridge, _), name in zip(bridges, stated)],
+                         chars=allowed)
+    if found is None:
+        return None, names, order, None
+    declarations, refutation = found
+    text = "\n".join(refutation + [line for _, statement, lines in declarations for line in [statement or ""] + lines])
+    if len(text) > allowed:
+        return None, names, order, None
+    graph.swept[sweep] = len(text)
+    lines = []
+    for position, (bridge, definitions) in enumerate(bridges):
+        if stated[position] in text:
+            lines.extend(["", "set_option maxHeartbeats 1000000 in",
+                          "private theorem %s_b%d %s" % (scope[0], position, binder),
+                          "    : %s := %s" % (_render_structure(bridge), "eq_comm" if definitions is None else
+                                              "by " + _unfolded_theory_tactic(graph, definitions))])
+    for name, statement, proof in declarations:
+        if statement is None:
+            lines.append("private def %s %s : Prop := %s" % (name, binder, proof[0]))
+        else:
+            lines.append("")
+            if sum(map(len, proof)) > _SWEEP_LINK_CHARS // 10:
+                lines.append("set_option maxHeartbeats 1000000 in")  # as a lemma has; the default is a fifth
+            lines.extend(["private theorem %s %s" % (name, binder), "    : %s := by" % statement])
+            lines.extend("  " + line for line in proof)
+    return refutation, stated, order, lines
 
 
 def _theory_clauses(graph, order, facts, atom_indices):
@@ -8166,7 +9059,7 @@ def _theory_clauses(graph, order, facts, atom_indices):
     core of those literals, shrunk one literal at a time, is a clause (its
     literals negated) that excludes the model; it is added and the search
     repeats until the abstraction is unsatisfiable. Each clause is returned
-    as (structure, definitions), like a bridge: stated with a `have` that
+    as (structure, definitions), like a bridge: stated as a fact that
     the theory tactic proves over the leaves' unfolded definitions, and
     given to the prover as a fact. z3 is an untrusted oracle here, as in
     _relevant_structures: a clause that does not hold is an error in Lean,
@@ -8251,7 +9144,7 @@ def _theory_clauses(graph, order, facts, atom_indices):
         if not used or used == leaves:
             # A clause over every leaf restates the lemma as one theory fact,
             # which the fallback proves with its helpers (scaled ite gates)
-            # and the `have` would prove without them; over a wide distinct
+            # and the fact's proof would prove without them; over a wide distinct
             # as one leaf it ran omega out of heartbeats the same way.
             return None
         clauses.append((_structure_fold("or", parts), _definition_names(graph, _reachable(graph, *nodes)[0], nodes)))
@@ -8358,8 +9251,8 @@ def _leaf_bridges(graph, leaves, synthetic=None):
     denoting one constraint (or complementary ones); generalized apart they
     are unrelated and propagation stops at them. Each bridge is the
     structure ("iff", leaf, other) or ("iff", leaf, ("not", other)), to be
-    stated as a `have` the theory tactic proves (the sides' definitions
-    unfolded) and given to the prover as a fact. Returns (structure,
+    stated as a fact the theory tactic proves (the sides' definitions
+    unfolded, _stated_facts) and given to the prover. Returns (structure,
     definition names) pairs.
 
     A synthetic pair leaf (a, b) of a distinct (_distinct_pair_leaves, by
@@ -8481,10 +9374,13 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
                 and _normalizable_rewrite(graph, node, outside, atoms)):
             lines, term = _normalized_rewrite(graph, node, outside, atoms, atom_indices, variable_indices)
         else:
-            # The rewriter's sign split of a factored product: by the signs of the factors first.
+            # The rewriter's sign split of a factored product: by the signs of
+            # the factors first. Else a regrouping of the gates over the same
+            # theory atoms: by the structure of the two sides.
             lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices,
                                        opaque_tactic=_opaque_rewrite_tactic(graph),
-                                       structural=_sign_split(graph, node, rewrite=True))
+                                       structural=(_sign_split(graph, node, rewrite=True)
+                                                   or _leaf_equivalence(graph, left, right, atom_indices)))
         return lines, set(), term
     proof, atoms = _structural_equivalence(graph, left, right, atom_indices)
     if proof is None:
@@ -8499,7 +9395,8 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
         lines.extend("  " + line for line in proof)
         term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
         return lines, atoms, term
-    lines.append("  unfold " + " ".join("formula_%d" % formula for formula in sorted(reachable, reverse=True)))
+    lines.append("  unfold " + " ".join(name for formula in sorted(reachable, reverse=True)
+                                        for name in _formula_names(graph, formula)))
     for atom in atoms:
         lines.extend([
             "  all_goals",
@@ -8510,6 +9407,41 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     lines.append("  all_goals exact of_decide_eq_true rfl")
     term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
     return lines, atoms, term
+
+
+def _leaf_equivalence(graph, left, right, atom_indices):
+    """Tactic lines proving a rewrite between two formulas by their Boolean structure alone, or None.
+
+    Every theory atom (an equality or a distinct over terms, a comparison,
+    a predicate application) is an opaque leaf, the same leaf where the two
+    sides share the node, and the goal stays folded, as for a cnf lemma
+    (_cnf_lemma): the proof names the gates by their definitions. Z3's
+    rewriter flattens the nested conjunctions and disjunctions of an
+    assertion, sorts their operands and drops the duplicates, which the
+    prover's links relate (_equivalent_structures). Such a rewrite went to
+    grind over the unfolded sides, which case-splits the disjunctions: the
+    quasigroup inputs of QF_UF QG-classification (a five-way disjunction of
+    conjunctions of 20 or 25 clauses over the equalities of a 5 by 5
+    operation table, written as binary gates and logged flattened) ran out
+    of the heartbeats in each such rewrite, 0.5 to 3 MB certificates that
+    Lean rejected after 20 to 85 s.
+
+    Only for a rewrite over more than _NORMALIZED_REWRITE_ATOMS leaves, the
+    size from which the rewrites over arithmetic atoms leave grind too
+    (_normalized_rewrite), and only when the prover finds the proof: a
+    rewrite that rests on what an atom denotes (an equality reoriented or
+    decided) gets none here and goes to the theory tactic as before, which
+    is the fallback of this attempt as well.
+    """
+    leaves, memo = {}, {}
+    try:
+        sides = [_boolean_structure(graph, side, atom_indices, memo, leaves) for side in (left, right)]
+    except ReconstructionError:
+        return None
+    if len(leaves) <= _NORMALIZED_REWRITE_ATOMS:
+        return None
+    prover = _PropositionalProver(*sides, classical=True, **_structure_names(graph, memo), links=True)
+    return prover.equivalence(*sides)
 
 
 def _negated_distinct_rewrite(graph, node, left, right):
@@ -8549,7 +9481,8 @@ def _negated_distinct_rewrite(graph, node, left, right):
     conclusion = graph.conclusion(node)
     lines = ["", "private theorem rewrite_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
              "    : %s := by" % _formula(graph, conclusion),
-             "  unfold %s" % " ".join("formula_%d" % formula for formula in (conclusion, left, distinct, right))]
+             "  unfold %s" % " ".join(name for formula in (conclusion, left, distinct, right)
+                                      for name in _formula_names(graph, formula))]
     lines.extend("  refine Iff.trans Classical.not_and_iff_not_or_not (or_congr %s ?_)" % congruence
                  for congruence in congruences[:-1])
     lines.append("  exact %s" % congruences[-1])
@@ -8965,8 +9898,9 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
         ] + tactic)
         lines.append("  have %s : %s <-> %s := normalized_atom_%d_%d _atoms%s" % (
             rewrite, _formula(graph, atom), target, node, atom, graph.valuation))
-    definitions = ["formula_%d" % formula for formula in sorted(reachable, reverse=True)
-                   if not graph.is_arith(formula) and formula not in atoms]
+    definitions = [name for formula in sorted(reachable, reverse=True)
+                   if not graph.is_arith(formula) and formula not in atoms
+                   for name in _formula_names(graph, formula)]
     names = list(canonical.values())
     structures = {}
 
@@ -9812,9 +10746,19 @@ def _resolution(graph, terms, node):
             value = "(@Decidable.byContradiction %s _df%d %s)" % (_formula(graph, literal), literal, value)
         return _inject(positions[terms[literal]], len(conclusion), value)
 
+    def refutation(position):
+        """A proof that the eliminated or false literal at position does not hold."""
+        if position not in eliminations:
+            return "not_false"
+        unit, negated_unit = eliminations[position]
+        return "_step_%d" % unit if negated_unit else "(not_not_intro _step_%d)" % unit
+
     support = set(doubles.values())
     if not literals:
         return "(False.elim _step_%d)" % first, support
+    if (len(kept) > _RESOLUTION_SPLITS and not doubles
+            and [terms[literals[position]] for position in kept] == [terms[literal] for literal in conclusion]):
+        return _ordered_resolution("_step_%d" % first, len(literals), cut, eliminate, refutation), support
     # Eliminated literals are cut off the clause by field notation,
     # `(h.resolve_left n)` (Or.resolve_left), which elaborates inside out from
     # the known type of the clause; only kept literals open an Or.elim case
@@ -9847,7 +10791,93 @@ def _resolution(graph, terms, node):
     return "".join(cases) + branch(last, subject) + "))" * len(cases), support
 
 
-def _lemma(graph, terms, node, hypotheses):
+# A unit resolution that keeps more literals than this, in the order of its
+# conclusion, is written by _ordered_resolution. Narrower ones keep the case
+# split per kept literal: nearly all of them keep two literals (one split),
+# and their text is what the certificates checked so far hold.
+_RESOLUTION_SPLITS = 8
+_RESOLVE_FIRST = "resolve_first"
+_RESOLVE_REST = "resolve_rest"
+# The cut of a literal as a function on the clause, the unit first: the
+# first literal is cut and f treats the rest (the identity when the rest
+# stays as it is, another cut or a refutation otherwise), or everything after
+# the first literal is cut. Written once per file, when a resolution names
+# them; they depend on no axiom.
+_RESOLVE_LEMMAS = (
+    "",
+    "private theorem %s {p q r : Prop} (n : Not p) (f : q -> r) : p \\/ q -> r :=" % _RESOLVE_FIRST,
+    "  fun h => f (h.resolve_left n)",
+    "",
+    "private theorem %s {p q : Prop} (n : Not q) : p \\/ q -> p :=" % _RESOLVE_REST,
+    "  fun h => h.resolve_right n",
+)
+
+
+def _ordered_resolution(subject, count, cut, eliminate, refutation):
+    """A unit resolution whose conclusion is its clause without the cut literals, in text linear in the clause.
+
+    subject proves the clause of count literals; cut(position) tells whether
+    a literal is eliminated by a unit or is false, eliminate(subject,
+    position, "left") cuts the first literal off a proof by field notation,
+    and refutation(position) is a proof that a cut literal does not hold.
+    The kept literals stay where they are, so nothing is injected. Cuts in
+    front are resolved away by field notation, and when no cut is left the
+    proof at hand is the conclusion as it stands. Cuts further on are made by
+    one function applied to that proof, composed literal by literal without
+    a binder: `Or.imp_right` passes over a kept literal, `resolve_first`
+    cuts one, `id` keeps what follows the last cut, and `resolve_rest` cuts
+    everything after the last kept literal, refuted literal by literal:
+
+        (_step_7.resolve_left _step_3)
+        ((Or.imp_right (Or.imp_right (resolve_first _step_3 id))) _step_7)
+        ((Or.imp_right (resolve_rest (resolve_first _step_3 _step_4))) _step_7)
+
+    for b cut off (or b l1 ... ln), any n, off (or l1 l2 b l3 ... ln), and
+    b and c off (or l1 l2 b c). The case split per kept literal
+    (_resolution) injects the literal at position k by k `Or.inr`: 8 bytes
+    times half the square of the kept literals for a proof that is the
+    identity on each of them. A resolution of one literal off a 401-literal
+    clause was a line of 745 kB, and its lemma ran out of Lean's 200,000
+    heartbeats.
+
+    A function per cut, `(fun _tail => ...)` under the ones before it, was
+    tried: Lean elaborates each only once the proof it is applied to is
+    known, and a clause of 200 literals with every other one cut ran out of
+    heartbeats, where the case splits verify in 2 s.
+    """
+    position = 0
+    while cut(position):
+        subject = eliminate(subject, position, "left")
+        position += 1
+    cuts = [later for later in range(position, count) if cut(later)]
+    if not cuts:
+        return subject
+    last_kept = max(later for later in range(position, count) if not cut(later))
+    parts = []
+    for later in range(position, count):
+        if later > cuts[-1]:
+            parts.append("id")  # the literals after the last cut stay as they are
+            break
+        if later < last_kept:
+            parts.append("(%s %s " % (_RESOLVE_FIRST, refutation(later)) if cut(later) else "(Or.imp_right ")
+        elif later == last_kept:
+            parts.append("(%s " % _RESOLVE_REST)
+        else:
+            # The cut literals after the last kept one: a refutation of their disjunction.
+            parts.append("(%s %s " % (_RESOLVE_FIRST, refutation(later)) if later < count - 1 else refutation(later))
+    function = "".join(parts)
+    return "(%s%s %s)" % (function, ")" * (function.count("(") - function.count(")")), subject)
+
+
+def _lemma(graph, terms, node, hypotheses, classical=False):
+    """The term of a `lemma` step, which discharges hypotheses into the clause of their negations.
+
+    Its premise is a function from the hypotheses to False. With classical
+    (the outlined lemmas of the arithmetic and uninterpreted slices, which
+    take classical witnesses anyway) the clause is proved literal by literal
+    (_cases_lemma); otherwise by contradiction with the decidability witness
+    of the clause, each hypothesis refuted through the negated clause.
+    """
     premise, conclusion = graph.arguments(node)
     if graph.kind(graph.conclusion(premise)) != z3.Z3_OP_FALSE:
         raise ReconstructionError("lemma requires a proof of false at node %d" % node)
@@ -9888,6 +10918,7 @@ def _lemma(graph, terms, node, hypotheses):
         positives.setdefault(terms[literal], position)
         if graph.kind(literal) == z3.Z3_OP_NOT:
             negatives.setdefault(terms[graph.arguments(literal)[0]], position)
+    discharges = []  # per hypothesis: its literal's position, and whether that literal negates it
     for hypothesis in hypotheses:
         positive = (positives.get(terms[graph.arguments(hypothesis)[0]])
                     if graph.kind(hypothesis) == z3.Z3_OP_NOT else None)
@@ -9895,14 +10926,67 @@ def _lemma(graph, terms, node, hypotheses):
         if positive is None and negative is None:
             raise ReconstructionError("lemma does not discharge every hypothesis at node %d" % node)
         if negative is None or (positive is not None and positive <= negative):
-            arguments.append(negated_literal(positive))
+            discharges.append((positive, False))
+        else:
+            discharges.append((negative, True))
+    if classical:
+        return _cases_lemma(premise, len(literals), discharges), set()
+    for hypothesis, (position, negated) in zip(hypotheses, discharges):
+        if not negated:
+            arguments.append(negated_literal(position))
         else:
             arguments.append("(@Decidable.byContradiction %s _df%d %s)" % (
-                _formula(graph, hypothesis), hypothesis, negated_literal(negative)))
+                _formula(graph, hypothesis), hypothesis, negated_literal(position)))
             decidable.add(hypothesis)
     contradiction = "%s(_step_%d %s)" % ("".join(bindings), premise, " ".join(arguments))
     return ("(@Decidable.byContradiction %s _df%d (fun _not_clause => %s))" % (
         _formula(graph, conclusion), conclusion, contradiction)), decidable
+
+
+def _cases_lemma(premise, count, discharges):
+    """A `lemma` step's clause of count literals proved literal by literal, in text linear in the clause.
+
+    discharges gives, for each hypothesis of the premise in order, the
+    position of the literal that discharges it and whether that literal is
+    the hypothesis negated (else the hypothesis is the literal negated). One
+    function takes a refutation `_nK` of every literal to False: the premise
+    applied to `_nK` itself for a hypothesis (not l), and for a hypothesis h
+    with literal (not h) to the proof of h by contradiction from `_nK : Not
+    (Not h)`. classical_or_intro turns its binders into the clause's
+    literals one at a time, the last one by contradiction; the chain names
+    no formula (each follows from the clause the step states) and nests no
+    binder: with one `fun _nK =>` per literal, each under the ones before,
+    the two lemmas over 779 and 512 literals of a negated 40-term distinct
+    took Lean 22 s more than this chain (27.8 s for the file against 5.2).
+
+    Through the negated clause (_lemma without classical), the refutation
+    of the literal at position k is `(fun _literal => _not_clause (Or.inr
+    (.. (Or.inl _literal))))`, k injections: for the whole step 4 bytes
+    times the square of the clause's width up to _AND_ELIM_STRIDE literals,
+    and about 200 bytes a literal above. Here a literal costs about 33
+    bytes when its hypothesis is its negation and 29 more when it negates
+    its hypothesis (the proof by contradiction): 42.5 over the chains of
+    the smtlib-sample. Such lines were 38.8 of the 141.4 MB of Lean of
+    QF_IDL vlsat3_c27 (7,539 clauses of up to 110 literals; 7.4 MB as
+    chains) and 13 to 21% of the QF_UF gensys texts of 31.7 to 194.8 MB.
+
+    Nothing bounds or splits a chain, and Lean's time and memory on one
+    grow faster than its width: alone in a file, 2 s at 0.7 GB over 800
+    literals, 12 s at 1.6 GB over 1,600, 57 s at 4.9 GB over 3,200, and
+    over 4,800 the kernel stops at the 8 GB cap of check_lean.sh after 130
+    s (a rejection). The widest clause of a `lemma` step in the sample has
+    154 literals.
+    """
+    needed = {position for position, _ in discharges}
+    binders = " ".join("_n%d" % position if position in needed else "_" for position in range(count))
+    arguments = " ".join(
+        "(%s _n%d)" % (_CLASSICAL_CONTRADICTION, position) if negated else "_n%d" % position
+        for position, negated in discharges)
+    refuted = "(fun %s => (_step_%d %s))" % (binders, premise, arguments)
+    if count == 1:
+        return "(%s %s)" % (_CLASSICAL_CONTRADICTION, refuted)
+    return "%s%s%s %s)" % (("(%s " % _CLASSICAL_DISJUNCT) * (count - 1), _CLASSICAL_CONTRADICTION,
+                           ")" * (count - 2), refuted)
 
 
 def _outline_weight(graph, node):
@@ -9933,8 +11017,9 @@ def _direct_hypotheses(graph, terms):
     by every lemma using it. In the QF_IDL DTP_k2_n35 refutation this was
     3.3 MB of 36.9 MB of Lean. Only the premise of a `lemma` keeps its step:
     the lemma discharges the hypotheses its premise depends on, so the
-    binder is not in scope there. (No conjunction tails start from a
-    hypothesis: _and_elim projects a premise under hypotheses from its start.)
+    binder is not in scope there. (No conjunction tails are bound from a
+    hypothesis: _and_elim projects a premise under hypotheses from its
+    start, or from a tail theorem of its conjunction applied to it.)
     """
     kept = {graph.arguments(node)[0] for node in terms if graph.kind(node) == z3.Z3_OP_PR_LEMMA}
     return {node for node in terms if graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS and node not in kept}
@@ -10004,7 +11089,9 @@ def _witness_formula(graph, name):
 # A unit resolution that keeps one literal is the clause's proof with every
 # other literal cut off by field notation, `(_step_N.resolve_left u)` and so on
 # (_resolution): Or.resolve_* infer its type from the clause's, the kept
-# literal's formula, so the let binding it states no type. Any other term
+# literal's formula, so the let binding it states no type; nor does the
+# binding of a resolution that keeps a clause's tail as it stands after cuts
+# in front (_ordered_resolution), whose type is that tail. Any other term
 # (an Or.inl/Or.inr injection into a wider conclusion, a case split, a proof by
 # contradiction, False.elim) starts otherwise and keeps the stated type. In
 # the QF_IDL DTP_k2_n35_c245_s9 refutation 46,002 of the 49,550 steps bound
@@ -10062,12 +11149,24 @@ def _step_blocks(graph, terms, dependencies, excluded):
 
 _CLASSICAL_CONTRADICTION = "classical_by_contradiction"
 # Decidable.byContradiction at the witness Classical.propDecidable, which the
-# classical lemmas bound by a let before: the same axiom (Classical.choice),
-# where Classical.byContradiction would add propext and Quot.sound.
+# classical lemmas bound by a let before: the same axioms, those of the
+# witness (propext, Classical.choice, Quot.sound, which `#print axioms`
+# reports for Classical.propDecidable itself, and for Classical.em and
+# Classical.byContradiction alike).
 _CLASSICAL_CONTRADICTION_LEMMA = [
     "",
     "private theorem %s {p : Prop} (h : Not p -> False) : p :=" % _CLASSICAL_CONTRADICTION,
     "  @Decidable.byContradiction p (Classical.propDecidable p) h",
+]
+# One literal of a `lemma` step's clause (_cases_lemma): from f, which takes
+# a refutation of p to r, and g, which turns r into the rest of the clause,
+# p or the rest; by cases on the witness of the lemma above, so with its
+# axioms and no other.
+_CLASSICAL_DISJUNCT = "classical_or_intro"
+_CLASSICAL_DISJUNCT_LEMMA = [
+    "",
+    "private theorem %s {p q r : Prop} (g : r -> q) (f : Not p -> r) : p \\/ q :=" % _CLASSICAL_DISJUNCT,
+    "  @Decidable.byCases p (p \\/ q) (Classical.propDecidable p) (fun _p => Or.inl _p) (fun _n => Or.inr (g (f _n)))",
 ]
 
 
@@ -10195,8 +11294,8 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     (_step_blocks) is part of that step's lines.
     """
     classical = bool(graph.arithmetic or graph.uninterpreted)
-    inputs = _balanced("And", [_formula(graph, node) for node in graph.assertions], "True")
-    lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    lines = _input_definitions(graph, signature)
+    head = len(lines)
     # The interpretation is implicit in each lemma, determined by the type of
     # _inputs: a lemma is imported as `proof_step_N _inputs`.
     implicit = re.sub(r"\((_\w+ : [^()]*)\)", r"{\1}", signature)
@@ -10259,8 +11358,10 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
             lines.extend(_tail_lets(node, needed.get(node, 0)))
         lines.extend(body)
         lines.extend(conclusion)
+    if classical and any(_CLASSICAL_DISJUNCT in line for line in lines):
+        lines[head:head] = _CLASSICAL_DISJUNCT_LEMMA
     if classical and any(_CLASSICAL_CONTRADICTION in line for line in lines):
-        lines[2:2] = _CLASSICAL_CONTRADICTION_LEMMA
+        lines[head:head] = _CLASSICAL_CONTRADICTION_LEMMA
     return lines, ([] if classical else witnesses[graph.proof])
 
 
@@ -10442,8 +11543,7 @@ def reconstruct(source, certificate):
             if node in quotients:
                 definitions.append(_quotient_theorem(graph, node, signature))
         elif graph.decl(node).range == "Bool":
-            definitions.append("def formula_%d %s : Prop := %s" % (
-                node, signature, _formula_body(graph, node, atom_indices)))
+            definitions.extend(_formula_definitions(graph, node, signature, atom_indices))
     if graph.generic:
         lines.extend(_generic_index_definitions(graph, signature) + late)
     rewrites, def_axioms, th_lemmas, decidable_atoms, decidable_formulas = {}, {}, {}, set(), set()
@@ -10492,7 +11592,7 @@ def reconstruct(source, certificate):
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             position = assumptions[terms[conclusion]]
-            term = (_balanced_select(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
+            term = _input_select(position, len(graph.assertions)) if outline else "_h%d" % position
         elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
@@ -10502,7 +11602,8 @@ def reconstruct(source, certificate):
                 raise ReconstructionError("true-axiom must conclude true at node %d" % node)
             term = "True.intro"
         elif graph.kind(node) == z3.Z3_OP_PR_LEMMA:
-            term, support = _lemma(graph, terms, node, dependencies[node])
+            term, support = _lemma(graph, terms, node, dependencies[node],
+                                   classical=outline and bool(graph.arithmetic or graph.uninterpreted))
             decidable_formulas.update(support)
             dependencies[node] = ()
         elif graph.kind(node) == z3.Z3_OP_PR_MODUS_PONENS:
@@ -10544,6 +11645,9 @@ def reconstruct(source, certificate):
         raise ReconstructionError("the root proof has undischarged hypotheses")
     if ite_congruence:
         lines.extend(_ITE_CONGRUENCE)
+    # The helpers are applied, never passed: each use opens a parenthesis.
+    if any("(%s " % _RESOLVE_FIRST in term or "(%s " % _RESOLVE_REST in term for term in step_terms.values()):
+        lines.extend(_RESOLVE_LEMMAS)
     direct = _direct_hypotheses(graph, step_terms)
     step_terms = _reference_hypotheses(step_terms, direct)
     boundaries = _outline_boundaries(graph, direct) if outline else set()
@@ -10568,9 +11672,9 @@ def reconstruct(source, certificate):
     if outline:
         for name in witnesses:
             lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
-        inputs = _balanced("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
         lines.append("  @proof_step_%d _atoms%s %s%s" % (
-            graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
+            graph.proof, graph.valuation, _input_term(len(graph.assertions)),
+            "".join(" " + name for name in witnesses)))
     else:
         for atom in sorted(decidable_atoms):
             lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
@@ -10588,24 +11692,138 @@ def reconstruct(source, certificate):
     return text
 
 
+def modules(text, limit=None, size=None):
+    """Split the Lean text of one certificate into a chain of modules: [(name, text)] in checking
+    order, the last one unnamed and holding the end of the text (the theorem). A text of at most
+    `limit` characters (_MODULE_CHARS unless given) is its own single module, unchanged.
+
+    Each module holds whole top-level declarations, at most `size` characters of them (_MODULE_SIZE
+    unless given, and never more than `limit`) or one declaration that is longer, inside the
+    text's namespace and under its options; it imports the module before it, and so, transitively,
+    every earlier one. `private` is dropped from the declarations, which later modules name (the
+    namespace is the certificate's own). Nothing else is rewritten, and every module is checked by
+    the kernel like the one file would be (`check_command`): a text that is not laid out as
+    `reconstruct` writes it is rejected here, and a wrong split could only be rejected by Lean.
+    The modules are named `Z3Certificate_<16 hex digits of the text's SHA-256>_<index>`, the
+    indices zero-padded to one width, so the names sort in checking order.
+    """
+    limit = _MODULE_CHARS if limit is None else limit
+    size = min(limit, _MODULE_SIZE) if size is None else size
+    if len(text) <= limit:
+        return [(None, text)]
+    lines = text.split("\n")
+    opening = [index for index, line in enumerate(lines) if line.startswith("namespace ")]
+    closing = [index for index, line in enumerate(lines)
+               if opening and line == "end " + lines[opening[0]][len("namespace "):]]
+    # A block comment could hold lines that look like declarations. A line comment cannot open
+    # one, so `/-` in a comment line (an SMT symbol named in the header, say) is not one.
+    if len(opening) != 1 or len(closing) != 1 or any(
+            "/-" in line for line in lines if not line.lstrip().startswith("--")):
+        raise ReconstructionError("cannot split Lean text that is not one namespace of declarations")
+    start, end = opening[0], closing[0]
+    for line in lines[:start]:
+        # Before the namespace `reconstruct` writes imports and comments; the imports go to every
+        # module and the comments to the last one, and a command there would hold for one module.
+        if line and not line.startswith(("import ", "--")):
+            raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+    body = start + 1
+    while body < end and (not lines[body] or (
+            lines[body].startswith("set_option ") and not lines[body].endswith(" in"))):
+        body += 1
+    options = lines[start + 1:body]  # the namespace's own options, repeated in every module
+    declarations = []  # the lines of each declaration, with the blank lines after it
+    prefixed = False  # the last declaration has only its prefix lines so far
+    for line in lines[body:end]:
+        if line[:1] not in ("", " "):
+            if line.startswith(_MODULE_DECLARATIONS):
+                if not prefixed:
+                    declarations.append([])
+                prefixed = False
+                line = line[len("private "):] if line.startswith("private ") else line
+            elif line.startswith("-- ") or (line.startswith("set_option ") and line.endswith(" in")):
+                if not prefixed:
+                    declarations.append([])
+                prefixed = True
+            else:
+                raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+        elif not declarations:
+            raise ReconstructionError("cannot split Lean text at the line: %s" % line[:80])
+        declarations[-1].append(line)
+    groups, held = [[]], 0
+    for declaration in declarations:
+        length = sum(len(line) + 1 for line in declaration)
+        if groups[-1] and held + length > size:
+            groups.append([])
+            held = 0
+        groups[-1].extend(declaration)
+        held += length
+    if len(groups) == 1:
+        return [(None, text)]
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    # The indices have one width, so the names sort in checking order (a shell's
+    # `Z3Certificate_<digest>_*.lean` lists the modules as `check_lean.sh --chain` needs them).
+    width = len(str(len(groups) - 2))
+    names = ["Z3Certificate_%s_%0*d" % (digest, width, index) for index in range(len(groups) - 1)] + [None]
+    imports = [line for line in lines[:start] if line.startswith("import ")]
+    result = []
+    for index, group in enumerate(groups):
+        chained = imports + (["import " + names[index - 1]] if index else [])
+        if names[index] is None:
+            # The published file: the text's own header, then where the rest of it is.
+            head = chained + [line for line in lines[:start] if not line.startswith("import ")] + [
+                "-- This certificate is checked as a chain of %d modules: the %d before this one, %s to %s, hold"
+                % (len(groups), len(groups) - 1, names[0], names[-2]),
+                "-- its other declarations. scripts/check_lean.sh --chain checks them in that order, this file last.",
+            ]
+            tail = lines[end:]
+        else:
+            head = chained + ["", "-- Module %d of the %d of a certificate checked as a chain; see the last one."
+                              % (index + 1, len(groups))]
+            tail = [lines[end], ""]
+        result.append((names[index], "\n".join(head + [lines[start]] + options + group + tail)))
+    return result
+
+
+def write_modules(text, output, limit=None, size=None):
+    """Write a certificate's Lean text as its chain of modules (`modules`): the last one at
+    `output`, the others next to it under their module names. Returns the files in checking order."""
+    output = Path(output)
+    paths = []
+    for name, module in modules(text, limit, size):
+        paths.append(output if name is None else output.with_name(name + ".lean"))
+        paths[-1].write_text(module, encoding="utf-8")
+    return paths
+
+
+def check_command(paths):
+    """The command that checks the files `write_modules` wrote: one file, or a chain of modules."""
+    return [str(_CHECK_LEAN)] + (["--chain"] if len(paths) > 1 else []) + [str(path) for path in paths]
+
+
 def check_and_write(source, certificate, output):
-    """Publish a Lean file atomically, only after the pinned checker accepts it."""
+    """Publish a Lean file, only after the pinned checker accepts it. A certificate above
+    _MODULE_CHARS is checked as a chain of modules, and the modules the file imports are published
+    next to it, before it. Returns the published files in checking order, `output` last.
+
+    While a chain is checked, the compiled modules (.olean, 5 to 9 MB per MB of Lean text) are
+    in the staging directory next to `output` (Z3_LEAN_CHAIN_DIR of check_lean.sh), which is
+    removed here: a check that is killed leaves them next to the output, not in the system's
+    temporary directory."""
     text = reconstruct(source, certificate)
     output = Path(output)
     if output.suffix != ".lean":
         raise ReconstructionError("the output filename must end in .lean")
-    temporary = None
+    staging = Path(tempfile.mkdtemp(prefix="z3_proof_", dir=output.parent))
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".lean",
-                                         prefix="z3_proof_", dir=output.parent, delete=False) as stream:
-            temporary = Path(stream.name)
-            stream.write(text)
-        subprocess.run([str(_CHECK_LEAN), str(temporary)], check=True, capture_output=True, text=True)
-        os.replace(temporary, output)
-        temporary = None
+        paths = write_modules(text, staging / output.name)
+        subprocess.run(check_command(paths), check=True, capture_output=True, text=True,
+                       env=dict(os.environ, Z3_LEAN_CHAIN_DIR=str(staging.resolve())))
+        published = [output.with_name(path.name) for path in paths]
+        for path, target in zip(paths, published):
+            os.replace(path, target)
+        return published
     finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def main():
@@ -10623,7 +11841,7 @@ def main():
             source = stream.read()
         with args.certificate.open(encoding="utf-8") as stream:
             certificate = load_certificate(stream)
-        check_and_write(source, certificate, args.output)
+        published = check_and_write(source, certificate, args.output)
     except subprocess.CalledProcessError as error:
         sys.stderr.write(error.stdout or "")
         sys.stderr.write(error.stderr or "")
@@ -10631,6 +11849,8 @@ def main():
     except (ReconstructionError, ProofExportError, z3.Z3Exception, OSError, ValueError) as error:
         parser.exit(2, "%s: error: %s\n" % (parser.prog, error))
     print("Lean checked the refutation; wrote %s" % args.output)
+    for path in published[:-1]:
+        print("imported module, checked before it: %s" % path)
 
 
 if __name__ == "__main__":
