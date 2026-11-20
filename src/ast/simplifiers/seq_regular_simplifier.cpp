@@ -1046,7 +1046,7 @@ class regular_compiler {
             bool conjunction = m.is_and(e);
             expr_ref_vector children(m), rest(m);
             std::map<unsigned, expr*> pending;
-            std::unordered_map<expr*, expr*> groups;
+            std::map<expr*, expr*, ast_lt_proc> groups;
             for (expr* arg : *to_app(e)) {
                 expr* child = translate(arg, true, depth + 1);
                 if (m.is_true(child) || m.is_false(child)) {
