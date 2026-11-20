@@ -253,14 +253,8 @@ namespace seq {
                 }
             }
 
-            // Try every token-aligned starting position of the needle in the
-            // current haystack.
-            //   - some determined match => conflict;
-            //   - every position a determined mismatch => discharge;
-            //   - otherwise leave undecided positions pending, but strip any
-            //     leading run of determined mismatches as safe progress.
-            // If the haystack is currently shorter than the needle, leave
-            // the obligation pending.
+            // A token-aligned match is a conflict. Mismatches do not rule out
+            // occurrences starting inside variable-length tokens.
             unsigned h_size = nc.m_haystack.size();
             unsigned n_size = nc.m_needle.size();
             bool has_window = h_size >= n_size;
@@ -282,18 +276,22 @@ namespace seq {
                 n.set_conflict(stx::br_plugin_base, nc.m_dep);
                 return stx::simplify_result::conflict;
             }
-            if (has_window && first_undef_pos > max_pos) {
-                // every position is a determined mismatch: the needle
-                // cannot occur anywhere in the current haystack.
+            bool unit_haystack = all_of(nc.m_haystack, [&](expr* token) { return u.str.is_unit(token); });
+            bool unit_needle = all_of(nc.m_needle, [&](expr* token) { return u.str.is_unit(token); });
+            // Both sides must be unit words: opaque needle tokens may be empty,
+            // so token counts alone do not bound the possible starting positions.
+            if (has_window && first_undef_pos > max_pos && unit_haystack && unit_needle) {
                 f.remove(head);
                 changed = true;
                 ++head;
                 continue;
             }
-            if (has_window && first_undef_pos > 0) {
-                // strip the leading run of determined-mismatch positions.
+            unsigned prefix_size = 0;
+            while (has_window && prefix_size < first_undef_pos && u.str.is_unit(nc.m_haystack.get(prefix_size)))
+                ++prefix_size;
+            if (prefix_size > 0) {
                 expr_ref_vector tail(m);
-                tail.append(h_size - first_undef_pos, nc.m_haystack.data() + first_undef_pos);
+                tail.append(h_size - prefix_size, nc.m_haystack.data() + prefix_size);
                 f.replace_with_tail(head, tail);
                 changed = true;
                 ++head; // the shortened replacement, appended past `head`,
@@ -344,10 +342,7 @@ namespace seq {
 
             // Finite unit words require a mismatch in every possible alignment.
             // Bound the expansion before constructing its character formulas.
-            if (!concrete_needle && has_window &&
-                n_size <= 256u / (max_pos + 1) &&
-                all_of(nc.m_haystack, [&](expr* token) { return u.str.is_unit(token); }) &&
-                all_of(nc.m_needle, [&](expr* token) { return u.str.is_unit(token); })) {
+            if (!concrete_needle && has_window && n_size <= 256u / (max_pos + 1) && unit_haystack && unit_needle) {
                 expr_ref_vector different(m);
                 for (unsigned pos = 0; pos <= max_pos; ++pos) {
                     different.reset();
@@ -373,10 +368,7 @@ namespace seq {
             }
 
             // Units give a lower haystack bound and an exact all-unit needle length.
-            if (all_of(nc.m_needle, [&](expr* token) {
-                    expr* character = nullptr;
-                    return u.str.is_unit(token, character);
-                })) {
+            if (unit_needle) {
                 unsigned lower = 0;
                 for (expr* token : nc.m_haystack) {
                     expr* character = nullptr;

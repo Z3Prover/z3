@@ -237,6 +237,50 @@ namespace {
         ENSURE(fx.solver.get_scope_level() == 0);
     }
 
+    static void tst_ncontains_occurrences_inside_symbolic_tokens() {
+        bool correct = true;
+        for (unsigned shape : {0u, 1u, 2u}) {
+            fixture fx;
+            expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
+            expr_ref y(fx.m.mk_fresh_const("y", fx.s), fx.m);
+            expr_ref z(fx.m.mk_fresh_const("z", fx.s), fx.m);
+            expr_ref a(fx.u.str.mk_string("a"), fx.m);
+            expr_ref b(fx.u.str.mk_string("b"), fx.m);
+            expr_ref aa(fx.u.str.mk_string("aa"), fx.m);
+            expr_ref ab(fx.u.str.mk_string("ab"), fx.m);
+            expr_ref empty(fx.u.str.mk_empty(fx.s), fx.m);
+            expr_ref haystack(fx.u.str.mk_concat(x, a, y), fx.m);
+            expr_ref needle(fx.u.str.mk_concat(x, b), fx.m);
+            if (shape == 1)
+                needle = fx.u.str.mk_concat(needle, z);
+            if (shape == 2) {
+                haystack = ab;
+                needle = fx.u.str.mk_concat(b, z);
+            }
+            auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+            auto& ef = fx.root->facet_as<seq::eq_facet>(fx.eq_id);
+            auto& dm = fx.tree.dep_mgr();
+            nf.add_ncontains(haystack, needle, dm.mk_leaf(1));
+            seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+            ENSURE(propagation.propagate(*fx.root) != stx::simplify_result::conflict);
+            // Resolve words only after the token-alignment transformation.
+            if (shape != 2) {
+                ef.add_equation(x, aa, dm.mk_leaf(2));
+                ef.add_equation(y, b, dm.mk_leaf(3));
+            }
+            if (shape != 0)
+                ef.add_equation(z, empty, dm.mk_leaf(4));
+            auto result = fx.tree.solve();
+            if (result != stx::search_result::unsat) {
+                std::cerr << "missed negative-containment occurrence, shape " << shape << "\n";
+                correct = false;
+            }
+            else
+                ENSURE(dm.contains(fx.root->conflict_dep(), 1));
+        }
+        ENSURE(correct);
+    }
+
     static void tst_ncontains_symbolic_length_split() {
         for (bool integers : { false, true }) {
             fixture fx;
@@ -575,6 +619,7 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_occurrences_inside_symbolic_tokens();
     tst_ncontains_symbolic_length_split();
     tst_ncontains_length_split_backtracking();
     tst_ncontains_symbolic_unit_clauses();

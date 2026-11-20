@@ -66,6 +66,48 @@ static void check_nseq_arithmetic_normalization() {
     }
 }
 
+static void check_nseq_symbolic_ncontains() {
+    char const* constraints[] = {
+        "(assert (str.in_re x (re.+ (str.to_re \"a\"))))"
+        "(assert (= (str.len x) 2))"
+        "(assert (str.in_re y (re.+ (str.to_re \"b\"))))"
+        "(assert (= (str.len y) 1))",
+        "(assert (= (str.len x) 2))"
+        "(assert (= (str.at x 0) \"a\"))"
+        "(assert (= (str.at x 1) \"a\"))"
+        "(assert (= (str.len y) 1))"
+        "(assert (= (str.at y 0) \"b\"))",
+        "(assert (= x \"aa\"))"
+        "(assert (= y \"b\"))",
+    };
+    for (bool proofs : {false, true}) {
+        for (bool suffix : {false, true}) {
+            for (char const* constraint : constraints) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::string input = "(declare-const x String)"
+                                    "(declare-const y String)"
+                                    "(declare-const z String)"
+                                    "(assert (= (str.len z) 0))";
+                input += constraint;
+                input += suffix ? "(assert (not (str.contains (str.++ x \"a\" y) (str.++ x \"b\" z))))"
+                                : "(assert (not (str.contains (str.++ x \"a\" y) (str.++ x \"b\"))))";
+                std::istringstream is(input);
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_uint("timeout", 3000);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                // Incomplete symbolic containment may return unknown, but not sat.
+                ENSURE(slv->check_sat(0, nullptr) != l_true);
+            }
+        }
+    }
+}
+
 static void check_case_split_relevant_first() {
     for (unsigned strategy : {0u, 1u, 2u}) {
         for (unsigned relevancy : {0u, 2u}) {
@@ -1992,6 +2034,7 @@ static void check_inactive_nseq() {
 void tst_smt_context()
 {
     check_nseq_arithmetic_normalization();
+    check_nseq_symbolic_ncontains();
     check_nseq_quantified_decompositions();
     check_inactive_nseq();
     check_late_equality_justification();
