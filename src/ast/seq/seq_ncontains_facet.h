@@ -18,9 +18,9 @@ Abstract:
     obligation stays synchronized with the current representatives.
 
     `ncontains_propagation` performs a length gate and a deterministic
-    prefix-unrolling search. A determined match is a conflict; a determined
-    mismatch can shorten or discharge the obligation; unresolved variable
-    alignments stay pending. An empty needle is an immediate conflict.
+    prefix-unrolling search. A determined match is a conflict; mismatches can
+    remove unit-token prefixes or discharge all-unit words. Starts inside
+    variable-length tokens stay pending. An empty needle is an immediate conflict.
 
     `ncontains_split` tries a shorter haystack as a sufficient case, retaining
     the negative obligation in the complementary length case.
