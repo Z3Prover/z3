@@ -222,6 +222,37 @@ static void tst_arithmetic_scope_exits() {
         }
 }
 
+static void tst_isolated_maximize_assumption() {
+    for (bool named : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        params_ref p;
+        p.set_uint("arith.solver", 5);
+        generic_model_converter fm(m, "isolated assumption");
+        opt::opt_solver s(m, p, fm);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
+        expr_ref zero(a.mk_numeral(rational(0), false), m);
+        if (named)
+            s.assert_expr(m.mk_eq(x, zero), b);
+        else
+            s.assert_expr(m.mk_implies(b, m.mk_eq(x, zero)));
+        expr* assumptions[] = {b};
+        ENSURE(s.check_sat(named ? 0 : 1, assumptions) == l_true);
+        model_ref baseline;
+        s.get_model(baseline);
+        // As in optsmt::setup, register objectives at the base level.
+        {
+            solver::scoped_push scope(s);
+        }
+        s.add_objective(to_app(x));
+        expr_ref blocker(m);
+        ENSURE(s.maximize_objective_isolated(0, baseline, blocker, named ? 0 : 1, assumptions));
+        ENSURE(s.saved_objective_value(0) == opt::inf_eps(rational(0)));
+    }
+}
+
 // A branch may cap x at 1 although another branch permits x > 1. Test both
 // an inequality premise and a congruence equality x = y with y <= 1.
 // Besides x >= 0, 0 <= y <= 1, and x^2 <= 3, the four cases assert:
@@ -2528,6 +2559,36 @@ static void tst_symba_bounds() {
     // bounds. Witness selection is not changed by the value representation.
 }
 
+static void tst_symba_boolean_equality_bounds() {
+    scoped_auto_config restore_auto_config;
+    gparams::set("auto_config", "false");
+    for (char const* priority : {"box", "lex"}) {
+        for (char const* engine : {"basic", "symba"}) {
+            for (bool maximize : {false, true}) {
+                opt_fixture f(priority, 64, true, 100000, engine);
+                Z3_ast x = f.real("x"), y = f.real("y");
+                Z3_ast args[] = {Z3_mk_eq(f.ctx, x, f.num(0)),
+                                 Z3_mk_eq(f.ctx, f.num(0), y)};
+                f.add(Z3_mk_distinct(f.ctx, 2, args));
+                f.add(Z3_mk_gt(f.ctx, y, f.num(0)));
+                unsigned h = f.objective(x, maximize);
+                ENSURE(f.check() == Z3_L_TRUE);
+                ensure_finite_bounds(f, h, f.num(0), Z3_INT_SORT);
+                ensure_model_value(f, x, f.num(0));
+            }
+        }
+        opt_fixture unbounded(priority, 64, true, 100000, "symba");
+        Z3_ast x = unbounded.real("x"), y = unbounded.real("y");
+        Z3_ast args[] = {Z3_mk_eq(unbounded.ctx, x, unbounded.num(0)),
+                         Z3_mk_eq(unbounded.ctx, unbounded.num(0), y)};
+        unbounded.add(Z3_mk_distinct(unbounded.ctx, 2, args));
+        unbounded.add(Z3_mk_eq(unbounded.ctx, y, unbounded.num(0)));
+        unsigned h = unbounded.objective(x);
+        ENSURE(unbounded.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(unbounded, h, 1, 0, 0);
+    }
+}
+
 // Check unsigned BV maximum 9 and minimum 3 as Int scalar bounds,
 // with coefficient vectors [0, 9, 0] and [0, 3, 0].
 static void tst_bitvector_bounds() {
@@ -2554,6 +2615,7 @@ void tst_opt_bounds() {
     tst_maximize_result();
     std::cout << "opt_bounds: arithmetic scope exits\n";
     tst_arithmetic_scope_exits();
+    tst_isolated_maximize_assumption();
     std::cout << "opt_bounds: certified nonlinear dual bounds\n";
     tst_dual_bound_premises();
     tst_dual_bound_cancellation();
@@ -2607,5 +2669,6 @@ void tst_opt_bounds() {
     tst_infinity_and_epsilon();
     tst_lex_epsilon_bounds();
     tst_symba_bounds();
+    tst_symba_boolean_equality_bounds();
     tst_bitvector_bounds();
 }
