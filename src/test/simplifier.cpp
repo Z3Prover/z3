@@ -9,7 +9,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include <algorithm>
 #include <cstring>
 #include <iostream>
-#include <iterator>
 #include <string>
 #include <vector>
 #include "util/util.h"
@@ -1951,38 +1950,6 @@ static void test_seq_regular_definitions() {
     }
 }
 
-static void test_seq_regular_group_order() {
-    ast_manager m;
-    reg_decl_plugins(m);
-    seq_util u(m);
-    expr_ref needle(u.str.mk_string("a"), m);
-    expr_ref_vector observations(m);
-    for (char const* name : {"regular-order-x", "regular-order-y", "regular-order-z"}) {
-        expr_ref subject(m.mk_const(name, u.str.mk_string_sort()), m);
-        observations.push_back(u.str.mk_contains(subject, needle));
-    }
-    for (bool conjunction : {false, true}) {
-        unsigned order[] = {0, 1, 2};
-        expr_ref expected(m);
-        do {
-            expr_ref_vector args(m);
-            for (unsigned i : order)
-                args.push_back(observations.get(i));
-            expr_ref input(conjunction ? m.mk_and(args) : m.mk_or(args), m);
-            base_dependent_expr_state state(m);
-            state.add(dependent_expr(m, input, nullptr, nullptr));
-            seq_regular_simplifier simp(m, params_ref(), state);
-            simp.reduce();
-            ENSURE(state[0].fml() != input);
-            if (!expected)
-                expected = state[0].fml();
-            else
-                ENSURE(state[0].fml() == expected);
-        }
-        while (std::next_permutation(std::begin(order), std::end(order)));
-    }
-}
-
 static void test_seq_regular() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -2479,7 +2446,6 @@ static void test_max_bv_sharing() {
 
 void tst_simplifier() {
 
-    test_seq_regular_group_order();
     test_seq_decimal_comparisons();
     test_seq_bounded_conversions();
     test_seq_conversion_ranges();

@@ -154,12 +154,8 @@ namespace seq {
 
                 sf.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
                 sf.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
-                // Preserve sharing counts; add_constraint retains the whole clause.
-                expr* n_lt_1 = m.mk_not(n_ge_1);
-                expr* len_power = a.mk_mul(p.m_n.get(), len_s);
-                expr* length_eq = m.mk_eq(len_e, len_power);
-                sf.add_constraint(m.mk_or(n_lt_1, length_eq), p.m_dep);
-                sf.add_constraint(m.mk_or(n_lt_1, s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
+                sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))), p.m_dep);
+                sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
                 f.mark(i, &str_power::m_axiomatized);
                 changed = true;
             }
