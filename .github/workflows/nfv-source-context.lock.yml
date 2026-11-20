@@ -1338,7 +1338,7 @@ jobs:
           fi
       - name: Validate source-context manifest
         run: "python - <<'PY'\nimport os\nfrom pathlib import Path\nfrom nfv_workflow.cli import collection_status, load, save\nfrom nfv_workflow.repository_context import sanitize_manifest\nroot = Path(os.environ[\"RUNNER_TEMP\"]) / \"gh-aw\" / \"nfv-context\"\nstatus = collection_status(root / \"collection-status.json\")\nif status[\"status\"] == \"superseded\":\n    save(\"nfv-context-validated/context.json\", status)\nelse:\n    sanitize_manifest(load(root / \"bundle.json\"), \"nfv-context.json\",\n                      \"nfv-context-validated/context.json\", hints_only=True)\nPY\n"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           if-no-files-found: error
           name: nfv-source-context-validated
@@ -2169,7 +2169,7 @@ jobs:
           name: nfv-source-context-validated
           path: nfv-context-validated
       - if: ${{ needs.agent.result == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         env:
           GH_AW_AGENT_OUTPUT: ${{ runner.temp }}/gh-aw/safe-jobs/agent_output.json
           GH_AW_DETECTION_CONCLUSION: ${{ needs.detection.outputs.detection_conclusion }}

@@ -785,6 +785,23 @@ static void test_eq2bv_recursive_definitions() {
     }
 }
 
+static void test_nary_probe() {
+    // (+ a b c) and (* a b c) in user-written probes must combine each argument once.
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    auto holds = [&](char const* probe) {
+        std::string cmd = std::string("(check-sat-using (if ") + probe + " smt fail))";
+        std::string result = Z3_eval_smtlib2_string(ctx, cmd.c_str());
+        return Z3_get_error_code(ctx) == Z3_OK && result == "sat\n";
+    };
+    ENSURE(holds("(= (+ 2 3) 5)"));
+    ENSURE(holds("(= (* 2 3) 6)"));
+    ENSURE(holds("(= (+ 2 3 4) 9)"));
+    ENSURE(holds("(= (* 2 3 4) 24)"));
+    ENSURE(holds("(= (+ 7) 7)"));
+    Z3_del_context(ctx);
+}
+
 void tst_api() {
     test_eq2bv_recursive_definitions();
     test_solver_model_completion();
@@ -804,6 +821,7 @@ void tst_api() {
     test_apply_result_nonempty_subgoal_bounds();
     test_query_constructor_num_fields();
     test_zero_frequency_params();
+    test_nary_probe();
 }
 
 void test_max_rev() {

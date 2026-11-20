@@ -279,12 +279,20 @@ test("payload validation rejects escaping paths, duplicates and misleading verif
         { commands: [{ command: "verify", exit_code: "0" }] },
         { commands: [{ command: "verify", exit_code: 0, phase: "baseline" }] },
         { status: "no-fix" }, { report: "" },
-        { files: [{ ...file, content: "x".repeat(512 * 1024 + 1) }] },
+        { files: [{ ...file, content: "x".repeat(1024 * 1024 + 1) }] },
     ])
         assert.throws(() => validatePayload(payload(changes), sha));
     assert.equal(validatePayload(payload({
         source_sha: null, status: "no-fix", files: [], commands: [],
     }), sha).status, "no-fix");
+});
+
+test("repair snapshots accept large native bridge tests within the source byte limit", () => {
+    const file = { path: "fstar/tools/test_native_bridge.ml", content: "x".repeat(1024 * 1024) };
+    assert.equal(validatePayload(payload({ files: [file] }), sha).files[0].content, file.content);
+    assert.throws(() => validatePayload(payload({
+        files: [{ ...file, content: "\u00e9".repeat(512 * 1024) + "x" }],
+    }), sha), /oversized repair source file/);
 });
 
 test("a verified fix preserves failing baseline and exploratory command evidence", () => {

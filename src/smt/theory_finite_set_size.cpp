@@ -95,7 +95,10 @@ namespace smt {
     void theory_finite_set_size::add_def_axioms(enode_vector const& ns) {
         for (auto n : ns) {
             expr *e = n->get_expr();
-            if (u.is_union(e)) {
+            if (u.is_empty(e)) {
+                m_solver->assert_expr(m.mk_not(n2b[n]));
+            }
+            else if (u.is_union(e)) {
                 auto a = n2b[n->get_arg(0)];
                 auto b = n2b[n->get_arg(1)];
                 m_solver->assert_expr(m.mk_iff(n2b[n], m.mk_or(a, b)));

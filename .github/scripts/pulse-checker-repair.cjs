@@ -141,7 +141,7 @@ function validatePayload(text, baseSha) {
         if (!file || typeof file.path !== "string" || !allowedFile.test(file.path) ||
             file.path.includes("..") || names.has(file.path.toLowerCase()) ||
             typeof file.content !== "string" || !file.content.trim() ||
-            file.content.includes("\0") || Buffer.byteLength(file.content) > 512 * 1024)
+            file.content.includes("\0") || Buffer.byteLength(file.content) > 1024 * 1024)
             throw new Error("Invalid, duplicate, or oversized repair source file");
         names.add(file.path.toLowerCase());
     }

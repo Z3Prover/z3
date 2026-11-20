@@ -141,6 +141,21 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static lbool check_sat_smt_result(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    return slv->check_sat(0, nullptr);
+}
+
 static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -494,6 +509,40 @@ static void check_stored_lambdas() {
     check(
         "(assert (= (store (lambda ((x Bool)) (ite x 1 3)) true 0)\n"
         "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
+}
+
+static void check_uninterpreted_lambda_arguments() {
+    // Regression for issue #11735: finite array tables need not denote lambdas.
+    for (char const* input : {
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(assert (f (lambda ((n Int)) n)))\n",
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (lambda ((n Int)) n)))\n"
+        "(assert (f a))\n",
+        "(declare-fun f ((Array Int Bool)) Bool)\n"
+        "(declare-fun g (Int) Real)\n"
+        "(declare-const e Real)\n"
+        "(assert (forall ((eps Real)) (=> (> eps 0.0)\n"
+        "  (f (lambda ((n Int)) (< (g n) eps))))))\n"
+        "(assert (> e 0.0))\n"
+        "(assert (not (f (lambda ((n Int)) (< (g n) e)))))\n"}) {
+        for (unsigned seed : {0u, 24u, 41u, 79u, 108u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            params_ref p;
+            p.set_uint("random_seed", seed);
+            cmd_context cmd(false, &m);
+            cmd.set_solver(mk_smt2_solver(m, p, symbol::null));
+            std::ostringstream out;
+            cmd.set_regular_stream(out);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            scoped_rlimit limit(m.limit(), 100000);
+            cmd.check_sat(0, nullptr);
+            VERIFY(cmd.cs_state() == cmd_context::css_unsat || cmd.cs_state() == cmd_context::css_unknown);
+        }
+    }
 }
 
 static void check_sat_array_lambdas() {
@@ -1519,6 +1568,17 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    VERIFY(check_sat_smt_result(
+        "(declare-const x Int)\n"
+        "(assert (<= x 4))\n"
+        "(assert (distinct 0 (div x 5)))\n") == l_true);
+    VERIFY(check_sat_smt_result(
+        "(set-logic QF_NIA)\n"
+        "(declare-const x Int)(declare-const y Int)\n"
+        "(assert (< x 0))(assert (<= (- 4) y))(assert (<= y 4))\n"
+        "(assert (=> (<= 0 (div y 7)) (< y 0)))\n"
+        "(assert (=> (not (<= 0 (div y 7))) (< (* y x) 0)))\n") != l_true);
+
     check_late_equality_justification();
     check_proof_mode_guards();
     check_proof_mode_compositions();
@@ -1544,6 +1604,7 @@ void tst_smt_context()
     check_array_index_dependencies();
     check_generated_quantifiers();
     check_stored_lambdas();
+    check_uninterpreted_lambda_arguments();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
     check_singleton_array_range_cardinality();
@@ -1759,7 +1820,8 @@ void tst_smt_context()
         VERIFY(parse_smt2_commands(cmd, is));
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.check_sat(0, nullptr);
-        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+        // Preprocessing may introduce a lambda argument to length, which is unsupported.
+        VERIFY(cmd.cs_state() == cmd_context::css_sat || cmd.cs_state() == cmd_context::css_unknown);
     }
 
     check_sat_smt_recfun(

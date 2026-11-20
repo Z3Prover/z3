@@ -60,6 +60,7 @@ class ackr_bound_probe : public probe {
     };
 
 public:
+    char const* name() const override { return "ackr-bound-probe"; }
     result operator()(goal const & g) override {
         proc p(g.m());
         expr_fast_mark1 visited;

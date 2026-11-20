@@ -394,6 +394,54 @@ static void tst_finite_set_size_union_singletons() {
     Z3_del_config(cfg);
 }
 
+static void tst_finite_set_size_regressions() {
+    char const* cases[] = {
+        "(declare-const A (FiniteSet Int))"
+        "(declare-const C (FiniteSet Int))"
+        "(assert (= (set.union C A) (as set.empty (FiniteSet Int))))"
+        "(assert (distinct (set.size A) 0))",
+        "(declare-const A (FiniteSet Int))"
+        "(declare-const B (FiniteSet Int))"
+        "(assert (= (set.intersect B A) (as set.empty (FiniteSet Int))))"
+        "(assert (distinct (set.size B) (set.size (set.difference B A))))",
+        "(declare-const B (FiniteSet Int))"
+        "(assert (set.subset B (set.union (set.singleton 0) (set.singleton 1)"
+        " (set.singleton 2) (set.singleton 3))))"
+        "(assert (= (set.size (set.union B B)) 4))",
+    };
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+        Z3_solver_reset(ctx, solver);
+        Z3_solver_from_string(ctx, solver, cases[i]);
+        ENSURE(Z3_solver_check(ctx, solver) == (i == 2 ? Z3_L_TRUE : Z3_L_FALSE));
+    }
+    for (unsigned relevancy = 0; relevancy <= 2; ++relevancy) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = "(set-option :smt.relevancy " + std::to_string(relevancy) + ")"
+            "(declare-const A (FiniteSet Int))"
+            "(declare-const B (FiniteSet Int))"
+            "(declare-const y Int)"
+            "(assert (set.subset A (set.union (set.singleton 0) (set.singleton 1)"
+            " (set.singleton 2) (set.singleton 3))))"
+            "(assert (set.in 0 B))"
+            "(assert (set.in 1 B))"
+            "(assert (distinct (set.size B) (set.size (set.difference B A))))"
+            "(assert (or (set.subset A B) (set.in y B)))"
+            "(assert (set.subset (set.intersect B A) (set.difference B A)))"
+            "(check-sat)";
+        ENSURE(std::string(Z3_eval_smtlib2_string(ctx, spec.c_str())) == "unsat\n");
+        Z3_del_context(ctx);
+    }
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+}
+
 static void tst_finite_set_quantified_membership() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -913,6 +961,7 @@ void tst_finite_set() {
     tst_finite_set_size_members();
     tst_finite_set_size_three_members();
     tst_finite_set_size_union_singletons();
+    tst_finite_set_size_regressions();
     tst_finite_set_quantified_membership();
     tst_finite_set_lambda_filter();
     tst_finite_set_lambda_predicates(false);

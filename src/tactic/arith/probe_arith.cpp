@@ -75,6 +75,7 @@ class arith_degree_probe : public probe {
     bool m_avg;
 public:
     arith_degree_probe(bool avg):m_avg(avg) {}
+    char const* name() const override { return m_avg ? "arith-avg-deg" : "arith-max-deg"; }
 
     result operator()(goal const & g) override {
         proc p(g.m());
@@ -118,6 +119,7 @@ class arith_bw_probe : public probe {
     bool m_avg;
 public:
     arith_bw_probe(bool avg):m_avg(avg) {}
+    char const* name() const override { return m_avg ? "arith-avg-bw" : "arith-max-bw"; }
         
     result operator()(goal const & g) override {
         proc p(g.m());
@@ -310,6 +312,7 @@ static bool is_qfauflia(goal const & g) {
 
 class is_qflia_probe : public probe {
 public:
+    char const* name() const override { return "is-qflia"; }
     result operator()(goal const & g) override {
         return is_qflia(g);
     }
@@ -317,6 +320,7 @@ public:
 
 class is_qfauflia_probe : public probe {
 public:
+    char const* name() const override { return "is-qfauflia"; }
     result operator()(goal const & g) override {
         return is_qfauflia(g);
     }
@@ -329,6 +333,7 @@ static bool is_qflra(goal const & g) {
 
 class is_qflra_probe : public probe {
 public:
+    char const* name() const override { return "is-qflra"; }
     result operator()(goal const & g) override {
         return is_qflra(g);
     }
@@ -341,6 +346,7 @@ static bool is_qflira(goal const & g) {
 
 class is_qflira_probe : public probe {
 public:
+    char const* name() const override { return "is-qflira"; }
     result operator()(goal const & g) override {
         return is_qflira(g);
     }
@@ -385,6 +391,7 @@ static bool is_mip(goal const & g) {
 
 class is_ilp_probe : public probe {
 public:
+    char const* name() const override { return "is-ilp"; }
     result operator()(goal const & g) override {
         return is_ilp(g);
     }
@@ -392,6 +399,8 @@ public:
 
 class is_mip_probe : public probe {
 public:
+    char const* name() const override { return "is-mip"; }
+    bool has_syntax() const override { return false; } // not registered
     result operator()(goal const & g) override {
         return is_mip(g);
     }
@@ -642,6 +651,7 @@ struct is_non_qfufnra_functor {
 
 class is_qfnia_probe : public probe {
 public:
+    char const* name() const override { return "is-qfnia"; }
     result operator()(goal const & g) override {
         return is_qfnia(g);
     }
@@ -649,6 +659,7 @@ public:
 
 class is_qfnra_probe : public probe {
 public:
+    char const* name() const override { return "is-qfnra"; }
     result operator()(goal const & g) override {
         return is_qfnra(g);
     }
@@ -656,6 +667,7 @@ public:
 
 class is_nia_probe : public probe {
 public:
+    char const* name() const override { return "is-nia"; }
     result operator()(goal const & g) override {
         return is_nia(g);
     }
@@ -663,6 +675,7 @@ public:
 
 class is_nra_probe : public probe {
 public:
+    char const* name() const override { return "is-nra"; }
     result operator()(goal const & g) override {
         return is_nra(g);
     }
@@ -670,6 +683,7 @@ public:
 
 class is_nira_probe : public probe {
 public:
+    char const* name() const override { return "is-nira"; }
     result operator()(goal const & g) override {
         return is_nira(g);
     }
@@ -677,6 +691,7 @@ public:
 
 class is_lia_probe : public probe {
 public:
+    char const* name() const override { return "is-lia"; }
     result operator()(goal const & g) override {
         return is_lia(g);
     }
@@ -684,6 +699,7 @@ public:
 
 class is_lra_probe : public probe {
 public:
+    char const* name() const override { return "is-lra"; }
     result operator()(goal const & g) override {
         return is_lra(g);
     }
@@ -691,6 +707,7 @@ public:
 
 class is_lira_probe : public probe {
 public:
+    char const* name() const override { return "is-lira"; }
     result operator()(goal const & g) override {
         return is_lira(g);
     }
@@ -703,6 +720,7 @@ static bool is_qfufnra(goal const& g) {
 
 class is_qfufnra_probe : public probe {
 public:
+    char const* name() const override { return "is-qfufnra"; }
     result operator()(goal const & g) override {
         return is_qfufnra(g);
     }
