@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T14:45:43-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T14:55:59-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The AProVE candidate below was captured at source `817035eb8`, based on master
 through `bf981cb1b`; the PR branch now includes master through `8d5366f8c`.
@@ -77,12 +77,19 @@ burn-down or a performance result. The earlier document SHA-256 is
 `a4010d3132426167c23a5eb31e85077af9efcbfd1b0f46b9424453aa1a1c627d`;
 the prior capture is `a223a1c83bccc50ec3a93a34dea312f2862f6091dece34995bdcac35607317bf`.
 
-Current captured cohort Farkas failures are nonlinear QF_NIA/QF_NRA residuals,
-not controlled QF_LIA failures. The typed certificate decoder checks LP
-structure. Native `lp-linear` coefficients are candidate Farkas weights and
-are replayed against the actual premise and conclusion formulas; integer
-lattice, Gomory, and integer-tighten steps also have typed checks. The
-`lp-monomial-*` steps still lack equivalent typed replay. No producer defect
+The extended cohort's 17 weighted `arith/farkas` PENDING split as follows:
+same-proof traces cover 12 (AProVE QF_NIA: 3; LassoRanker QF_NIA: 7;
+meti-tarski QF_NRA: 2). Each is an `arith/bound` hint whose replay summary
+reports a nonzero residual with 5–10 terms; the retained summaries omit term
+identities, so these do not establish whether the residual is nonlinear, a
+missing linearization, or incomplete evidence. The other 5 are from VeryMax
+QF_NIA, where the 10-second retry timed out before producing a proof document;
+producer/checker evidence is N/M. The two sample QF_LIA PARTIAL documents have
+no Farkas PENDING. The typed certificate decoder checks LP structure. Native
+`lp-linear` coefficients are candidate Farkas weights and are replayed against
+the actual premise and conclusion formulas; integer lattice, Gomory, and
+integer-tighten steps also have typed checks. The `lp-monomial-*` steps still
+lack equivalent typed replay. No controlled QF_LIA failure or producer defect
 is established by the current cohort data.
 
 A post-follow-up producer/checker run on the AProVE input is now pinned. The
@@ -112,6 +119,16 @@ or performance claim follows.
 | smtlib-sample, 11 fixed proofs | `79de3a41dcdb` → `2671dc150931` | `rewrite` | 43 | 7 | 36 |
 
 These are fixed proof-set measurements; they do not imply whole-cohort parity.
+The conditional apply-def row is a weighted rule diagnostic on 11 frozen
+captures, not root parity: the candidate may certify an augmented proof. Its
+separate CLI comparison has 1 ACCEPT and 10 PARTIAL for both candidate and
+retained checkers, while Legacy accepts all 11. Paired timings on seven
+captures (five repetitions per arm) give a median candidate/retained ratio of
+1.0141, so there is no measured speedup. The strict F* and focused native
+checkout controls passed for the candidate snapshot, but its source hashes
+differ from the current PR checkout; the current-tree control used a different
+checker pin. Do not promote or claim parity until the candidate is revalidated
+against the exact PR source and its original-node evidence is pinned.
 
 ## Last 10 measured improvements and corrections
 
@@ -120,6 +137,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
 | Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
 | Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
@@ -129,7 +147,6 @@ overlapping candidate effects must not be added.
 | Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
 | Nov 19 20:41 | Same-run QF_LIA producer/checker trace | Pinned 1,196-node proof: 33 `farkas` hints and one six-premise `bound` hint. Same-capture diagnostic PARTIAL 46; differs from typed replay proof, so no burn-down credit | `ring-producer-trace-06.json`, `ring-producer-trace-06.stderr` |
 | Nov 19 20:15–20:27 | QF_LIA lattice replay and provenance audit | Same-proof lattice evidence reduces PENDING 22 → 4; five paired runs median 1.253197s → 0.038934s (32.2×). Producer trace is not byte-identical to typed document | `current-qflia-lattice-replay-03.json`, `current-qflia-lattice-rule-count-03.json`, `ring-native-hints-2671-01.json` |
-| Nov 19 14:00 | QF_LIA producer-to-checker trace | Historical 1,196-node document had 18 unrecognized lattice steps and PARTIAL 22; later typed replay supersedes this coverage result | `ring-producer-evidence-20261119T1626ET` |
 
 ## Validation and active cadence
 
