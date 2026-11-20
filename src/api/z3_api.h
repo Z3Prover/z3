@@ -6778,7 +6778,9 @@ extern "C" {
 
     /**
        \brief Return a tactic that keeps applying \c t until the goal is not modified anymore or the maximum
-       number of iterations \c max is reached.
+       number of iterations \c max is reached. By default, the tactic stops at the first subgoal decided
+       satisfiable. Set the Boolean tactic parameter \c keep_sat_subgoals to retain all satisfiable and
+       undecided subgoals.
 
        def_API('Z3_tactic_repeat', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(UINT)))
     */

@@ -135,7 +135,7 @@ public:
         ctx.open(strcmp(name(), "par_then") == 0 ? "(par-then" : "(then");
         m_t1->display_pipeline(p, ctx);
         m_t2->display_pipeline(p, ctx);
-          ctx.close();
+        ctx.close();
     }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
@@ -960,6 +960,7 @@ protected:
 
 class repeat_tactical : public unary_tactical {
     unsigned m_max_depth;
+    bool m_keep_sat_subgoals = false;
     
     void operator()(unsigned depth,
                     goal_ref const & in, 
@@ -976,7 +977,7 @@ class repeat_tactical : public unary_tactical {
         result.reset();      
     try_goal:
         r1.reset();
-        if (depth > m_max_depth) {
+        if (depth > m_max_depth || (m_keep_sat_subgoals && g->is_decided())) {
             result.push_back(g.get());
             return;
         }
@@ -1009,9 +1010,9 @@ class repeat_tactical : public unary_tactical {
 			if (is_decided(r2)) {
 				SASSERT(r2.size() == 1);
 				if (is_decided_sat(r2)) {
-					// found solution...                                                                
 					result.push_back(r2[0]);
-					return;
+					if (!m_keep_sat_subgoals)
+						return;
 				}
 				else {
 					SASSERT(is_decided_unsat(r2));
@@ -1048,6 +1049,16 @@ public:
 
     char const* name() const override { return "repeat"; }
 
+    void updt_params(params_ref const & p) override {
+        m_keep_sat_subgoals = p.get_bool("keep_sat_subgoals", false);
+        unary_tactical::updt_params(p);
+    }
+
+    void collect_param_descrs(param_descrs & r) override {
+        unary_tactical::collect_param_descrs(r);
+        r.insert("keep_sat_subgoals", CPK_BOOL, "keep all satisfiable and undecided subgoals instead of stopping at the first satisfiable subgoal");
+    }
+
     char const * language_name() const override { return "repeat"; }
     std::string display_tail() const override {
         return m_max_depth == UINT_MAX ? std::string() : std::to_string(m_max_depth);
@@ -1059,7 +1070,9 @@ public:
 
     tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
-        return alloc(repeat_tactical, new_t, m_max_depth);
+        auto * t = alloc(repeat_tactical, new_t, m_max_depth);
+        t->m_keep_sat_subgoals = m_keep_sat_subgoals;
+        return t;
     }
 };
 

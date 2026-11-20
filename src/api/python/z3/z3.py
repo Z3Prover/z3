@@ -9417,6 +9417,10 @@ def Repeat(t, max=4294967295, ctx=None):
     """Return a tactic that keeps applying `t` until the goal is not modified anymore
     or the maximum number of iterations `max` is reached.
 
+    By default, repetition stops at the first subgoal decided satisfiable.
+    Pass `keep_sat_subgoals=True` when applying the tactic to retain all
+    satisfiable and undecided subgoals.
+
     >>> x, y = Ints('x y')
     >>> c = And(Or(x == 0, x == 1), Or(y == 0, y == 1), x > y)
     >>> t = Repeat(OrElse(Tactic('split-clause'), Tactic('skip')))
@@ -9429,6 +9433,18 @@ def Repeat(t, max=4294967295, ctx=None):
     >>> t = Then(t, Tactic('propagate-values'))
     >>> t(c)
     [[x == 1, y == 0]]
+
+    >>> t = Repeat(OrElse('split-clause', 'solve-eqs'))
+    >>> c = Or(x == 0, x == 1)
+    >>> len(t(c))
+    1
+    >>> r = t(c, keep_sat_subgoals=True)
+    >>> [len(branch) for branch in r]
+    [0, 0]
+    >>> sorted(branch.convert_model(Model()).eval(x).as_long() for branch in r)
+    [0, 1]
+    >>> len(t(c))
+    1
     """
     t = _to_tactic(t, ctx)
     return Tactic(Z3_tactic_repeat(t.ctx.ref(), t.tactic, max), t.ctx)
