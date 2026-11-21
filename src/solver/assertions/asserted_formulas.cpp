@@ -47,7 +47,6 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_bv_sharing(m),
     m_inconsistent(false),
     m_has_quantifiers(false),
-    m_regular_inputs(m),
     m_reduce_asserted_formulas(*this),
     m_distribute_forall(*this),
     m_pattern_inference(*this),
@@ -70,6 +69,9 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_lazy_scopes(0) {
 
     m_macro_finder = alloc(macro_finder, m, m_macro_manager);
+    register_simplifier([](ast_manager& m, params_ref const& p, dependent_expr_state& state) {
+        return alloc(seq_regular_simplifier, m, p, state, true);
+    });
 
     m_elim_and = true;
     set_eliminate_and(false);
@@ -183,13 +185,8 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     }
 
     m_has_quantifiers |= ::has_quantifiers(e_ref);
-    if (m_smt_params.m_preprocess && use_regular_preprocessing()) {
-        // Retain original selectors without changing eager rewriting or fallback.
-        m_regular_inputs.push_back(e_ref);
-        m_regular_pending = true;
-    }
-    else
-        m_regular_complete = false;
+    m_simplifier_inputs.push_back(justified_expr(m, e_ref, in_pr));
+    m_simplifier_pending = true;
 
     push_assertion(r, pr, m_formulas);
     m_reduce_pending = true;
@@ -253,9 +250,9 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     m_scoped_substitution.pop(num_scopes);
     m_formulas.shrink(s.m_formulas_lim);
     m_qhead    = s.m_formulas_lim;
-    m_regular_pending = false;
-    m_regular_inputs.reset();
-    m_regular_complete = true;
+    m_simplifier_pending = false;
+    m_simplifier_inputs.reset();
+    m_simplifier_complete = true;
     m_scopes.shrink(new_lvl);
     flush_cache();
     TRACE(asserted_formulas_scopes, tout << "after pop " << num_scopes << "\n";);
@@ -269,10 +266,10 @@ void asserted_formulas::reset() {
     m_bv_sharing.reset();
     m_rewriter.reset();
     m_inconsistent = false;
-    m_regular_pending = false;
-    m_regular_inputs.reset();
-    m_regular_complete = true;
-    m_regular_statistics.reset();
+    m_simplifier_pending = false;
+    m_simplifier_inputs.reset();
+    m_simplifier_complete = true;
+    m_simplifier_statistics.reset();
 }
 
 void asserted_formulas::finalize() {
@@ -287,32 +284,34 @@ bool asserted_formulas::check_well_sorted() const {
     return true;
 }
 
-bool asserted_formulas::use_regular_preprocessing() const {
-    return m_smt_params.m_seq_regular && m_smt_params.m_string_solver == "nseq" &&
-        !m.proofs_enabled() && !m_has_quantifiers;
-}
-
-bool asserted_formulas::simplify_regular() {
+bool asserted_formulas::simplify() {
     bool changed = false;
-    if (m_regular_complete && use_regular_preprocessing()) {
+    if (m_simplifier_complete) {
         base_dependent_expr_state state(m);
-        for (expr* input : m_regular_inputs)
-            state.add(dependent_expr(m, input, nullptr, nullptr));
+        for (auto const& input : m_simplifier_inputs)
+            state.add(dependent_expr(m, input.fml(), input.pr(), nullptr));
         state.reset_updated();
-        seq_regular_simplifier simp(m, m_params, state, true);
-        simp.reduce();
-        simp.collect_statistics(m_regular_statistics);
-        if (state.updated()) {
+        for (auto const& factory : m_simplifier_factories) {
+            if (canceled() || state.inconsistent())
+                break;
+            scoped_ptr<dependent_expr_simplifier> simp = factory(m, m_params, state);
+            simp->reduce();
+            simp->collect_statistics(m_simplifier_statistics);
+        }
+        changed = state.qtail() != m_simplifier_inputs.size();
+        for (unsigned i = 0; !changed && i < state.qtail(); ++i)
+            changed = state[i].fml() != m_simplifier_inputs[i].fml() ||
+                state[i].pr() != m_simplifier_inputs[i].pr();
+        if (changed) {
             vector<justified_expr> result;
             for (unsigned i = 0; i < state.qtail(); ++i)
-                push_assertion(state[i].fml(), nullptr, result);
+                push_assertion(state[i].fml(), state[i].pr(), result);
             swap_asserted_formulas(result);
-            changed = true;
         }
     }
-    m_regular_pending = false;
-    m_regular_inputs.reset();
-    m_regular_complete = false;
+    m_simplifier_pending = false;
+    m_simplifier_inputs.reset();
+    m_simplifier_complete = false;
     return changed ? invoke(m_reduce_asserted_formulas) : !canceled();
 }
 
@@ -323,9 +322,9 @@ void asserted_formulas::reduce() {
         return;
     if (m_qhead == m_formulas.size())
         return;
-    if (!m_has_quantifiers && !m_smt_params.m_preprocess)
+    if (m_simplifier_pending && !simplify())
         return;
-    if (m_regular_pending && !simplify_regular())
+    if (!m_has_quantifiers && !m_smt_params.m_preprocess)
         return;
     if (m_macro_manager.has_macros())
         invoke(m_find_macros);
@@ -420,7 +419,7 @@ void asserted_formulas::display_ll(std::ostream & out, ast_mark & pp_visited) co
 }
 
 void asserted_formulas::collect_statistics(statistics & st) const {
-    st.copy(m_regular_statistics);
+    st.copy(m_simplifier_statistics);
 }
 
 
@@ -626,9 +625,9 @@ void asserted_formulas::commit(unsigned new_qhead) {
         update_substitution(j.fml(), j.pr());
     }
     m_qhead = new_qhead;
-    m_regular_inputs.reset();
-    m_regular_pending = false;
-    m_regular_complete = m_qhead == m_formulas.size();
+    m_simplifier_inputs.reset();
+    m_simplifier_pending = false;
+    m_simplifier_complete = m_qhead == m_formulas.size();
 }
 
 void asserted_formulas::propagate_values() {

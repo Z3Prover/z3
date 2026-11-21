@@ -32,6 +32,7 @@ namespace seq {
         params_ref p;
         // This backend only handles arithmetic; keep string theories out.
         p.set_sym("string_solver", symbol("none"));
+        p.set_bool("seq.regular", false);
         // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
         m_solver = mk_smt_solver(m, p, symbol("ALL"));

@@ -28,6 +28,28 @@ Author:
 
 namespace {
 
+    static void tst_sub_solver_string_terms_are_abstract() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref at(u.str.mk_at(s, a.mk_int(0)), m);
+        expr_ref value(u.str.mk_stoi(at), m);
+        expr_ref bound(m.mk_eq(value, a.mk_int(42)), m);
+        // String-derived arithmetic terms are abstract in this backend.
+        solver.assert_expr(bound);
+        ENSURE(solver.check() == l_true);
+        solver.push();
+        solver.assert_expr(m.mk_not(bound));
+        ENSURE(solver.check() == l_false);
+        solver.pop(1);
+        ENSURE(solver.check() == l_true);
+    }
+
     static void tst_sub_solver_symbolic_division() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -160,6 +182,7 @@ namespace {
 } // namespace
 
 void tst_seq_solver_facet() {
+    tst_sub_solver_string_terms_are_abstract();
     tst_sub_solver_symbolic_division();
     tst_arith_length_conflict();
     tst_solver_facet_does_not_break_eq_unsat();

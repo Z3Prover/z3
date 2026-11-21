@@ -1727,7 +1727,7 @@ seq_regular_simplifier::seq_regular_simplifier(ast_manager& m, params_ref const&
 void seq_regular_simplifier::updt_params(params_ref const& p) {
     if (m_automatic) {
         smt_params_helper params(p);
-        m_enabled = params.seq_regular() && params.string_solver() == "nseq";
+        m_enabled = params.seq_regular();
         m_max_steps = params.seq_regular_max_steps();
     }
     else
