@@ -13,10 +13,13 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module V = Z3DatatypeValue
 
+let valid_conclusion (conclusion:expr) : bool =
+  conclusion = R.false_expr || R.formula_clause conclusion = [conclusion]
+
 let check (c:G.certificate) (conclusion:expr) (facts:list expr) : bool =
   D.scoped [] c.split && get_sort c.split = A.int_s &&
   D.scoped [] conclusion && get_sort conclusion = bool_sort &&
-  R.formula_clause conclusion = [conclusion] &&
+  valid_conclusion conclusion &&
   AR.check_contradiction (A.assumptions conclusion (facts @ [G.branch false c])) c.below &&
   AR.check_contradiction (A.assumptions conclusion (facts @ [G.branch true c])) c.above
 
@@ -34,7 +37,7 @@ let rec lemma_assumptions (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (model:T.scalar_model base)
   (other:V.interpretation base (S.signature s)) (facts:list expr) (conclusion:expr)
   : Lemma (requires T.truths s bc model other facts /\ not (T.truth s bc model other conclusion) /\
-                    R.formula_clause conclusion == [conclusion])
+                    valid_conclusion conclusion)
           (ensures AR.assumptions_hold s bc model other (A.assumptions conclusion facts))
           (decreases facts) =
   match facts with

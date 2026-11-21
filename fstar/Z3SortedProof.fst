@@ -27,6 +27,7 @@ module RB = Z3IndependentRealBounds
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
 module IC = Z3LpIntegerCutSyntax
+module GS = Z3LpGomorySyntax
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
@@ -2067,6 +2068,14 @@ let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
        (bounds_equation LA.real_s a && RB.check a b || bounds_equation LA.real_s b && RB.check b a)))
    | U.Holds _ -> false)
 
+(* Reuse the sorted-safe rewrite kernel for premise-free Int/Boolean leaves. *)
+let sorted_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b ->
+     D.scoped [] a && D.scoped [] b && NR.rewrite_ok a b
+   | U.Holds _ -> false)
+
 let int_bounds_rewrite (node:U.proof_node) : bool =
   node.kind = U.RewriteRule && Nil? node.premises &&
   (match node.conclusion with
@@ -2369,6 +2378,16 @@ let check_integer_cut (facts:list expr) : bool =
     AR.check_contradiction
       (LA.assumptions R.false_expr (integer_cut_facts certificate.IC.steps facts))
       certificate.IC.refutation
+
+let integer_split_certificate (facts:list expr) : option GS.certificate =
+  if length facts > 8 || not (linear_inputs (LA.assumptions R.false_expr facts)) ||
+     not (LA.linear_facts (length facts + 1) facts) then None
+  else GS.synthesize_split R.false_expr facts
+
+let inferred_integer_split (facts:list expr) : bool =
+  match integer_split_certificate facts with
+  | Some certificate -> LS.check certificate R.false_expr facts
+  | None -> false
 
 let lemma_cut_refutation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -3234,7 +3253,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     let checked =
       arithmetic_farkas node || arithmetic_lattice node || real_farkas s node ||
       quantifier_instantiation node || quantifier_flattening node ||
-      lemma_step node || int_bounds_rewrite node || real_rewrite s node || real_order s node || real_equality s node || real_product s node ||
+      lemma_step node || int_bounds_rewrite node || real_rewrite s node || sorted_rewrite node ||
+      real_order s node || real_equality s node || real_product s node ||
       integer_product node || division_order node ||
       nnf = NR.Replayed || conditional_definition node ||
       expanded_definition_axiom node ||
@@ -3243,6 +3263,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
       (node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
        check_integer_cut (propositions node.premises)) ||
+      (node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
+       inferred_integer_split (propositions node.premises)) ||
       (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
       real_product_clause s node ||
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
@@ -3394,6 +3416,26 @@ let lemma_ite_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     T.lemma_equality s bc eq other a b
   | U.Holds _ -> ()
 
+let lemma_sorted_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ sorted_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_rewrite_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    (match node.conclusion with
+     | U.Equal _ _ -> T.lemma_equality s bc eq other a b
+     | U.Observational _ _ ->
+       T.lemma_values_observations_at s bc eq other [] rho a b;
+       lemma_observational_proposition s bc eq other a b
+     | U.Holds _ -> ())
+  | U.Holds _ -> ()
+
 (* An accepted Int factor permutation equation is true in every Sorted
    model: the law at the scope [] and the empty environment. *)
 let lemma_product_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -3495,6 +3537,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | _ -> ()))
     else if int_bounds_rewrite node then lemma_int_bounds_rewrite s bc eq other node
     else if real_rewrite s node then lemma_real_rewrite s bc eq other node
+    else if sorted_rewrite node then lemma_sorted_rewrite s bc eq other node
     else if real_order s node then lemma_real_order s bc eq other node
     else if real_equality s node then (
       if T.truths s bc eq other fact.hypotheses then (
@@ -3563,6 +3606,14 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_integer_cut s bc eq other (propositions node.premises)))
+    else if node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
+            inferred_integer_split (propositions node.premises) then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        match integer_split_certificate (propositions node.premises) with
+        | Some certificate ->
+          LS.lemma_check s bc eq other certificate R.false_expr (propositions node.premises)
+        | None -> ()))
     else if node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;

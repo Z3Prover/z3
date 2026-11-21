@@ -82,6 +82,32 @@ let integer_addition = App {
   interp = Some Z3OperatorTags.op_arith_add; int_params = [] }
   [integer_literal 2; integer_literal 3]
 
+let integer_add : func_decl = {
+  decl_name = "+"; domain = [integer; integer]; range = integer;
+  interp = Some Z3OperatorTags.op_arith_add; int_params = []
+}
+
+let integer_x : expr = App {
+  decl_name = "x"; domain = []; range = integer; interp = None; int_params = []
+} []
+
+let integer_x_plus_one = App integer_add [integer_x; integer_literal 1]
+let integer_one_plus_x = App integer_add [integer_literal 1; integer_x]
+
+let sorted_integer_rewrite_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal integer_x_plus_one integer_one_plus_x;
+  premises = [];
+}
+
+let sorted_integer_rewrite_checked ()
+  : Lemma (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+           | Some (_, pending) -> pending == 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
+
 let integer_semantics_is_not_the_carrier_representation ()
   : Lemma (T.evaluate schema booleans shifted_integers
       (S.default_interpretation #primitive schema primitive_default) integer_addition ==
@@ -967,6 +993,17 @@ let lin_tight_target = R.mk_eq_expr (integer_literal (-1)) xi
 let lin_chain = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
 let lin_chain_target = R.mk_eq_expr xi zi
 let lin_conflict = [R.mk_not_expr (leq xi izero); R.mk_not_expr (geq xi ione)]
+
+let split_sum = App iadd [xi; yi]
+let split_twice_sum = App imul [integer_literal 2; split_sum]
+let split_integer_conflict = [geq split_twice_sum ione; leq split_twice_sum ione]
+let split_integer_satisfiable = [geq split_twice_sum ione; leq split_twice_sum (integer_literal 2)]
+
+let integer_split_certificate_candidates ()
+  : Lemma (Some? (K.integer_split_certificate split_integer_conflict) /\
+           None? (K.integer_split_certificate split_integer_satisfiable)) =
+  assert_norm (Some? (K.integer_split_certificate split_integer_conflict));
+  assert_norm (None? (K.integer_split_certificate split_integer_satisfiable))
 
 let checked_linear_consequences ()
   : Lemma (K.linear_consequence lin_canon lin_canon_target /\

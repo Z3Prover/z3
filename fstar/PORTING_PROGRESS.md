@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T19:37:21-08:00**. The cohort figures below are the latest
+Updated: **2026-11-20T21:17:43-08:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
 The Nov 20 rerun kept the sample figures unchanged and the extended verdict
 counts unchanged, but extended weighted PENDING moved from 31,254 to 31,271.
@@ -197,6 +197,7 @@ or performance claim follows.
 | Same QF_LIA document | Typed-evidence result | `intro-def` | 4 | 0 | 4 |
 | smtlib-sample, 11 fixed proofs | `a0ca7df92173` → `79de3a41dcdb` | `apply-def` | 80 | 80 | 0 |
 | smtlib-sample, 11 fixed proofs | `79de3a41dcdb` → `2671dc150931` | `rewrite` | 43 | 7 | 36 |
+| smtlib-sample, two frozen QF_LIA ring proofs | Prior Definition control → current sorted Core | all rules, weighted PENDING | 44 | 40 | 4 |
 
 These are fixed proof-set measurements; they do not imply whole-cohort parity.
 The conditional apply-def row is a weighted rule diagnostic on 11 frozen
@@ -206,6 +207,29 @@ retained checkers, while Legacy accepts all 11. Paired timings on seven
 captures (five repetitions per arm) give a median candidate/retained ratio of
 1.0141, so there is no measured speedup; that timing applies only to candidate
 `79de3a41dcdb`.
+
+The two frozen QF_LIA proof documents (`51.proofs`,
+`23fedbd874befdb1d88fe310aeedec84d49c6c23bd05cb2088318f3fe665a474`; and
+`52.proofs`, `2680073a4cd2a7ab2317da9cef7e19f98660cb428611c2918b060525e3942896`)
+were replayed five times per arm through Legacy, the earlier Definition
+control, and the current sorted Core checker. Legacy ACCEPTed both 5/5. The
+current Core ACCEPTed proof 52 and remained PARTIAL 4 on proof 51; the earlier
+Definition control was PARTIAL 1 and 43, respectively. Proof 51's pending
+count fell from 43 (`apply-def` 4, `intro-def` 4, `rewrite` 20, `th-lemma`
+15) to four `intro-def`; proof 52's single `rewrite` PENDING was cleared.
+This is a fixed-document comparison across different checker modes, not an
+isolated source delta or cohort burn-down. The remaining proof-51 definitions
+are conditional fresh-integer definitions, not Farkas or NNF obligations.
+
+The current checker pin is `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875`;
+the earlier Definition and Legacy pins are
+`b8f6e0763cbc86b2474cf2ce6b39aa4fe538c5d0cf534422605c78a41ac8ada1` and
+`9d590c3d12a50c49798a07a52a61d477971048d28a542845704e3f4a00d1b949`.
+Five alternating paired median times were 2.421s sorted Core / 0.108s Legacy
+and 0.0505s / 0.0225s, respectively. The current Core was also 1–4% slower
+than the earlier Definition control. This records acceptance progress, not a
+performance gain or Legacy parity. Exact outputs and all pins are in
+`sample-sorted-core-matched-20261120.json`.
 
 The current PR source was also strictly verified over its 167-module F*
 checker-only closure, including explicit `Z3IndependentConditionalDefinition.fsti`,
@@ -234,6 +258,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 21:17 | Replay current sorted Core on identical QF_LIA sample proofs | Current Core ACCEPTed 1/2 vs Legacy 2/2; against the prior Definition control, weighted PENDING fell 44 → 4 (proof 51: 43 → 4 `intro-def`; proof 52: 1 → 0 `rewrite`). Five paired medians: 2.421s vs. 0.108s and 0.0505s vs. 0.0225s (Core slower than Legacy); modes differ, so this is fixed-proof evidence, not cohort burn-down or a source-only delta | `sample-sorted-core-matched-20261120.json`; checker SHA-256 `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875` |
 | Nov 20 19:37 | Pair exact-current-source conditional apply-def controls | On seven of the 11 frozen captures, five alternating pairs: sum of per-capture medians 51.576s sorted vs. 19.240s Legacy (2.68x); sorted slower on all seven. Full 11-capture control remains 1 ACCEPT / 10 PARTIAL and 840 weighted PENDING vs. Legacy 11/11 ACCEPT; apply-def itself has zero PENDING. No cohort burn-down or promotion | `conditional-current-source-control-03.json`; checker SHA-256 `818cab5a190fe340fa7c75ade37b78ecfa7681878d6fdad0715656dab24aea13` |
 | Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
 | Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
@@ -243,7 +268,6 @@ overlapping candidate effects must not be added.
 | Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
 | Nov 20 14:59 | Merge master unbounded-objective fix | At merged HEAD `23a61f9c0`, the focused build and `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `a4b03329f`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
-| Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
 
 ## Validation and active cadence
 
@@ -273,7 +297,8 @@ on all seven; their summed per-capture medians are 51.576s sorted vs. 19.240s
 Legacy. The timing artifact is `conditional-current-source-control-03.json`.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
-The new candidate has not been run across the cohorts; keep its weighted
-PENDING as N/M until the scheduled, pinned capture completes. Preserve timeout
-and missing-diagnostic counts, serialize native runs using
-`files\current-corpus.lock`, and claim burn-down only on identical fixed proofs.
+The current sorted Core has fixed-proof results above but has not been run
+across the cohorts; keep its per-rule cohort PENDING as N/M until the
+scheduled, pinned capture completes. Preserve timeout and missing-diagnostic
+counts, serialize native runs using `files\current-corpus.lock`, and claim
+burn-down only on identical fixed proofs.
