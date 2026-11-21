@@ -119,7 +119,6 @@ public:
         }
         TRACE(solver2tactic, tout << "check sat result " << r << "\n";);
         proof* pr = local_solver->get_proof();
-        if (pr) in->set(proof2proof_converter(m, pr));
         local_solver->collect_statistics(m_st);
         switch (r) {
         case l_true: 

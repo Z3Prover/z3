@@ -792,6 +792,11 @@ namespace smt {
     }
 
     bool theory_array_full::instantiate_default_lambda_def_axiom(enode* arr) {
+        rational sz;
+        // On large domains, defaults are preserved by stores, so evaluating
+        // every lambda at a fixed index is incompatible with a store at that index.
+        if (has_large_domain(arr->get_expr()->get_sort(), sz))
+            return false;
         if (!ctx.add_fingerprint(this, m_default_lambda_fingerprint, 1, &arr))
             return false;
         m_stats.m_num_default_lambda_axiom++;
@@ -930,7 +935,7 @@ namespace smt {
         if (has_unitary_domain(store_app)) {
             def2 = store_app->get_arg(num_args - 1);
         }        
-        else if (!has_large_domain(store_app, sz)) {
+        else if (!has_large_domain(store_app->get_sort(), sz)) {
             //
             // let A = store(B, i, v)
             // 
@@ -1085,6 +1090,44 @@ namespace smt {
     bool theory_array_full::has_non_beta_as_array() {
         if (ctx.get_fparams().m_array_fake_support)
             return false;
+        // A store-connected constant fixes a large-domain lambda's default.
+        // Otherwise an observed default cannot be reconstructed soundly here.
+        obj_hashtable<enode> visited;
+        for (enode* n : m_lambdas) {
+            rational sz;
+            if (!ctx.is_relevant(n) || !has_large_domain(n->get_sort(), sz) ||
+                visited.contains(n->get_root()))
+                continue;
+            ptr_vector<enode> todo;
+            todo.push_back(n->get_root());
+            bool has_default = false, has_const = false;
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                enode* root = todo[i]->get_root();
+                if (visited.contains(root))
+                    continue;
+                visited.insert(root);
+                enode* member = root;
+                do {
+                    if (ctx.is_relevant(member)) {
+                        if (is_const(member))
+                            has_const = true;
+                        else if (is_store(member))
+                            todo.push_back(member->get_arg(0)->get_root());
+                    }
+                    member = member->get_next();
+                } while (member != root);
+                for (enode* p : root->get_parents()) {
+                    if (!ctx.is_relevant(p))
+                        continue;
+                    if (is_default(p))
+                        has_default = true;
+                    else if (is_store(p) && p->get_arg(0)->get_root() == root)
+                        todo.push_back(p->get_root());
+                }
+            }
+            if (has_default && !has_const)
+                return true;
+        }
         for (enode* n : m_as_array) {
             for (enode* p : n->get_parents())
                 if (ctx.is_relevant(p) && !ctx.is_beta_redex(p, n)) {

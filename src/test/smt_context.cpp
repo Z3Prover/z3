@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "smt/smt_solver.h"
 #include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
@@ -18,6 +19,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "solver/solver2tactic.h"
 #include "model/model.h"
 #include "qe/qsat.h"
 #include "tactic/goal.h"
@@ -568,6 +570,75 @@ static void check_stored_lambdas() {
     check(
         "(assert (= (store (lambda ((x Bool)) (ite x 1 3)) true 0)\n"
         "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
+}
+
+static void check_patterned_lambda_store() {
+    char const* quantified =
+        "(assert (forall ((a (Array Int Bool)) (y Int))\n"
+        "  (! (= (lambda ((x Int)) (= x y))\n"
+        "        (store ((as const (Array Int Bool)) false) y true))\n"
+        "     :pattern ((select a y)))))\n";
+    char const* ground =
+        "(assert (= (lambda ((x Int)) (= x 0))\n"
+        "           (store ((as const (Array Int Bool)) false) 0 true)))\n";
+    char const* unpatterned =
+        "(assert (forall ((a (Array Int Bool)) (y Int))\n"
+        "  (= (lambda ((x Int)) (= x y))\n"
+        "     (store ((as const (Array Int Bool)) false) y true))))\n";
+    for (unsigned test = 0; test < 5; ++test) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream input(
+            std::string(test == 1 ? "" : test == 4 ? unpatterned : quantified) +
+            (test == 2 ? "" : ground) +
+            (test == 3 ? "(assert (not (= (select (lambda ((x Int)) (= x 0)) 0) true)))\n" : ""));
+        VERIFY(parse_smt2_commands(cmd, input));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (test == 3 ? "unsat\n" : "sat\n"));
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream input(
+        "(assert (= (default (lambda ((x Bool)) x))\n"
+        "           (default (lambda ((x Bool)) (not x)))))\n");
+    VERIFY(parse_smt2_commands(cmd, input));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "unsat\n");
+
+    cmd.reset_assertions();
+    out.str("");
+    std::istringstream multi(
+        "(assert (forall ((a (Array Int Bool Bool)) (y Int) (z Bool))\n"
+        "  (! (= (lambda ((x Int) (b Bool)) (and (= x y) (= b z)))\n"
+        "        (store ((as const (Array Int Bool Bool)) false) y z true))\n"
+        "     :pattern ((select a y z)))))\n"
+        "(assert (= (lambda ((x Int) (b Bool)) (and (= x 0) b))\n"
+        "           (store ((as const (Array Int Bool Bool)) false) 0 true true)))\n");
+    VERIFY(parse_smt2_commands(cmd, multi));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "sat\n");
+
+    for (char const* text : {
+        "(assert (= (default (lambda ((x Int)) (= x 0)))\n"
+        "           (default (lambda ((x Int)) (not (= x 0))))))\n",
+        "(assert (= (default (store (lambda ((x Int)) (= x 0)) 1 false))\n"
+        "           (default (store (lambda ((x Int)) (not (= x 0))) 1 false))))\n"}) {
+        cmd.reset_assertions();
+        out.str("");
+        std::istringstream defaults(text);
+        VERIFY(parse_smt2_commands(cmd, defaults));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == "unknown\n" || out.str() == "unsat\n");
+    }
 }
 
 static void check_uninterpreted_lambda_arguments() {
@@ -1407,6 +1478,55 @@ static void check_proof_mode_guards() {
     }
 }
 
+class counting_proof_converter : public proof_converter {
+    unsigned& m_calls;
+public:
+    counting_proof_converter(unsigned& calls): m_calls(calls) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0] && m.is_false(m.get_fact(source[0])));
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(counting_proof_converter, m_calls);
+    }
+
+    void display(std::ostream& out) override { out << "(counting-proof-converter)\n"; }
+};
+
+static void check_solver2tactic_proof_mode() {
+    for (bool parent_converter : {false, true}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        goal_ref g = alloc(goal, m, true, false, false);
+        expr_ref a(m.mk_const("a", m.mk_bool_sort()), m);
+        expr_ref b(m.mk_const("b", m.mk_bool_sort()), m);
+        expr_ref clause(m.mk_or(a, b), m);
+        expr_ref not_a(m.mk_not(a), m), not_b(m.mk_not(b), m);
+        g->assert_expr(clause);
+        g->assert_expr(not_a);
+        g->assert_expr(not_b);
+        unsigned calls = 0;
+        if (parent_converter)
+            g->add(alloc(counting_proof_converter, calls));
+        ref<solver> s = mk_smt_solver(m, params_ref(), symbol::null);
+        tactic_ref t = mk_solver2tactic(s.get());
+        model_ref model;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*t, g, model, labels, pr, core, reason) == l_false);
+        ENSURE(pr && m.is_false(m.get_fact(pr)));
+        ENSURE(calls == (parent_converter ? 1u : 0u));
+        proof_checker checker(m);
+        expr_ref_vector conditions(m);
+        ENSURE(checker.check(pr, conditions) && conditions.empty());
+    }
+}
+
 static void check_horn_proof_mode() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -1436,6 +1556,16 @@ static void check_horn_proof_mode() {
         g->assert_expr(assertion);
     tactic_manager tactics;
     install_tactics(tactics);
+    unsigned calls = 0;
+    goal_ref h = alloc(goal, *g);
+    h->add(alloc(counting_proof_converter, calls));
+    tactic_ref horn = tactics.find_tactic_cmd(symbol("horn"))->mk(m);
+    model_ref model;
+    labels_vec labels;
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*horn, h, model, labels, pr, core, reason) == l_false);
+    ENSURE(pr && m.is_false(m.get_fact(pr)) && calls == 1);
     tactic_ref simplify = tactics.find_tactic_cmd(symbol("horn-simplify"))->mk(m);
     goal_ref_buffer result;
     (*simplify)(g, result);
@@ -1677,6 +1807,7 @@ void tst_smt_context()
 
     check_late_equality_justification();
     check_proof_mode_guards();
+    check_solver2tactic_proof_mode();
     check_horn_proof_mode();
     check_proof_mode_compositions();
     check_proof_mode_sls();
@@ -1702,6 +1833,7 @@ void tst_smt_context()
     check_array_index_dependencies();
     check_generated_quantifiers();
     check_stored_lambdas();
+    check_patterned_lambda_store();
     check_uninterpreted_lambda_arguments();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
