@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T17:29:58-08:00**. The cohort figures below are the latest
+Updated: **2026-11-20T17:48:13-08:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
 The Nov 20 rerun kept the sample figures unchanged and the extended verdict
 counts unchanged, but extended weighted PENDING moved from 31,254 to 31,271.
@@ -57,6 +57,30 @@ The sample QF_LIA slice contains 25 inputs: 17 ACCEPT, 2 PARTIAL, 1 TIMEOUT,
 and 5 UNKNOWN. Its two PARTIAL proofs have 52 PENDING (34 `intro-def`, 18
 `rewrite`) and no `arith/farkas` PENDING. The extended selection has no QF_LIA
 inputs. The fstar-build timeout tails have N/M rule diagnostics.
+
+A separate pinned two-ring recapture used the sample inputs and the same
+Definition checker/runtime pins. Its proof documents hash to
+`000797dfef565ba1...` and `0ff8d8b000f3c6e4...`; the official full-document
+diagnostics are PARTIAL 4 and PARTIAL 48, respectively, with 34 `intro-def`,
+18 `rewrite`, and zero `arith/farkas` PENDING. These are not proven identical
+to the cohort proofs because cohort proof hashes were not retained, so this is
+not cohort burn-down. The helper's `BASE_FAILED_FARKAS` line is not native
+producer evidence or the full-document result; the exact producer evidence
+for these two documents is N/M. No controlled pure-QF_LIA Farkas failure is
+established.
+
+On those exact two documents, five alternating-order paired replays passed
+each identical unmarshaled `(schema, document)` to the `Z3ProofDocument`
+Legacy path and the sort-indexed path. Legacy ACCEPTed both documents 5/5;
+sort-indexed remained PARTIAL 4 (`intro-def` 4) and PARTIAL 48 (`intro-def`
+30, `rewrite` 18). Median check times were 0.028s vs 0.047s on the smaller
+ring and 4.569s vs 0.775s on the larger ring, respectively; the sort-indexed
+path was 5.9x slower on the latter. This comparison is pinned to checker
+`b5e8cb065f06` / source commit `ce57c4095b54`, not the current PR-source
+checker, and the recaptures are not proven identical to the cohort documents.
+It is a fixed-proof Legacy control, not cohort burn-down or a current-PR
+performance claim. These proofs prioritize `intro-def` and `rewrite` parity
+work over a QF_LIA Farkas producer change.
 
 ## QF_LIA/Farkas status and candidate
 
@@ -116,6 +140,21 @@ Math.Exp query-7 nodes while the official diagnostics reported only
 `assumed:nlsat` and `th-lemma` PENDING. Those helper results are not official
 Farkas failures or producer evidence.
 
+The current source already has explicit proof rules for integer tightening
+and cuts; the earlier producer-gap table in
+`ARITHMETIC_CERTIFICATE_REPORT.md` describes its separately pinned historical
+snapshot. During LP bound propagation, `lar_solver::update_column_type_and_bound`
+adds an `integer_tighten` derivation when integer rounding changes the bound.
+`evidence.cpp` checks the exact floor/ceiling step and integer variables,
+`lp_proof.cpp` serializes it with its premise, and the F* path accepts
+`arith/lp-integer-tighten` only through `LP.check_tightening`. The Gomory and
+integer-lattice producers likewise carry explicit evidence consumed by the
+typed `ArithmeticGomory` and `ArithmeticLattice` checks. Focused native bridge
+tests cover integer-tightening mutations and authentic Gomory cuts. This
+confirms those producer/checker paths exist; it does not establish that the
+two recaptured ring proofs used those steps, and does not justify a producer
+change without a matched failing QF_LIA proof.
+
 A post-follow-up producer/checker run on the AProVE input is now pinned. The
 input SHA-256 is `8e9c33d59fec315a4853913768f76e15f98aea47938c6bb69ac484ece919219a`;
 the checker SHA-256 is `53f2b433d0a37ba5470ab3ebda9ce27d6316c188ceb6c4f73ae5002982df73aa`,
@@ -171,6 +210,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
 | Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
 | Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
 | Nov 20 17:02 | Sync PR branch with latest master | Merged fetched master through `a2fd7e6b1`; no new checker/cohort metric measured. The active cohort continues on its pinned binaries | merge `743908848`; active cohort state |
@@ -180,7 +220,6 @@ overlapping candidate effects must not be added.
 | Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
 | Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
-| Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or matched-proof comparison yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
 
 ## Validation and active cadence
 
