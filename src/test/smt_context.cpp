@@ -1278,7 +1278,7 @@ static void check_proof_mode_guards() {
     for (char const* name : {
         "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
         "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
-        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "fm", "fpa2bv", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
         "pqffd", "psat", "psmt", "qe2", "qe_rec",
         "qffd", "qfnra-nlsat", "qsat",
@@ -1294,7 +1294,7 @@ static void check_proof_mode_guards() {
         bool rejects = false;
         for (char const* rejecting : {
             "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv",
-            "ff-sat", "ff-solve", "ff2bv", "fm", "horn",
+            "ff-sat", "ff-solve", "ff2bv", "fm",
             "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
             "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
             "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
@@ -1405,6 +1405,42 @@ static void check_proof_mode_guards() {
         ENSURE(changed);
         t->cleanup();
     }
+}
+
+static void check_horn_proof_mode() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream input(
+        "(set-logic HORN)\n"
+        "(set-option :produce-proofs true)\n"
+        "(declare-fun inv (Int) Bool)\n"
+        "(assert (forall ((x Int)) (=> (= x 0) (inv x))))\n"
+        "(assert (forall ((x Int)) (=> (inv x) (inv (+ x 1)))))\n"
+        "(assert (forall ((x Int)) (=> (and (inv x) (> x 5)) false)))\n");
+    ENSURE(parse_smt2_commands(cmd, input));
+    cmd.check_sat(0, nullptr);
+    ENSURE(out.str() == "unsat\n");
+    proof_ref pr(cmd.get_check_sat_result()->get_proof(), m);
+    ENSURE(pr);
+    bool has_hyper_resolve = false;
+    for (expr* e : subterms::all(expr_ref(pr, m)))
+        has_hyper_resolve |= is_app(e) && m.is_hyper_resolve(to_app(e));
+    ENSURE(has_hyper_resolve);
+
+    goal_ref g = alloc(goal, m, true, false, false);
+    for (expr* assertion : cmd.assertions())
+        g->assert_expr(assertion);
+    tactic_manager tactics;
+    install_tactics(tactics);
+    tactic_ref simplify = tactics.find_tactic_cmd(symbol("horn-simplify"))->mk(m);
+    goal_ref_buffer result;
+    (*simplify)(g, result);
+    ENSURE(result.size() == 1 && result[0]->depth() > 0);
+    ENSURE(result[0]->prec() == goal::UNDER_OVER);
 }
 
 static void check_proof_mode_compositions() {
@@ -1641,6 +1677,7 @@ void tst_smt_context()
 
     check_late_equality_justification();
     check_proof_mode_guards();
+    check_horn_proof_mode();
     check_proof_mode_compositions();
     check_proof_mode_sls();
     check_proof_mode_fallbacks();
