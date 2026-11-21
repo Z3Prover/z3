@@ -199,14 +199,43 @@ let () =
   require (ArrayGround.selected schema ground_with_ext = None)
     "original assertion with array-ext was accepted";
   let with_entry entry = { (doc entry) with P.entries = [entry] } in
-  require (not (D.has_candidates schema (with_entry { th with P.premise_ids = [Z.zero] })))
-    "premise-bearing lemma was selected";
+  let premise_th = { th with P.premise_ids = [Z.zero] } in
+  let premise_doc = { (doc premise_th) with
+    P.entries = [asserted; premise_th; asserted;
+                 { resolution with P.premise_ids = [Z.one; Z.of_int 2] }];
+    root = Z.of_int 3 } in
+  require (Root.check_root_document_epsilon schema premise_doc = Root.RootPending Z.one)
+    "well-formed premise-bearing array document was not pending";
+  require (D.has_candidates schema premise_doc)
+    "premise-bearing array lemma was not selected";
+  require (D.within_budget premise_doc)
+    "small premise-bearing document exceeded budget";
+  let promoted = List.nth (D.augment schema premise_doc).P.entries 1 in
+  require (promoted.P.rule = U.Asserted && promoted.P.premise_ids = [])
+    "promoted array lemma retained its premise references";
+  require (D.selected schema premise_doc <> None)
+    "premise-bearing array document was not selected";
+  require (D.check schema premise_doc = Root.RootCertified)
+    "premise-bearing array lemma was not certified";
+  require (Checker.check_array schema premise_doc = Root.RootCertified)
+    "array checker did not certify premise-bearing lemma";
+  require (Checker.check_definition_array schema premise_doc = Root.RootCertified)
+    "definition-array checker did not certify premise-bearing lemma";
+  let premise_rewrite_doc = { premise_doc with P.entries =
+    [asserted; { rewrite with P.premise_ids = [Z.zero] }; asserted; resolution] } in
+  require (not (D.has_candidates schema premise_rewrite_doc))
+    "premise-bearing rewrite was selected";
   let bad_read = A.App ({ select_decl with A.int_params = [Z.one] }, [stored; index]) in
   require (not (D.has_candidates schema (with_entry { th with P.formula = R.mk_eq_expr bad_read value })))
     "malformed select was selected";
   let false_formula = R.mk_eq_expr read index in
   require (not (D.has_candidates schema (with_entry { th with P.formula = false_formula })))
     "invalid array lemma was selected";
+  let invalid_premise = { th with P.premise_ids = [Z.zero]; P.formula = false_formula } in
+  let invalid_premise_doc = { premise_doc with P.entries =
+    [asserted; invalid_premise; asserted; resolution] } in
+  require (not (D.has_candidates schema invalid_premise_doc))
+    "invalid premise-bearing array lemma was selected";
   let ext = A.App (ext_decl, [array; array]) in
   let with_ext = { (doc th) with P.assertions = [negated; R.mk_eq_expr ext index] } in
   require (D.selected schema with_ext = None) "selected array-ext in an input was accepted";

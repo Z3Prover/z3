@@ -171,6 +171,22 @@ class IndependentCheckerTests(unittest.TestCase):
                       "--definition-replay"):
             self.assertEqual(self.run_checker("", "--array-replay", other).returncode, 2)
 
+    def test_definition_array_replay_cli(self):
+        source = ("(set-logic QF_AX)(declare-const a (Array Int Int))"
+                  "(declare-const i Int)(declare-const v Int)"
+                  "(assert (not (= (select (store a i v) i) v)))(check-sat)")
+        result = self.run_checker(source, "--definition-array-replay", "--diagnostics", "--stats")
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"))
+        self.assertIn("semantics=sorted-definition-array", result.stderr)
+        interactive = self.run_checker(source, "--interactive", "--definition-array-replay",
+                                       "--diagnostics")
+        self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+        self.assertIn("; proof-check ACCEPT", interactive.stdout)
+        for other in ("--distinct-replay", "--skolem-replay", "--field-replay",
+                      "--array-replay", "--definition-replay"):
+            self.assertEqual(
+                self.run_checker("", "--definition-array-replay", other).returncode, 2)
+
     def test_array_replay_diagnostics_preserve_noncertified_verdicts(self):
         cases = [
             ("(declare-const x Int)(assert (= (* x x) 2))(check-sat)", 3, "PARTIAL 1"),

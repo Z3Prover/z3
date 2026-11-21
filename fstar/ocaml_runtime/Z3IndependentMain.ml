@@ -191,7 +191,9 @@ let parse_prime_evidence text =
       a, xs
   | _ -> bad ()
 
-let interactive statistics diagnostics distinct_replay skolem_replay field_replay prime_evidence array_replay definition_replay clause_proofs timeout =
+let interactive
+    statistics diagnostics distinct_replay skolem_replay field_replay prime_evidence
+    array_replay definition_replay definition_array_replay clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and pending = ref false
   and uncovered = ref false and queries = ref 0 in
@@ -204,14 +206,18 @@ let interactive statistics diagnostics distinct_replay skolem_replay field_repla
     let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
     let marshaled = Unix.gettimeofday () in
     let verdict, cached_diagnostic =
-      if diagnostics && array_replay then
+      if diagnostics && definition_array_replay then
+        let verdict, diagnostic = Z3IndependentChecker.check_definition_array_diagnosed schema doc in
+        verdict, Some diagnostic
+      else if diagnostics && array_replay then
         let verdict, diagnostic = Z3IndependentChecker.check_array_diagnosed schema doc in
         verdict, Some diagnostic
       else if diagnostics && definition_replay then
         let verdict, diagnostic = Z3IndependentChecker.check_definition_diagnosed schema doc in
         verdict, Some diagnostic
       else if diagnostics &&
-              not (distinct_replay || skolem_replay || field_replay || definition_replay) then
+              not (distinct_replay || skolem_replay || field_replay ||
+                   definition_replay || definition_array_replay) then
         let verdict, diagnostic = Z3IndependentChecker.check_diagnosed schema doc in
         verdict, Some diagnostic
       else
@@ -221,6 +227,7 @@ let interactive statistics diagnostics distinct_replay skolem_replay field_repla
            (match prime_evidence with
             | None -> Z3IndependentChecker.check_field schema doc
             | Some _ -> Z3IndependentChecker.check_field_with_evidence schema doc prime_evidence)
+         else if definition_array_replay then Z3IndependentChecker.check_definition_array schema doc
          else if array_replay then Z3IndependentChecker.check_array schema doc
          else if definition_replay then Z3IndependentChecker.check_definition schema doc
          else Z3IndependentChecker.check schema doc), None in
@@ -235,7 +242,8 @@ let interactive statistics diagnostics distinct_replay skolem_replay field_repla
         | Some diagnostic -> diagnostic
         | None ->
             if distinct_replay then Z3IndependentChecker.diagnose_distinct schema doc
-            else if skolem_replay || field_replay || array_replay || definition_replay then replay_diagnostic schema doc verdict
+            else if skolem_replay || field_replay || array_replay || definition_replay ||
+                    definition_array_replay then replay_diagnostic schema doc verdict
             else Z3IndependentChecker.diagnose schema doc in
       report_diagnostics verdict diagnostic;
       match diagnostic with
@@ -262,6 +270,7 @@ let interactive statistics diagnostics distinct_replay skolem_replay field_repla
         (List.length doc.Z3DocumentSyntax.entries)
         (if distinct_replay then "sorted-distinct" else if skolem_replay then "sorted-skolem"
          else if field_replay then "sorted-field"
+         else if definition_array_replay then "sorted-definition-array"
          else if array_replay then "sorted-array"
          else if definition_replay then "sorted-definition"
          else "sorted-core") in
@@ -312,7 +321,8 @@ let run args =
   let statistics = ref false and diagnostics = ref false and timeout = ref Z.zero in
   let distinct_replay = ref false and skolem_replay = ref false and field_replay = ref false
   and array_replay = ref false
-  and definition_replay = ref false in
+  and definition_replay = ref false
+  and definition_array_replay = ref false in
   let interactive_mode = ref false in
   let prime_evidence = ref None in
   let clause_proofs = ref false and path = ref None in
@@ -328,6 +338,8 @@ let run args =
       "BASE:FACTOR,... Supply bounded Lucas evidence for --field-replay";
     "--array-replay", Arg.Set array_replay, " Enable array replay";
     "--definition-replay", Arg.Set definition_replay, " Enable definition, NNF and Skolem replay";
+    "--definition-array-replay", Arg.Set definition_array_replay,
+      " Enable combined definition, NNF, Skolem and array replay";
     "--interactive", Arg.Set interactive_mode, " Check an incremental SMT-LIB session from stdin";
     "--clause-proofs", Arg.Set clause_proofs, " Enable clausal proof production";
     "--timeout-ms", Arg.String (fun value ->
@@ -346,7 +358,7 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args)) options
-      input_path "usage: checker [--interactive] [--distinct-replay | --skolem-replay | --field-replay | --array-replay | --definition-replay] [--stats] [--diagnostics] [--clause-proofs] [--timeout-ms N] [input.smt2]";
+      input_path "usage: checker [--interactive] [--distinct-replay | --skolem-replay | --field-replay | --array-replay | --definition-replay | --definition-array-replay] [--stats] [--diagnostics] [--clause-proofs] [--timeout-ms N] [input.smt2]";
     if !distinct_replay && !skolem_replay then
       raise (Arg.Bad "--distinct-replay and --skolem-replay cannot be combined");
     if !field_replay && (!distinct_replay || !skolem_replay) then
@@ -357,9 +369,15 @@ let run args =
       raise (Arg.Bad "--array-replay cannot be combined with other replay options");
     if !definition_replay && (!distinct_replay || !skolem_replay || !field_replay || !array_replay) then
       raise (Arg.Bad "--definition-replay cannot be combined with other replay options");
+    if !definition_array_replay &&
+       (!distinct_replay || !skolem_replay || !field_replay ||
+        !array_replay || !definition_replay) then
+      raise (Arg.Bad "--definition-array-replay cannot be combined with other replay options");
     if !interactive_mode then (
       if !path <> None then raise (Arg.Bad "--interactive reads commands from stdin");
-      exit (interactive !statistics !diagnostics !distinct_replay !skolem_replay !field_replay !prime_evidence !array_replay !definition_replay !clause_proofs !timeout));
+      exit (interactive !statistics !diagnostics !distinct_replay !skolem_replay
+        !field_replay !prime_evidence !array_replay !definition_replay
+        !definition_array_replay !clause_proofs !timeout));
     let input = match !path with
       | None | Some "-" -> read_all stdin
       | Some name ->
@@ -376,14 +394,18 @@ let run args =
         let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
         let marshaled = Unix.gettimeofday () in
         let verdict, cached_diagnostic =
-          if !diagnostics && !array_replay then
+          if !diagnostics && !definition_array_replay then
+            let verdict, diagnostic = Z3IndependentChecker.check_definition_array_diagnosed schema doc in
+            verdict, Some diagnostic
+          else if !diagnostics && !array_replay then
             let verdict, diagnostic = Z3IndependentChecker.check_array_diagnosed schema doc in
             verdict, Some diagnostic
           else if !diagnostics && !definition_replay then
             let verdict, diagnostic = Z3IndependentChecker.check_definition_diagnosed schema doc in
             verdict, Some diagnostic
           else if !diagnostics &&
-                  not (!distinct_replay || !skolem_replay || !field_replay || !definition_replay) then
+                  not (!distinct_replay || !skolem_replay || !field_replay ||
+                       !definition_replay || !definition_array_replay) then
             let verdict, diagnostic = Z3IndependentChecker.check_diagnosed schema doc in
             verdict, Some diagnostic
           else
@@ -393,6 +415,8 @@ let run args =
                (match !prime_evidence with
                 | None -> Z3IndependentChecker.check_field schema doc
                 | Some _ -> Z3IndependentChecker.check_field_with_evidence schema doc !prime_evidence)
+             else if !definition_array_replay then
+               Z3IndependentChecker.check_definition_array schema doc
              else if !array_replay then Z3IndependentChecker.check_array schema doc
              else if !definition_replay then Z3IndependentChecker.check_definition schema doc
              else Z3IndependentChecker.check schema doc), None in
@@ -403,7 +427,8 @@ let run args =
              | Some diagnostic -> diagnostic
              | None ->
                  if !distinct_replay then Z3IndependentChecker.diagnose_distinct schema doc
-                 else if !skolem_replay || !field_replay || !array_replay || !definition_replay then replay_diagnostic schema doc verdict
+                 else if !skolem_replay || !field_replay || !array_replay ||
+                         !definition_replay || !definition_array_replay then replay_diagnostic schema doc verdict
                  else Z3IndependentChecker.diagnose schema doc);
         if !statistics then
           Printf.eprintf
@@ -415,6 +440,7 @@ let run args =
             (List.length doc.Z3DocumentSyntax.entries)
             (if !distinct_replay then "sorted-distinct" else if !skolem_replay then "sorted-skolem"
              else if !field_replay then "sorted-field"
+             else if !definition_array_replay then "sorted-definition-array"
              else if !array_replay then "sorted-array"
              else if !definition_replay then "sorted-definition"
              else "sorted-core");

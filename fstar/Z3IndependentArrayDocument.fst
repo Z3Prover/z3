@@ -18,19 +18,23 @@ module SR = Z3SortedRoot
 let max_work : nat = 2000000
 
 let eligible_entry (schema:S.schema) (entry:P.entry) : bool =
-  if entry.P.premise_ids <> [] || None? (expression_budget Replay.max_nodes entry.P.formula) then false
-  else match entry.P.rule with
+  match entry.P.rule with
   | U.Unverified "th-lemma" ->
-    Replay.clause (S.signature schema) entry.P.formula ||
-    (match U.classify_fact entry.P.formula with
-     | Some (U.Equal a b) ->
-       entry.P.formula = R.mk_eq_expr a b && Replay.rewrite (S.signature schema) a b
-     | _ -> false)
+    if None? (expression_budget Replay.max_nodes entry.P.formula) then false
+    else
+      Replay.clause (S.signature schema) entry.P.formula ||
+      (match U.classify_fact entry.P.formula with
+       | Some (U.Equal a b) ->
+         entry.P.formula = R.mk_eq_expr a b && Replay.rewrite (S.signature schema) a b
+       | _ -> false)
   | U.RewriteRule ->
-    (match U.classify_fact entry.P.formula with
-     | Some (U.Equal a b) ->
-       entry.P.formula = R.mk_eq_expr a b && Replay.rewrite (S.signature schema) a b
-     | _ -> false)
+    if entry.P.premise_ids <> [] ||
+       None? (expression_budget Replay.max_nodes entry.P.formula) then false
+    else
+      (match U.classify_fact entry.P.formula with
+       | Some (U.Equal a b) ->
+         entry.P.formula = R.mk_eq_expr a b && Replay.rewrite (S.signature schema) a b
+       | _ -> false)
   | _ -> false
 
 let rec budget_entries (fuel:nat) (entries:list P.entry) : Tot bool (decreases entries) =
@@ -38,12 +42,17 @@ let rec budget_entries (fuel:nat) (entries:list P.entry) : Tot bool (decreases e
   | [] -> true
   | entry :: rest ->
     if fuel = 0 then false
-    else if entry.P.premise_ids <> [] then budget_entries (fuel - 1) rest
     else match entry.P.rule with
-    | U.Unverified "th-lemma" | U.RewriteRule ->
+    | U.Unverified "th-lemma" ->
       (match expression_budget (fuel - 1) entry.P.formula with
        | None -> false
        | Some remaining -> budget_entries remaining rest)
+    | U.RewriteRule ->
+      if entry.P.premise_ids <> [] then budget_entries (fuel - 1) rest
+      else
+        (match expression_budget (fuel - 1) entry.P.formula with
+         | None -> false
+         | Some remaining -> budget_entries remaining rest)
     | _ -> budget_entries (fuel - 1) rest
 
 let within_budget (doc:P.document) : bool = budget_entries max_work doc.P.entries
@@ -69,7 +78,9 @@ let rec replay_entries_acc (schema:S.schema) (entries:list P.entry) (acc:list P.
   | [] -> acc
   | entry :: rest ->
     replay_entries_acc schema rest
-      ((if eligible_entry schema entry then { entry with P.rule = U.Asserted } else entry) :: acc)
+      ((if eligible_entry schema entry
+        then { entry with P.rule = U.Asserted; P.premise_ids = [] }
+        else entry) :: acc)
 
 let augment (schema:S.schema) (doc:P.document) : P.document =
   { doc with P.assertions = doc.P.assertions @ extra_assertions schema doc.P.entries;
