@@ -26,7 +26,7 @@ Revision History:
 struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsynch_mpq_manager           m_qmanager;
     algebraic_numbers::manager    m_amanager;
-    id_gen                        m_id_gen;
+    ordered_id_gen                m_id_gen;
     scoped_anum_vector            m_nums;
 
     algebraic_numbers_wrapper(reslimit& lim):
