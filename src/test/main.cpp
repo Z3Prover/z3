@@ -56,6 +56,7 @@
     X(seq_mem_facet) \
     X(seq_ncontains_facet) \
     X(seq_power_facet) \
+    X(seq_replace_all_facet) \
     X(seq_solver_facet) \
     X(heap) \
     X(min_cut) \
