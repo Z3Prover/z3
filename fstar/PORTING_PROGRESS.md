@@ -1,12 +1,10 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T03:34:05-08:00**. The cohort figures below are the latest
-completed diagnostics, not measurements of the current LP-bound candidate.
-The Nov 21 recapture kept both cohorts' observed verdict counts and sample
-PENDING unchanged; extended weighted PENDING moved from 31,271 to 31,262.
-The input manifest, checker, and native-library pins match; proof-document
-hashes were not retained for this cohort, so this is not matched-proof burn-down.
-The PR branch includes master through `a2fd7e6b1`.
+Updated: **2026-11-21T05:17:13-08:00**. The latest completed full SMT-LIB
+capture below used a retained Definition-mode checker, not a fresh current-PR
+build. Its binary, runtime, and input manifests are pinned, but proof-document
+hashes were not retained; these counts are not matched-proof burn-down or a
+Legacy comparison. The PR branch includes master through `a2fd7e6b1`.
 
 **Old historical** means archived measurements from earlier Legacy-checker
 captures, not a current checker binary. **Core** is the sort-indexed checker
@@ -18,7 +16,44 @@ PENDING is the weighted count of unresolved proof-rule obligations in completed
 diagnostics. Missing diagnostics, timeout tails, and unobserved evidence are
 N/M, never zero.
 
-## Latest completed cohort captures
+## Latest completed retained Definition capture
+
+The checker was invoked with `--definition-replay`, SHA-256
+`6eb16f0b187e27a5d4a5298f7c848869899edf7feb15895ab525325cb5099fbb`;
+OCaml is pinned at 5.3.0 and Z3 is statically linked. The retained
+`verified-sources.json` shows a passing verification run on Nov 15, but its
+source/build provenance is not tied to this capture. The capture does not
+record a source commit, build, or self-test result. Input hashes were verified
+before each cohort; proof-document hashes are N/M.
+
+| Dataset | Input manifest SHA-256 | Outcomes (selected) | Diagnostics | Diagnostic errors | Weighted PENDING |
+| --- | --- | --- | ---: | ---: | ---: |
+| smtlib-sample | `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44` | 83 ACCEPT, 103 PARTIAL, 20 UNKNOWN, 19 TIMEOUT (225) | 186 / 225 | 0 | 5,907 |
+| smtlib-extended | `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34` | 74 ACCEPT, 135 PARTIAL, 69 UNKNOWN, 7 TIMEOUT (285) | 209 / 285 | 0 | 31,516 |
+
+| Rule | smtlib-sample PENDING | smtlib-extended PENDING |
+| --- | ---: | ---: |
+| `arith/farkas` | 0 | 33 |
+| `arith/lp-monomial-interval` | 0 | 46 |
+| `arith/lp-monomial-substitute` | 0 | 1 |
+| `assumed:nlsat` | 0 | 146 |
+| `apply-def` | 203 | 0 |
+| `def-axiom` | 3 | 89 |
+| `der` | 7 | 0 |
+| `intro-def` | 272 | 147 |
+| `quant-intro` | 42 | 83 |
+| `rewrite` | 1,866 | 24,704 |
+| `th-lemma` | 3,514 | 6,267 |
+
+The rule totals cover only diagnostic-bearing cases; the remaining 39 sample
+and 76 extended cases have N/M rule diagnostics. In sample, QF_LIA has 12
+ACCEPT, 6 PARTIAL, 5 UNKNOWN, and 2 TIMEOUT; no `arith/farkas` PENDING appears
+in the observed sample diagnostics. Extended has no QF_LIA inputs. Its 33
+`arith/farkas` PENDING are in four QF_NIA and one QF_NRA inputs; their
+diagnostic fingerprints contain nonlinear products, while raw proof documents
+and weights are N/M. This is not evidence of a pure-linear producer defect.
+
+## Prior completed Core cohort baseline
 
 | Dataset | Checker pin and mode | Observed / selected | Case status / observed verdicts | Diagnostics / observed | Diagnostic errors | Weighted PENDING |
 | --- | --- | ---: | --- | ---: | ---: | ---: |
@@ -53,10 +88,11 @@ extended `6f6ad04db40a0f49733329ce056d5e599328a4468133f987a56c2172ac08cb34`.
 | `sk` | 0 | 0 | 10 |
 | `th-lemma` | 3,499 | 6,123 | 236 |
 
-The sample QF_LIA slice contains 25 inputs: 17 ACCEPT, 2 PARTIAL, 1 TIMEOUT,
-and 5 UNKNOWN. Its two PARTIAL proofs have 52 PENDING (34 `intro-def`, 18
-`rewrite`) and no `arith/farkas` PENDING. The extended selection has no QF_LIA
-inputs. The fstar-build timeout tails have N/M rule diagnostics.
+In this Core baseline, the sample QF_LIA slice contains 25 inputs: 17 ACCEPT,
+2 PARTIAL, 1 TIMEOUT, and 5 UNKNOWN. Its two PARTIAL proofs have 52 PENDING
+(34 `intro-def`, 18 `rewrite`) and no `arith/farkas` PENDING. The extended
+selection has no QF_LIA inputs. The fstar-build timeout tails have N/M rule
+diagnostics.
 
 A separate pinned two-ring recapture used the sample inputs and the same
 Definition checker/runtime pins. Its proof documents hash to
@@ -286,6 +322,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample: 83/225 ACCEPT, 5,907 PENDING across 186 diagnostics; extended: 74/285 ACCEPT, 31,516 PENDING across 209 diagnostics. Not comparable to the prior Core run; no proof hashes, matched-proof burn-down, current-source, or Legacy-parity claim | `periodic-smtlib-20261121T120903Z/smtlib-sample/report.md`, `periodic-smtlib-20261121T120903Z/smtlib-extended/report.md`; checker `6eb16f0b187e`; manifests `72cba03d2816`, `6f6ad04db40a` |
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Checker `d52b5df5e` retained Legacy ACCEPT 2/2 and sort-indexed ACCEPT 1/2; current medians are 6.32x and 8.25x slower than Legacy. Confirms the same-pin dispatch-order speedup; no cohort burn-down or parity | `pr-head-control-replay.log`; checker `1c7b0f43`; `libz3.a` `6e4e68e1`; fixed proof hashes unchanged |
 | Nov 21 03:11 | Defer integer-product fallback behind cheaper consequence checks | On identical frozen proof 51, sort-indexed median fell 2,258.694 → 367.665 ms (6.14x within-checker speedup), but remained 6.39x slower than Legacy and PARTIAL 4. Proof 52 remained ACCEPT and unchanged against the preceding checker (29.093 ms; 8.24x slower than Legacy); no cohort burn-down or parity | `integer-product-frozen-replay.log` → `integer-product-reorder-frozen-replay.log`; checker `e6f6e04e` → `1db30488`; same proof hashes and native-library pins |
 | Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample remains 4,020 PENDING; extended falls 31,271 → 31,262 without retained proof hashes, not matched-proof burn-down. The 19 extended Farkas PENDING are untraced. Fixed-control medians total 88.699s sorted vs. 26.251s Legacy (3.38x), sorted slower on 10/11; this is not current-source performance. Strict F* verification passed for the 113-module array-document closure, including interfaces. Full `-RunTests` stopped at an unrelated finite-field VC before extraction/OCaml tests | `periodic-smtlib-20261121T060114Z`; `conditional-current-source-control-03.json`; remaining-timing log; F* output `1795246163690-copilot-tool-output-57984-e771cb18-86b4-4b05-8557-931ad6ef986c.txt` |
@@ -295,7 +332,6 @@ overlapping candidate effects must not be added.
 | Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
 | Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
 | Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
-| Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
 
 ## Validation and active cadence
 
