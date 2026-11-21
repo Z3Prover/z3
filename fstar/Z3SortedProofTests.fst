@@ -10,6 +10,7 @@ module U = Z3UnifiedProofSyntax
 module P = Z3DocumentSyntax
 module R = Z3ClauseSyntax
 module BR = Z3BooleanRewriteSyntax
+module ZA = Z3SortedArray
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
@@ -415,6 +416,56 @@ let core_document : P.document = {
     { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
   root = 2;
 }
+
+let array_sort = ArraySort [integer] integer
+let array_value (name:string) (s:sort) : expr =
+  App { decl_name = name; domain = []; range = s; interp = None; int_params = [] } []
+let array_base = array_value "array" array_sort
+let array_index = array_value "array-index" integer
+let array_element = array_value "array-element" integer
+let array_read_over_write =
+  R.mk_eq_expr
+    (App (ZA.select_decl integer integer)
+      [App (ZA.store_decl integer integer) [array_base; array_index; array_element]; array_index])
+    array_element
+let array_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [R.mk_not_expr array_read_over_write];
+  entries = [
+    { P.rule = U.Asserted; formula = R.mk_not_expr array_read_over_write; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = array_read_over_write; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let datatype_array_read_over_write =
+  let array_sort = ArraySort [box] integer in
+  let array = array_value "datatype-array" array_sort in
+  let index = x in
+  let element = integer_literal 0 in
+  R.mk_eq_expr
+    (App (ZA.select_decl box integer)
+      [App (ZA.store_decl box integer) [array; index; element]; index])
+    element
+let datatype_array_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [R.mk_not_expr datatype_array_read_over_write];
+  entries = [
+    { P.rule = U.Asserted; formula = R.mk_not_expr datatype_array_read_over_write; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = datatype_array_read_over_write; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let guarded_array_lemma_dispatch ()
+  : Lemma (ensures K.check_document core_schema array_document == Some 1 /\
+                   K.check_document_array core_schema array_document == Some 0 /\
+                   not (K.array_lemma_supported schema datatype_array_read_over_write) /\
+                   K.check_document_array schema datatype_array_document == Some 1) =
+  assert_norm (K.check_document core_schema array_document == Some 1);
+  assert_norm (K.check_document_array core_schema array_document == Some 0);
+  assert_norm (not (K.array_lemma_supported schema datatype_array_read_over_write));
+  assert_norm (K.check_document_array schema datatype_array_document == Some 1)
 
 let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
                                              (eq:T.scalar_model base)

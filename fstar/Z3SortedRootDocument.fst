@@ -245,6 +245,23 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
   SP.lemma_check_document sch (TR.booleans u) (SR.root_scalars u) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 
+(* The array replay route adds its checked array kernel explicitly; the root
+   model contract above remains unchanged. *)
+let lemma_root_check_document_array (u:TR.uninterpreted) (sch:S.checked_schema)
+                              (i:TR.interp u sch)
+                              (arrays:SP.array_kernel sch (TR.booleans u) (SR.root_scalars u) i)
+                              (doc:P.document)
+  : Lemma (requires TR.root_model u sch i /\ SP.check_document_array sch doc == Some 0)
+          (ensures not (root_truths u sch i doc.P.assertions)) =
+  lemma_forall_model u sch i;
+  lemma_forall_elimination_model u sch i;
+  lemma_exists_model u sch i;
+  if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
+  if SP.needs_real_semantics sch doc.P.entries then SP.lemma_needs_real_primitive sch doc.P.entries;
+  DR.lemma_root_division_laws u sch i;
+  SP.lemma_check_document_array sch (TR.booleans u) (SR.root_scalars u) i arrays doc;
+  lemma_truths_agreement u sch i doc.P.assertions
+
 (* ---------------------------------------------------------------------- *)
 (* 5. L2: the root-specific document gate (pure, OFF the default route)     *)
 (* ---------------------------------------------------------------------- *)

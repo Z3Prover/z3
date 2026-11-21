@@ -8,16 +8,27 @@ module AP = Z3IndependentArrayPreservation
 module A = Z3SortedArray
 module AF = Z3IndependentArrayFamily
 module SR = Z3SortedRoot
+module SP = Z3SortedProof
 
 let max_assertions : nat = 2000000
 
 val eligible_entry (schema:S.schema) (entry:P.entry) : bool
 val within_budget (doc:P.document) : bool
 val has_candidates (schema:S.schema) (doc:P.document) : bool
+val has_core_candidates (schema:S.checked_schema) (entries:list P.entry) : bool
+val core_selected (schema:S.schema) (doc:P.document)
+  : result:option P.document{
+      result == (if S.valid schema && within_budget doc &&
+                    AP.eligible (S.signature schema) max_assertions doc.P.assertions &&
+                    has_core_candidates schema doc.P.entries &&
+                    SP.check_document_array schema doc == Some 0
+                 then Some doc else None)}
 val augment (schema:S.schema) (doc:P.document) : P.document
 val selected (schema:S.schema) (doc:P.document)
   : result:option P.document{
-      result == (if S.valid schema && within_budget doc &&
+      result == (match core_selected schema doc with
+        | Some selected -> Some selected
+        | None -> if S.valid schema && within_budget doc &&
                     AP.eligible (S.signature schema) max_assertions doc.P.assertions &&
                     has_candidates schema doc &&
                     Root.check_root_document_epsilon schema (augment schema doc) == Root.RootCertified

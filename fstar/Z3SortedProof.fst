@@ -42,11 +42,49 @@ module IQ = Z3IndependentIntQuotientClause
 module CD = Z3IndependentConditionalDefinition
 module IA = Z3IndependentIteAdd
 module LS = Z3IndependentIntegerSplitReplay
+module AS = Z3ArraySyntax
+module ZA = Z3SortedArray
 module RX = Z3SortedRealExtension
 module DX = Z3SortedDivisionExtension
 module Reach = Z3RelationalReachability
 module H = Z3HypothesisSemantics
 module CS = Z3ClausalSemantics
+
+let rec array_sorts_supported (sigma:V.signature) (e:expr) : Tot bool (decreases e) =
+  (match get_sort e with
+   | ArraySort _ _ -> not (V.contains_datatype sigma (get_sort e))
+   | _ -> true) &&
+  (match e with
+   | App _ args -> array_sorts_supported_args sigma args
+   | Quantifier _ bound _ body ->
+     array_sorts_supported_sorts sigma bound && array_sorts_supported sigma body
+   | _ -> true)
+
+and array_sorts_supported_args (sigma:V.signature) (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> true
+  | e :: rest -> array_sorts_supported sigma e && array_sorts_supported_args sigma rest
+
+and array_sorts_supported_sorts (sigma:V.signature) (sorts:list sort) : Tot bool (decreases sorts) =
+  match sorts with
+  | [] -> true
+  | s :: rest ->
+    (match s with ArraySort _ _ -> not (V.contains_datatype sigma s) | _ -> true) &&
+    array_sorts_supported_sorts sigma rest
+
+let array_lemma_supported (s:S.checked_schema) (e:expr) : bool =
+  AS.array_lemma e && array_sorts_supported (S.signature s) e
+
+let array_lemma_entry (s:S.checked_schema) (entry:P.entry) : bool =
+  entry.P.rule = U.Unverified "th-lemma" && array_lemma_supported s entry.P.formula
+
+noeq type array_kernel (#base:sort -> Type0) (s:S.checked_schema)
+                      (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                      (other:V.interpretation base (S.signature s)) = {
+  family: ZA.family base (S.signature s);
+  model: ZA.model s bc eq other family;
+  supports: e:expr -> Tot (array_lemma_supported s e ==> ZA.supported family e);
+}
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -3273,6 +3311,17 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
+let array_lemma_node (s:S.checked_schema) (node:U.proof_node) : bool =
+  node.kind = U.Unverified "th-lemma" &&
+  array_lemma_supported s (proposition node.conclusion)
+
+let check_node_cached_array (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
+  : option (U.checked_fact & nat) =
+  match check_node_cached s assertions node with
+  | Some (fact, pending) ->
+    Some (fact, (if array_lemma_node s node then 0 else pending))
+  | None -> None
+
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =
   if facts_valid s node.premises then check_node_cached s assertions node else None
@@ -3292,6 +3341,15 @@ let lemma_check_node_context (s:S.checked_schema) (assertions:list expr)
       | _ -> ())
     else if node.kind = U.LemmaRule then
       lemma_remaining_context s (U.premise_hypotheses node.premises) (proposition node.conclusion)
+
+let lemma_check_node_context_array (s:S.checked_schema) (assertions:list expr)
+                                  (node:U.proof_node) (fact:U.checked_fact) (pending:nat)
+  : Lemma (requires facts_valid s node.premises /\
+                   check_node_cached_array s assertions node == Some (fact, pending))
+         (ensures fact_valid s fact) =
+  let original, original_pending = Some?.v (check_node_cached s assertions node) in
+  assert (original == fact);
+  lemma_check_node_context s assertions node fact original_pending
 
 (* A replayed NNF node: its conclusion, a closed equation of two values, is
    true (Z3NnfReplay.lemma_replay at the scope [] and the empty environment). *)
@@ -3634,6 +3692,37 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
     else if unused_elimination node then lemma_unused_elimination s bc eq other node
     else lemma_der_rewrite s bc eq other node
 
+let lemma_check_node_cached_array (#base:sort -> Type0) (s:S.checked_schema)
+                     (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                     (other:V.interpretation base (S.signature s))
+                     (arrays:array_kernel s bc eq other)
+                     (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
+  : Lemma (requires T.truths s bc eq other assertions /\ facts_hold s bc eq other node.premises /\
+                    facts_valid s node.premises /\
+                    (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
+                    (quantifier_flattening node ==> Q.forall_model s bc other) /\
+                    (binder_rule node.kind ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (real_node s node ==> RL.real_model s bc eq other) /\
+                    (division_node node ==> DV.division_laws s bc eq other) /\
+                    check_node_cached_array s assertions node == Some (fact, 0))
+          (ensures fact_holds s bc eq other fact) =
+  if array_lemma_node s node then (
+    lemma_check_node_context_array s assertions node fact 0;
+    let e = proposition node.conclusion in
+    assert (boolean_expression s e);
+    assert (D.scoped [] e);
+    arrays.model;
+    arrays.supports e;
+    ZA.lemma_array_lemma s bc eq other arrays.family [] (T.empty_environment (S.signature s)) e;
+    assert (T.truth s bc eq other e))
+  else (
+    let original, original_pending = Some?.v (check_node_cached s assertions node) in
+    assert (original == fact /\ original_pending == 0);
+    lemma_check_node_cached s bc eq other assertions node fact
+  )
+
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
   if not (D.scoped [] e.formula && in_context s e.formula) then None
@@ -3675,6 +3764,35 @@ let check_document (schema:S.schema) (doc:P.document) : option nat =
        if fact.conclusion = U.Holds R.false_expr && fact.hypotheses = [] then Some pending else None
      | None -> None)
 
+let rec check_entries_array (s:S.checked_schema) (assertions:list expr)
+                            (cache:I.index_tree U.checked_fact) (next pending:nat)
+                            (entries:list P.entry)
+  : Tot (option (I.index_tree U.checked_fact & nat)) (decreases entries) =
+  match entries with
+  | [] -> Some (cache, pending)
+  | e :: rest ->
+    (match prepare_entry s cache e with
+     | None -> None
+     | Some node ->
+       (match check_node_cached_array s assertions node with
+        | None -> None
+        | Some (fact, local) ->
+          check_entries_array s assertions (I.index_put cache next fact)
+            (next + 1) (pending + local) rest))
+
+let check_document_array (schema:S.schema) (doc:P.document) : option nat =
+  if not (S.valid schema) then None
+  else if not (boolean_expressions schema doc.assertions && U.ordinary_facts doc.assertions)
+  then None
+  else match check_entries_array schema doc.assertions I.Empty 0 0 doc.entries with
+  | None -> None
+  | Some (cache, pending) ->
+    (match I.index_find cache doc.root with
+     | Some fact ->
+       if fact.conclusion = U.Holds R.false_expr && fact.hypotheses = []
+       then Some pending else None
+     | None -> None)
+
 let rec lemma_pending (s:S.checked_schema) (assertions:list expr)
                       (cache:I.index_tree U.checked_fact) (next pending:nat) (entries:list P.entry)
                       (result:I.index_tree U.checked_fact) (count:nat)
@@ -3687,6 +3805,21 @@ let rec lemma_pending (s:S.checked_schema) (assertions:list expr)
     let node = Some?.v (prepare_entry s cache e) in
     let fact, local = Some?.v (check_node_cached s assertions node) in
     lemma_pending s assertions (I.index_put cache next fact) (next + 1) (pending + local) rest result count
+
+let rec lemma_pending_array (s:S.checked_schema) (assertions:list expr)
+                            (cache:I.index_tree U.checked_fact) (next pending:nat)
+                            (entries:list P.entry) (result:I.index_tree U.checked_fact)
+                            (count:nat)
+  : Lemma (requires check_entries_array s assertions cache next pending entries == Some (result, count))
+          (ensures pending <= count)
+          (decreases entries) =
+  match entries with
+  | [] -> ()
+  | e :: rest ->
+    let node = Some?.v (prepare_entry s cache e) in
+    let fact, local = Some?.v (check_node_cached_array s assertions node) in
+    lemma_pending_array s assertions (I.index_put cache next fact)
+      (next + 1) (pending + local) rest result count
 
 let cache_sound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -3850,6 +3983,65 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in
     lemma_entries s bc eq other doc.assertions I.Empty 0 0 doc.entries cache;
+    assert (doc.root >= 0);
+    let root = Some?.v (I.index_find cache doc.root) in
+    assert (I.index_get cache doc.root == Some root);
+    assert (fact_valid s root /\ fact_holds s bc eq other root);
+    assert (T.truth s bc eq other R.false_expr);
+    assert_norm (T.cut 1 R.false_expr == B.Bool false);
+    T.lemma_cut s bc eq other 1 R.false_expr)
+
+let rec lemma_entries_array (#base:sort -> Type0) (s:S.checked_schema)
+                      (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                      (other:V.interpretation base (S.signature s))
+                      (arrays:array_kernel s bc eq other)
+                      (assertions:list expr) (cache:I.index_tree U.checked_fact)
+                      (next pending:nat) (entries:list P.entry)
+                      (result:I.index_tree U.checked_fact)
+  : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
+                    (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
+                    (needs_forall_truth entries ==> Q.forall_model s bc other) /\
+                    (needs_binder_semantics entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s entries ==> RL.real_model s bc eq other) /\
+                    (needs_division_semantics entries ==> DV.division_laws s bc eq other) /\
+                    check_entries_array s assertions cache next pending entries == Some (result, 0))
+          (ensures cache_sound s bc eq other result)
+          (decreases entries) =
+  match entries with
+  | [] -> ()
+  | e :: rest ->
+    let node = Some?.v (prepare_entry s cache e) in
+    let fact, local = Some?.v (check_node_cached_array s assertions node) in
+    lemma_pending_array s assertions (I.index_put cache next fact)
+      (next + 1) (pending + local) rest result 0;
+    assert (local == 0);
+    lemma_premise_lookup s bc eq other cache e.premise_ids node.premises;
+    lemma_check_node_context_array s assertions node fact local;
+    if real_node s node then lemma_real_node_entry s cache e node;
+    if division_node node then lemma_division_node_entry s cache e node;
+    lemma_check_node_cached_array s bc eq other arrays assertions node fact;
+    lemma_cache_insert s bc eq other cache next fact;
+    lemma_entries_array s bc eq other arrays assertions
+      (I.index_put cache next fact) (next + 1) (pending + local) rest result
+
+let lemma_check_document_array (#base:sort -> Type0) (s:S.checked_schema)
+                         (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                         (other:V.interpretation base (S.signature s))
+                         (arrays:array_kernel s bc eq other) (doc:P.document)
+  : Lemma (requires check_document_array s doc == Some 0 /\
+                    (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
+                    (needs_forall_truth doc.entries ==> Q.forall_model s bc other) /\
+                    (needs_binder_semantics doc.entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s doc.entries ==> RL.real_model s bc eq other) /\
+                    (needs_division_semantics doc.entries ==> DV.division_laws s bc eq other))
+          (ensures not (T.truths s bc eq other doc.assertions)) =
+  if T.truths s bc eq other doc.assertions then (
+    let cache, _ = Some?.v (check_entries_array s doc.assertions I.Empty 0 0 doc.entries) in
+    lemma_entries_array s bc eq other arrays doc.assertions I.Empty 0 0 doc.entries cache;
     assert (doc.root >= 0);
     let root = Some?.v (I.index_find cache doc.root) in
     assert (I.index_get cache doc.root == Some root);
