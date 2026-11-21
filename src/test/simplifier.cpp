@@ -617,6 +617,139 @@ static void test_proof_mode_simplifier_pipeline() {
     }
 }
 
+class assertion_test_simplifier : public dependent_expr_simplifier {
+    std::function<void(dependent_expr_state&)> m_reduce;
+public:
+    assertion_test_simplifier(ast_manager& m, dependent_expr_state& state,
+                             std::function<void(dependent_expr_state&)> reduce):
+        dependent_expr_simplifier(m, state), m_reduce(reduce) {}
+    char const* name() const override { return "assertion-test"; }
+    void reduce() override { m_reduce(m_fmls); }
+};
+
+static void test_asserted_formula_plugins() {
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        expr_ref atom(m.mk_const("assertion-plugin-p", m.mk_bool_sort()), m);
+        expr_ref negated(m.mk_not(atom), m);
+        expr_ref original(m.mk_not(negated), m);
+        params_ref p;
+        p.set_bool("preprocess", false);
+        smt_params params(p);
+        asserted_formulas formulas(m, params, p);
+        unsigned calls = 0;
+        formulas.register_simplifier([&](ast_manager& m, params_ref const&, dependent_expr_state& state) {
+            return alloc(assertion_test_simplifier, m, state, [&](dependent_expr_state& state) {
+                ENSURE(calls++ == 0 && state[0].fml() == original);
+                state.update(0, dependent_expr(m, atom, nullptr, nullptr));
+            });
+        });
+        formulas.register_simplifier([&](ast_manager& m, params_ref const&, dependent_expr_state& state) {
+            return alloc(assertion_test_simplifier, m, state, [&](dependent_expr_state& state) {
+                ENSURE(calls++ == 1 && state[0].fml() == atom);
+                state.reset_updated();
+            });
+        });
+        formulas.assert_expr(original);
+        formulas.reduce();
+        ENSURE(calls == 2 && formulas.get_num_formulas() == 1);
+        ENSURE(formulas.get_formula(0) == atom);
+    }
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        expr_ref first(m.mk_const("assertion-plugin-first", m.mk_bool_sort()), m);
+        expr_ref second(m.mk_const("assertion-plugin-second", m.mk_bool_sort()), m);
+        expr_ref input(m), atom(m);
+        params_ref p;
+        p.set_bool("preprocess", false);
+        smt_params params(p);
+        asserted_formulas formulas(m, params, p);
+        unsigned calls = 0;
+        formulas.register_simplifier([&](ast_manager& m, params_ref const&, dependent_expr_state& state) {
+            return alloc(assertion_test_simplifier, m, state, [&](dependent_expr_state& state) {
+                ENSURE(calls++ % 2 == 0 && state.qtail() == 1 && state[0].fml() == input);
+                state.update(0, dependent_expr(m, atom, nullptr, nullptr));
+            });
+        });
+        formulas.register_simplifier([&](ast_manager& m, params_ref const&, dependent_expr_state& state) {
+            return alloc(assertion_test_simplifier, m, state, [&](dependent_expr_state& state) {
+                ENSURE(calls++ % 2 == 1 && state[0].fml() == atom);
+                state.update(0, dependent_expr(m, input, nullptr, nullptr));
+            });
+        });
+        auto add = [&](expr* a) {
+            atom = a;
+            expr_ref negated(m.mk_not(atom), m);
+            input = m.mk_not(negated);
+            formulas.assert_expr(input);
+            formulas.reduce();
+            ENSURE(formulas.get_formula(formulas.get_num_formulas() - 1) == input);
+        };
+        add(first);
+        formulas.commit();
+        formulas.push_scope();
+        add(second);
+        ENSURE(formulas.get_qhead() == 1 && formulas.get_num_formulas() == 2);
+        formulas.pop_scope(1);
+        ENSURE(formulas.get_num_formulas() == 1);
+        formulas.reset();
+        add(second);
+        ENSURE(calls == 6);
+    }
+    for (bool proofs : {false, true}) {
+        for (bool quantified : {false, true}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            arith_util a(m);
+            sort* integer = a.mk_int();
+            func_decl_ref f(m.mk_func_decl(symbol("assertion-plugin-f"), integer, integer), m);
+            expr_ref x(m);
+            if (quantified)
+                x = m.mk_var(0, integer);
+            else
+                x = m.mk_const("assertion-plugin-x", integer);
+            expr_ref zero(a.mk_int(0), m), sum(a.mk_add(x, zero), m);
+            expr_ref fx(m.mk_app(f, x.get()), m);
+            expr_ref original(m.mk_eq(fx, sum), m);
+            if (quantified) {
+                symbol name("x");
+                original = m.mk_forall(1, &integer, &name, original);
+            }
+            params_ref p;
+            p.set_bool("preprocess", false);
+            p.set_bool("seq.regular", false);
+            p.set_sym("string_solver", symbol("seq"));
+            smt_params params(p);
+            asserted_formulas formulas(m, params, p);
+            unsigned calls = 0;
+            formulas.register_simplifier([&](ast_manager& m, params_ref const&, dependent_expr_state& state) {
+                return alloc(assertion_test_simplifier, m, state, [&](dependent_expr_state& state) {
+                    ++calls;
+                    ENSURE(state[0].fml() == original);
+                    ENSURE(state.proofs_enabled() == proofs && state.has_quantifiers() == quantified);
+                    ENSURE((state[0].pr() != nullptr) == proofs);
+                });
+            });
+            formulas.register_simplifier([](ast_manager& m, params_ref const& p, dependent_expr_state& state) {
+                return alloc(rewriter_simplifier, m, p, state);
+            });
+            formulas.assert_expr(original);
+            formulas.reduce();
+            ENSURE(calls == 1);
+            if (proofs) {
+                base_dependent_expr_state result(m);
+                for (unsigned i = 0; i < formulas.get_num_formulas(); ++i)
+                    result.add(dependent_expr(m, formulas.get_formula(i), formulas.get_formula_proof(i), nullptr));
+                expr_ref_vector assertions(m);
+                assertions.push_back(original);
+                check_simplifier_proofs(m, result, assertions);
+            }
+        }
+    }
+}
+
 static void test_bit2int_proofs() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -2102,10 +2235,16 @@ static void test_seq_regular() {
             ENSURE(root == s || root == t);
         }
     }
-    for (bool enabled : {false, true}) {
+    struct {
+        bool enabled;
+        char const* solver;
+        bool preprocess;
+    } configurations[] = {{false, "nseq", true}, {true, "nseq", true}, {true, "seq", false}};
+    for (auto const& config : configurations) {
         params_ref p;
-        p.set_sym("string_solver", symbol("nseq"));
-        p.set_bool("seq.regular", enabled);
+        p.set_sym("string_solver", symbol(config.solver));
+        p.set_bool("preprocess", config.preprocess);
+        p.set_bool("seq.regular", config.enabled);
         smt_params params(p);
         asserted_formulas formulas(m, params, p);
         expr_ref no_a(m.mk_not(contains(prefix, "a")), m);
@@ -2118,8 +2257,8 @@ static void test_seq_regular() {
         bool rewritten = false;
         for (unsigned i = 0; i < st.size(); ++i)
             rewritten |= std::strcmp(st.get_key(i), "seq-regular-rewritten") == 0;
-        ENSURE(rewritten == enabled);
-        if (enabled) {
+        ENSURE(rewritten == config.enabled);
+        if (config.enabled) {
             expr* root;
             expr* language;
             ENSURE(formulas.get_num_formulas() == 1);
@@ -2141,7 +2280,8 @@ static void test_seq_regular() {
         smt_params params(p);
         asserted_formulas formulas(m, params, p);
         formulas.assert_expr(cases.get(0));
-        params.m_seq_regular = false;
+        p.set_bool("seq.regular", false);
+        formulas.updt_params(p);
         formulas.reduce();
         statistics st;
         formulas.collect_statistics(st);
@@ -2360,6 +2500,7 @@ static void test_max_bv_sharing() {
 
 void tst_simplifier() {
 
+    test_asserted_formula_plugins();
     test_seq_regular_group_order();
     test_seq_decimal_comparisons();
     test_seq_bounded_conversions();

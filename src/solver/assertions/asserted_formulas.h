@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/statistics.h"
 #include "ast/static_features.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/expr_substitution.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/bit2int.h"
@@ -60,10 +61,11 @@ class asserted_formulas {
     bool                        m_inconsistent;
     bool                        m_has_quantifiers;
     bool                        m_reduce_pending = true; // some formula may not be in normal form w.r.t. the current rewriter configuration
-    bool                        m_regular_pending = false;
-    bool                        m_regular_complete = true;
-    expr_ref_vector             m_regular_inputs;
-    statistics                  m_regular_statistics;
+    vector<simplifier_factory>  m_simplifier_factories;
+    bool                        m_simplifier_pending = false;
+    bool                        m_simplifier_complete = true;
+    vector<justified_expr>      m_simplifier_inputs;
+    statistics                  m_simplifier_statistics;
     struct scope {
         unsigned                m_formulas_lim;
         bool                    m_inconsistent_old;
@@ -192,8 +194,7 @@ class asserted_formulas {
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
     void flatten_clauses();
-    bool use_regular_preprocessing() const;
-    bool simplify_regular();
+    bool simplify();
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
     class NAME : public simplify_fmls {                                 \
@@ -268,6 +269,9 @@ class asserted_formulas {
 public:
     asserted_formulas(ast_manager & m, smt_params & smtp, params_ref const& p);
     void finalize();
+
+    // Factories run on each pending batch; simplifiers must preserve models without reconstruction.
+    void register_simplifier(simplifier_factory const& factory) { m_simplifier_factories.push_back(factory); }
 
     void updt_params(params_ref const& p);
     bool has_quantifiers() const { return m_has_quantifiers; }
