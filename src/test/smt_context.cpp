@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "smt/smt_solver.h"
 #include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
@@ -18,6 +19,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "solver/solver2tactic.h"
 #include "model/model.h"
 #include "qe/qsat.h"
 #include "tactic/goal.h"
@@ -1407,6 +1409,55 @@ static void check_proof_mode_guards() {
     }
 }
 
+class counting_proof_converter : public proof_converter {
+    unsigned& m_calls;
+public:
+    counting_proof_converter(unsigned& calls): m_calls(calls) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0] && m.is_false(m.get_fact(source[0])));
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(counting_proof_converter, m_calls);
+    }
+
+    void display(std::ostream& out) override { out << "(counting-proof-converter)\n"; }
+};
+
+static void check_solver2tactic_proof_mode() {
+    for (bool parent_converter : {false, true}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        goal_ref g = alloc(goal, m, true, false, false);
+        expr_ref a(m.mk_const("a", m.mk_bool_sort()), m);
+        expr_ref b(m.mk_const("b", m.mk_bool_sort()), m);
+        expr_ref clause(m.mk_or(a, b), m);
+        expr_ref not_a(m.mk_not(a), m), not_b(m.mk_not(b), m);
+        g->assert_expr(clause);
+        g->assert_expr(not_a);
+        g->assert_expr(not_b);
+        unsigned calls = 0;
+        if (parent_converter)
+            g->add(alloc(counting_proof_converter, calls));
+        ref<solver> s = mk_smt_solver(m, params_ref(), symbol::null);
+        tactic_ref t = mk_solver2tactic(s.get());
+        model_ref model;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*t, g, model, labels, pr, core, reason) == l_false);
+        ENSURE(pr && m.is_false(m.get_fact(pr)));
+        ENSURE(calls == (parent_converter ? 1u : 0u));
+        proof_checker checker(m);
+        expr_ref_vector conditions(m);
+        ENSURE(checker.check(pr, conditions) && conditions.empty());
+    }
+}
+
 static void check_horn_proof_mode() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -1436,6 +1487,16 @@ static void check_horn_proof_mode() {
         g->assert_expr(assertion);
     tactic_manager tactics;
     install_tactics(tactics);
+    unsigned calls = 0;
+    goal_ref h = alloc(goal, *g);
+    h->add(alloc(counting_proof_converter, calls));
+    tactic_ref horn = tactics.find_tactic_cmd(symbol("horn"))->mk(m);
+    model_ref model;
+    labels_vec labels;
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*horn, h, model, labels, pr, core, reason) == l_false);
+    ENSURE(pr && m.is_false(m.get_fact(pr)) && calls == 1);
     tactic_ref simplify = tactics.find_tactic_cmd(symbol("horn-simplify"))->mk(m);
     goal_ref_buffer result;
     (*simplify)(g, result);
@@ -1677,6 +1738,7 @@ void tst_smt_context()
 
     check_late_equality_justification();
     check_proof_mode_guards();
+    check_solver2tactic_proof_mode();
     check_horn_proof_mode();
     check_proof_mode_compositions();
     check_proof_mode_sls();
