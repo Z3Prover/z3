@@ -1294,7 +1294,7 @@ static void check_proof_mode_guards() {
         bool rejects = false;
         for (char const* rejecting : {
             "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv",
-            "ff-sat", "ff-solve", "ff2bv", "fm",
+            "ff-sat", "ff-solve", "ff2bv", "fm", "horn",
             "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
             "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
             "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
@@ -1584,6 +1584,7 @@ static void check_proof_mode_fallbacks() {
         }
     }
 }
+
 
 static void check_intblast_signed_mod() {
     for (int x = 0; x < 8; ++x) {
