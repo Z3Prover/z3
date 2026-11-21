@@ -761,7 +761,42 @@ static void tst_negated_complement_membership() {
     }
 }
 
+static void tst_replace_contains() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    th_rewriter rw(m);
+
+    expr_ref source(m.mk_fresh_const("source", su.str.mk_string_sort()), m);
+    expr_ref needle(su.str.mk_string("T"), m);
+    expr_ref replacement(su.str.mk_string("t"), m);
+    expr_ref observed(su.str.mk_string("Y"), m);
+    expr_ref replaced(su.str.mk_replace(source, needle, replacement), m);
+
+    expr_ref contains(su.str.mk_contains(replaced, observed), m);
+    expr_ref expected(su.str.mk_contains(source, observed), m);
+    rw(contains);
+    ENSURE(contains == expected);
+
+    expr_ref needle_contains(su.str.mk_contains(replaced, needle), m);
+    expr_ref needle_expected(su.str.mk_contains(source, needle), m);
+    rw(needle_contains);
+    ENSURE(needle_contains != needle_expected);
+
+    expr_ref replacement_contains(su.str.mk_contains(replaced, replacement), m);
+    expr_ref replacement_expected(su.str.mk_contains(source, replacement), m);
+    rw(replacement_contains);
+    ENSURE(replacement_contains != replacement_expected);
+
+    expr_ref multi(su.str.mk_string("YY"), m);
+    expr_ref multi_contains(su.str.mk_contains(replaced, multi), m);
+    expr_ref multi_expected(su.str.mk_contains(source, multi), m);
+    rw(multi_contains);
+    ENSURE(multi_contains != multi_expected);
+}
+
 void tst_seq_rewriter() {
+    tst_replace_contains();
     tst_extract_equal_offset_length();
     tst_delete_first_character();
     tst_empty_language_repetition();

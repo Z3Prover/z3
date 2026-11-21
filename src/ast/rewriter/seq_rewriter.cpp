@@ -1532,6 +1532,18 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(c.contains(d));
         return BR_DONE;
     }
+    expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
+    zstring needle_text, replacement_text, observed;
+    if (str().is_replace(a, source, needle, replacement) &&
+        str().is_string(needle, needle_text) &&
+        str().is_string(replacement, replacement_text) &&
+        str().is_string(b, observed) &&
+        observed.length() == 1 &&
+        !needle_text.contains(observed) &&
+        !replacement_text.contains(observed)) {
+        result = str().mk_contains(source, b);
+        return BR_REWRITE1;
+    }
     expr* x = nullptr, *y, *z;
     if (str().is_extract(b, x, y, z) && x == a) {
         result = m().mk_true();
