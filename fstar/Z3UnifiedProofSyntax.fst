@@ -37,6 +37,7 @@ type rule =
   | LemmaRule
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
+  | ArithmeticBound : coefficients:list LA.coefficient -> rule
   | ArithmeticGomory : certificate:GS.certificate -> rule
   | FiniteFieldPac : certificate:FC.certificate -> rule
   | RewriteRule

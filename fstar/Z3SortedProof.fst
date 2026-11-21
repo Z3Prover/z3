@@ -2068,7 +2068,8 @@ let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
 
 let arithmetic_farkas (node:U.proof_node) : bool =
   match node.kind with
-  | U.ArithmeticFarkas cs -> AR.check_contradiction (arithmetic_assumptions node) cs
+  | U.ArithmeticFarkas cs | U.ArithmeticBound cs ->
+    AR.check_contradiction (arithmetic_assumptions node) cs
   | _ -> false
 
 let arithmetic_lattice (node:U.proof_node) : bool =
@@ -2083,7 +2084,8 @@ let arithmetic_lattice (node:U.proof_node) : bool =
    Real strict literals kept strict. Tried after the unchanged Int path. *)
 let real_farkas (s:S.checked_schema) (node:U.proof_node) : bool =
   match node.kind with
-  | U.ArithmeticFarkas cs -> LIN.check_numeric_contradiction s (arithmetic_assumptions node) cs
+  | U.ArithmeticFarkas cs | U.ArithmeticBound cs ->
+    LIN.check_numeric_contradiction s (arithmetic_assumptions node) cs
   | _ -> false
 
 let bounds_equation (sort:sort) (e:expr) : bool =
@@ -3582,7 +3584,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         DT.lemma_literals s bc eq other conclusion;
         lemma_arithmetic_assumptions s bc eq other (propositions node.premises) (DT.literals conclusion);
         match node.kind with
-        | U.ArithmeticFarkas cs ->
+        | U.ArithmeticFarkas cs | U.ArithmeticBound cs ->
           AR.lemma_check_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
     else if arithmetic_lattice node then (
@@ -3598,7 +3600,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         DT.lemma_literals s bc eq other conclusion;
         lemma_arithmetic_assumptions s bc eq other (propositions node.premises) (DT.literals conclusion);
         match node.kind with
-        | U.ArithmeticFarkas cs -> lemma_real_contradiction s bc eq other (arithmetic_assumptions node) cs
+        | U.ArithmeticFarkas cs | U.ArithmeticBound cs ->
+          lemma_real_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
     else if int_bounds_rewrite node then lemma_int_bounds_rewrite s bc eq other node
     else if real_rewrite s node then lemma_real_rewrite s bc eq other node
@@ -3876,7 +3879,7 @@ let rec needs_binder_semantics (entries:list P.entry) : Tot bool (decreases entr
 (* A Farkas or rewrite entry over a Real-primitive schema: the typed Int/Real
    replay (real_farkas) and the Real rewrite check (real_rewrite) read the
    Real laws. *)
-let real_rule (r:U.rule) : bool = U.ArithmeticFarkas? r || r = U.RewriteRule
+let real_rule (r:U.rule) : bool = U.ArithmeticFarkas? r || U.ArithmeticBound? r || r = U.RewriteRule
 
 (* An entry whose formula is a closed Real order clause (real_order reads the
    Real laws for exactly those). *)

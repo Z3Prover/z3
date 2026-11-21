@@ -310,11 +310,11 @@ let native_rule (view:N.proof_view) (formula:expr) : ML rule =
   match view.assumed, view.farkas with
   | Some origin, _ -> Unverified ("assumed:" ^ origin)
   | None, Some coefficients ->
-    if view.proof_name <> "th-lemma" then N.fail "Farkas parameters on a non-theory node"
-    else
-      let coefficients = require_some "Malformed native Farkas certificate"
-                                      (opt_map_tail coefficient coefficients) in
-      ArithmeticFarkas coefficients
+    let coefficients = require_some "Malformed native arithmetic certificate"
+                                    (opt_map_tail coefficient coefficients) in
+    if view.proof_name = "arith/bound" then ArithmeticBound coefficients
+    else if view.proof_name = "th-lemma" then ArithmeticFarkas coefficients
+    else N.fail "Farkas parameters on a non-theory node"
   | None, None ->
     match P.rule_of_name view.proof_name with
     | None -> Unverified view.proof_name

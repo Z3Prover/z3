@@ -274,8 +274,8 @@ let lemma_root_check_document_array (u:TR.uninterpreted) (sch:S.checked_schema)
    only checks D.scoped/in_context of e.formula and classifies it). Of the
    rule it distinguishes exactly ten shapes (check_node_cached:
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
-   with its argument list, ArithmeticFarkas WITH its coefficient list,
-   which SP.arithmetic_farkas and SP.real_farkas replay, RewriteRule, which
+   with its argument list, ArithmeticFarkas and ArithmeticBound WITH their
+   coefficient lists, which SP.arithmetic_farkas and SP.real_farkas replay, RewriteRule, which
    SP.real_rewrite, SP.ite_rewrite and SP.product_rewrite read for premise-free closed equations,
    ElimUnused and DestructiveEquality, which SP.unused_elimination and
    SP.der_rewrite read for premise-free closed equations, and
@@ -314,7 +314,7 @@ let lemma_root_check_document_array (u:TR.uninterpreted) (sch:S.checked_schema)
 let rule_shape (r:U.rule) : U.rule =
   if r = U.Unverified "th-lemma" then r else match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticBound _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> r
   | _ -> U.Unverified "payload-erased"
 
@@ -331,7 +331,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   if node.U.kind = U.Unverified "th-lemma" then () else match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticBound _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in

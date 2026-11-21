@@ -30,9 +30,9 @@
                     and j concluding `A ~ B` (read at `L.rev bs @ scope`):
                     the positive quantifier step of the calculus below;
      rewrite (no sorts, no premise):
-                    `l ~ r` accepted only by an executable local check
-                    that makes it true at EVERY typed environment of every
-                    scope where both sides are typed: the typed Int
+     `l ~ r` accepted only by an executable local check
+     that makes it true at EVERY typed environment of every
+     scope where both sides are typed: the typed Int
                     equivalence Z3SortedArithmetic.equivalent (linear
                     normal forms over the Int carrier; opaque Int-valued
                     terms are atoms); one of the three ITE laws of
@@ -46,6 +46,8 @@
                         (ite c x y) ~ (ite (not c) y x);
                       (ite c1 x (ite c2 x y)) ~ (ite (or c1 c2) x y);
                       (ite c1 (ite c2 x y) y) ~ (ite (and c1 c2) x y),
+                      and the fused complement form
+                      (ite (not a) (ite c2 x y) y) ~ (ite (or a (not c2)) y x);
                     where the `or`/`and` is binary or flattened one level
                     (its operands are the operands of c1 followed by those
                     of c2, each opened only if it is the same canonical
@@ -514,6 +516,16 @@ let ite_merged_else (f:func_decl) (c x y c' x' y':expr) : bool =
   | App g [c2; x2; y2] -> g = f && y2 = y && y' = y && x' = x2 && joined B.And c' c c2
   | _ -> false
 
+(* Merge a nested then-branch and complement the joined condition while
+   swapping branches: ite (not a) (ite c2 x y) y =
+   ite (or a (not c2)) y x. *)
+let ite_merged_else_negated (f:func_decl) (c x y c' x' y':expr) : bool =
+  match c, x with
+  | App n [a], App g [c2; x2; y2] ->
+    T.classify n = T.Negation && g = f && y2 = y && x' = y && y' = x2 &&
+    joined B.Or c' a (R.mk_not_expr c2)
+  | _, _ -> false
+
 (* Both sides apply the same declaration f with T.classify f = Choice s
    (exactly T.ite_decl s, so every branch and the result have sort s) and
    are shallow (as for the regrouping, which bounds the structural
@@ -522,7 +534,10 @@ let ite_rewritten (lhs rhs:expr) : bool =
   match lhs, rhs with
   | App f [c; x; y], App g [c'; x'; y'] ->
     if f = g && T.Choice? (T.classify f) && shallow lhs && shallow rhs
-    then ite_swapped c x y c' x' y' || ite_merged_then f c x y c' x' y' || ite_merged_else f c x y c' x' y'
+    then ite_swapped c x y c' x' y' ||
+         ite_merged_then f c x y c' x' y' ||
+         ite_merged_else f c x y c' x' y' ||
+         ite_merged_else_negated f c x y c' x' y'
     else false
   | _, _ -> false
 
@@ -1987,6 +2002,54 @@ let lemma_ite_merged_else_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
    | _ -> ());
   lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
 
+let lemma_ite_merged_else_negated_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s))
+  (scope:list sort) (rho:V.environment base (S.signature s) scope)
+  (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\
+                    ite_merged_else_negated f c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  match c, x with
+  | App n [a], App g [c2; x2; y2] ->
+    assert (T.classify n == T.Negation);
+    assert (g == f);
+    assert (y2 == y /\ x' == y /\ y' == x2);
+    lemma_value_ite s bc eq other scope rho f c x y;
+    lemma_value_ite s bc eq other scope rho f c' x' y';
+    lemma_value_ite s bc eq other scope rho f c2 x2 y2;
+    lemma_truth_not s bc eq other scope rho n a;
+    assert_norm (T.classify R.not_decl == T.Negation);
+    let not_c2 = R.mk_not_expr c2 in
+    lemma_truth_not s bc eq other scope rho R.not_decl c2;
+    lemma_joined s bc eq other scope rho B.Or c' a not_c2;
+    let a_value = T.truth_at s bc eq other scope rho a in
+    let c2_value = T.truth_at s bc eq other scope rho c2 in
+    if a_value then (
+      assert (T.truth_at s bc eq other scope rho c == false);
+      assert (T.truth_at s bc eq other scope rho c' == true);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c; x; y]) ==
+              T.evaluate_at s bc eq other scope rho y);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c'; x'; y']) ==
+              T.evaluate_at s bc eq other scope rho y))
+    else if c2_value then (
+      assert (T.truth_at s bc eq other scope rho c == true);
+      assert (T.truth_at s bc eq other scope rho c' == false);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c; x; y]) ==
+              T.evaluate_at s bc eq other scope rho x2);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c'; x'; y']) ==
+              T.evaluate_at s bc eq other scope rho x2))
+    else (
+      assert (T.truth_at s bc eq other scope rho c == true);
+      assert (T.truth_at s bc eq other scope rho c' == true);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c; x; y]) ==
+              T.evaluate_at s bc eq other scope rho y);
+      assert (T.evaluate_at s bc eq other scope rho (App f [c'; x'; y']) ==
+              T.evaluate_at s bc eq other scope rho y));
+    lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+  | _, _ -> ()
+
 let lemma_ite_rewritten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                            (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                            (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
@@ -1996,7 +2059,9 @@ let lemma_ite_rewritten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
   | App f [c; x; y], App _ [c'; x'; y'] ->
     if ite_swapped c x y c' x' y' then lemma_ite_swapped_at s bc eq other scope rho f c x y c' x' y'
     else if ite_merged_then f c x y c' x' y' then lemma_ite_merged_then_at s bc eq other scope rho f c x y c' x' y'
-    else lemma_ite_merged_else_at s bc eq other scope rho f c x y c' x' y'
+    else if ite_merged_else f c x y c' x' y' then
+      lemma_ite_merged_else_at s bc eq other scope rho f c x y c' x' y'
+    else lemma_ite_merged_else_negated_at s bc eq other scope rho f c x y c' x' y'
   | _, _ -> ()
 
 (* Int product factor permutation. The value of a canonical Int product at
@@ -2253,8 +2318,8 @@ let lemma_related_extend (#base:sort -> Type0) (sigma:V.signature) (marks:list b
     DS.lemma_extend_index sigma a bound vs rho p;
     if p < m then DS.lemma_extend_index sigma b bound vs eta p
     else if p < d + m then (
-      DS.lemma_extend_index sigma b bound vs eta p;
-      assert (related_at sigma marks n kept d a b rho eta (p - m)))
+      assert (related_at sigma marks n kept d a b rho eta (p - m));
+      DS.lemma_extend_index sigma b bound vs eta p)
     else (
       assert (related_at sigma marks n kept d a b rho eta (p - m));
       match moved marks n kept (p - (d + m)) with

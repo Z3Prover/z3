@@ -273,7 +273,8 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
     inferred_integer_contradiction e es || (es = [] && BE.valid e)
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
-  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
+  | ArithmeticFarkas cs, Some e, Some es
+  | ArithmeticBound cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
   | _, _, _ -> false
 
 let check_node_with_membership (skolems:list SK.definition) (strict:bool)
@@ -1053,7 +1054,7 @@ let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:e
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticBound _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1082,7 +1083,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticBound _ | ArithmeticGomory _ | ArithmeticLattice _ | FiniteFieldPac _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -1093,7 +1094,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
              | ArithmeticGomory c | ArithmeticLattice c ->
                G.lemma_check_sound c e
                  (Some?.v (propositions (premise_judgments node.premises))) i rho
-             | ArithmeticFarkas cs ->
+             | ArithmeticFarkas cs | ArithmeticBound cs ->
                if LA.check cs e (Some?.v (propositions (premise_judgments node.premises)))
                then LE.lemma_check_with_numeric_model cs e
                       (Some?.v (propositions (premise_judgments node.premises))) i rho

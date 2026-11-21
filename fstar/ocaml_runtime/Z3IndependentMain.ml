@@ -13,6 +13,7 @@ let diagnostic_rule =
   function
   | Unverified name -> name
   | ArithmeticFarkas _ -> "arith/farkas"
+  | ArithmeticBound _ -> "arith/bound"
   | ArithmeticGomory _ -> "arith/lp-gomory"
   | ArithmeticLattice _ -> "arith/lp-integer-lattice"
   | FiniteFieldPac _ -> "th-lemma"

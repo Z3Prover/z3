@@ -92,8 +92,94 @@ let integer_x : expr = App {
   decl_name = "x"; domain = []; range = integer; interp = None; int_params = []
 } []
 
+let integer_compare (name:string) (op:decl_kind) (a b:expr) : expr =
+  App { decl_name = name; domain = [integer; integer]; range = bool_sort;
+        interp = Some op; int_params = [] } [a; b]
+
+let integer_bound_conflict : U.proof_node = {
+  U.kind = U.ArithmeticBound [(1, 1); (1, 1)];
+  conclusion = U.Holds R.false_expr;
+  premises = [
+    { U.conclusion = U.Holds (integer_compare ">" Z3OperatorTags.op_arith_gt
+                                integer_x (integer_literal 0)); hypotheses = [] };
+    { U.conclusion = U.Holds (integer_compare "<=" Z3OperatorTags.op_arith_le
+                                integer_x (integer_literal 0)); hypotheses = [] }
+  ];
+}
+
+let integer_bound_conflict_bad : U.proof_node = {
+  integer_bound_conflict with U.kind = U.ArithmeticBound [(1, 1); (0, 1)];
+}
+
+let integer_farkas_conflict : U.proof_node = {
+  integer_bound_conflict with U.kind = U.ArithmeticFarkas [(1, 1); (1, 1)];
+}
+
+let arithmetic_bound_certificate_replay ()
+  : Lemma (
+    K.arithmetic_farkas integer_bound_conflict /\
+    K.arithmetic_farkas integer_farkas_conflict /\
+    not (K.arithmetic_farkas integer_bound_conflict_bad)) =
+  assert_norm (K.arithmetic_farkas integer_bound_conflict);
+  assert_norm (K.arithmetic_farkas integer_farkas_conflict);
+  assert_norm (not (K.arithmetic_farkas integer_bound_conflict_bad))
+
 let integer_x_plus_one = App integer_add [integer_x; integer_literal 1]
 let integer_one_plus_x = App integer_add [integer_literal 1; integer_x]
+
+let real_const (name:string) : expr = App {
+  decl_name = name; domain = []; range = LA.real_s; interp = None; int_params = []
+} []
+
+let bool_const (name:string) : expr = App {
+  decl_name = name; domain = []; range = bool_sort; interp = None; int_params = []
+} []
+
+let bool_or (args:list expr) : expr =
+  App (BR.connective_decl BR.Disjunction args) args
+
+let real_ite (c t e:expr) : expr = App (T.ite_decl LA.real_s) [c; t; e]
+
+let ite_complement_merge_p = bool_const "ite-complement-p"
+let ite_complement_merge_q = bool_const "ite-complement-q"
+let ite_complement_merge_x = real_const "ite-complement-x"
+let ite_complement_merge_y = real_const "ite-complement-y"
+let ite_complement_merge_lhs =
+  real_ite (R.mk_not_expr ite_complement_merge_p)
+    (real_ite ite_complement_merge_q ite_complement_merge_x ite_complement_merge_y)
+    ite_complement_merge_y
+let ite_complement_merge_rhs =
+  real_ite (bool_or [ite_complement_merge_p; R.mk_not_expr ite_complement_merge_q])
+    ite_complement_merge_y ite_complement_merge_x
+
+let ite_complement_merge_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal ite_complement_merge_lhs ite_complement_merge_rhs;
+  premises = [];
+}
+
+let ite_complement_merge_checked ()
+  : Lemma (match K.check_node_cached schema [] ite_complement_merge_node with
+           | Some (_, pending) -> pending == 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] ite_complement_merge_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
+
+let ite_complement_merge_wrong_condition : U.proof_node = {
+  ite_complement_merge_node with
+  U.conclusion = U.Equal ite_complement_merge_lhs
+    (real_ite (bool_or [ite_complement_merge_p; ite_complement_merge_q])
+      ite_complement_merge_y ite_complement_merge_x);
+}
+
+let ite_complement_merge_rejects_wrong_condition ()
+  : Lemma (match K.check_node_cached schema [] ite_complement_merge_wrong_condition with
+           | Some (_, pending) -> pending > 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] ite_complement_merge_wrong_condition with
+               | Some (_, pending) -> pending > 0
+               | None -> false)
 
 let sorted_integer_rewrite_node : U.proof_node = {
   U.kind = U.RewriteRule;

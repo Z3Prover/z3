@@ -470,7 +470,8 @@ let view_proof a =
        parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "assumed"
     then parameter_symbol 2 else None in
   let proof_name =
-    if arithmetic_hint = Some "lp-context" then "def-axiom"
+    if arithmetic_hint = Some "bound" then "arith/bound"
+    else if arithmetic_hint = Some "lp-context" then "def-axiom"
     else match arithmetic_hint, farkas with
     | Some tag, None when String.starts_with ~prefix:"lp-" tag -> "arith/" ^ tag
     | _ -> name in

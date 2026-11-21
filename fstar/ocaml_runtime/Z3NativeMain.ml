@@ -19,6 +19,7 @@ let read_all channel =
 let diagnostic_rule = function
   | Z3UnifiedProofSyntax.Unverified name -> name
   | Z3UnifiedProofSyntax.ArithmeticFarkas _ -> "arith/farkas"
+  | Z3UnifiedProofSyntax.ArithmeticBound _ -> "arith/bound"
   | Z3UnifiedProofSyntax.ArithmeticGomory _ -> "arith/lp-gomory"
   | Z3UnifiedProofSyntax.ArithmeticLattice _ -> "arith/lp-integer-lattice"
   | Z3UnifiedProofSyntax.FiniteFieldPac _ -> "th-lemma"
