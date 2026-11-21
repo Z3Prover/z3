@@ -238,7 +238,7 @@ class horn_tactic : public tactic {
                 simplify(q, g, result, mc, pc);
             }
             else {
-                verify(q, g, result, mc, pc);
+                verify(q, g, result, mc);
             }
             g->set(pc.get());
             g->add(mc.get());
@@ -247,8 +247,7 @@ class horn_tactic : public tactic {
         void verify(expr* q,
                     goal_ref const& g,
                     goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc) {
+                    model_converter_ref & mc) {
 
             lbool is_reachable = l_undef;
             try {
@@ -269,7 +268,6 @@ class horn_tactic : public tactic {
                 // goal is unsat
                 if (m_ctx.is_monotone() && produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
-                    pc = proof2proof_converter(m, proof);
                     g->assert_expr(m.get_fact(proof), proof, nullptr);
                 }
                 else if (m_ctx.is_monotone()) {
