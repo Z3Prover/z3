@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T02:32:14-05:00**. The cohort figures below are the latest
+Updated: **2026-11-21T03:11:03-08:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
 The Nov 21 recapture kept both cohorts' observed verdict counts and sample
 PENDING unchanged; extended weighted PENDING moved from 31,271 to 31,262.
@@ -81,6 +81,20 @@ checker, and the recaptures are not proven identical to the cohort documents.
 It is a fixed-proof Legacy control, not cohort burn-down or a current-PR
 performance claim. These proofs prioritize `intro-def` and `rewrite` parity
 work over a QF_LIA Farkas producer change.
+
+A current-source dispatch-order control (`checker` SHA-256
+`1db30488ed244012de58ee64d3ab6a35e1f528b6dd6a1544462a2a16780999a0`) moved
+the expensive `integer_product` fallback after the cheaper consequence checks.
+On the same seven-pair frozen-proof control, verdicts were unchanged: Legacy
+accepted both; the sort-indexed checker remained PARTIAL 4 on proof 51 and
+ACCEPT on proof 52. Relative to the immediately preceding current-source
+checker (`e6f6e04e027ffa39be77de3bfb22065c905540d6dce199a1bd06f4bb4bbe6dcd`),
+proof 51's sort-indexed median fell from 2,258.694 ms to 367.665 ms (6.14x
+faster within that checker); proof 52 was effectively unchanged at 28.873 ms
+versus 29.093 ms. The current checker is still 6.39x and 8.24x slower than
+Legacy on proofs 51 and 52, respectively. Proof hashes and native-library
+pins match across these controls; neither document is proven identical to a
+cohort proof, so this is not cohort burn-down or parity.
 
 An exact-node attribution pass over those same frozen documents retained
 PARTIAL 4 and PARTIAL 48 (0.0296s and 4.6018s in this single diagnostic run).
@@ -269,6 +283,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 21 03:11 | Defer integer-product fallback behind cheaper consequence checks | On identical frozen proof 51, sort-indexed median fell 2,258.694 → 367.665 ms (6.14x within-checker speedup), but remains 6.39x slower than Legacy and PARTIAL 4. Proof 52 stayed ACCEPT with no measured speedup (29.093 vs. 3.532 ms Legacy); no cohort burn-down or parity | `integer-product-frozen-replay.log` → `integer-product-reorder-frozen-replay.log`; checker `e6f6e04e` → `1db30488`; same proof hashes and native-library pins |
 | Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample remains 4,020 PENDING; extended falls 31,271 → 31,262 without retained proof hashes, not matched-proof burn-down. The 19 extended Farkas PENDING are untraced. Fixed-control medians total 88.699s sorted vs. 26.251s Legacy (3.38x), sorted slower on 10/11; this is not current-source performance. Strict F* verification passed for the 113-module array-document closure, including interfaces. Full `-RunTests` stopped at an unrelated finite-field VC before extraction/OCaml tests | `periodic-smtlib-20261121T060114Z`; `conditional-current-source-control-03.json`; remaining-timing log; F* output `1795246163690-copilot-tool-output-57984-e771cb18-86b4-4b05-8557-931ad6ef986c.txt` |
 | Nov 20 22:25 | Correct SMT-LIB cohort mode attribution | No metric change: checker `b5e8cb065f06` was invoked with `--sorted-core`, so these captures are Core, not Definition. The active cycle uses the same Core mode; no burn-down or parity claim | `periodic-smtlib-20261121T060114Z/smtlib-sample/selection.json`; `periodic-smtlib-launcher.py` |
 | Nov 20 21:17 | Replay current sorted Core on identical QF_LIA sample proofs | Current Core ACCEPTed 1/2 vs Legacy 2/2; against the prior Definition control, weighted PENDING fell 44 → 4 (proof 51: 43 → 4 `intro-def`; proof 52: 1 → 0 `rewrite`). Five paired medians: 2.421s vs. 0.108s and 0.0505s vs. 0.0225s (Core slower than Legacy); modes differ, so this is fixed-proof evidence, not cohort burn-down or a source-only delta | `sample-sorted-core-matched-20261120.json`; checker SHA-256 `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875` |
@@ -278,7 +293,6 @@ overlapping candidate effects must not be added.
 | Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
 | Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
 | Nov 20 17:02 | Sync PR branch with latest master | Merged fetched master through `a2fd7e6b1`; no new checker/cohort metric measured. The active cohort continues on its pinned binaries | merge `743908848`; active cohort state |
-| Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
 
 ## Validation and active cadence
 

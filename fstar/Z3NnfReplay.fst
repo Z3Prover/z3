@@ -266,10 +266,13 @@ module DT = Z3SortedDatatype
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module SI = Z3SortedInteger
+module SA = Z3SortedArray
 module LA = Z3LinearArithmeticAst
 module RW = Z3ArithmeticSyntax
 module LP = FStar.List.Tot.Properties
 module BRW = Z3BooleanRewriteSyntax
+module AS = Z3ArraySyntax
+module CR = Z3ConditionalRewriteSyntax
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -842,6 +845,98 @@ let rewrite_ok (lhs rhs:expr) : bool =
    else if product_permuted lhs rhs then true
    else get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
         (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
+
+type fold_replay_kind =
+  | FoldUnchanged
+  | FoldArrayIte
+  | FoldRewrite
+
+unfold let fold_replay_evidence (e:expr) : option fold_replay_kind =
+  let folded = CR.fold e in
+  if not (D.scoped [] e && D.scoped [] folded && get_sort e = get_sort folded) then None
+  else if e = folded then Some FoldUnchanged
+  else match AS.ite_contract e with
+       | Some expected -> if expected = folded then Some FoldArrayIte else None
+       | None -> if rewrite_ok e folded then Some FoldRewrite else None
+
+let fold_replay_ok (e:expr) : bool = Some? (fold_replay_evidence e)
+
+type choose_replay_certificate =
+  | ChooseGuard
+  | ChooseApplication : list choose_replay_certificate -> fold_replay_kind -> choose_replay_certificate
+  | ChooseUnchanged
+
+let rec choose_replay_evidence (guard:expr) (truth:bool) (e:expr)
+  : Tot (option choose_replay_certificate) (decreases e) =
+  if e = guard then if get_sort guard = bool_sort then Some ChooseGuard else None
+  else match e with
+  | App f args ->
+    (match choose_args_replay_evidence guard truth args,
+           fold_replay_evidence (App f (CR.choose_args guard truth args)) with
+     | Some children, Some folded -> Some (ChooseApplication children folded)
+     | _, _ -> None)
+  | _ -> if D.scoped [] e then Some ChooseUnchanged else None
+
+and choose_args_replay_evidence (guard:expr) (truth:bool) (args:list expr)
+  : Tot (option (list choose_replay_certificate)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match choose_replay_evidence guard truth a, choose_args_replay_evidence guard truth rest with
+     | Some child, Some children -> Some (child :: children)
+     | _, _ -> None)
+
+let choose_replay_ok (guard:expr) (truth:bool) (e:expr) : bool =
+  Some? (choose_replay_evidence guard truth e)
+
+type conditional_rewrite_certificate =
+  | ConditionalDirect
+  | ConditionalTrue : expr -> choose_replay_certificate -> choose_replay_certificate ->
+      choose_replay_certificate -> choose_replay_certificate ->
+      conditional_rewrite_certificate -> conditional_rewrite_certificate
+  | ConditionalFalse : expr -> choose_replay_certificate -> choose_replay_certificate ->
+      choose_replay_certificate -> choose_replay_certificate ->
+      conditional_rewrite_certificate -> conditional_rewrite_certificate
+
+let rec conditional_rewrite_evidence (fuel:nat) (lhs rhs:expr)
+  : Tot (option conditional_rewrite_certificate) (decreases fuel) =
+  if rewrite_ok lhs rhs then Some ConditionalDirect
+  else if fuel = 0 then None
+  else if None? (expression_budget 4096 lhs) ||
+          None? (expression_budget 4096 rhs) then None
+  else if fuel > 0 then
+    let guard = match CR.condition lhs with Some c -> Some c | None -> CR.condition rhs in
+    match guard with
+    | None -> None
+    | Some c ->
+      let tl = CR.choose c true lhs in
+      let tr = CR.choose c true rhs in
+      let fl = CR.choose c false lhs in
+      let fr = CR.choose c false rhs in
+      match D.scoped [] c,
+            choose_replay_evidence c true lhs, choose_replay_evidence c true rhs,
+            choose_replay_evidence c false lhs, choose_replay_evidence c false rhs with
+      | true, Some tlc, Some trc, Some flc, Some frc ->
+        if rewrite_ok tl tr then
+          (match conditional_rewrite_evidence (fuel - 1) fl fr with
+           | Some rest -> Some (ConditionalTrue c tlc trc flc frc rest)
+           | None -> None)
+        else if rewrite_ok fl fr then
+          (match conditional_rewrite_evidence (fuel - 1) tl tr with
+           | Some rest -> Some (ConditionalFalse c tlc trc flc frc rest)
+           | None -> None)
+        else None
+      | _, _, _, _, _ -> None
+  else None
+
+let conditional_rewrite_check (fuel:nat) (lhs rhs:expr) : bool =
+  Some? (conditional_rewrite_evidence fuel lhs rhs)
+
+let conditional_rewrite_ok (lhs rhs:expr) : bool =
+  get_sort lhs = get_sort rhs && D.scoped [] lhs && D.scoped [] rhs &&
+  Some? (expression_budget 4096 lhs) &&
+  Some? (expression_budget 4096 rhs) &&
+  conditional_rewrite_check 64 lhs rhs
 
 (* `real`: the caller's schema-derived Real gate (Z3SortedProof passes
    Z3SortedReal.real_primitive of its checked schema). Under it, a leaf the
@@ -3060,6 +3155,188 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   else if regrouped lhs rhs then lemma_regrouped_at s bc eq other scope rho lhs rhs
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
+
+let lemma_fold_replay_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s)) (e:expr)
+  : Lemma (requires Some? (fold_replay_evidence e))
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (CR.fold e)) =
+  let folded = CR.fold e in
+  match fold_replay_evidence e with
+  | Some FoldUnchanged -> ()
+  | Some FoldArrayIte ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    (match AS.ite_contract e with
+     | Some expected ->
+       if expected = folded then SA.lemma_ite_contract s bc eq other [] (T.empty_environment (S.signature s)) e folded
+       else FStar.Pervasives.false_elim ()
+     | None -> FStar.Pervasives.false_elim ())
+  | Some FoldRewrite ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    if rewrite_ok e folded then (
+      lemma_rewrite_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      assert (same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) folded))
+    else FStar.Pervasives.false_elim ()
+  | None -> FStar.Pervasives.false_elim ()
+
+let lemma_boolean_literal_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (b:bool)
+  : Lemma (T.truth_at s bc eq other [] (T.empty_environment (S.signature s))
+             (if b then R.true_expr else R.false_expr) == b) =
+  let literal = if b then R.true_expr else R.false_expr in
+  let rho = T.empty_environment (S.signature s) in
+  match literal with
+  | App f args ->
+    T.lemma_evaluate_core_at s bc eq other [] rho f args;
+    assert (T.evaluate_at s bc eq other [] rho literal == T.boolean s bc b);
+    assert (T.truth_value s bc (T.evaluate_at s bc eq other [] rho literal) == b)
+  | _ -> FStar.Pervasives.false_elim ()
+
+let rec lemma_choose_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (guard:expr) (truth:bool) (e:expr) (cert:choose_replay_certificate)
+  : Lemma (requires D.scoped [] guard /\ get_sort guard = bool_sort /\
+                    D.scoped [] e /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    choose_replay_evidence guard truth e == Some cert)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose guard truth e))
+    (decreases e) =
+  if e = guard then (
+    let replacement = if truth then R.true_expr else R.false_expr in
+    lemma_boolean_literal_at s bc eq other truth;
+    lemma_same_truth s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) guard ==
+            T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) replacement))
+  else
+    match e, cert with
+    | App f args, ChooseApplication children _ ->
+      let chosen = CR.choose_args guard truth args in
+      assert (choose_args_replay_evidence guard truth args == Some children);
+      lemma_choose_args_at s bc eq other guard truth args f.domain children;
+      assert (Some? (fold_replay_evidence (App f chosen)));
+      lemma_fold_replay_at s bc eq other (App f chosen);
+      assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                (CR.choose_args guard truth args) f.domain ==
+              T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args f.domain);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f args) ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f chosen));
+      assert (CR.choose guard truth e == CR.fold (App f chosen));
+      ()
+    | _, ChooseUnchanged ->
+      assert (CR.choose guard truth e == e);
+      ()
+    | _, _ -> FStar.Pervasives.false_elim ()
+
+and lemma_choose_args_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (guard:expr) (truth:bool) (args:list expr) (ss:list sort)
+                         (certs:list choose_replay_certificate)
+  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\
+                    D.scoped [] guard /\ get_sort guard = bool_sort /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    choose_args_replay_evidence guard truth args == Some certs)
+          (ensures D.scoped_args [] (CR.choose_args guard truth args) /\
+                   sorts_match (CR.choose_args guard truth args) ss /\
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose_args guard truth args) ss ==
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args ss)
+    (decreases args) =
+  match args, ss, certs with
+  | [], [], [] -> ()
+  | a :: rest, sort :: sorts, child :: children ->
+    assert (choose_replay_evidence guard truth a == Some child);
+    lemma_choose_at s bc eq other guard truth a child;
+    assert (choose_args_replay_evidence guard truth rest == Some children);
+    lemma_choose_args_at s bc eq other guard truth rest sorts children;
+    assert (D.scoped [] (CR.choose guard truth a));
+    assert (sorts_match (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts));
+    assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts) ==
+            T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (a :: rest) (sort :: sorts));
+    ()
+  | _, _, _ -> FStar.Pervasives.false_elim ()
+
+let lemma_rewrite_equality_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (lhs rhs:expr)
+  : Lemma (requires rewrite_ok lhs rhs /\ D.scoped [] lhs /\ D.scoped [] rhs)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_rewrite_at s bc eq other [] rho lhs rhs;
+  lemma_same_at s bc eq other [] rho lhs rhs;
+  assert (same_at s bc eq other [] rho lhs rhs);
+  assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs)
+
+let rec lemma_conditional_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                     (fuel:nat) (lhs rhs:expr) (cert:conditional_rewrite_certificate)
+  : Lemma (requires D.scoped [] lhs /\ D.scoped [] rhs /\
+                    conditional_rewrite_evidence fuel lhs rhs == Some cert)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs)
+    (decreases fuel) =
+  let rho = T.empty_environment (S.signature s) in
+  match cert with
+  | ConditionalDirect ->
+    if rewrite_ok lhs rhs then lemma_rewrite_equality_at s bc eq other lhs rhs
+    else FStar.Pervasives.false_elim ()
+  | ConditionalTrue guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (choose_replay_evidence guard true lhs == Some tlc);
+    assert (choose_replay_evidence guard true rhs == Some trc);
+    assert (choose_replay_evidence guard false lhs == Some flc);
+    assert (choose_replay_evidence guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_choose_at s bc eq other guard true lhs tlc;
+      lemma_choose_at s bc eq other guard true rhs trc;
+      if rewrite_ok tl tr then lemma_rewrite_equality_at s bc eq other tl tr
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_choose_at s bc eq other guard false lhs flc;
+      lemma_choose_at s bc eq other guard false rhs frc;
+      if fuel > 0 then (
+        assert (conditional_rewrite_evidence (fuel - 1) fl fr == Some rest);
+        lemma_conditional_rewrite_at s bc eq other (fuel - 1) fl fr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+  | ConditionalFalse guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (choose_replay_evidence guard true lhs == Some tlc);
+    assert (choose_replay_evidence guard true rhs == Some trc);
+    assert (choose_replay_evidence guard false lhs == Some flc);
+    assert (choose_replay_evidence guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_choose_at s bc eq other guard true lhs tlc;
+      lemma_choose_at s bc eq other guard true rhs trc;
+      if fuel > 0 then (
+        assert (conditional_rewrite_evidence (fuel - 1) tl tr == Some rest);
+        lemma_conditional_rewrite_at s bc eq other (fuel - 1) tl tr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_choose_at s bc eq other guard false lhs flc;
+      lemma_choose_at s bc eq other guard false rhs frc;
+      if rewrite_ok fl fr then lemma_rewrite_equality_at s bc eq other fl fr
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
 
 (* A gated Real leaf: both sides have one value at every typed environment of
    every Sorted model that satisfies the Real laws (RL.real_model, which

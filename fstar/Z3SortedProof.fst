@@ -2073,7 +2073,8 @@ let sorted_rewrite (node:U.proof_node) : bool =
   node.kind = U.RewriteRule && Nil? node.premises &&
   (match node.conclusion with
    | U.Equal a b | U.Observational a b ->
-     D.scoped [] a && D.scoped [] b && NR.rewrite_ok a b
+     D.scoped [] a && D.scoped [] b &&
+     (NR.rewrite_ok a b || NR.conditional_rewrite_ok a b)
    | U.Holds _ -> false)
 
 let int_bounds_rewrite (node:U.proof_node) : bool =
@@ -2692,8 +2693,9 @@ let multiple_zero_products (facts:list expr) : bool =
 
 let integer_product_check (facts:list expr) : bool =
   if L.length facts > 30 then false
+  else if not (integer_literals (L.map LA.positive_literal facts)) then false
   else if None? (arguments_budget 4096 facts) then false
-  else integer_literals (L.map LA.positive_literal facts) &&
+  else
     (Some? (integer_product_witness facts) || Some? (constant_int_product_witness facts) ||
      multiple_zero_products facts)
 
@@ -3255,7 +3257,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       quantifier_instantiation node || quantifier_flattening node ||
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || sorted_rewrite node ||
       real_order s node || real_equality s node || real_product s node ||
-      integer_product node || division_order node ||
+      division_order node ||
       nnf = NR.Replayed || conditional_definition node ||
       expanded_definition_axiom node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
@@ -3265,6 +3267,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
        check_integer_cut (propositions node.premises)) ||
       (node.kind = U.Unverified "th-lemma" && conclusion = R.false_expr &&
        inferred_integer_split (propositions node.premises)) ||
+      integer_product node ||
       (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
       real_product_clause s node ||
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
@@ -3424,7 +3427,11 @@ let lemma_sorted_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   match node.conclusion with
   | U.Equal a b | U.Observational a b ->
     let rho = T.empty_environment (S.signature s) in
-    NR.lemma_rewrite_at s bc eq other [] rho a b;
+    if NR.rewrite_ok a b then NR.lemma_rewrite_at s bc eq other [] rho a b
+    else
+      (match NR.conditional_rewrite_evidence 64 a b with
+       | Some cert -> NR.lemma_conditional_rewrite_at s bc eq other 64 a b cert
+       | None -> FStar.Pervasives.false_elim ());
     NR.lemma_same_at s bc eq other [] rho a b;
     assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
     V.lemma_sort_eq (get_sort b) (get_sort a);
@@ -3558,10 +3565,6 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         FStar.Classical.exists_elim False
           #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
           (fun reals -> RP.lemma_check s bc eq other reals (propositions node.premises))))
-    else if integer_product node then (
-      if T.truths s bc eq other fact.hypotheses then (
-        lemma_premise_hypotheses s bc eq other node.premises;
-        lemma_integer_product_check s bc eq other (propositions node.premises)))
     else if division_order node then lemma_division_order s bc eq other node
     else if quantifier_instantiation node then (
       match node.kind, node.conclusion with
@@ -3614,6 +3617,10 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | Some certificate ->
           LS.lemma_check s bc eq other certificate R.false_expr (propositions node.premises)
         | None -> ()))
+    else if integer_product node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_integer_product_check s bc eq other (propositions node.premises)))
     else if node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;

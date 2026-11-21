@@ -1189,4 +1189,49 @@ let linear_counter_models ()
           T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_between_target == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
+let conditional_guard : expr = App {
+  decl_name = "conditional-guard"; domain = []; range = bool_sort; interp = None; int_params = []
+} []
+let conditional_num (n:int) : expr =
+  App { decl_name = "integer"; domain = []; range = integer;
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
+let conditional_ite (c t e:expr) : expr = App (T.ite_decl integer) [c; t; e]
+let conditional_lhs : expr =
+  conditional_ite conditional_guard
+    (App integer_add [integer_x; conditional_num 1])
+    (App integer_add [integer_x; conditional_num 2])
+let conditional_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 2)]
+let conditional_bad_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 3)]
+
+let conditional_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_rhs;
+  premises = [];
+}
+let conditional_bad_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_bad_rhs;
+  premises = [];
+}
+
+let conditional_rewrite_actual_route ()
+  : Lemma (K.sorted_rewrite conditional_node /\
+           (match K.check_node core_schema [] conditional_node with
+            | Some (_, 0) -> true | _ -> false) /\
+           T.truth core_schema booleans equality core_model (R.mk_eq_expr conditional_lhs conditional_rhs)) =
+  assert_norm (K.sorted_rewrite conditional_node);
+  assert_norm (match K.check_node core_schema [] conditional_node with
+               | Some (_, 0) -> true | _ -> false);
+  K.lemma_sorted_rewrite core_schema booleans equality core_model conditional_node
+
+let conditional_rewrite_rejects_bad_branch ()
+  : Lemma (not (K.sorted_rewrite conditional_bad_node) /\
+           (match K.check_node core_schema [] conditional_bad_node with
+            | Some (_, 1) -> true | _ -> false)) =
+  assert_norm (not (K.sorted_rewrite conditional_bad_node));
+  assert_norm (match K.check_node core_schema [] conditional_bad_node with
+               | Some (_, 1) -> true | _ -> false)
+
 #pop-options
