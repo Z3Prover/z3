@@ -896,12 +896,11 @@ namespace arith {
         return v != euf::null_theory_var && lp().external_is_used(v);
     }
 
-    void solver::ensure_column(theory_var v) {
+    lp::lpvar solver::ensure_column(theory_var v) {
         if (a.is_complex(var2expr(v)))
-            return;
+            return lp::null_lpvar;
         SASSERT(!is_bool(v));
-        if (!lp().external_is_used(v))
-            register_theory_var_in_lar_solver(v);
+        return register_theory_var_in_lar_solver(v);
     }
 
     lp::impq solver::get_ivalue(theory_var v) const {
@@ -929,8 +928,7 @@ namespace arith {
         for (theory_var v = 0; v < sz; ++v) {
             if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
-            ensure_column(v);
-            lp::lpvar  vj = lp().external_to_local(v);
+            lp::lpvar vj = ensure_column(v);
             SASSERT(vj != lp::null_lpvar);
             theory_var other = m_model_eqs.insert_if_not_there(v);
             if (is_equal(v, other))
@@ -972,8 +970,7 @@ namespace arith {
             if (!ctx.is_shared(var2enode(v)) &&
                 !a.is_real_part(var2expr(v)) && !a.is_imag_part(var2expr(v)))
                 continue;
-            ensure_column(v);
-            if (!is_registered_var(v))
+            if (ensure_column(v) == lp::null_lpvar)
                 continue;
             theory_var other = m_model_eqs.insert_if_not_there(v);
             TRACE(arith, tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
