@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T17:17:30-08:00**. The cohort figures below are the latest
+Updated: **2026-11-20T17:29:58-08:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
 The Nov 20 rerun kept the sample figures unchanged and the extended verdict
 counts unchanged, but extended weighted PENDING moved from 31,254 to 31,271.
@@ -148,11 +148,21 @@ captures, not root parity: the candidate may certify an augmented proof. Its
 separate CLI comparison has 1 ACCEPT and 10 PARTIAL for both candidate and
 retained checkers, while Legacy accepts all 11. Paired timings on seven
 captures (five repetitions per arm) give a median candidate/retained ratio of
-1.0141, so there is no measured speedup. The strict F* and focused native
-checkout controls passed for the candidate snapshot, but its source hashes
-differ from the current PR checkout; the current-tree control used a different
-checker pin. Do not promote or claim parity until the candidate is revalidated
-against the exact PR source and its original-node evidence is pinned.
+1.0141, so there is no measured speedup; that timing applies only to candidate
+`79de3a41dcdb`.
+
+The current PR source was also strictly verified over its 167-module F*
+checker-only closure, including explicit `Z3IndependentConditionalDefinition.fsti`,
+and its focused native conditional-definition test passed. Source hashes match
+the current checkout; the source-derived checker pin is `421406127c03`. The
+same 11 frozen documents were replayed through its production
+`Z3SortedProof.check_document_epsilon_diagnosed` path: 1 ACCEPT, 10 PARTIAL,
+840 weighted PENDING, and zero `apply-def` PENDING in every document. Candidate
+`79de` has 847 weighted PENDING on those captures; the retained checker has
+927, including 80 `apply-def`. This confirms the rule-level result on the exact
+PR source, but root outcomes still trail Legacy's 11/11 ACCEPT. The current
+source replay is not a paired timing measurement, and the 1.0141 ratio cannot
+be transferred to it; do not claim root parity or a current-source speedup.
 
 ## Last 10 measured improvements and corrections
 
@@ -161,6 +171,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
 | Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
 | Nov 20 17:02 | Sync PR branch with latest master | Merged fetched master through `a2fd7e6b1`; no new checker/cohort metric measured. The active cohort continues on its pinned binaries | merge `743908848`; active cohort state |
 | Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
@@ -170,7 +181,6 @@ overlapping candidate effects must not be added.
 | Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
 | Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
 | Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or matched-proof comparison yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
-| Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 
 ## Validation and active cadence
 
@@ -190,7 +200,11 @@ Real-product mismatch remains unrerun. Two full
 `Z3SortedBv.fst:456`; no cohort candidate run is complete. The separate
 interactive `--sorted-core` capture of CommMonoid and Math.Exp completed with
 16 non-Farkas PENDING across 14 proof queries; it is not comparable to the
-`2671dc150931` fstar-build cohort capture.
+`2671dc150931` fstar-build cohort capture. The current PR source's conditional
+apply-def replay on the 11 fixed sample proofs completed with 1 ACCEPT, 10
+PARTIAL and zero `apply-def` PENDING; its 840 total PENDING and lack of
+11/11 Legacy parity mean it is not a promotion result. No paired timing was
+collected for this exact source pin.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The new candidate has not been run across the cohorts; keep its weighted
