@@ -235,10 +235,11 @@ The family should be reorganized around:
 
 ### Replace-all
 
-`replace_all_split::apply_case` currently evaluates
-`c >= 2 * p.length() + 2` using `unsigned` arithmetic.  On 32-bit/unsigned
-length arithmetic this can wrap before the threshold is computed.  This is
-both an audit finding and a code-style finding: index and count arithmetic
+`replace_all_split::apply_case` evaluated `c >= 2 * p.length() + 2` using
+`unsigned` arithmetic, which could wrap for pattern lengths near 2^31
+before the threshold was computed (NFV audit finding P12, batch 2). Fixed
+by widening to `uint64_t` before the comparison (`fix/c3mv-replace-all-overflow`).
+The remaining code-style observation stands: index and count arithmetic
 has no central width contract.
 
 The split also mixes split case enumeration, pattern prefix construction,

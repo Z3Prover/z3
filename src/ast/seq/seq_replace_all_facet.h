@@ -113,6 +113,15 @@ namespace seq {
         bool apply_case(eq_tree::node& n, unsigned idx, unsigned c, eq_tree::edge& out);
     public:
         replace_all_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        // Whether case number c is within the admissible range
+        // (1..2*pattern_length+1) for a pattern of the given length.
+        // Computed in 64-bit arithmetic and exposed so the boundary can
+        // be unit-tested directly, without constructing a multi-gigabyte
+        // zstring to reach pattern lengths near 2^31 (where the naive
+        // unsigned computation of 2*pattern_length+2 wraps).
+        static bool case_in_range(uint64_t c, uint64_t pattern_length) {
+            return c < 2 * pattern_length + 2;
+        }
         char const* name() const override { return "replace-all-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-replace-all num splits", m_stats.m_num_splits); }
