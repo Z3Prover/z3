@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T17:48:13-08:00**. The cohort figures below are the latest
+Updated: **2026-11-20T18:17:06-08:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
 The Nov 20 rerun kept the sample figures unchanged and the extended verdict
 counts unchanged, but extended weighted PENDING moved from 31,254 to 31,271.
@@ -81,6 +81,23 @@ checker, and the recaptures are not proven identical to the cohort documents.
 It is a fixed-proof Legacy control, not cohort burn-down or a current-PR
 performance claim. These proofs prioritize `intro-def` and `rewrite` parity
 work over a QF_LIA Farkas producer change.
+
+An exact-node attribution pass over those same frozen documents retained
+PARTIAL 4 and PARTIAL 48 (0.0296s and 4.6018s in this single diagnostic run).
+For the four `intro-def` obligations in case 00 and 30 in case 01,
+`DR.tautology`, `TN.tautology`, and `Z3UnifiedProof.logical_step` all returned
+false on the sort-indexed diagnostic obligations. All 18 `rewrite` obligations
+in case 01 passed `Z3UnifiedProof.relational_step`; the conditional-rewrite
+predicate matched all 18, and one also matched arithmetic and
+theory-normalization. `Z3SortedProof.check_node_cached` uses narrower typed
+predicates rather than that general relational dispatch, making these
+obligation-level results useful parity leads but not a proof of soundness in
+the sort-indexed interpretation. In particular, the local `intro-def` results
+do not explain the separate whole-document Legacy ACCEPT results, so they
+cannot be read as Legacy rejecting those documents. This is pinned to the
+same older checker/source as the recapture, not current PR source; it changes
+no cohort count or burn-down. Exact output: session artifact
+`qflia-legacy-rule-attribution-20261121T0217Z.json`.
 
 ## QF_LIA/Farkas status and candidate
 
@@ -210,6 +227,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
 | Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
 | Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
 | Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
@@ -219,7 +237,6 @@ overlapping candidate effects must not be added.
 | Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
 | Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:41 | Post-follow-up AProVE producer/checker trace | Native proof print has 12 `lp-context`, 15 `lp-linear`, 13 `lp-monomial-interval`, 14 `lp-monomial-substitute`; same-input checker PARTIAL 22 with 3 `assumed:nlsat`, 14 `rewrite`, 5 `th-lemma`, and no arithmetic/Farkas PENDING. Not comparable to earlier proof; no burn-down/performance claim | `current-lp-bound-postfix-aprove-20261120T223212Z`, `current-lp-bound-postfix-checker-20261120T224129Z` |
-| Nov 20 14:12 | Correct Farkas replay-path status | `lp-linear` is already checked as candidate `ArithmeticFarkas` weights against actual formulas; no cohort metrics changed and no new burn-down/performance claim | `fstar/ocaml_runtime/Z3Native.ml`, `fstar/Z3NativeProof.fst:309-317`, `fstar/Z3UnifiedProof.fst:276`, `fstar/Z3LinearArithmeticAst.fst:216-219` |
 
 ## Validation and active cadence
 
