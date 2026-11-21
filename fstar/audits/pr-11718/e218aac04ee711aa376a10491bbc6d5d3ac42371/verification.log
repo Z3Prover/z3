@@ -1,0 +1,1 @@
+Versions: /tmp/gh-aw/fstar/bin/fstar.exe --version -> F* 2026.09.27 (exit 0); pinned z3 --version -> Z3 version 4.13.3 - 64 bit (exit 0). No verification commands run: the only non-fstar change (src/api/ml/CMakeLists.txt) is a build-system edit with no formalizable obligation.

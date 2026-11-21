@@ -2,6 +2,7 @@
 Copyright (c) 2026 Microsoft Corporation
 --*/
 #include "ast/proofs/lp_proof.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -308,6 +309,40 @@ namespace lp {
             return m.is_true(eq);
         }
 
+        bool integer_inequality(ast_manager& m, arith_util& a, expr* e) {
+            if (!e)
+                return false;
+            if (m.is_not(e))
+                e = to_app(e)->get_arg(0);
+            return is_app(e) &&
+                (a.is_le(e) || a.is_lt(e) || a.is_ge(e) || a.is_gt(e)) &&
+                a.is_int(to_app(e)->get_arg(0));
+        }
+
+        proof_ref integer_bound_proof(ast_manager& m, proof_checker& checker,
+                                      proof* premise, expr* conclusion) {
+            proof_ref result(m);
+            arith_util a(m);
+            expr* fact = m.get_fact(premise);
+            if (!integer_inequality(m, a, fact) || !integer_inequality(m, a, conclusion))
+                return result;
+            expr_ref sum(m);
+            bool strict = false;
+            if (!checker.check_arith_literal(true, to_app(fact), rational(1), sum, strict) ||
+                !checker.check_arith_literal(false, to_app(conclusion), rational(1), sum, strict) ||
+                !sum || strict)
+                return result;
+            expr_ref contradiction(a.mk_le(sum, a.mk_numeral(rational(0), a.mk_int())), m);
+            th_rewriter rw(m);
+            rw(contradiction);
+            if (!m.is_false(contradiction))
+                return result;
+            parameter params[] = { parameter(symbol("farkas")), parameter(rational(1)),
+                                   parameter(rational(1)) };
+            result = m.mk_th_lemma(a.get_family_id(), conclusion, 1, &premise, 3, params);
+            return result;
+        }
+
         bool check_bindings(ast_manager& m, manager::proof_expression const& e, expr_ref_vector const& variables) {
             arith_util a(m);
             for (unsigned i = 0; i < variables.size(); ++i) {
@@ -453,14 +488,21 @@ namespace lp {
         if (variables.size() != e.variables.size() || !e.check())
             return false;
         inputs.reset();
+        proof_checker checker(m);
         for (auto const& s : e.steps) {
-            proof* input = nullptr;
+            proof_ref input(m);
             if (s.kind == rule::input) {
                 expr_ref f = evidence_fact(m, s.conclusion, variables);
                 for (auto* premise : premises)
                     if (equivalent(m, f, m.get_fact(premise))) {
                         input = premise;
                         break;
+                    }
+                if (!input)
+                    for (auto* premise : premises) {
+                        input = integer_bound_proof(m, checker, premise, f);
+                        if (input)
+                            break;
                     }
             }
             inputs.push_back(input);

@@ -4,15 +4,15 @@ open Ast_helper
 
 let timed = [
   "Z3ProofDocument.check_document_with_lookup"; "Z3ProofDocument.check_entry_with_lookup";
-  "Z3ProofDocument.check_document_using"; "Z3ProofDocument.prepare_entry_using";
-  "Z3ProofDocument.prepare_document_using"; "Z3Definitions.memoized_expand";
+  "Z3ProofDocument.check_document_using"; "Z3DocumentPreparation.prepare_entry_using";
+  "Z3DocumentPreparation.prepare_document_using"; "Z3DefinitionSyntax.memoized_expand";
   "Z3UnifiedProof.check_node_with_membership"; "Z3UnifiedProof.relational_step";
-  "Z3UnifiedProof.fast_arguments_match";
-  "Z3BooleanRewrite.boolean_equiv"; "Z3BooleanRewrite.boolean_search";
-  "Z3ArrayRewrite.equivalent"; "Z3ArithmeticRewrite.equivalent";
+  "Z3UnifiedProofSyntax.fast_arguments_match";
+  "Z3BooleanRewriteSyntax.boolean_equiv"; "Z3BooleanRewriteSyntax.boolean_search";
+  "Z3ArraySyntax.equivalent"; "Z3ArithmeticSyntax.equivalent";
   "Z3QuantifierReduce.equivalent"; "Z3LambdaRewrite.rewrite";
-  "Z3ConditionalRewrite.equivalent"; "Z3IntegerRewrite.equivalent";
-  "Z3QuantifierVacuity.equivalent"; "Z3TheoryNormalize.equivalent";
+  "Z3ConditionalRewriteSyntax.equivalent"; "Z3IntegerRewriteSyntax.equivalent";
+  "Z3QuantifierVacuitySyntax.equivalent"; "Z3TheoryNormalize.equivalent";
   "Z3TheoryNormalize.root"; "Z3TheoryNormalize.consequence";
   "Z3DestructiveEquality.check"; "Z3LinearArithmeticAst.check";
   "Z3NativeProof.marshal";
@@ -22,14 +22,14 @@ let timed = [
 ]
 
 let counted = [
-  "Z3BooleanRewrite.boolean_height"; "Z3BooleanRewrite.boolean_cut";
+  "Z3BooleanRewriteSyntax.boolean_height"; "Z3BooleanRewriteSyntax.boolean_cut";
   "Z3BooleanNormalForm.normalize"; "Z3BooleanNormalForm.shannon";
-  "Z3Definitions.scoped"; "Z3Definitions.expand"; "Z3Definitions.tautology";
-  "Z3Definitions.expand_cached"; "Z3Definitions.expand_args_cached";
-  "Z3Definitions.find_expansion";
+  "Z3DefinitionSyntax.scoped"; "Z3DefinitionSyntax.expand"; "Z3DefinitionRecognition.tautology";
+  "Z3DefinitionSyntax.expand_cached"; "Z3DefinitionSyntax.expand_args_cached";
+  "Z3DefinitionSyntax.find_expansion";
   "Z3TheoryNormalize.normalize"; "Z3BinderSubstitution.apply";
-  "Z3LinearArithmeticAst.linearize"; "Z3UnifiedProof.extend_reachable";
-  "Z3UnifiedProof.arguments_match";
+  "Z3LinearArithmeticAst.linearize"; "Z3UnifiedProofSyntax.extend_reachable";
+  "Z3UnifiedProofSyntax.arguments_match";
   "Z3SortedDatatype.normalize"; "Z3SortedSemantics.cut_with_boundaries";
 ]
 

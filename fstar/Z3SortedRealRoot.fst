@@ -1,16 +1,16 @@
 module Z3SortedRealRoot
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module P = Z3LinearArithmeticTheory
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module SR = Z3SortedRoot
@@ -340,12 +340,12 @@ let lemma_integer_rounding_refutes_satisfiable ()
    not assumed. *)
 let real_box : func_decl = {
   decl_name = "real-box"; domain = []; range = A.real_s;
-  interp = Some Z3DatatypeLemma.op_constructor; int_params = [0; 0; 0];
+  interp = Some Z3DatatypeSyntax.op_constructor; int_params = [0; 0; 0];
 }
 
 let is_real_box : func_decl = {
   decl_name = "is-real-box"; domain = [A.real_s]; range = bool_sort;
-  interp = Some Z3DatatypeLemma.op_recognizer; int_params = [0; 0];
+  interp = Some Z3DatatypeSyntax.op_recognizer; int_params = [0; 0];
 }
 
 let real_datatype_schema : S.checked_schema =

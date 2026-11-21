@@ -2,7 +2,7 @@ module Z3DatatypeValue
 
 open Z3AstTheory
 open FStar.List.Tot
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module P = FStar.List.Tot.Properties
 

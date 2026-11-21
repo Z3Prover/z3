@@ -417,6 +417,8 @@ SORTED_REAL_CASES = (
     ("strict-pair", "(declare-const x Real)(declare-const y Real)(assert (< x y))(assert (<= y x))"),
     ("sum-of-positives", "(declare-const x Real)(declare-const y Real)"
      "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"),
+    ("equal-bounds", "(declare-const x Real)(declare-const y Real)"
+     "(assert (<= x y))(assert (<= y x))(assert (not (= x y)))"),
     ("datatype-field", "(declare-datatype T ((C (field Real))))(declare-const t T)"
      "(assert (> (field t) 0.0))(assert (<= (field t) 0.0))"),
     ("reconstructed-equality", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
@@ -931,17 +933,19 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
-    def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
-        # The former input here, x + y <= 0 with x > 0 and y > 0, is now certified by the typed Real
-        # kernel of the Sorted route itself (SORTED_REAL_CASES "sum-of-positives"). This input keeps a
-        # Real step outside the Sorted fragment, the equation (x = y) = (x <= y and x >= y), so the
-        # sorted core still reports it as pending instead of falling back to the legacy arithmetic.
-        source = ("(declare-const x Real)(declare-const y Real)"
-                  "(assert (<= x y))(assert (<= y x))(assert (not (= x y)))")
+    def test_sorted_core_does_not_fall_back_to_legacy_checking(self):
+        # Typed Real replay now covers the former equal-bounds control. The array-read definition
+        # below still distinguishes the sorted core from the legacy route.
+        source = ("(declare-const a (Array Int Int))(declare-const x Int)"
+                  "(assert (> (select a x) 0))(assert (< (select a x) 0))")
+        legacy = self.run_checker(source, "--stats")
+        self.assertEqual((legacy.returncode, legacy.stdout.strip()), (0, "ACCEPT"), legacy.stderr)
+        self.assertIn("semantics=legacy", legacy.stderr)
         result = self.run_checker(source, "--sorted-core", "--diagnostics", "--stats")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
         self.assertIn("semantics=sorted-core", result.stderr)
+        self.assertIn("obligation\tintro-def\t", result.stderr)
         interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
         self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
         self.assertIn("; proof-check PARTIAL ", interactive.stdout)
@@ -2146,10 +2150,10 @@ class ReadableTagTests(unittest.TestCase):
 
     def test_cherry_expression_rows_use_the_operator_tags_of_the_f_star_source(self):
         # Pretty in the Cherry driver mirrors Z3NativeMain.pretty_judgment for the `expression` rows; the extracted checker does not
-        # export these Z3ValueTheory tags. The printer never references a checking or marshaling entry point.
+        # export these Z3OperatorTags tags. The printer never references a checking or marshaling entry point.
         root = Path(__file__).resolve().parent.parent
         values = dict(re.findall(r"let (op_\w+) : decl_kind = (\d+)",
-                                 (root / "Z3ValueTheory.fst").read_text(encoding="utf-8")))
+                                 (root / "Z3OperatorTags.fst").read_text(encoding="utf-8")))
         main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
         pretty = main[main.index("class Pretty {"):main.index("static std::string rule_name(")]
         tags = re.findall(r"static constexpr int64_t (op_\w+) = (\d+);", pretty)

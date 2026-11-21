@@ -1,11 +1,11 @@
 module Z3SortedRealProductTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module A = Z3LinearArithmeticAst
 module L = FStar.List.Tot
 module P = Z3SortedRealProduct
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module RL = Z3SortedReal
 module S = Z3DatatypeSignature
 

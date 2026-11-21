@@ -37,11 +37,11 @@ module Z3SortedIntDivisionTests
    (test_native_bridge.ml, Z3CherryTests.fst). *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module SR = Z3SortedRoot
@@ -61,7 +61,7 @@ module DR = Z3SortedDivisionRoot
 module AR = Z3SortedArithmetic
 module SI = Z3SortedInteger
 module LA = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 
 (* ---------------------------------------------------------------------- *)
 (* Shapes                                                                   *)

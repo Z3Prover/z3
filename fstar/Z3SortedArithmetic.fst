@@ -3,17 +3,17 @@ module Z3SortedArithmetic
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
 module P = Z3LinearArithmeticTheory
-module E = Z3LinearArithmeticEmbed
-module R = Z3ArithmeticRewrite
+module E = Z3PolynomialSemantics
+module R = Z3ArithmeticSyntax
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 
 (* Typed-root G2: `integer` is a GHOST specification (T.evaluate_at is ghost).
@@ -141,7 +141,7 @@ and lemma_linearize_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
 
 let rec integer_formula (fuel:nat) (e:expr) : Tot bool (decreases fuel) =
   if fuel = 0 then false
-  else if e = Z3ResolutionProofTheory.true_expr || e = Z3ResolutionProofTheory.false_expr then true
+  else if e = Z3ClauseSyntax.true_expr || e = Z3ClauseSyntax.false_expr then true
   else match e with
   | App f [a] ->
     f = R.not_decl && get_sort a = bool_sort && integer_formula (fuel - 1) a
@@ -191,7 +191,7 @@ let lemma_comparison (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
    its own larger context. *)
 let lemma_constraint_of_comparison (fuel:nat) (positive:bool) (e a b:expr) (r:A.relation)
                                    (p:A.contribution)
-  : Lemma (requires ~(e = Z3ResolutionProofTheory.true_expr || e = Z3ResolutionProofTheory.false_expr) /\
+  : Lemma (requires ~(e = Z3ClauseSyntax.true_expr || e = Z3ClauseSyntax.false_expr) /\
                     A.comparison e == Some (r, a, b) /\ R.constraint_of fuel positive e == Some p)
           (ensures r <> A.Eq /\ Some? (A.linearize 64 a) /\ Some? (A.linearize 64 b) /\
                    p.P.poly == fst (A.oriented positive r (Some?.v (A.linearize 64 a))
@@ -218,7 +218,7 @@ let rec lemma_constraint (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
             (if positive then T.truth_at s bc model other scope rho e
              else ~(T.truth_at s bc model other scope rho e)))
           (decreases fuel) =
-  if e = Z3ResolutionProofTheory.true_expr || e = Z3ResolutionProofTheory.false_expr then
+  if e = Z3ClauseSyntax.true_expr || e = Z3ClauseSyntax.false_expr then
     (match e with App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f [] | _ -> ())
   else match e with
   | App f [a] ->
@@ -328,8 +328,8 @@ let lemma_arithmetic_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S
 
 let rec constant_boolean (fuel:nat) (e:expr) : Tot (option bool) (decreases %[fuel; 0]) =
   if fuel = 0 || get_sort e <> bool_sort then None
-  else if arithmetic_equivalent e Z3ResolutionProofTheory.true_expr then Some true
-  else if arithmetic_equivalent e Z3ResolutionProofTheory.false_expr then Some false
+  else if arithmetic_equivalent e Z3ClauseSyntax.true_expr then Some true
+  else if arithmetic_equivalent e Z3ClauseSyntax.false_expr then Some false
   else match e with
   | App f args ->
     (match T.classify f, args with
@@ -368,13 +368,13 @@ let rec lemma_constant_boolean (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   : Lemma (requires D.scoped scope e /\ constant_boolean fuel e == Some v)
           (ensures T.truth_at s bc model other scope rho e == v)
           (decreases %[fuel; 0]) =
-  if arithmetic_equivalent e Z3ResolutionProofTheory.true_expr then (
-    lemma_arithmetic_equivalent s bc model other scope rho e Z3ResolutionProofTheory.true_expr;
-    match Z3ResolutionProofTheory.true_expr with
+  if arithmetic_equivalent e Z3ClauseSyntax.true_expr then (
+    lemma_arithmetic_equivalent s bc model other scope rho e Z3ClauseSyntax.true_expr;
+    match Z3ClauseSyntax.true_expr with
     | App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f [] | _ -> ())
-  else if arithmetic_equivalent e Z3ResolutionProofTheory.false_expr then (
-    lemma_arithmetic_equivalent s bc model other scope rho e Z3ResolutionProofTheory.false_expr;
-    match Z3ResolutionProofTheory.false_expr with
+  else if arithmetic_equivalent e Z3ClauseSyntax.false_expr then (
+    lemma_arithmetic_equivalent s bc model other scope rho e Z3ClauseSyntax.false_expr;
+    match Z3ClauseSyntax.false_expr with
     | App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f [] | _ -> ())
   else match e with
   | App f args ->

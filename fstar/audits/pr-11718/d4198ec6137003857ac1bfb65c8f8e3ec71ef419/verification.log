@@ -1,0 +1,1 @@
+No F* verification was run. Checks performed: PR state open; recorded head d4198ec6137003857ac1bfb65c8f8e3ec71ef419 matches current head; no existing comment with fstar-nfv-audit:d4198ec6 (only 28ff80e4). Changed-file list enumerated via GitHub API; patch for src/api/ml/CMakeLists.txt read. F* version: 2026.09.27.

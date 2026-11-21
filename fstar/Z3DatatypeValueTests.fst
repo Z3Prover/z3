@@ -112,7 +112,7 @@ let sorted_constructor_evaluation (i:V.interpretation primitive sigma)
   : Lemma (ensures
       V.evaluate sigma i [int_s; bool_s] evaluation_environment
         (App leaf [Var 0 int_s; Var 1 bool_s]) == example_leaf) =
-  assert_norm (Z3Definitions.scoped [int_s; bool_s]
+  assert_norm (Z3ExprScope.scoped [int_s; bool_s]
     (App leaf [Var 0 int_s; Var 1 bool_s]));
   assert_norm (L.mem leaf sigma)
 

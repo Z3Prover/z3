@@ -10,6 +10,8 @@ module QN = Z3QuantifierNnf
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
 module C = Z3CanonicalOps
+module Binding = Z3ExprBinding
+include Z3QuantifierPullSyntax
 
 let rec lemma_eval_environments (i:interpretation value) (e:expr) (rho sigma:env value)
   : Lemma (requires quant_extensional i /\ (forall (n:nat). rho n == sigma n))
@@ -131,49 +133,24 @@ let lemma_flatten (i:interpretation value) (rho:env value)
     | _, _ -> ()
 
 let lift_environments (amount cutoff:nat) (rho sigma:env value) : prop =
-  forall (n:nat). sigma (if n < cutoff then n else n + amount) == rho n
+  Binding.lift_environments amount cutoff rho sigma
 
-let rec lemma_lift (i:interpretation value) (e:expr) (amount cutoff:nat)
-                   (rho sigma:env value)
+let lemma_lift (i:interpretation value) (e:expr) (amount cutoff:nat)
+               (rho sigma:env value)
   : Lemma (requires quant_extensional i /\ lift_environments amount cutoff rho sigma)
           (ensures eval i (D.lift amount cutoff e) sigma == eval i e rho)
-          (decreases %[e])
-  = match e with
-    | Var _ _ -> ()
-    | App _ args -> lemma_lift_args i args amount cutoff rho sigma
-    | Quantifier _ bs _ body ->
-      let bodies (vs:list value{L.length vs = L.length bs})
-        : Lemma (eval i (D.lift amount (cutoff + L.length bs) body) (shift vs sigma) ==
-                 eval i body (shift vs rho))
-        = let indices (n:nat)
-            : Lemma (shift vs sigma (if n < cutoff + L.length bs then n else n + amount) ==
-                     shift vs rho n)
-            = if n < L.length vs then ()
-              else assert (sigma (if n - L.length vs < cutoff
-                                  then n - L.length vs else n - L.length vs + amount) ==
-                           rho (n - L.length vs)) in
-          FStar.Classical.forall_intro indices;
-          lemma_lift i body amount (cutoff + L.length bs) (shift vs rho) (shift vs sigma) in
-      FStar.Classical.forall_intro bodies
+  = Binding.lemma_lift i e amount cutoff rho sigma
 
-and lemma_lift_args (i:interpretation value) (args:list expr) (amount cutoff:nat)
-                    (rho sigma:env value)
+let lemma_lift_args (i:interpretation value) (args:list expr) (amount cutoff:nat)
+                   (rho sigma:env value)
   : Lemma (requires quant_extensional i /\ lift_environments amount cutoff rho sigma)
           (ensures eval_args i (D.lift_args amount cutoff args) sigma == eval_args i args rho)
-          (decreases %[args])
-  = match args with
-    | [] -> ()
-    | e :: rest ->
-      lemma_lift i e amount cutoff rho sigma;
-      lemma_lift_args i rest amount cutoff rho sigma
+  = Binding.lemma_lift_args i args amount cutoff rho sigma
 
 let lemma_lift_under (i:interpretation value) (e:expr) (rho:env value) (vs:list value)
   : Lemma (requires quant_extensional i)
           (ensures eval i (D.lift (L.length vs) 0 e) (shift vs rho) == eval i e rho)
-  = let indices (n:nat)
-      : Lemma (shift vs rho (n + L.length vs) == rho n) = () in
-    FStar.Classical.forall_intro indices;
-    lemma_lift i e (L.length vs) 0 rho (shift vs rho)
+  = Binding.lemma_lift_under i e rho vs
 
 let rec lemma_lift_context (i:interpretation value) (args:list expr)
                            (rho:env value) (vs:list value)
@@ -189,11 +166,6 @@ let rec lemma_lift_context (i:interpretation value) (args:list expr)
     | e :: rest ->
       lemma_lift_under i e rho vs;
       lemma_lift_context i rest rho vs
-
-let rec boolean_args (args:list expr) : Tot bool (decreases args) =
-  match args with
-  | [] -> true
-  | e :: rest -> get_sort e = bool_sort && boolean_args rest
 
 let context_truth (i:interpretation value) (rho:env value) (f:func_decl)
                   (prefix suffix:list expr) (p:prop) : prop =
@@ -248,14 +220,6 @@ let lemma_pull_context (i:interpretation value) (rho:env value)
     | VBool _, VBool _ -> ()
     | _, _ -> ()
 
-let merge (kind:quantifier_kind) (sorts:list sort) (body:expr) : expr =
-  match body with
-  | Quantifier k bs s b ->
-    if k = kind && s = bool_sort && get_sort b = bool_sort
-    then Quantifier kind (sorts @ bs) bool_sort b
-    else Quantifier kind sorts bool_sort body
-  | _ -> Quantifier kind sorts bool_sort body
-
 let lemma_merge (i:interpretation value) (rho:env value)
                 (kind:quantifier_kind) (sorts:list sort) (body:expr)
   : Lemma (requires quant_extensional i /\ QN.quantifier_model i /\ boolean_model i /\
@@ -269,23 +233,6 @@ let lemma_merge (i:interpretation value) (rho:env value)
       then lemma_flatten i rho kind sorts bs b
     | _ -> ()
 
-(* Pull the rightmost child first: Z3 orders the resulting binder blocks
-   right-to-left, while preserving declaration order inside each block. *)
-let rec split_quantifier (args:list expr)
-  : Tot (option (list expr & quantifier_kind & list sort & expr & list expr)) (decreases args) =
-  match args with
-  | [] -> None
-  | e :: rest ->
-    (match split_quantifier rest with
-     | Some (prefix, kind, sorts, body, suffix) ->
-       Some (e :: prefix, kind, sorts, body, suffix)
-     | None ->
-       (match e with
-        | Quantifier k bs s body ->
-          if (k = Forall_k || k = Exists_k) && s = bool_sort && get_sort body = bool_sort
-          then Some ([], k, bs, body, rest) else None
-        | _ -> None))
-
 let rec lemma_split_quantifier (args:list expr)
   : Lemma (ensures (match split_quantifier args with
                    | None -> True
@@ -296,36 +243,6 @@ let rec lemma_split_quantifier (args:list expr)
   = match args with
     | [] -> ()
     | _ :: rest -> lemma_split_quantifier rest
-
-let rec normalize (fuel:nat) (e:expr) : Tot (option expr) (decreases fuel) =
-  if fuel = 0 then None
-  else match e with
-  | Quantifier k bs s body ->
-    if (k = Forall_k || k = Exists_k) && s = bool_sort && get_sort body = bool_sort
-    then (match normalize (fuel - 1) body with
-          | Some b -> Some (merge k bs b)
-          | None -> None)
-    else Some e
-  | App f args ->
-    if (C.canonical_and f || C.canonical_or f) &&
-       f.range = bool_sort && boolean_args args then
-      (match split_quantifier args with
-       | None -> Some e
-       | Some (prefix, k, bs, body, suffix) ->
-         let inside = App f (D.lift_args (L.length bs) 0 prefix @
-                              (body :: D.lift_args (L.length bs) 0 suffix)) in
-         (match normalize (fuel - 1) inside with
-          | Some b -> Some (merge k bs b)
-          | None -> None))
-    else if f = not_decl then
-      (match args with
-       | [Quantifier k bs s body] ->
-         if (k = Forall_k || k = Exists_k) && s = bool_sort && get_sort body = bool_sort
-         then Some (Quantifier (QN.dual k) bs bool_sort (mk_not_expr body))
-         else Some e
-       | _ -> Some e)
-    else Some e
-  | _ -> Some e
 
 let rec lemma_normalize_sound (fuel:nat) (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires quant_extensional i /\ QN.quantifier_model i /\ boolean_model i /\
@@ -369,11 +286,6 @@ let rec lemma_normalize_sound (fuel:nat) (i:interpretation value) (rho:env value
            then QN.lemma_duality i rho k bs body
          | _ -> ())
     | _ -> ()
-
-let check (a b:expr) : bool =
-  match normalize 64 a, normalize 64 b with
-  | Some x, Some y -> x = y
-  | _, _ -> false
 
 let lemma_check_sound (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires quant_extensional i /\ QN.quantifier_model i /\ boolean_model i /\

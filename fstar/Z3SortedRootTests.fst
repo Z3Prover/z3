@@ -11,13 +11,13 @@
 module Z3SortedRootTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module I = Z3SortedInteger
@@ -73,6 +73,22 @@ let sorted_lambda_equality (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
   RT.plus_zero_is_identity u i [] rho;
   RT.identity_not_successor u i [] rho;
   RT.beta u i [] rho
+
+let observation_read : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.outer_read); RT.outer_read
+
+let observation_store : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.inner_store); RT.inner_store
+
+let sorted_nested_observations (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u RT.scope2)
+  : Lemma (T.observations_agree_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+             RT.scope2 rho observation_read observation_store) =
+  assert_norm (get_sort observation_read == get_sort observation_store);
+  RT.nested_outer u i rho;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_read;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_store;
+  T.lemma_values_observations_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+    RT.scope2 rho observation_read observation_store
 
 (* --- Quantifiers and Int arithmetic --------------------------------------- *)
 

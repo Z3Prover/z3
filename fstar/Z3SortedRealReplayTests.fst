@@ -28,15 +28,15 @@ module Z3SortedRealReplayTests
        model); the flag alone is not a hypothesis. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module S = Z3DatatypeSignature
 module V = Z3DatatypeValue
 module T = Z3SortedSemantics
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module SR = Z3SortedRoot
-module U = Z3UnifiedProof
-module R = Z3ResolutionProofTheory
+module U = Z3UnifiedProofSyntax
+module R = Z3ClauseSyntax
 module NR = Z3NnfReplay
 module Q = Z3SortedQuantifier
 module E = Z3SortedSkolem
@@ -199,7 +199,7 @@ let c3_mutants ()
   assert_norm (not (gate (rtimes (rtimes p1 p0) p1) (rtimes (rtimes p1 p1) p0)))
 
 (* Unsupported operators: to_int and is_int have no interpretation tag in the
-   checker's operator vocabulary (Z3ValueTheory), so they are opaque symbols
+   checker's operator vocabulary (Z3OperatorTags), so they are opaque symbols
    with no law, and Real division by zero has none either; leaves that need
    such a law stay pending even under the gate. *)
 let to_int_decl : func_decl = symbol "to_int" [real] integer

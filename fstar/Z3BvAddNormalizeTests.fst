@@ -1,7 +1,7 @@
 module Z3BvAddNormalizeTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 module L = FStar.List.Tot
 module BV = Z3BvLemma

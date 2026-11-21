@@ -10,14 +10,14 @@ module Z3SortedRealOrder
    Z3NnfReplay) do not carry them. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear

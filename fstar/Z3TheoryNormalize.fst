@@ -7,6 +7,7 @@ open Z3ObservationalEquality
 module A = Z3ArrayRewrite
 module B = Z3BooleanRewrite
 module D = Z3Definitions
+module DR = Z3DefinitionRecognition
 module AR = Z3ArithmeticRewrite
 module LE = Z3LinearArithmeticEmbed
 module LA = Z3LinearArithmeticAst
@@ -21,6 +22,8 @@ module AE = Z3ArrayEquality
 module L = FStar.List.Tot
 module FF = Z3FiniteFieldLemma
 
+include Z3TheoryNormalizeSyntax
+
 type datatype_view = (value -> (int & int)) & (value -> list value)
 
 let normalization_model (i:interpretation value) : prop =
@@ -32,7 +35,7 @@ let normalization_model (i:interpretation value) : prop =
   (exists (view:datatype_view). DT.datatype_model i (fst view) (snd view))
 
 let root (e:expr) : option expr =
-  if D.tautology 128 e || AR.equivalent e true_expr then Some true_expr
+  if DR.tautology 128 e || AR.equivalent e true_expr then Some true_expr
   else if AR.equivalent e false_expr then Some false_expr
   else if Some? (AR.product_sign_rewrite e) then AR.product_sign_rewrite e
   else if AE.unequal_defaults e then Some false_expr
@@ -96,7 +99,7 @@ let lemma_bv_order (i:interpretation value) (rho:env value) (e result:expr)
 let lemma_root (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires normalization_model i /\ root e == Some result)
           (ensures eval i e rho == eval i result rho)
-  = if D.tautology 128 e then D.lemma_tautology_sound 128 i rho e
+  = if DR.tautology 128 e then D.lemma_tautology_sound 128 i rho e
     else if AR.equivalent e true_expr then AR.lemma_equivalent_with_numeric_model e true_expr i rho
     else if AR.equivalent e false_expr then AR.lemma_equivalent_with_numeric_model e false_expr i rho
     else if Some? (AR.product_sign_rewrite e) then AR.lemma_product_sign_with_numeric_model e result i rho
@@ -237,7 +240,7 @@ let unit_coefficients (conclusion:expr) (facts:list expr) : list LA.coefficient 
 let tautology (e:expr) : bool =
   match normalize 64 e with
   | Some result ->
-    D.tautology 128 result || Z3ArrayLemma.array_lemma result || AR.triangle_equality result ||
+    DR.tautology 128 result || Z3ArrayLemma.array_lemma result || AR.triangle_equality result ||
     LA.check (unit_coefficients result []) result []
   | None -> false
 
@@ -246,7 +249,7 @@ let lemma_tautology (i:interpretation value) (rho:env value) (e:expr)
           (ensures lit_true i rho e)
   = let result = Some?.v (normalize 64 e) in
     lemma_normalize 64 i rho e result;
-    if D.tautology 128 result then D.lemma_tautology_sound 128 i rho result
+    if DR.tautology 128 result then D.lemma_tautology_sound 128 i rho result
     else if Z3ArrayLemma.array_lemma result then Z3ArrayLemma.lemma_array_lemma_sound i rho result
     else if AR.triangle_equality result then AR.lemma_triangle_with_numeric_model result i rho
     else LE.lemma_check_with_numeric_model (unit_coefficients result []) result [] i rho
@@ -272,28 +275,6 @@ let lemma_direct_consequence (i:interpretation value) (rho:env value)
       match eval i (App (B.connective_decl B.Conjunction facts) facts) rho with
       | VBool _ -> ()
       | _ -> ())
-
-let rec contains (needle e:expr) : Tot bool (decreases e) =
-  needle = e ||
-  (match e with App _ args -> contains_args needle args | _ -> false)
-
-and contains_args (needle:expr) (args:list expr) : Tot bool (decreases args) =
-  match args with
-  | [] -> false
-  | e :: rest -> contains needle e || contains_args needle rest
-
-(* Equality premises hold in the current environment, not under binders. *)
-let rec replace (source target e:expr) : Tot expr (decreases e) =
-  if e = source then target
-  else match e with
-  | App f args -> App f (replace_args source target args)
-  | _ -> e
-
-and replace_args (source target:expr) (args:list expr)
-  : Tot (list expr) (decreases args) =
-  match args with
-  | [] -> []
-  | e :: rest -> replace source target e :: replace_args source target rest
 
 let rec lemma_replace (i:interpretation value) (rho:env value) (source target e:expr)
   : Lemma (requires eval i source rho == eval i target rho)
@@ -325,26 +306,6 @@ let rec lemma_replace_facts (i:interpretation value) (rho:env value)
   | e :: rest ->
     lemma_replace i rho source target e;
     lemma_replace_facts i rho source target rest
-
-let constructor_term (e:expr) : bool =
-  match e with App f args -> Some? (DT.constructor f args) | _ -> false
-
-let constructor_replacement (e:expr) : option (expr & expr) =
-  match e with
-  | App f [a; b] ->
-    if f <> eq_decl (get_sort a) || get_sort a <> get_sort b then None
-    else if constructor_term b && not (constructor_term a) && not (contains a b)
-    then Some (a, b)
-    else if constructor_term a && not (constructor_term b) && not (contains b a)
-    then Some (b, a)
-    else None
-  | _ -> None
-
-let rec constructor_premise (facts:list expr) : Tot (option (expr & expr)) (decreases facts) =
-  match facts with
-  | [] -> None
-  | e :: rest ->
-    (match constructor_replacement e with Some pair -> Some pair | None -> constructor_premise rest)
 
 let rec lemma_constructor_premise (i:interpretation value) (rho:env value)
                                  (facts:list expr) (source target:expr)

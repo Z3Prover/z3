@@ -6,8 +6,7 @@ open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 module L = FStar.List.Tot
 
-let dual (kind:quantifier_kind) : quantifier_kind =
-  match kind with Forall_k -> Exists_k | Exists_k -> Forall_k | Lambda_k -> Lambda_k
+include Z3QuantifierNnfSyntax
 
 (* Existential truth is the classical negation of universal falsity. *)
 let quantifier_model (i:interpretation value) : prop =

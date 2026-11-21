@@ -13,7 +13,7 @@ module Z3SortedRealDocumentTests
    ground ITE rewrite equations (SP.ite_rewrite) at every result sort. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module S = Z3DatatypeSignature
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
@@ -28,7 +28,7 @@ module RR = Z3SortedRealRoot
 module SS = Z3SortedSemantics
 module BR = Z3BooleanRewrite
 module V = Z3DatatypeValue
-module D = Z3Definitions
+module D = Z3ExprScope
 
 let real : sort = TR.real_s
 let integer : sort = TR.int_s

@@ -1,39 +1,40 @@
 module Z3SortedDatatype
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
-module BR = Z3BooleanRewrite
-module D = Z3Definitions
+module BS = Z3BooleanSyntax
+module Scope = Z3ExprScope
 module L = FStar.List.Tot
 module N = Z3BooleanNormalForm
+module CS = Z3ClausalSemantics
 
 let rec lemma_recognizer_tag (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_recognizer f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_recognizer)
+          (ensures f.interp == Some Z3DatatypeSyntax.op_recognizer)
           (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest ->
     (match S.constructor_id c.constructor with
      | Some (owner, tag) ->
-       if Z3DatatypeLemma.recognizer f (Var 0 c.constructor.range) <> Some (owner, tag)
+       if Z3DatatypeSyntax.recognizer f (Var 0 c.constructor.range) <> Some (owner, tag)
        then lemma_recognizer_tag f rest
      | None -> lemma_recognizer_tag f rest)
 
 let rec lemma_accessor_tag (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_accessor f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_accessor)
+          (ensures f.interp == Some Z3DatatypeSyntax.op_accessor)
           (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest ->
-    (match S.constructor_id c.constructor, Z3DatatypeLemma.accessor f (Var 0 c.constructor.range) with
+    (match S.constructor_id c.constructor, Z3DatatypeSyntax.accessor f (Var 0 c.constructor.range) with
      | Some _, Some _ -> ()
      | _, _ -> lemma_accessor_tag f rest)
 
@@ -58,7 +59,7 @@ let lemma_accessor_dispatch (s:S.checked_schema) (f:func_decl)
 let lemma_recognizer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (f:func_decl) (arg:expr)
-  : Lemma (requires Some? (S.find_recognizer f s.cases) /\ D.scoped [] (App f [arg]))
+  : Lemma (requires Some? (S.find_recognizer f s.cases) /\ Scope.scoped [] (App f [arg]))
           (ensures T.truth s bc eq other (App f [arg]) ==
                    V.recognize (Some?.v (S.find_recognizer f s.cases)).constructor
                      (T.evaluate s bc eq other arg)) =
@@ -67,10 +68,10 @@ let lemma_recognizer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
 let rec lemma_arguments_index (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (args:list expr) (ss:list sort) (n:nat)
-  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ n < L.length ss)
+  : Lemma (requires Scope.scoped_args [] args /\ sorts_match args ss /\ n < L.length ss)
           (ensures n < L.length args /\
                    n < L.length (T.evaluate_arguments s bc eq other args ss) /\
-                   D.scoped [] (L.index args n) /\
+                   Scope.scoped [] (L.index args n) /\
                    get_sort (L.index args n) == L.index ss n /\
                    L.index (T.evaluate_arguments s bc eq other args ss) n ==
                      T.evaluate s bc eq other (L.index args n))
@@ -86,11 +87,11 @@ let lemma_accessor (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (f:func_decl) (g:func_decl) (args:list expr)
   : Lemma (requires Some? (S.find_accessor f s.cases) /\
                     g == (Some?.v (S.find_accessor f s.cases)).matched_case.constructor /\
-                    L.mem g (S.signature s) /\ D.scoped [] (App f [App g args]))
+                    L.mem g (S.signature s) /\ Scope.scoped [] (App f [App g args]))
           (ensures
             (let r = Some?.v (S.find_accessor f s.cases) in
              r.field < L.length args /\
-             D.scoped [] (L.index args r.field) /\
+             Scope.scoped [] (L.index args r.field) /\
              T.evaluate s bc eq other (App f [App g args]) ==
              T.evaluate s bc eq other (L.index args r.field))) =
   let r = Some?.v (S.find_accessor f s.cases) in
@@ -111,9 +112,9 @@ let rec field_equalities (xs ys:list expr) : Tot (list expr) (decreases xs) =
 let rec lemma_field_equalities (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                (xs ys:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args [] xs /\ D.scoped_args [] ys /\
+  : Lemma (requires Scope.scoped_args [] xs /\ Scope.scoped_args [] ys /\
                     sorts_match xs ss /\ sorts_match ys ss)
-          (ensures D.scoped_args [] (field_equalities xs ys) /\
+          (ensures Scope.scoped_args [] (field_equalities xs ys) /\
                    (forall (e:expr). L.mem e (field_equalities xs ys) ==> get_sort e == bool_sort) /\
                    (T.evaluate_arguments s bc eq other xs ss ==
                     T.evaluate_arguments s bc eq other ys ss <==>
@@ -150,31 +151,31 @@ let rewrite (s:S.checked_schema) (e:expr) : option expr =
        L.mem g (S.signature s) && L.mem h (S.signature s) then
       if g <> h then Some R.false_expr
       else let fields = field_equalities xs ys in
-        Some (App (BR.connective_decl BR.Conjunction fields) fields)
+        Some (App (R.and_decl fields) fields)
     else None
   | _ -> None
 
 let rec lemma_boolean_domain (es:list expr)
   : Lemma (requires forall (e:expr). L.mem e es ==> get_sort e == bool_sort)
-          (ensures T.boolean_sorts (BR.boolean_domain es) /\ sorts_match es (BR.boolean_domain es))
+          (ensures T.boolean_sorts (R.boolean_domain es) /\ sorts_match es (R.boolean_domain es))
           (decreases es) =
   match es with [] -> () | _ :: rest -> lemma_boolean_domain rest
 
 let lemma_conjunction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (es:list expr)
-  : Lemma (requires D.scoped_args [] es /\
+  : Lemma (requires Scope.scoped_args [] es /\
                     (forall (e:expr). L.mem e es ==> get_sort e == bool_sort))
-          (ensures T.truth s bc eq other (App (BR.connective_decl BR.Conjunction es) es) ==
+          (ensures T.truth s bc eq other (App (R.and_decl es) es) ==
                    B.geval_args (T.truth s bc eq other) B.And (L.map B.Atom es)) =
   lemma_boolean_domain es;
-  T.lemma_evaluate_core s bc eq other (BR.connective_decl BR.Conjunction es) es;
-  T.lemma_boolean_arguments s bc eq other es (BR.boolean_domain es) B.And
+  T.lemma_evaluate_core s bc eq other (R.and_decl es) es;
+  T.lemma_boolean_arguments s bc eq other es (R.boolean_domain es) B.And
 
 let lemma_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                   (e result:expr)
-  : Lemma (requires D.scoped [] e /\ D.scoped [] result /\
+  : Lemma (requires Scope.scoped [] e /\ Scope.scoped [] result /\
                     get_sort e == get_sort result /\ rewrite s e == Some result)
           (ensures T.evaluate s bc eq other e == T.evaluate s bc eq other result) =
   match e with
@@ -206,7 +207,7 @@ let lemma_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carri
 
 let rec normalize (s:S.checked_schema) (fuel:nat) (e:expr)
   : Tot (option expr) (decreases %[fuel; e]) =
-  if fuel = 0 || not (D.scoped [] e) then None
+  if fuel = 0 || not (Scope.scoped [] e) then None
   else
     let next = fuel - 1 in
     let rebuilt =
@@ -219,10 +220,10 @@ let rec normalize (s:S.checked_schema) (fuel:nat) (e:expr)
     match rebuilt with
     | None -> None
     | Some source ->
-      if not (D.scoped [] source && get_sort source = get_sort e) then None
+      if not (Scope.scoped [] source && get_sort source = get_sort e) then None
       else
         let target = match rewrite s source with Some result -> result | None -> source in
-        if not (D.scoped [] target && get_sort target = get_sort source) then None
+        if not (Scope.scoped [] target && get_sort target = get_sort source) then None
         else if target = source then Some target
         else normalize s next target
 
@@ -238,8 +239,8 @@ and normalize_args (s:S.checked_schema) (fuel:nat) (es:list expr)
 let rec lemma_normalize (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                         (fuel:nat) (e result:expr)
-  : Lemma (requires D.scoped [] e /\ normalize s fuel e == Some result)
-          (ensures D.scoped [] result /\ get_sort result == get_sort e /\
+  : Lemma (requires Scope.scoped [] e /\ normalize s fuel e == Some result)
+          (ensures Scope.scoped [] result /\ get_sort result == get_sort e /\
                    T.evaluate s bc eq other e == T.evaluate s bc eq other result)
           (decreases %[fuel; e]) =
   if fuel = 0 then ()
@@ -260,9 +261,9 @@ let rec lemma_normalize (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
 and lemma_normalize_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                          (fuel:nat) (xs ys:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args [] xs /\ sorts_match xs ss /\
+  : Lemma (requires Scope.scoped_args [] xs /\ sorts_match xs ss /\
                     normalize_args s fuel xs == Some ys)
-          (ensures D.scoped_args [] ys /\ sorts_match ys ss /\
+          (ensures Scope.scoped_args [] ys /\ sorts_match ys ss /\
                    T.evaluate_arguments s bc eq other xs ss == T.evaluate_arguments s bc eq other ys ss)
           (decreases %[fuel; xs]) =
   match xs, ys, ss with
@@ -311,8 +312,8 @@ let exhaustive (s:S.checked_schema) (e:expr) : bool =
   | _ -> false
 
 let rec lemma_subject (s:S.checked_schema) (es:list expr)
-  : Lemma (requires D.scoped_args [] es /\ Some? (subject_of s es))
-          (ensures D.scoped [] (Some?.v (subject_of s es)))
+  : Lemma (requires Scope.scoped_args [] es /\ Some? (subject_of s es))
+          (ensures Scope.scoped [] (Some?.v (subject_of s es)))
           (decreases es) =
   match es with
   | [] -> ()
@@ -332,7 +333,7 @@ let rec lemma_covered (s:S.checked_schema) (subject:expr)
 let rec lemma_has_recognizer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                              (subject:expr) (f:func_decl) (es:list expr)
-  : Lemma (requires D.scoped [] subject /\ D.scoped_args [] es /\
+  : Lemma (requires Scope.scoped [] subject /\ Scope.scoped_args [] es /\
                     V.recognize f (T.evaluate s bc eq other subject) /\
                     has_recognizer s subject f es)
           (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom es))
@@ -347,7 +348,7 @@ let rec lemma_has_recognizer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
 let lemma_exhaustive (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (e:expr)
-  : Lemma (requires D.scoped [] e /\ exhaustive s e)
+  : Lemma (requires Scope.scoped [] e /\ exhaustive s e)
           (ensures T.truth s bc eq other e) =
   match e with
   | App f es ->
@@ -420,7 +421,7 @@ let rec lemma_selector_index (s:S.checked_schema) (constructor:func_decl)
 let lemma_selector_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                          (constructor:func_decl) (subject:expr) (index:nat) (e:expr)
-  : Lemma (requires D.scoped [] subject /\ D.scoped [] e /\
+  : Lemma (requires Scope.scoped [] subject /\ Scope.scoped [] e /\
                     V.recognize constructor (T.evaluate s bc eq other subject) /\
                     selector_of s constructor subject index e)
           (ensures index < L.length (V.fields (T.evaluate s bc eq other subject)) /\
@@ -446,7 +447,7 @@ let rebuild (s:S.checked_schema) (constructor:func_decl) (subject:expr) (candida
 let lemma_rebuild (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                   (constructor:func_decl) (subject candidate:expr)
-  : Lemma (requires D.scoped [] subject /\ D.scoped [] candidate /\
+  : Lemma (requires Scope.scoped [] subject /\ Scope.scoped [] candidate /\
                     V.recognize constructor (T.evaluate s bc eq other subject) /\
                     rebuild s constructor subject candidate)
           (ensures T.evaluate s bc eq other candidate == T.evaluate s bc eq other subject) =
@@ -481,7 +482,7 @@ let reconstruction (s:S.checked_schema) (guard conclusion:expr) : bool =
 let lemma_reconstruction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                          (guard conclusion:expr)
-  : Lemma (requires D.scoped [] guard /\ D.scoped [] conclusion /\
+  : Lemma (requires Scope.scoped [] guard /\ Scope.scoped [] conclusion /\
                     reconstruction s guard conclusion /\ T.truth s bc eq other guard)
           (ensures T.truth s bc eq other conclusion) =
   match guard, conclusion with
@@ -509,7 +510,7 @@ let guarded_reconstruction (s:S.checked_schema) (e:expr) : bool =
 let lemma_reconstruction_pair (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (negative conclusion:expr)
-  : Lemma (requires D.scoped [] negative /\ D.scoped [] conclusion /\
+  : Lemma (requires Scope.scoped [] negative /\ Scope.scoped [] conclusion /\
                     reconstruction_pair s negative conclusion)
           (ensures T.truth s bc eq other negative || T.truth s bc eq other conclusion) =
   match negative with
@@ -521,7 +522,7 @@ let lemma_reconstruction_pair (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
 let lemma_guarded_reconstruction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                  (e:expr)
-  : Lemma (requires D.scoped [] e /\ guarded_reconstruction s e)
+  : Lemma (requires Scope.scoped [] e /\ guarded_reconstruction s e)
           (ensures T.truth s bc eq other e) =
   match e with
   | App disjunction [a; b] ->
@@ -539,7 +540,7 @@ let symmetric_equality (e:expr) : bool =
 let lemma_symmetric_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                              (e:expr)
-  : Lemma (requires D.scoped [] e /\ symmetric_equality e)
+  : Lemma (requires Scope.scoped [] e /\ symmetric_equality e)
           (ensures T.truth s bc eq other e) =
   match e with
   | App _ [App _ [a; b]; App _ [_; _]] ->
@@ -555,7 +556,7 @@ let axiom (s:S.checked_schema) (e:expr) : bool =
 let lemma_axiom (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                 (e:expr)
-  : Lemma (requires D.scoped [] e /\ axiom s e)
+  : Lemma (requires Scope.scoped [] e /\ axiom s e)
           (ensures T.truth s bc eq other e) =
   if symmetric_equality e then lemma_symmetric_equality s bc eq other e
   else if exhaustive s e then lemma_exhaustive s bc eq other e
@@ -570,7 +571,7 @@ let formula (s:S.checked_schema) (axioms:bool) (e:expr) : option B.skeleton =
 let lemma_formula (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                   (axioms:bool) (e:expr) (f:B.skeleton)
-  : Lemma (requires D.scoped [] e /\ formula s axioms e == Some f)
+  : Lemma (requires Scope.scoped [] e /\ formula s axioms e == Some f)
           (ensures B.geval (T.truth s bc eq other) f == T.truth s bc eq other e) =
   let result = Some?.v (normalize s 64 e) in
   lemma_normalize s bc eq other 64 e result;
@@ -588,7 +589,7 @@ let rec formulas (s:S.checked_schema) (es:list expr) : Tot (option (list B.skele
 let rec lemma_formulas (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                        (es:list expr) (fs:list B.skeleton)
-  : Lemma (requires D.scoped_args [] es /\ formulas s es == Some fs)
+  : Lemma (requires Scope.scoped_args [] es /\ formulas s es == Some fs)
           (ensures B.geval_args (T.truth s bc eq other) B.And fs == T.truths s bc eq other es)
           (decreases es) =
   match es, fs with
@@ -731,7 +732,7 @@ let simple_consequence (facts:list expr) (conclusion:expr) : bool =
 let lemma_literals (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                    (e:expr)
-  : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
+  : Lemma (requires Scope.scoped [] e /\ get_sort e == bool_sort)
           (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (literals e)) ==
                    T.truth s bc eq other e) =
   if e = R.false_expr then T.lemma_cut s bc eq other 1 e
@@ -753,34 +754,53 @@ let lemma_eliminated (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     T.lemma_negation s bc eq other f a
   | _ -> ()
 
-let rec lemma_literal_member (rho:expr -> GTot bool) (es:list expr) (e:expr)
+let rec lemma_clausal_disjunction (rho:CS.valuation) (es:list expr)
+  : Lemma (CS.clause_holds rho es == B.geval_args rho B.Or (L.map B.Atom es))
+          (decreases es) =
+  match es with
+  | [] -> ()
+  | _ :: rest -> lemma_clausal_disjunction rho rest
+
+let lemma_literal_member (rho:expr -> GTot bool) (es:list expr) (e:expr)
   : Lemma (requires L.mem e es /\ rho e)
           (ensures B.geval_args rho B.Or (L.map B.Atom es))
-          (decreases es) =
-  match es with [] -> () | x :: rest -> if x <> e then lemma_literal_member rho rest e
+  = FStar.List.Tot.Properties.mem_memP e es;
+    CS.lemma_clause_member rho es e;
+    lemma_clausal_disjunction rho es
 
-let rec lemma_resolved (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let lemma_resolved (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (units:list expr) (conclusion:expr) (clause:list expr)
-  : Lemma (requires T.truths s bc eq other units /\ D.scoped [] conclusion /\
+  : Lemma (requires T.truths s bc eq other units /\ Scope.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ resolved units conclusion clause /\
                     B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom clause))
           (ensures T.truth s bc eq other conclusion)
-          (decreases clause) =
-  match clause with
-  | [] -> ()
-  | e :: rest ->
-    if T.truth s bc eq other e then (
+  =
+  let rho = T.truth s bc eq other in
+  let rec member (es:list expr) (e:expr)
+    : Lemma (requires resolved units conclusion es /\ L.memP e es)
+            (ensures eliminated units e \/ e == conclusion \/ L.mem e (literals conclusion))
+            (decreases es) =
+    match es with
+    | [] -> ()
+    | x :: rest -> if x <> e then member rest e in
+  let covered (e:expr)
+    : Lemma (L.memP e clause /\ rho e ==> rho conclusion) =
+    FStar.List.Tot.Properties.mem_memP e clause;
+    if L.mem e clause && rho e then (
+      member clause e;
       if eliminated units e then lemma_eliminated s bc eq other units e
       else if e <> conclusion then (
         lemma_literal_member (T.truth s bc eq other) (literals conclusion) e;
-        lemma_literals s bc eq other conclusion))
-    else lemma_resolved s bc eq other units conclusion rest
+        lemma_literals s bc eq other conclusion)) in
+  FStar.Classical.forall_intro covered;
+  lemma_clausal_disjunction rho clause;
+  CS.lemma_clause_consequence rho clause conclusion
 
 let lemma_simple_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                              (facts:list expr) (conclusion:expr)
-  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+  : Lemma (requires T.truths s bc eq other facts /\ Scope.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ simple_consequence facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
   if L.mem conclusion facts then lemma_true_member s bc eq other facts conclusion
@@ -808,7 +828,7 @@ let rec shared_boundaries (depth:nat) (es:list expr) : Tot (list expr) (decrease
   match es with
   | [] -> []
   | e :: rest ->
-    L.append (B.intersect (BR.boolean_nodes depth e) (BR.boolean_nodes_args depth rest))
+    L.append (B.intersect (BS.boolean_nodes depth e) (BS.boolean_nodes_args depth rest))
       (shared_boundaries depth rest)
 
 let reflection_boundaries (depth:nat) (facts:list expr) (conclusion:expr) : list expr =
@@ -817,12 +837,12 @@ let reflection_boundaries (depth:nat) (facts:list expr) (conclusion:expr) : list
     (match conclusion with
      | App f [a; b] ->
        if T.classify f = T.Equality bool_sort then
-         B.intersect (BR.boolean_nodes depth a) (BR.boolean_nodes depth b)
+         B.intersect (BS.boolean_nodes depth a) (BS.boolean_nodes depth b)
        else []
      | _ -> []))
 
 let boolean_consequence_at (depth:nat) (facts:list expr) (conclusion:expr) : bool =
-  let premise = App (BR.connective_decl BR.Conjunction facts) facts in
+  let premise = App (R.and_decl facts) facts in
   let boundaries = reflection_boundaries depth facts conclusion in
   propositional (B.Implies (T.cut_with_boundaries boundaries depth premise)
                           (T.cut_with_boundaries boundaries depth conclusion))
@@ -835,12 +855,12 @@ let boolean_consequence (facts:list expr) (conclusion:expr) : bool =
 let lemma_boolean_consequence_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                  (depth:nat) (facts:list expr) (conclusion:expr)
-  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+  : Lemma (requires T.truths s bc eq other facts /\ Scope.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ boolean_consequence_at depth facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
   let rec sorted (es:list expr)
     : Lemma (requires T.truths s bc eq other es)
-            (ensures D.scoped_args [] es /\
+            (ensures Scope.scoped_args [] es /\
                      (forall (e:expr). L.mem e es ==> get_sort e == bool_sort))
             (decreases es) =
     match es with [] -> () | _ :: rest -> sorted rest in
@@ -848,7 +868,7 @@ let lemma_boolean_consequence_at (#base:sort -> Type0) (s:S.checked_schema) (bc:
   lemma_boolean_domain facts;
   lemma_conjunction s bc eq other facts;
   T.lemma_truths s bc eq other facts;
-  let premise = App (BR.connective_decl BR.Conjunction facts) facts in
+  let premise = App (R.and_decl facts) facts in
   let boundaries = reflection_boundaries depth facts conclusion in
   T.lemma_cut_with_boundaries s bc eq other boundaries depth premise;
   T.lemma_cut_with_boundaries s bc eq other boundaries depth conclusion;
@@ -859,7 +879,7 @@ let lemma_boolean_consequence_at (#base:sort -> Type0) (s:S.checked_schema) (bc:
 let lemma_boolean_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (facts:list expr) (conclusion:expr)
-  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+  : Lemma (requires T.truths s bc eq other facts /\ Scope.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ boolean_consequence facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
   if boolean_consequence_at 2 facts conclusion then
@@ -877,7 +897,7 @@ let rec reconstruction_from (s:S.checked_schema) (facts:list expr) (conclusion:e
 let rec lemma_reconstruction_from (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                   (facts:list expr) (conclusion:expr)
-  : Lemma (requires D.scoped_args [] facts /\ D.scoped [] conclusion /\
+  : Lemma (requires Scope.scoped_args [] facts /\ Scope.scoped [] conclusion /\
                     T.truths s bc eq other facts /\ reconstruction_from s facts conclusion)
           (ensures T.truth s bc eq other conclusion)
           (decreases facts) =
@@ -896,13 +916,13 @@ let rec excluded_atoms (facts:list expr) : Tot (list expr) (decreases facts) =
 
 let exclusion_clause (facts:list expr) (conclusion:expr) : expr =
   let es = conclusion :: excluded_atoms facts in
-  App (BR.connective_decl BR.Disjunction es) es
+  App (R.or_decl es) es
 
 let exhaustiveness_from (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   match conclusion with
   | App f [_] ->
     Some? (S.find_recognizer f s.cases) &&
-    D.scoped [] (exclusion_clause facts conclusion) && exhaustive s (exclusion_clause facts conclusion)
+    Scope.scoped [] (exclusion_clause facts conclusion) && exhaustive s (exclusion_clause facts conclusion)
   | _ -> false
 
 let rec lemma_excluded_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -926,7 +946,7 @@ let lemma_exhaustiveness_from (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
   let es = conclusion :: excluded_atoms facts in
   lemma_exhaustive s bc eq other (exclusion_clause facts conclusion);
   lemma_excluded_atoms s bc eq other facts;
-  T.lemma_nary s bc eq other (BR.connective_decl BR.Disjunction es) es B.Or
+  T.lemma_nary s bc eq other (R.or_decl es) es B.Or
 
 let transport_exclusion (s:S.checked_schema) (equation fact:expr) : option expr =
   match equation, fact with
@@ -935,7 +955,7 @@ let transport_exclusion (s:S.checked_schema) (equation fact:expr) : option expr 
        Some? (S.find_recognizer recognizer s.cases) && (subject = a || subject = b) then
       let target = if subject = a then b else a in
       let result = App negation [App recognizer [target]] in
-      if D.scoped [] result then Some result else None
+      if Scope.scoped [] result then Some result else None
     else None
   | _, _ -> None
 
@@ -1017,8 +1037,8 @@ let normalized_consequence (s:S.checked_schema) (facts:list expr) (conclusion:ex
 let lemma_normalized_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                  (facts:list expr) (conclusion:expr)
-  : Lemma (requires T.truths s bc eq other facts /\ D.scoped_args [] facts /\
-                    D.scoped [] conclusion /\ normalized_consequence s facts conclusion)
+  : Lemma (requires T.truths s bc eq other facts /\ Scope.scoped_args [] facts /\
+                    Scope.scoped [] conclusion /\ normalized_consequence s facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
   let fs = Some?.v (formulas s facts) in
   let c = Some?.v (formula s true conclusion) in
@@ -1028,13 +1048,13 @@ let lemma_normalized_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:
 
 let equality_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   let expanded = equality_exclusions s facts facts in
-  D.scoped_args [] expanded &&
+  Scope.scoped_args [] expanded &&
   (exhaustiveness_from s expanded conclusion || normalized_consequence s expanded conclusion)
 
 let lemma_equality_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                (facts:list expr) (conclusion:expr)
-  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+  : Lemma (requires T.truths s bc eq other facts /\ Scope.scoped [] conclusion /\
                     equality_consequence s facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
   let expanded = equality_exclusions s facts facts in
@@ -1044,7 +1064,7 @@ let lemma_equality_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   else lemma_normalized_consequence s bc eq other expanded conclusion
 
 let consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
-  D.scoped_args [] facts && D.scoped [] conclusion && get_sort conclusion = bool_sort &&
+  Scope.scoped_args [] facts && Scope.scoped [] conclusion && get_sort conclusion = bool_sort &&
   (axiom s conclusion || simple_consequence facts conclusion || boolean_consequence facts conclusion ||
    reconstruction_from s facts conclusion || exhaustiveness_from s facts conclusion ||
    normalized_consequence s facts conclusion || equality_consequence s facts conclusion)

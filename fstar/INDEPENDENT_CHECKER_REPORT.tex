@@ -1,0 +1,228 @@
+% Build twice: pdflatex -interaction=nonstopmode -halt-on-error
+%   -no-shell-escape INDEPENDENT_CHECKER_REPORT.tex
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage[hidelinks]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5\baselineskip}
+\emergencystretch=3em
+\sloppy
+\urlstyle{tt}
+\newcommand{\src}[1]{\href{#1}{\nolinkurl{#1}}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\title{The independent F* proof checker:\\guarantee and interpretation architecture}
+\author{}
+\date{15 November 2026}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Core and Definition are two routes through the same independent, sort-indexed
+F* proof checker.  If either certifies a proof document, its original
+assertions cannot all be true in any interpretation satisfying the root-model
+contract.  This report describes that precise theorem, the construction that
+makes the model contract inhabited, the dependent value representation, replay
+and recovery, and the boundary between the verified document theorem and the
+native solver integration.  It describes the development on this PR, not a
+claim that the migration or benchmark parity is complete.
+\end{abstract}
+
+\section{The guarantee}
+Let \(\Sigma\) be a checked datatype schema, \(D\) a proof document, \(A_D\)
+its original assertions, \(u\) a family of nonempty uninterpreted carriers,
+and \(M\) an interpretation over the corresponding sort-indexed values.  The
+interfaces \src{Z3IndependentChecker.fsti} expose the following two theorems:
+\begin{align*}
+ &\operatorname{check}(\Sigma,D)=\mathsf{RootCertified}
+  \;\land\; \operatorname{root\_model}(u,\Sigma,M)
+  \;\Longrightarrow\; \neg\operatorname{root\_truths}(u,\Sigma,M,A_D),\\
+ &\operatorname{check\_definition}(\Sigma,D)=\mathsf{RootCertified}
+  \;\land\; \operatorname{root\_model}(u,\Sigma,M)
+  \;\Longrightarrow\; \neg\operatorname{root\_truths}(u,\Sigma,M,A_D).
+\end{align*}
+The first is \code{lemma_certified}; the second is
+\code{lemma_certified_definition}.  Both quantify over the same \(u\),
+\(\Sigma\), \(D\), and \emph{one interpretation for the whole document}.
+\(\operatorname{root\_truths}\) is the conjunction of root truth for the
+original assertions, not a statement merely about auxiliary replay formulas.
+Thus no model in the stated class satisfies all those assertions.  For a
+covered, well-typed document this is the intended refutation guarantee relative
+to that model class; it is not an unrestricted theorem about arbitrary SMT-LIB
+parsing, native code, or every possible theory.
+
+The model hypothesis is not just an assumed, potentially empty contract.\linebreak[2]
+\code{Z3TypedRoot.lemma_standard_root} constructs a root model
+\(\operatorname{standard}(u,\Sigma,F)\) for every checked schema, admissible
+carrier family \(u\), and choice of free symbols \(F\).  F* proves that this
+model satisfies the root laws.  This is an inhabitation theorem; it does not
+by itself identify all unsupported symbols with their full SMT-LIB theory.
+See \src{Z3TypedRoot.fst} and \src{Z3SortedRootDocument.fst}.
+
+\paragraph{Verdicts.}
+The OCaml driver maps \code{RootCertified} to \code{ACCEPT},
+\code{RootPending n} to \code{PARTIAL n}, \code{RootUncovered} to
+\code{UNKNOWN} \code{unsupported-root-fragment}, and \code{RootRejected} to
+\code{REJECT} (\src{ocaml_runtime/Z3IndependentMain.ml}).  Only
+\code{ACCEPT} invokes the certification guarantee above.  A partial result
+reports unresolved obligations, not a proof of satisfiability or a
+counterexample.  An uncovered result is not certification, even if a lower
+replay check found no pending obligations.  Solver \code{unknown}, timeouts,
+errors, crashes, and unrun cases are not accepted proofs.
+
+\section{From proof to verdict}
+\begin{center}
+\fbox{\parbox{0.90\linewidth}{\centering
+Z3 assertions and candidate proof
+\(\longrightarrow\) native marshaling and typed schema/document
+\(\longrightarrow\) verified document replay and coverage gate
+\(\longrightarrow\) Core verdict
+\(\longrightarrow\) optional Definition recovery}}
+\end{center}
+The solver is a proof producer, not an oracle whose answer is accepted on
+faith.  The document records original assertions, proof entries, and a root.
+The checker validates declarations and assertions, replays entries using
+earlier checked facts, and checks that the root is closed \code{false}.
+Unverified or undecided steps leave explicit obligations.  The document
+diagnostic records either pending obligations or a rejection stage
+(\src{Z3DocumentSyntax.fst}, \src{Z3SortedProof.fst}).
+
+Core is \code{Z3IndependentChecker.check}, the \code{sorted-core} route.
+It uses the root replay and its verified certificate fallback.  Definition is
+\code{check_definition}, selected by \code{--definition-replay}; it first
+runs Core and attempts additional verified recovery only if Core is pending.
+It retains any Core certified, uncovered, or rejected result.  Successful
+recovery certifies the original assertions under the same general root-model
+contract, rather than silently changing the meaning of \code{ACCEPT}.
+The executable dispatch and exact reference behavior are in
+\src{ocaml_runtime/Z3IndependentMain.ml} and
+\src{Z3IndependentChecker.fsti}.
+
+The root gate also checks its supported schema, scopes and document-term
+coverage.  In the underlying root document route, a structurally valid closed
+proof with no pending obligations is still \code{RootUncovered} if that
+coverage test fails.  See \code{root_covered} and
+\code{check_root_document} in \src{Z3SortedRootDocument.fst}.  The more
+general Core and Definition entry points use their own verified recovery
+contracts, so their certification should be read through the exported
+theorems, not identified with a single internal check.
+
+\section{Sort-indexed values and evaluation}
+\subsection{The carrier family}
+The value infrastructure is parameterized by a dependent family
+\[
+  \mathit{base} : \mathit{sort}\to\mathit{Type0}.
+\]
+This maps each sort \emph{AST} to an F* type.  It is not a single untyped
+sum of all SMT values, and Definition is not a different value domain from
+Core.  \src{Z3DatatypeValue.fst} represents values as trees:
+\[
+  \mathit{tree}(\mathit{base})
+    = \mathsf{Scalar}(s,\mathit{base}(s))
+      \mid \mathsf{Constructor}(f,\mathit{children}).
+\]
+The type \code{value base sigma s} refines a tree by the executable
+\code{has_sort} predicate.  A scalar must carry the requested non-datatype
+sort; a constructor must occur in the datatype signature \(\sigma\), have
+the requested range, and have recursively well-sorted fields.  Argument
+lists are similarly refined against a list of domain sorts.  Constructor
+disjointness, injectivity, and the matched-selector laws are proved over
+these trees; they are not consequences of comparing printed names.
+
+For the root model, \code{Z3TypedRoot.carrier u s} instantiates the family:
+Boolean, integer, and real sorts use F* \code{bool}, \code{int}, and
+\code{real}; valid bit-vector and finite-field sorts use indexed carriers;
+sequences use lists; and datatype-free array sorts use spaces of ghost
+functions over typed index tuples.  Other sorts use a nonempty
+\code{u.sort_carrier s}.  Datatype values are checked constructor trees,
+not scalar payloads at the datatype sort.  A concrete default inhabitant is
+constructed recursively.  The existence of a carrier does not itself imply
+that every operator on it has been given full theory semantics.
+
+\subsection{Interpretations and models}
+\code{Z3DatatypeValue.interpretation base sigma} assigns a typed result to
+each function application and a typed result to each quantified or lambda
+body.  A scoped environment maps each bound-variable index to a value of
+the corresponding sort.  Ghost evaluation recursively evaluates a
+well-scoped expression to a value at \emph{its} AST sort.  Registered
+constructors build trees; other applications and binders use the shared
+interpretation.  These semantic definitions are ghost specifications, not
+runtime procedures for deciding equality of arbitrary real or function values.
+
+\code{Z3TypedRoot.root_model} requires one interpretation to satisfy its
+quantifier, interpreted-operator, lambda, constructor, recognizer, and
+matched-accessor laws.  The standard interpretation composes the standard
+theory and datatype interpretations with free symbol choices.  For example,
+it fixes the designated Boolean, integer and real operations, and gives
+datatype-free arrays functional select/store/lambda semantics where their
+law preconditions apply.  Symbols not fixed by the contract remain
+model choices; selectors applied to the wrong constructor are an example.
+Theory coverage is therefore a property of the actual laws and guards, not
+of a sort name alone.  The typed definitions and their law preconditions
+are in \src{Z3TypedRoot.fst}, \src{Z3SortedSemantics.fst}, and the
+associated sorted-theory modules.
+
+\section{Definitions, binders, and cached replay}
+Definition recovery recognizes eligible definition introductions and can
+construct augmented documents for definitions, NNF, Skolemization, dependent
+contexts, or selected binder replay.  Eligibility, freshness, scope, and
+root certification checks gate the candidates.  In particular, fresh
+definitions and Skolem choices require a \emph{model-extension} argument:
+the extended interpretation satisfies the auxiliary material while
+preserving truth of the original assertions.  It is not enough to assume
+that every introduced symbol already has the desired interpretation.
+\src{Z3IndependentDefinitionModel.fsti} specifies an override that
+preserves other applications, quantification, and fresh input expressions;
+the document-level proof combines the relevant preservation lemmas with
+replay soundness.  See also \src{Z3IndependentSkolemModel.fst} and
+\src{Z3IndependentDefinitionSkolemDocument.fsti}.
+
+The cached replay is an optimization, not an additional semantic axiom.
+\src{Z3IndependentCachedReplay.fsti} states exact equality of its
+document diagnostic with \code{Z3SortedProof.diagnose_document}, and
+exact equality of \code{check_document} with
+\code{Z3SortedProof.check_document}.  The cache is indexed by the schema
+and original assertion list.  The Definition and Skolem paths may use
+this replay, but their public contracts retain the reference verdict and
+soundness theorem.
+
+\section{Limits and trust boundary}
+\begin{itemize}
+\item The theorem is conditional on a checked schema and
+\code{root_model}; the standard-model theorem establishes an inhabitant,
+but the claimed standard meaning is restricted to supported schemas,
+expressions, and the stated theory laws.  In particular, nested arrays
+mentioning registered datatypes and zero-index arrays are excluded by
+the supported-sort gate.  Opaque operations are not automatically given
+their full SMT-LIB semantics.
+\item The separate experimental Definition-plus-array entry point has a
+different theorem: certification is shown for \code{TR.standard} models,
+not for every arbitrary \code{root_model}.  It must not be presented as
+the generic Definition theorem or silently substituted for that route.
+\item The proof is about the F* schema and document actually checked.
+The native Z3 API, foreign bindings and marshaling, assertion/proof
+transport, extraction, OCaml compiler and runtime, F* verification
+toolchain and its SMT backend, and the execution environment remain part
+of the end-to-end trust boundary.  Correct transport from the original
+SMT-LIB session to the checked document is not established by the two
+interface theorems alone.
+\item Soundness is not completeness or a performance guarantee.  Pending
+rules, unsupported terms, solver differences, and resource limits can
+prevent certification.  The independent migration, retirement of
+\code{Z3ValueTheory.fst}, and full-corpus legacy parity remain work in
+progress; see \src{PORTING_PROGRESS.md}.
+\end{itemize}
+
+\section{Reading the implementation}
+The contracts to start from are \src{Z3IndependentChecker.fsti}, the
+root gate and theorem in \src{Z3SortedRootDocument.fst}, the typed
+carrier and root laws in \src{Z3TypedRoot.fst}, and the value/evaluator
+in \src{Z3DatatypeValue.fst}.  The root-model statements are semantic
+F* lemmas, while the proof-document decisions and coverage checks are
+executable.  Build and benchmark status, including what was actually
+verified and measured, is tracked separately in \src{PORTING_PROGRESS.md}.
+
+\end{document}

@@ -54,7 +54,7 @@ module Z3NnfReplayTests
    refinement error. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics

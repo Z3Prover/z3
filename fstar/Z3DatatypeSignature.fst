@@ -3,7 +3,7 @@ module Z3DatatypeSignature
 open Z3AstTheory
 open FStar.List.Tot
 module V = Z3DatatypeValue
-module DT = Z3DatatypeLemma
+module DT = Z3DatatypeSyntax
 module L = FStar.List.Tot
 
 type constructor_case = {

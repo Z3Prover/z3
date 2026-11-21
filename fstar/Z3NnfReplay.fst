@@ -179,7 +179,7 @@
    another scope.
 
    Resources. Every walk is a loop (self tail call). The guard keeps its own
-   bounds. The replay charges one budget of `U.binder_work_limit n` units
+   bounds. The replay charges one budget of `BG.binder_work_limit n` units
    (the guard's per-entry unit) before it compares terms: the node count of
    each used entry formula (counted by an explicit worklist), the counts of
    its premises' formulas at every use (a premise shared by m users is
@@ -246,29 +246,33 @@ module Z3NnfReplay
 
 open Z3AstTheory
 open FStar.List.Tot
-module U = Z3UnifiedProof
+module U = Z3UnifiedProofSyntax
+module BG = Z3BinderScopeSyntax
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module Q = Z3SortedQuantifier
 module E = Z3SortedSkolem
-module D = Z3Definitions
-module R = Z3ResolutionProofTheory
+module D = Z3DefinitionSyntax
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
 module I = Z3ProofIndex
-module BS = Z3BinderScope
+module BS = Z3BinderScopeIndependent
 module L = FStar.List.Tot
-module SK = Z3Skolemization
+module SK = Z3SkolemSyntax
 module DS = Z3SortedDependentSkolem
 module AR = Z3SortedArithmetic
 module DT = Z3SortedDatatype
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module SI = Z3SortedInteger
+module SA = Z3SortedArray
 module LA = Z3LinearArithmeticAst
-module RW = Z3ArithmeticRewrite
+module RW = Z3ArithmeticSyntax
 module LP = FStar.List.Tot.Properties
-module BRW = Z3BooleanRewrite
+module BRW = Z3BooleanRewriteSyntax
+module AS = Z3ArraySyntax
+module CR = Z3ConditionalRewriteSyntax
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -536,7 +540,7 @@ let ite_rewritten (lhs rhs:expr) : bool =
    walks more than `room` elements. *)
 let product_tags (f:func_decl) : bool =
   f.decl_name = "*" && f.range = LA.int_s && f.int_params = [] &&
-  (f.interp = Some Z3ValueTheory.op_arith_mul || f.interp = Some Z3ValueTheory.op_mul)
+  (f.interp = Some Z3OperatorTags.op_arith_mul || f.interp = Some Z3OperatorTags.op_mul)
 
 let rec length_within (#a:Type) (n:nat) (xs:list a) : Tot bool (decreases xs) =
   match xs with [] -> true | _ :: rest -> if n = 0 then false else length_within (n - 1) rest
@@ -842,6 +846,98 @@ let rewrite_ok (lhs rhs:expr) : bool =
    else get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
         (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
 
+type fold_replay_kind =
+  | FoldUnchanged
+  | FoldArrayIte
+  | FoldRewrite
+
+unfold let fold_replay_evidence (e:expr) : option fold_replay_kind =
+  let folded = CR.fold e in
+  if not (D.scoped [] e && D.scoped [] folded && get_sort e = get_sort folded) then None
+  else if e = folded then Some FoldUnchanged
+  else match AS.ite_contract e with
+       | Some expected -> if expected = folded then Some FoldArrayIte else None
+       | None -> if rewrite_ok e folded then Some FoldRewrite else None
+
+let fold_replay_ok (e:expr) : bool = Some? (fold_replay_evidence e)
+
+type choose_replay_certificate =
+  | ChooseGuard
+  | ChooseApplication : list choose_replay_certificate -> fold_replay_kind -> choose_replay_certificate
+  | ChooseUnchanged
+
+let rec choose_replay_evidence (guard:expr) (truth:bool) (e:expr)
+  : Tot (option choose_replay_certificate) (decreases e) =
+  if e = guard then if get_sort guard = bool_sort then Some ChooseGuard else None
+  else match e with
+  | App f args ->
+    (match choose_args_replay_evidence guard truth args,
+           fold_replay_evidence (App f (CR.choose_args guard truth args)) with
+     | Some children, Some folded -> Some (ChooseApplication children folded)
+     | _, _ -> None)
+  | _ -> if D.scoped [] e then Some ChooseUnchanged else None
+
+and choose_args_replay_evidence (guard:expr) (truth:bool) (args:list expr)
+  : Tot (option (list choose_replay_certificate)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match choose_replay_evidence guard truth a, choose_args_replay_evidence guard truth rest with
+     | Some child, Some children -> Some (child :: children)
+     | _, _ -> None)
+
+let choose_replay_ok (guard:expr) (truth:bool) (e:expr) : bool =
+  Some? (choose_replay_evidence guard truth e)
+
+type conditional_rewrite_certificate =
+  | ConditionalDirect
+  | ConditionalTrue : expr -> choose_replay_certificate -> choose_replay_certificate ->
+      choose_replay_certificate -> choose_replay_certificate ->
+      conditional_rewrite_certificate -> conditional_rewrite_certificate
+  | ConditionalFalse : expr -> choose_replay_certificate -> choose_replay_certificate ->
+      choose_replay_certificate -> choose_replay_certificate ->
+      conditional_rewrite_certificate -> conditional_rewrite_certificate
+
+let rec conditional_rewrite_evidence (fuel:nat) (lhs rhs:expr)
+  : Tot (option conditional_rewrite_certificate) (decreases fuel) =
+  if rewrite_ok lhs rhs then Some ConditionalDirect
+  else if fuel = 0 then None
+  else if None? (expression_budget 4096 lhs) ||
+          None? (expression_budget 4096 rhs) then None
+  else if fuel > 0 then
+    let guard = match CR.condition lhs with Some c -> Some c | None -> CR.condition rhs in
+    match guard with
+    | None -> None
+    | Some c ->
+      let tl = CR.choose c true lhs in
+      let tr = CR.choose c true rhs in
+      let fl = CR.choose c false lhs in
+      let fr = CR.choose c false rhs in
+      match D.scoped [] c,
+            choose_replay_evidence c true lhs, choose_replay_evidence c true rhs,
+            choose_replay_evidence c false lhs, choose_replay_evidence c false rhs with
+      | true, Some tlc, Some trc, Some flc, Some frc ->
+        if rewrite_ok tl tr then
+          (match conditional_rewrite_evidence (fuel - 1) fl fr with
+           | Some rest -> Some (ConditionalTrue c tlc trc flc frc rest)
+           | None -> None)
+        else if rewrite_ok fl fr then
+          (match conditional_rewrite_evidence (fuel - 1) tl tr with
+           | Some rest -> Some (ConditionalFalse c tlc trc flc frc rest)
+           | None -> None)
+        else None
+      | _, _, _, _, _ -> None
+  else None
+
+let conditional_rewrite_check (fuel:nat) (lhs rhs:expr) : bool =
+  Some? (conditional_rewrite_evidence fuel lhs rhs)
+
+let conditional_rewrite_ok (lhs rhs:expr) : bool =
+  get_sort lhs = get_sort rhs && D.scoped [] lhs && D.scoped [] rhs &&
+  Some? (expression_budget 4096 lhs) &&
+  Some? (expression_budget 4096 rhs) &&
+  conditional_rewrite_check 64 lhs rhs
+
 (* `real`: the caller's schema-derived Real gate (Z3SortedProof passes
    Z3SortedReal.real_primitive of its checked schema). Under it, a leaf the
    Real normal forms decide (Z3SortedRealLinear.real_equivalent: Real and
@@ -958,14 +1054,14 @@ let rec judgments_of (entries:list U.binder_entry) (cache:I.index_tree U.judgmen
 
 (* The local rule of every entry the guard assigned a scope, within the work;
    entries without a scope are not used by the root and are skipped. *)
-let rec steps_ok (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands)
+let rec steps_ok (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:BG.scope_demands)
                  (cache:I.index_tree U.judgment)
                  (sizes:I.index_tree nat) (k:nat) (entries:list U.binder_entry) (work:nat)
   : Tot bool (decreases entries) =
   match entries with
   | [] -> true
   | e :: rest ->
-    if Nil? (U.scope_demanded t k) then steps_ok real scoped assertions count t cache sizes (k + 1) rest work
+    if Nil? (BG.scope_demanded t k) then steps_ok real scoped assertions count t cache sizes (k + 1) rest work
     else match nodes_within work [e.U.binder_formula] with
     | None -> false
     | Some w1 ->
@@ -976,7 +1072,7 @@ let rec steps_ok (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t
          let w3 = if e.U.binder_name = "sk" then (if count <= w2 then Some (w2 - count) else None) else Some w2 in
          (match w3, I.index_find cache k, I.opt_map_tail (I.index_find cache) e.U.binder_premises with
           | Some w, Some j, Some facts ->
-            if entry_ok real scoped assertions e j facts && skolem_scopes_ok e j (U.scope_demanded t k)
+            if entry_ok real scoped assertions e j facts && skolem_scopes_ok e j (BG.scope_demanded t k)
             then steps_ok real scoped assertions count t cache (I.index_put sizes k size) (k + 1) rest w
             else false
           | _, _, _ -> false))
@@ -1011,19 +1107,19 @@ let replay_with (real:bool) (assertions:list expr) (c:U.binder_certificate) (con
   if not (consumed_root c) then Unreplayed
   else if not (well_indexed c.U.binder_entries 0) then Malformed
   else
-    let n = U.count_cells 0 c.U.binder_entries in
+    let n = BG.count_cells 0 c.U.binder_entries in
     let root = c.U.binder_root in
     match judgments_of c.U.binder_entries I.Empty 0 with
     | None -> Unreplayed
     | Some cache ->
       if not (0 <= root && root < n && I.index_find cache root = Some concl) then Unreplayed
-      else match U.binder_scopes (U.binder_demand_limit n) (U.binder_work_limit n) c with
+      else match BG.binder_scopes (BG.binder_demand_limit n) (BG.binder_work_limit n) c with
       | None -> Unreplayed
       | Some (t, w) ->
-        if L.mem [] (U.scope_demanded t root) &&
-           Some? (U.scope_entries_checked t cache 0 c.U.binder_entries w) &&
-           steps_ok real (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
-             c.U.binder_entries (U.binder_work_limit n)
+        if L.mem [] (BG.scope_demanded t root) &&
+           Some? (BG.scope_entries_checked t cache 0 c.U.binder_entries w) &&
+           steps_ok real (quant_intro_root c) assertions (BG.count_cells 0 assertions) t cache I.Empty 0
+             c.U.binder_entries (BG.binder_work_limit n)
         then Replayed else Unreplayed
 
 (* The replay without the Real gate (every previous caller). *)
@@ -1034,7 +1130,7 @@ let replay (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment) : 
    coverage gate). *)
 let certificate_scoped (c:U.binder_certificate) : bool =
   match judgments_of c.U.binder_entries I.Empty 0 with
-  | Some cache -> U.binder_scoped c cache
+  | Some cache -> BG.binder_scoped c cache
   | None -> false
 
 (* ---------------------------------------------------------------------- *)
@@ -2424,6 +2520,14 @@ let subst_rel (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (s0 a:list sor
   L.length a == d + L.length s0 /\
   (forall (p:nat{p < L.length a}). subst_rel_at sigma j d s0 a eta0 tv rho eta p)
 
+let lemma_subst_rel_zero (#base:sort -> Type0) (sigma:V.signature) (j:nat)
+                        (s0:list sort) (eta0:V.environment base sigma s0)
+                        (tv:V.tree base) (rho eta:V.environment base sigma s0)
+                        (at:(p:nat{p < L.length s0} ->
+                          Lemma (subst_rel_at sigma j 0 s0 s0 eta0 tv rho eta p)))
+  : Lemma (subst_rel sigma j 0 s0 s0 eta0 tv rho eta) =
+  FStar.Classical.forall_intro at
+
 let lemma_subst_extend (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (s0 a bound:list sort)
                        (eta0:V.environment base sigma s0) (tv:V.tree base)
                        (vs:V.arguments base sigma bound) (rho eta:V.environment base sigma a)
@@ -2777,7 +2881,8 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
       let at2 (p:nat{p < L.length s0}) : Lemma (subst_rel_at sigma j 0 s0 s0 rho_v tv rho' rho_v p) =
         at p;
         lemma_agree_subst_rel_at sigma j s0 rho_v rho' tv p in
-      FStar.Classical.forall_intro at2;
+      lemma_subst_rel_zero sigma j s0 rho_v tv rho' rho_v at2;
+      assert ((tv <: V.tree base) == (V.evaluate sigma i s0 rho_v t <: V.tree base));
       lemma_subst_eval sigma i j t 0 s0 s0 rho_v rho' rho_v (or_of rem) body';
       T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho' (or_of rem));
       T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho_v body');
@@ -3051,6 +3156,188 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
 
+let lemma_fold_replay_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s)) (e:expr)
+  : Lemma (requires Some? (fold_replay_evidence e))
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (CR.fold e)) =
+  let folded = CR.fold e in
+  match fold_replay_evidence e with
+  | Some FoldUnchanged -> ()
+  | Some FoldArrayIte ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    (match AS.ite_contract e with
+     | Some expected ->
+       if expected = folded then SA.lemma_ite_contract s bc eq other [] (T.empty_environment (S.signature s)) e folded
+       else FStar.Pervasives.false_elim ()
+     | None -> FStar.Pervasives.false_elim ())
+  | Some FoldRewrite ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    if rewrite_ok e folded then (
+      lemma_rewrite_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      assert (same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) folded))
+    else FStar.Pervasives.false_elim ()
+  | None -> FStar.Pervasives.false_elim ()
+
+let lemma_boolean_literal_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (b:bool)
+  : Lemma (T.truth_at s bc eq other [] (T.empty_environment (S.signature s))
+             (if b then R.true_expr else R.false_expr) == b) =
+  let literal = if b then R.true_expr else R.false_expr in
+  let rho = T.empty_environment (S.signature s) in
+  match literal with
+  | App f args ->
+    T.lemma_evaluate_core_at s bc eq other [] rho f args;
+    assert (T.evaluate_at s bc eq other [] rho literal == T.boolean s bc b);
+    assert (T.truth_value s bc (T.evaluate_at s bc eq other [] rho literal) == b)
+  | _ -> FStar.Pervasives.false_elim ()
+
+let rec lemma_choose_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (guard:expr) (truth:bool) (e:expr) (cert:choose_replay_certificate)
+  : Lemma (requires D.scoped [] guard /\ get_sort guard = bool_sort /\
+                    D.scoped [] e /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    choose_replay_evidence guard truth e == Some cert)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose guard truth e))
+    (decreases e) =
+  if e = guard then (
+    let replacement = if truth then R.true_expr else R.false_expr in
+    lemma_boolean_literal_at s bc eq other truth;
+    lemma_same_truth s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) guard ==
+            T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) replacement))
+  else
+    match e, cert with
+    | App f args, ChooseApplication children _ ->
+      let chosen = CR.choose_args guard truth args in
+      assert (choose_args_replay_evidence guard truth args == Some children);
+      lemma_choose_args_at s bc eq other guard truth args f.domain children;
+      assert (Some? (fold_replay_evidence (App f chosen)));
+      lemma_fold_replay_at s bc eq other (App f chosen);
+      assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                (CR.choose_args guard truth args) f.domain ==
+              T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args f.domain);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f args) ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f chosen));
+      assert (CR.choose guard truth e == CR.fold (App f chosen));
+      ()
+    | _, ChooseUnchanged ->
+      assert (CR.choose guard truth e == e);
+      ()
+    | _, _ -> FStar.Pervasives.false_elim ()
+
+and lemma_choose_args_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (guard:expr) (truth:bool) (args:list expr) (ss:list sort)
+                         (certs:list choose_replay_certificate)
+  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\
+                    D.scoped [] guard /\ get_sort guard = bool_sort /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    choose_args_replay_evidence guard truth args == Some certs)
+          (ensures D.scoped_args [] (CR.choose_args guard truth args) /\
+                   sorts_match (CR.choose_args guard truth args) ss /\
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose_args guard truth args) ss ==
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args ss)
+    (decreases args) =
+  match args, ss, certs with
+  | [], [], [] -> ()
+  | a :: rest, sort :: sorts, child :: children ->
+    assert (choose_replay_evidence guard truth a == Some child);
+    lemma_choose_at s bc eq other guard truth a child;
+    assert (choose_args_replay_evidence guard truth rest == Some children);
+    lemma_choose_args_at s bc eq other guard truth rest sorts children;
+    assert (D.scoped [] (CR.choose guard truth a));
+    assert (sorts_match (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts));
+    assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts) ==
+            T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (a :: rest) (sort :: sorts));
+    ()
+  | _, _, _ -> FStar.Pervasives.false_elim ()
+
+let lemma_rewrite_equality_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (lhs rhs:expr)
+  : Lemma (requires rewrite_ok lhs rhs /\ D.scoped [] lhs /\ D.scoped [] rhs)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_rewrite_at s bc eq other [] rho lhs rhs;
+  lemma_same_at s bc eq other [] rho lhs rhs;
+  assert (same_at s bc eq other [] rho lhs rhs);
+  assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs)
+
+let rec lemma_conditional_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                     (fuel:nat) (lhs rhs:expr) (cert:conditional_rewrite_certificate)
+  : Lemma (requires D.scoped [] lhs /\ D.scoped [] rhs /\
+                    conditional_rewrite_evidence fuel lhs rhs == Some cert)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs)
+    (decreases fuel) =
+  let rho = T.empty_environment (S.signature s) in
+  match cert with
+  | ConditionalDirect ->
+    if rewrite_ok lhs rhs then lemma_rewrite_equality_at s bc eq other lhs rhs
+    else FStar.Pervasives.false_elim ()
+  | ConditionalTrue guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (choose_replay_evidence guard true lhs == Some tlc);
+    assert (choose_replay_evidence guard true rhs == Some trc);
+    assert (choose_replay_evidence guard false lhs == Some flc);
+    assert (choose_replay_evidence guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_choose_at s bc eq other guard true lhs tlc;
+      lemma_choose_at s bc eq other guard true rhs trc;
+      if rewrite_ok tl tr then lemma_rewrite_equality_at s bc eq other tl tr
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_choose_at s bc eq other guard false lhs flc;
+      lemma_choose_at s bc eq other guard false rhs frc;
+      if fuel > 0 then (
+        assert (conditional_rewrite_evidence (fuel - 1) fl fr == Some rest);
+        lemma_conditional_rewrite_at s bc eq other (fuel - 1) fl fr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+  | ConditionalFalse guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (choose_replay_evidence guard true lhs == Some tlc);
+    assert (choose_replay_evidence guard true rhs == Some trc);
+    assert (choose_replay_evidence guard false lhs == Some flc);
+    assert (choose_replay_evidence guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_choose_at s bc eq other guard true lhs tlc;
+      lemma_choose_at s bc eq other guard true rhs trc;
+      if fuel > 0 then (
+        assert (conditional_rewrite_evidence (fuel - 1) tl tr == Some rest);
+        lemma_conditional_rewrite_at s bc eq other (fuel - 1) tl tr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_choose_at s bc eq other guard false lhs flc;
+      lemma_choose_at s bc eq other guard false rhs frc;
+      if rewrite_ok fl fr then lemma_rewrite_equality_at s bc eq other fl fr
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+
 (* A gated Real leaf: both sides have one value at every typed environment of
    every Sorted model that satisfies the Real laws (RL.real_model, which
    contains the schema gate RL.real_primitive itself). The flag alone proves
@@ -3164,27 +3451,27 @@ let lemma_entry_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
 [@@"opaque_to_smt"]
 let entry_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                (t:U.scope_demands) (cache:I.index_tree U.judgment) (key:nat) : prop =
-  forall (sc:list sort). L.memP sc (U.scope_demanded t key) ==>
+                (t:BG.scope_demands) (cache:I.index_tree U.judgment) (key:nat) : prop =
+  forall (sc:list sort). L.memP sc (BG.scope_demanded t key) ==>
     Some? (I.index_find cache key) /\ valid s bc eq other sc (Some?.v (I.index_find cache key))
 
 let lemma_entry_valid_def (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                          (t:U.scope_demands) (cache:I.index_tree U.judgment) (key:nat)
+                          (t:BG.scope_demands) (cache:I.index_tree U.judgment) (key:nat)
   : Lemma (entry_valid s bc eq other t cache key <==>
-           (forall (sc:list sort). L.memP sc (U.scope_demanded t key) ==>
+           (forall (sc:list sort). L.memP sc (BG.scope_demanded t key) ==>
               Some? (I.index_find cache key) /\ valid s bc eq other sc (Some?.v (I.index_find cache key)))) =
   reveal_opaque (`%entry_valid) (entry_valid s bc eq other t cache key)
 
 let prefix_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                 (t:U.scope_demands) (cache:I.index_tree U.judgment) (next:nat) : prop =
+                 (t:BG.scope_demands) (cache:I.index_tree U.judgment) (next:nat) : prop =
   forall (key:nat). key < next ==> entry_valid s bc eq other t cache key
 
 (* The premises of an entry, read at the scope its user demanded. *)
 let rec lemma_premises (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                       (t:U.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
+                       (t:BG.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
                        (ps:list int) (facts:list U.judgment) (sc:list sort)
   : Lemma (requires I.opt_map (I.index_find cache) ps == Some facts /\
                     BS.premises_demanded t k ps sc /\ prefix_valid s bc eq other t cache k)
@@ -3192,7 +3479,7 @@ let rec lemma_premises (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
           (decreases ps) =
   match ps, facts with
   | p :: rest, _ :: remaining ->
-    FStar.List.Tot.Properties.mem_memP sc (U.scope_demanded t p);
+    FStar.List.Tot.Properties.mem_memP sc (BG.scope_demanded t p);
     let key : nat = p in
     assert (entry_valid s bc eq other t cache key);
     lemma_entry_valid_def s bc eq other t cache key;
@@ -3201,13 +3488,13 @@ let rec lemma_premises (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
 
 let lemma_prefix_extend (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                        (t:U.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
+                        (t:BG.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
   : Lemma (requires prefix_valid s bc eq other t cache k /\ entry_valid s bc eq other t cache k)
           (ensures prefix_valid s bc eq other t cache (k + 1)) = ()
 
 let lemma_step (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-               (real:bool) (scoped:bool) (assertions:list expr) (t:U.scope_demands)
+               (real:bool) (scoped:bool) (assertions:list expr) (t:BG.scope_demands)
                (cache:I.index_tree U.judgment)
                (k:nat) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
@@ -3216,13 +3503,13 @@ let lemma_step (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier 
                     I.index_find cache k == Some j /\
                     I.opt_map (I.index_find cache) e.U.binder_premises == Some facts /\
                     entry_ok real scoped assertions e j facts /\
-                    BS.entry_scoped t k e j (U.scope_demanded t k) /\
+                    BS.entry_scoped t k e j (BG.scope_demanded t k) /\
                     prefix_valid s bc eq other t cache k)
           (ensures entry_valid s bc eq other t cache k) =
   let here (sc:list sort)
-    : Lemma (requires L.memP sc (U.scope_demanded t k))
+    : Lemma (requires L.memP sc (BG.scope_demanded t k))
             (ensures valid s bc eq other sc j) =
-    BS.lemma_entry_scoped t k e j (U.scope_demanded t k) sc;
+    BS.lemma_entry_scoped t k e j (BG.scope_demanded t k) sc;
     lemma_premises s bc eq other t cache k e.U.binder_premises facts (BS.premise_scope_of e sc);
     lemma_entry_valid s bc eq other real scoped assertions e j facts sc in
   FStar.Classical.forall_intro (FStar.Classical.move_requires here);
@@ -3230,14 +3517,14 @@ let lemma_step (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier 
 
 let lemma_unused (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                 (t:U.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
-  : Lemma (requires Nil? (U.scope_demanded t k))
+                 (t:BG.scope_demands) (cache:I.index_tree U.judgment) (k:nat)
+  : Lemma (requires Nil? (BG.scope_demanded t k))
           (ensures entry_valid s bc eq other t cache k) =
   lemma_entry_valid_def s bc eq other t cache k
 
 let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                    (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands)
+                    (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:BG.scope_demands)
                     (cache:I.index_tree U.judgment)
                     (sizes:I.index_tree nat) (k:nat) (entries:list U.binder_entry) (work:nat)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
@@ -3251,7 +3538,7 @@ let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
   match entries with
   | [] -> ()
   | e :: rest ->
-    if Nil? (U.scope_demanded t k) then (
+    if Nil? (BG.scope_demanded t k) then (
       lemma_unused s bc eq other t cache k;
       lemma_prefix_extend s bc eq other t cache k;
       lemma_steps s bc eq other real scoped assertions count t cache sizes (k + 1) rest work)
@@ -3290,19 +3577,19 @@ let lemma_replay_with (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
           (ensures BS.binder_judgment_scoped [] concl /\
                    holds_at s bc eq other [] (T.empty_environment (S.signature s)) concl) =
   let entries = c.U.binder_entries in
-  let n = U.count_cells 0 entries in
+  let n = BG.count_cells 0 entries in
   let root = c.U.binder_root in
   match judgments_of entries I.Empty 0 with
   | None -> ()
   | Some cache ->
-    (match U.binder_scopes (U.binder_demand_limit n) (U.binder_work_limit n) c with
+    (match BG.binder_scopes (BG.binder_demand_limit n) (BG.binder_work_limit n) c with
      | None -> ()
      | Some (t, w) ->
-       assert (U.binder_scoped_within (U.binder_demand_limit n) (U.binder_work_limit n) c cache);
-       BS.lemma_guard (U.binder_demand_limit n) (U.binder_work_limit n) c cache;
+       assert (BG.binder_scoped_within (BG.binder_demand_limit n) (BG.binder_work_limit n) c cache);
+       BS.lemma_guard (BG.binder_demand_limit n) (BG.binder_work_limit n) c cache;
        BS.lemma_count_cells 0 entries;
-       lemma_steps s bc eq other real (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
-         entries (U.binder_work_limit n);
+       lemma_steps s bc eq other real (quant_intro_root c) assertions (BG.count_cells 0 assertions) t cache I.Empty 0
+         entries (BG.binder_work_limit n);
        let key : nat = root in
        assert (entry_valid s bc eq other t cache key);
        lemma_entry_valid_def s bc eq other t cache key;

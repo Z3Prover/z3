@@ -1,14 +1,15 @@
 module Z3SortedSemantics
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module I = Z3SortedInteger
+module OS = Z3ObservationalSemantics
 
 (* Typed-root G2 slice: scalar equality is a GHOST decision (equality of
    reals, of array functions and of uninterpreted carrier elements has no Tot
@@ -228,7 +229,7 @@ let evaluate_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
 
 let lemma_registered_constructor (s:S.checked_schema) (f:func_decl)
   : Lemma (requires L.mem f (S.signature s))
-          (ensures f.interp == Some Z3DatatypeLemma.op_constructor) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_constructor) =
   S.lemma_case_of s.cases f;
   let c = Some?.v (S.case_of s.cases f) in
   S.lemma_case_member (S.signature s) s.sorts s.cases c
@@ -476,3 +477,45 @@ let lemma_same_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
           (ensures same_value s bc eq other a b <==>
                    evaluate s bc eq other a == evaluate s bc eq other b) =
   lemma_equal_tree eq.reflection (evaluate s bc eq other a) (evaluate s bc eq other b)
+
+let observation_denotation_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+  : OS.denotation (V.tree base) (D.scoped scope) =
+  fun e -> evaluate_at s bc eq other scope rho e
+
+let observations_agree_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                          (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                          (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b}) : prop =
+  OS.observations_agree (boolean s bc true) (observation_denotation_at s bc eq other scope rho) a b
+
+let lemma_boolean_observation_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (e:expr{D.scoped scope e})
+  : Lemma (requires get_sort e == bool_sort)
+          (ensures OS.boolean_value (boolean s bc true) (boolean s bc false)
+                     (evaluate_at s bc eq other scope rho e)) =
+  lemma_boolean s bc (evaluate_at s bc eq other scope rho e)
+
+let lemma_observations_values_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b})
+  : Lemma (requires observations_agree_at s bc eq other scope rho a b)
+          (ensures evaluate_at s bc eq other scope rho a == evaluate_at s bc eq other scope rho b) =
+  (if get_sort a = bool_sort then (
+    lemma_boolean_observation_at s bc eq other scope rho a;
+    lemma_boolean_observation_at s bc eq other scope rho b));
+  OS.lemma_values (boolean s bc true) (boolean s bc false)
+    (observation_denotation_at s bc eq other scope rho) a b
+
+let lemma_values_observations_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b})
+  : Lemma (requires get_sort a == get_sort b /\
+                    evaluate_at s bc eq other scope rho a == evaluate_at s bc eq other scope rho b)
+          (ensures observations_agree_at s bc eq other scope rho a b) =
+  OS.lemma_from_values (boolean s bc true) (observation_denotation_at s bc eq other scope rho) a b

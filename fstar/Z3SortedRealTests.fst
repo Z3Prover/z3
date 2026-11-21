@@ -4,10 +4,10 @@ module Z3SortedRealTests
    by normalization of the checker functions themselves. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module A = Z3LinearArithmeticAst
 module P = Z3LinearArithmeticTheory
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 

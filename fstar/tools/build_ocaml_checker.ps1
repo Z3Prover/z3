@@ -151,28 +151,29 @@ try {
   $z3Version = $versionMatch.Groups[1].Value
   Write-Host "Installed F*/Pulse SMT solver: $Z3Exe ($versionOutput)"
 
+  # Ghost-only semantic modules emit no OCaml files.
   $order = @(
     "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3List.ml",
-    "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
-    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
-    "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
-    "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
-    "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
-    "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
-    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
-    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
-    "Z3NlaLemma.ml", "Z3ArithmeticFactor.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3LpIntegerCut.ml", "Z3IntegerDivision.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldPac.ml",
-    "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
-    "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
-    "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
-    "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
-    "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
-    "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedIntDivision.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
-    "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3SortedProof.ml",
-    "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
+    "Z3AstTheory.ml", "Z3OperatorTags.ml", "Z3ExprScope.ml", "Z3ExprBinding.ml", "Z3Substitution.ml", "Z3DatatypeSyntax.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
+    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3DefinitionSyntax.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
+    "Z3ClausalSemantics.ml", "Z3ClauseSyntax.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalSyntax.ml", "Z3ObservationalEquality.ml",
+    "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanSyntax.ml", "Z3BooleanNormalForm.ml", "Z3BooleanRewriteSyntax.ml",
+    "Z3CommutativitySyntax.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml", "Z3ArraySyntax.ml",
+    "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml", "Z3DefinitionRecognition.ml",
+    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml", "Z3PolynomialSemantics.ml", "Z3ArithmeticSyntax.ml", "Z3ArrayEqualitySyntax.ml",
+    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewriteSyntax.ml", "Z3ConditionalRewriteSyntax.ml",
+    "Z3NlaLemma.ml", "Z3ArithmeticFactorSyntax.ml", "Z3LpCertificate.ml", "Z3LpReplaySyntax.ml", "Z3LpGomorySyntax.ml", "Z3IndependentIntegerLatticeSyntax.ml", "Z3LpIntegerCutSyntax.ml", "Z3LpIntegerCut.ml", "Z3IntegerDivisionSyntax.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldCertificate.ml", "Z3FiniteFieldPac.ml",
+    "Z3QuantifierNnfSyntax.ml", "Z3QuantifierVacuitySyntax.ml", "Z3QuantifierPullSyntax.ml", "Z3BinderSubstitution.ml",
+    "Z3QuantifierInstantiationSyntax.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
+    "Z3QuantifierDer.ml", "Z3SkolemSyntax.ml", "Z3Skolemization.ml",
+    "Z3LambdaSyntax.ml", "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvSyntax.ml", "Z3BvFreshSyntax.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
+    "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalizeSyntax.ml", "Z3TheoryNormalize.ml",
+    "Z3UnifiedProofSyntax.ml", "Z3CongruenceSyntax.ml", "Z3RelationalRuleSyntax.ml", "Z3ModusPonensSyntax.ml", "Z3UnifiedNode.ml", "Z3DocumentSyntax.ml", "Z3DocumentPreparation.ml", "Z3DocumentReplay.ml", "Z3BinderScopeSyntax.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
+    "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3IndependentIntegerSplitReplay.ml", "Z3SortedIntDivision.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
+    "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3IndependentExistentialDer.ml", "Z3IndependentIntBounds.ml", "Z3IndependentRealBounds.ml", "Z3IndependentRealNonnegative.ml", "Z3IndependentRealGreaterOne.ml", "Z3IndependentRealDivisionClause.ml", "Z3IndependentIntQuotientClause.ml", "Z3IndependentConditionalDefinition.ml", "Z3IndependentIteAdd.ml", "Z3SortedProof.ml",
+    "Z3FiniteFieldTags.ml", "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
   $extracted = @($order | Where-Object {
@@ -310,21 +311,35 @@ for module in $orderStr; do
   fi
 done
 cd "$shellBuildDir"
-# Custard does not open Prims; its equality must still be the shim's, not Stdlib's.
-for module in $extractedOrderStr; do sed -i '2a open Prims' "`$module"; done
+# Ensure extracted modules use Prims equality, without inserting inside declarations in
+# modules that already start with this open.
+for module in $extractedOrderStr; do
+  if ! head -n 1 "`$module" | grep -qx 'open Prims'; then
+    sed -i '2a open Prims' "`$module"
+  fi
+done
+# Custard can qualify included BooleanRewriteSyntax declarations through
+# Z3BooleanRewrite, whose OCaml module contains no runtime copies of them.
+for module in Z3Definitions.ml; do
+  sed -i 's/Z3BooleanRewrite\./Z3BooleanRewriteSyntax./g' "`$module"
+done
+if grep -n 'Z3BooleanRewrite\.' Z3Definitions.ml; then
+  echo "unexpected runtime reference to Z3BooleanRewrite" >&2
+  exit 1
+fi
 # F*'s OCaml realization of FStar.String.list_of_string (ulib FStar.String-ocaml.fst) uses
 # Batteries, which this build does not link. Its one use, the binder guard's name count
-# (Z3UnifiedProof.name_length), calls the stand-in ocaml_runtime/fStar_String.ml instead, which
+# (Z3BinderScopeSyntax.name_length), calls the stand-in ocaml_runtime/fStar_String.ml instead, which
 # decodes like the Cherry runtime's FStar.String, in a loop. A changed realization, another use
 # of it, or any other use of Batteries stops the build here.
 list_of_string='(fun s -> BatList.init (BatUTF8.length s) (fun i -> BatUChar.code (BatUTF8.get s i)))'
 users=`$(grep -lF "`$list_of_string" $extractedOrderStr || true)
 uses=`$(cat $extractedOrderStr | grep -oF "`$list_of_string" | wc -l || true)
-if [ "`$users" != Z3UnifiedProof.ml ] || [ "`$uses" != 1 ]; then
-  echo "expected one Batteries list_of_string, in Z3UnifiedProof.ml; found `$uses in: `$users" >&2
+if [ "`$users" != Z3BinderScopeSyntax.ml ] || [ "`$uses" != 1 ]; then
+  echo "expected one Batteries list_of_string, in Z3BinderScopeSyntax.ml; found `$uses in: `$users" >&2
   exit 1
 fi
-sed -i 's/(fun s -> BatList\.init (BatUTF8\.length s) (fun i -> BatUChar\.code (BatUTF8\.get s i)))/FStar_String.list_of_string/' Z3UnifiedProof.ml
+sed -i 's/(fun s -> BatList\.init (BatUTF8\.length s) (fun i -> BatUChar\.code (BatUTF8\.get s i)))/FStar_String.list_of_string/' Z3BinderScopeSyntax.ml
 if grep -n 'Bat[A-Z][A-Za-z0-9_]*\.' $extractedOrderStr; then
   echo "extracted code uses Batteries, which this build does not link" >&2
   exit 1

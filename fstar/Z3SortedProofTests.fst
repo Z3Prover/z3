@@ -6,10 +6,10 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module DT = Z3SortedDatatype
 module K = Z3SortedProof
-module U = Z3UnifiedProof
-module P = Z3ProofDocument
-module R = Z3ResolutionProofTheory
-module BR = Z3BooleanRewrite
+module U = Z3UnifiedProofSyntax
+module P = Z3DocumentSyntax
+module R = Z3ClauseSyntax
+module BR = Z3BooleanRewriteSyntax
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
@@ -75,12 +75,38 @@ let shifted_integers : T.scalar_model primitive = {
 
 let integer_literal (n:int) = App {
   decl_name = "integer"; domain = []; range = integer;
-  interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+  interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
 
 let integer_addition = App {
   decl_name = "+"; domain = [integer; integer]; range = integer;
-  interp = Some Z3ValueTheory.op_arith_add; int_params = [] }
+  interp = Some Z3OperatorTags.op_arith_add; int_params = [] }
   [integer_literal 2; integer_literal 3]
+
+let integer_add : func_decl = {
+  decl_name = "+"; domain = [integer; integer]; range = integer;
+  interp = Some Z3OperatorTags.op_arith_add; int_params = []
+}
+
+let integer_x : expr = App {
+  decl_name = "x"; domain = []; range = integer; interp = None; int_params = []
+} []
+
+let integer_x_plus_one = App integer_add [integer_x; integer_literal 1]
+let integer_one_plus_x = App integer_add [integer_literal 1; integer_x]
+
+let sorted_integer_rewrite_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal integer_x_plus_one integer_one_plus_x;
+  premises = [];
+}
+
+let sorted_integer_rewrite_checked ()
+  : Lemma (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+           | Some (_, pending) -> pending == 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
 
 let integer_semantics_is_not_the_carrier_representation ()
   : Lemma (T.evaluate schema booleans shifted_integers
@@ -216,7 +242,7 @@ let no_pair = R.mk_not_expr (App is_pair [x])
 
 let choice = {
   decl_name = "if"; domain = [bool_sort; box; box]; range = box;
-  interp = Some Z3ValueTheory.op_ite; int_params = [];
+  interp = Some Z3OperatorTags.op_ite; int_params = [];
 }
 
 let rec wide_clause (n:nat) : Tot (list expr) (decreases n) =
@@ -308,6 +334,7 @@ let original_inputs_and_exhaustiveness ()
                    K.check_document schema { exhaustive_document with entries = [
                      { P.rule = U.Unverified "th-lemma"; formula = R.false_expr; premise_ids = [] }];
                      root = 0 } == Some 1) =
+  assert_norm (not (K.check_integer_cut []));
   assert_norm (K.check_document schema exhaustive_document == Some 0);
   assert_norm (K.check_document schema { exhaustive_document with assertions = [no_empty] } == None);
   assert_norm (K.check_document schema { exhaustive_document with entries = [
@@ -498,11 +525,11 @@ let x_twin = App { x_decl with int_params = [1] } []
 
 let int_operator (name:string) (tag:decl_kind) (range:sort) : func_decl =
   { decl_name = name; domain = [integer; integer]; range = range; interp = Some tag; int_params = [] }
-let iadd = int_operator "+" Z3ValueTheory.op_plus integer
-let imul = int_operator "*" Z3ValueTheory.op_mul integer
-let ile = int_operator "<=" Z3ValueTheory.op_arith_le bool_sort
-let ige = int_operator ">=" Z3ValueTheory.op_arith_ge bool_sort
-let ilt = int_operator "<" Z3ValueTheory.op_arith_lt bool_sort
+let iadd = int_operator "+" Z3OperatorTags.op_plus integer
+let imul = int_operator "*" Z3OperatorTags.op_mul integer
+let ile = int_operator "<=" Z3OperatorTags.op_arith_le bool_sort
+let ige = int_operator ">=" Z3OperatorTags.op_arith_ge bool_sort
+let ilt = int_operator "<" Z3OperatorTags.op_arith_lt bool_sort
 
 let izero = integer_literal 0
 let ione = integer_literal 1
@@ -565,7 +592,7 @@ let wrong_operand_mutant = disjunction [not_eq xi yi; geq (minus xi zi) izero]
 let twin_mutant = disjunction [not_eq xi yi; leq (minus x_twin yi) izero]
 let counterfeit_le_mutant = disjunction [not_eq xi yi; App ({ ile with interp = None }) [xi; yi]]
 let counterfeit_add_mutant =
-  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
+  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
 let same_bounds_mutant = disjunction [R.mk_eq_expr xi yi; R.mk_not_expr (geq (minus xi yi) izero);
                                       R.mk_not_expr (leq (minus yi xi) izero)]
 
@@ -606,7 +633,7 @@ let twin_one (f:func_decl) : option int = if f = { x_decl with int_params = [1] 
 let z_one (f:func_decl) : option int = if f.decl_name = "z" then Some 1 else None
 let x_one (f:func_decl) : option int = if f = x_decl then Some 1 else None
 let counterfeit_one (f:func_decl) : option int =
-  if f = { iadd with interp = Some Z3ValueTheory.op_mul } then Some 1 else None
+  if f = { iadd with interp = Some Z3OperatorTags.op_mul } then Some 1 else None
 
 let int_order_counter_models ()
   : Lemma (T.truth core_schema booleans equality (valued nothing) strict_mutant == false /\
@@ -781,7 +808,7 @@ let commuted_counterfeit_mul_mutant =
   disjunction [not_eq xi yi; leq (App iadd [App ({ imul with interp = None }) [integer_literal (-1); yi]; xi]) izero]
 let commuted_counterfeit_add_mutant =
   disjunction [not_eq xi yi;
-               leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
+               leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
 let commuted_minus_two_mutant =
   disjunction [not_eq xi yi; geq (App iadd [App imul [integer_literal (-2); yi]; xi]) izero]
 let commuted_constant_mutant = disjunction [not_eq xi yi; geq (commuted xi yi) ione]
@@ -967,6 +994,17 @@ let lin_chain = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus yi
 let lin_chain_target = R.mk_eq_expr xi zi
 let lin_conflict = [R.mk_not_expr (leq xi izero); R.mk_not_expr (geq xi ione)]
 
+let split_sum = App iadd [xi; yi]
+let split_twice_sum = App imul [integer_literal 2; split_sum]
+let split_integer_conflict = [geq split_twice_sum ione; leq split_twice_sum ione]
+let split_integer_satisfiable = [geq split_twice_sum ione; leq split_twice_sum (integer_literal 2)]
+
+let integer_split_certificate_candidates ()
+  : Lemma (Some? (K.integer_split_certificate split_integer_conflict) /\
+           None? (K.integer_split_certificate split_integer_satisfiable)) =
+  assert_norm (Some? (K.integer_split_certificate split_integer_conflict));
+  assert_norm (None? (K.integer_split_certificate split_integer_satisfiable))
+
 let checked_linear_consequences ()
   : Lemma (K.linear_consequence lin_canon lin_canon_target /\
            K.linear_consequence lin_constants lin_constants_target /\
@@ -996,8 +1034,8 @@ let linear_consequences_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (
            (T.truths core_schema bc eq other lin_tight ==> T.truth core_schema bc eq other lin_tight_target) /\
            (T.truths core_schema bc eq other lin_chain ==> T.truth core_schema bc eq other lin_chain_target)) =
   checked_linear_consequences ();
-  assert_norm (Z3Definitions.scoped [] lin_canon_target /\ Z3Definitions.scoped [] lin_constants_target /\
-               Z3Definitions.scoped [] lin_tight_target /\ Z3Definitions.scoped [] lin_chain_target);
+  assert_norm (Z3ExprScope.scoped [] lin_canon_target /\ Z3ExprScope.scoped [] lin_constants_target /\
+               Z3ExprScope.scoped [] lin_tight_target /\ Z3ExprScope.scoped [] lin_chain_target);
   if T.truths core_schema bc eq other lin_canon then
     K.lemma_linear_consequence core_schema bc eq other lin_canon lin_canon_target;
   if T.truths core_schema bc eq other lin_constants then
@@ -1013,7 +1051,7 @@ let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier ba
   : Lemma (not (T.truths core_schema bc eq other lin_conflict)) =
   checked_linear_consequences ();
   if T.truths core_schema bc eq other lin_conflict then (
-    assert_norm (Z3Definitions.scoped [] R.false_expr);
+    assert_norm (Z3ExprScope.scoped [] R.false_expr);
     K.lemma_linear_consequence core_schema bc eq other lin_conflict R.false_expr;
     assert (T.truth core_schema bc eq other R.false_expr);
     assert_norm (T.cut 1 R.false_expr == Z3BoundedBoolEquiv.Bool false);
@@ -1029,7 +1067,7 @@ let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
 let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
 let real = (SortApp RealSymbol [])
 let to_real (e:expr) : expr =
-  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
+  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3OperatorTags.op_to_real;
         int_params = [] } [e]
 let real_compare (name:string) (tag:decl_kind) (a b:expr) : expr =
   App { decl_name = name; domain = [real; real]; range = bool_sort; interp = Some tag; int_params = [] } [a; b]
@@ -1042,8 +1080,8 @@ let lin_dropped = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus 
 let lin_wrong_target = R.mk_eq_expr (integer_literal 62) (minus lin_c64 lin_c1)
 let lin_mixed =
   [leq (minus xi yi) izero; geq (minus xi yi) izero;
-   real_compare "<=" Z3ValueTheory.op_arith_le (to_real yi) (to_real zi);
-   real_compare ">=" Z3ValueTheory.op_arith_ge (to_real yi) (to_real zi)]
+   real_compare "<=" Z3OperatorTags.op_arith_le (to_real yi) (to_real zi);
+   real_compare ">=" Z3OperatorTags.op_arith_ge (to_real yi) (to_real zi)]
 let lin_weak_tight = [geq xi (integer_literal (-2)); R.mk_not_expr (geq xi izero)]
 let lin_weak_conflict = [geq xi izero; R.mk_not_expr (geq xi ione)]
 let lin_twin = [leq (minus x_twin yi) izero; geq (minus x_twin yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
@@ -1150,5 +1188,50 @@ let linear_counter_models ()
           T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_between == true /\
           T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_between_target == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
+let conditional_guard : expr = App {
+  decl_name = "conditional-guard"; domain = []; range = bool_sort; interp = None; int_params = []
+} []
+let conditional_num (n:int) : expr =
+  App { decl_name = "integer"; domain = []; range = integer;
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
+let conditional_ite (c t e:expr) : expr = App (T.ite_decl integer) [c; t; e]
+let conditional_lhs : expr =
+  conditional_ite conditional_guard
+    (App integer_add [integer_x; conditional_num 1])
+    (App integer_add [integer_x; conditional_num 2])
+let conditional_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 2)]
+let conditional_bad_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 3)]
+
+let conditional_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_rhs;
+  premises = [];
+}
+let conditional_bad_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_bad_rhs;
+  premises = [];
+}
+
+let conditional_rewrite_actual_route ()
+  : Lemma (K.sorted_rewrite conditional_node /\
+           (match K.check_node core_schema [] conditional_node with
+            | Some (_, 0) -> true | _ -> false) /\
+           T.truth core_schema booleans equality core_model (R.mk_eq_expr conditional_lhs conditional_rhs)) =
+  assert_norm (K.sorted_rewrite conditional_node);
+  assert_norm (match K.check_node core_schema [] conditional_node with
+               | Some (_, 0) -> true | _ -> false);
+  K.lemma_sorted_rewrite core_schema booleans equality core_model conditional_node
+
+let conditional_rewrite_rejects_bad_branch ()
+  : Lemma (not (K.sorted_rewrite conditional_bad_node) /\
+           (match K.check_node core_schema [] conditional_bad_node with
+            | Some (_, 1) -> true | _ -> false)) =
+  assert_norm (not (K.sorted_rewrite conditional_bad_node));
+  assert_norm (match K.check_node core_schema [] conditional_bad_node with
+               | Some (_, 1) -> true | _ -> false)
 
 #pop-options

@@ -32,14 +32,13 @@ module Z3SortedRoot
    Z3SortedInteger}; Z3TypedRoot depends on no Sorted module. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
 module B = Z3BoundedBoolEquiv
-module R = Z3ResolutionProofTheory
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module FE = FStar.FunctionalExtensionality
 module TR = Z3TypedRoot

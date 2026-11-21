@@ -39,8 +39,7 @@ type bv (n:pos) = FStar.UInt.uint_t n
 
 let bv_size (#n:pos) (_:bv n) : nat = n
 
-(* A literal numeral's value reduced (wrapped) to a width-`n` bit-vector,
-   for `Z3InterpretedProofChecker.fst`'s `op_num_bv` literal semantics.
+(* A literal numeral's value reduced (wrapped) to a width-`n` bit-vector.
    Defined here (next to `bv`'s other already-proven conversions) and
    simply re-exported under a qualified name, rather than redefined at
    the use site, since re-deriving `FStar.UInt.to_uint_t`'s refinement

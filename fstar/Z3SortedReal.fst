@@ -3,17 +3,17 @@ module Z3SortedReal
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
 module AR = Z3SortedArithmetic
-module R = Z3ResolutionProofTheory
-module D = Z3Definitions
+module R = Z3ClauseSyntax
+module D = Z3ExprScope
 module L = FStar.List.Tot
 
 noeq
