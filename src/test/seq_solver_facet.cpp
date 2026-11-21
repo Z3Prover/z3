@@ -28,6 +28,28 @@ Author:
 
 namespace {
 
+    static void tst_sub_solver_symbolic_division() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        expr_ref x(m.mk_fresh_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_fresh_const("y", a.mk_int()), m);
+        expr_ref quotient(a.mk_idiv(x, y), m);
+        expr_ref bound(a.mk_ge(x, quotient), m);
+        solver.assert_expr(bound, tree.dep_mgr().mk_leaf(1));
+        solver.assert_expr(m.mk_eq(y, a.mk_int(0)), tree.dep_mgr().mk_leaf(2));
+        ENSURE(solver.check() == l_true);
+        solver.push();
+        solver.assert_expr(m.mk_not(bound), tree.dep_mgr().mk_leaf(3));
+        ENSURE(solver.check() == l_false);
+        ENSURE(solver.unsat_core());
+        solver.pop(1);
+        ENSURE(solver.check() == l_true);
+    }
+
     // A conflicting explicit length constraint should be caught by the
     // arithmetic backend even when the equation itself is satisfiable.
     static void tst_arith_length_conflict() {
@@ -138,6 +160,7 @@ namespace {
 } // namespace
 
 void tst_seq_solver_facet() {
+    tst_sub_solver_symbolic_division();
     tst_arith_length_conflict();
     tst_solver_facet_does_not_break_eq_unsat();
     tst_solver_facet_consistent_sat();

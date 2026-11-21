@@ -34,7 +34,7 @@ namespace seq {
         p.set_sym("string_solver", symbol("none"));
         // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
-        m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
+        m_solver = mk_smt_solver(m, p, symbol("ALL"));
     }
 
     sub_solver::~sub_solver() {

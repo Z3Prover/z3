@@ -1773,7 +1773,7 @@ namespace {
             (assert (= x ""))
             (assert (= n ""))
             (assert (< (str.len x) (str.to_int m)))
-        )", true, "v");
+        )", true, "v", 2000000);
     }
 
     static void tst_nseq_disjoint_stars() {
