@@ -353,6 +353,7 @@ public:
 
     void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         p.insert("print", CPK_BOOL, "(default: true) print resultant goals.");
+        p.insert("keep_sat_subgoals", CPK_BOOL, "(default: false) keep all satisfiable and undecided subgoals.");
 #ifndef _EXTERNAL_RELEASE
         p.insert("print_proof", CPK_BOOL, "(default: false) print proof associated with each assertion.");
 #endif
@@ -368,11 +369,18 @@ public:
         if (ctx.ignore_check())
             return;
         params_ref p = ctx.params().merge_default_params(ps());
-        tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
+        params_ref tactic_params;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            symbol key = p.get_key(i);
+            if (key != symbol("keep_sat_subgoals"))
+                tactic_params.copy_entry(p, key);
+        }
+        tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), tactic_params);
         {
             tactic & t = *(tref.get());
             ast_manager & m = ctx.m();
             goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
+            g->set_keep_sat_subgoals(p.get_bool("keep_sat_subgoals", false));
             assert_exprs_from(ctx, *g);
 
             unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
@@ -892,4 +900,3 @@ probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
         throw cmd_exception("invalid probe, unexpected input", n->get_line(), n->get_pos());
     }
 }
-

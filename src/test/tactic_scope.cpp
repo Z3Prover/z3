@@ -370,6 +370,26 @@ static void tst_probe_clone() {
     ENSURE(q.get() != q_copy.get());
 }
 
+static void tst_goal_subgoal_policy() {
+    ast_manager m, m2;
+    goal_ref original = alloc(goal, m);
+    original->set_keep_sat_subgoals(true);
+    goal_ref copy = alloc(goal, *original);
+    goal_ref config = alloc(goal, *original, true);
+    goal_ref target = alloc(goal, m);
+    target->copy_from(*original);
+    ast_translation translator(m, m2, false);
+    goal_ref translated = original->translate(translator);
+    ENSURE(copy->keep_sat_subgoals());
+    ENSURE(config->keep_sat_subgoals());
+    ENSURE(target->keep_sat_subgoals());
+    ENSURE(translated->keep_sat_subgoals());
+    original->set_keep_sat_subgoals(false);
+    target->copy_from(*original);
+    ENSURE(!target->keep_sat_subgoals());
+    ENSURE(copy->keep_sat_subgoals());
+}
+
 void tst_tactic_scope() {
     tst_local();
     tst_global();
@@ -379,4 +399,5 @@ void tst_tactic_scope() {
     tst_both_spellings();
     tst_param_probe();
     tst_probe_clone();
+    tst_goal_subgoal_policy();
 }
