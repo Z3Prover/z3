@@ -84,8 +84,8 @@ namespace seq {
         void undo() override {
             // Grow by one, shift elements up, then restore the erased slot.
             m_vec.push_back(m_value);
-            for (unsigned i = m_vec.size() - 1; i > m_idx; --i)
-                m_vec[i] = std::move(m_vec[i - 1]);
+            for (auto i = m_vec.size() - 1; i-- > m_idx; )
+                m_vec[i + 1] = std::move(m_vec[i]);
             m_vec[m_idx] = std::move(m_value);
         }
     };
