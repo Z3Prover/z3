@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T07:49:32-08:00**. The latest completed full SMT-LIB
+Updated: **2026-11-21T08:26:11-08:00**. The latest completed full SMT-LIB
 capture below used a retained Definition-mode checker, not a fresh current-PR
 build. Its binary, runtime, and input manifests are pinned, but proof-document
 hashes were not retained; these counts are not matched-proof burn-down or a
@@ -315,9 +315,20 @@ same 11 frozen documents were replayed through its production
 840 weighted PENDING, and zero `apply-def` PENDING in every document. Candidate
 `79de` has 847 weighted PENDING on those captures; the retained checker has
 927, including 80 `apply-def`. This confirms the rule-level result on the exact
-PR source, but root outcomes still trail Legacy's 11/11 ACCEPT. The current
-source replay is not a paired timing measurement, and the 1.0141 ratio cannot
-be transferred to it; do not claim root parity or a current-source speedup.
+PR source, but root outcomes still trail Legacy's 11/11 ACCEPT. The 1.0141
+ratio belongs to the earlier candidate and cannot be transferred to this source.
+
+A separate five-pair timing-only control used the current checker modules
+(`Z3SortedProof.cmx` SHA-256 `bc87a39b7f3e`,
+`Z3ProofDocument.cmx` SHA-256 `e749dc33be9f`) on 11 pinned proof files. Sorted
+accepted 1/11 versus Legacy 11/11 and had 839 total PENDING; per-rule
+diagnostics for this timing-only run are N/M. Summed per-capture medians were
+89.838s sorted and 18.253s Legacy (4.92x), with sorted slower on 10/11.
+All five pairs per proof completed below the 120s per-run cap.
+Proof 63's hash differs from the earlier diagnostic capture, so the 839 total
+is not a burn-down from its 840 PENDING and its rule counts must not be
+transferred. No root parity or promotion claim follows. Full pins and timings
+are in `current-source-sample-paired-20261121.json`.
 
 Five alternating-order paired timing repetitions were run on checker
 `818cab5a190f` for all 11 frozen captures. The sum of per-capture medians is
@@ -340,6 +351,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 21 08:26 | Pair current-source SMT-LIB sample timing controls | Five pairs per proof, all below the 120s cap. Sorted accepts 1/11 vs Legacy 11/11; summed medians are 89.838s vs 18.253s (4.92x), sorted slower on 10/11. Timing-only total is 839 PENDING with per-rule diagnostics N/M; proof 63 differs from the earlier diagnostic hash, so no burn-down or promotion | Source `a76daae251fa`, HEAD `38469af2f`; modules `bc87a39b7f3e`, `e749dc33be9f`; `current-source-sample-paired-20261121.json` |
 | Nov 21 07:49 | Re-run paired QF_LIA ring controls on current PR source | On identical proof hashes, proof 52 falls 48 → 30 weighted PENDING, clearing all 18 `rewrite` obligations; both proofs still PARTIAL from `intro-def`. Five-pair medians: proof 51 sorted/Legacy 0.036309/0.017596s; proof 52 0.464344/0.830512s. Current sorted accepts 0/2 vs. Legacy 2/2; no parity or cohort claim | Proofs `000797dfef56`, `0ff8d8b000f3`; source `a76daae251fa`; `Z3SortedProof.cmx` `bc87a39b7f3e`; helper `a1528c55da5e` |
 | Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample: 83/225 ACCEPT, 5,907 PENDING across 186 diagnostics; extended: 74/285 ACCEPT, 31,516 PENDING across 209 diagnostics. Not comparable to the prior Core run; no proof hashes, matched-proof burn-down, current-source, or Legacy-parity claim | `periodic-smtlib-20261121T120903Z/smtlib-sample/report.md`, `periodic-smtlib-20261121T120903Z/smtlib-extended/report.md`; checker `6eb16f0b187e`; manifests `72cba03d2816`, `6f6ad04db40a` |
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Checker `d52b5df5e` retained Legacy ACCEPT 2/2 and sort-indexed ACCEPT 1/2; current medians are 6.32x and 8.25x slower than Legacy. Confirms the same-pin dispatch-order speedup; no cohort burn-down or parity | `pr-head-control-replay.log`; checker `1c7b0f43`; `libz3.a` `6e4e68e1`; fixed proof hashes unchanged |
@@ -349,7 +361,6 @@ overlapping candidate effects must not be added.
 | Nov 20 21:17 | Replay current sorted Core on identical QF_LIA sample proofs | Current Core ACCEPTed 1/2 vs Legacy 2/2; against the prior Definition control, weighted PENDING fell 44 → 4 (proof 51: 43 → 4 `intro-def`; proof 52: 1 → 0 `rewrite`). Five paired medians: 2.421s vs. 0.108s and 0.0505s vs. 0.0225s (Core slower than Legacy); modes differ, so this is fixed-proof evidence, not cohort burn-down or a source-only delta | `sample-sorted-core-matched-20261120.json`; checker SHA-256 `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875` |
 | Nov 20 19:37 | Pair exact-current-source conditional apply-def controls | On seven of the 11 frozen captures, five alternating pairs: sum of per-capture medians 51.576s sorted vs. 19.240s Legacy (2.68x); sorted slower on all seven. Full 11-capture control remains 1 ACCEPT / 10 PARTIAL and 840 weighted PENDING vs. Legacy 11/11 ACCEPT; apply-def itself has zero PENDING. No cohort burn-down or promotion | `conditional-current-source-control-03.json`; checker SHA-256 `818cab5a190fe340fa7c75ade37b78ecfa7681878d6fdad0715656dab24aea13` |
 | Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
-| Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
 
 ## Validation and active cadence
 
@@ -371,16 +382,14 @@ a failure in the array changes, but retain the native test status as
 unvalidated. No cohort candidate run is complete. The separate
 interactive `--sorted-core` capture of CommMonoid and Math.Exp completed with
 16 non-Farkas PENDING across 14 proof queries; it is not comparable to the
-`2671dc150931` fstar-build cohort capture. The current PR source's conditional
-apply-def replay on the 11 fixed sample proofs completed with 1 ACCEPT, 10
-PARTIAL and zero `apply-def` PENDING; its 840 total PENDING and lack of
-11/11 Legacy parity mean it is not a promotion result. No paired timing was
-collected for this exact source pin at the time of that replay. Five
-alternating paired timing repetitions now cover all 11 fixed captures on the
-older `818cab` checker pin; sorted is slower on 10/11, with summed
-per-capture medians 88.699s vs. 26.251s Legacy. This is not a timing result
-for the exact current source. Details and pins are in
-`conditional-current-source-control-03.json` and the remaining-timing log.
+`2671dc150931` fstar-build cohort capture. The current-source apply-def
+diagnostic replay remains 1 ACCEPT / 10 PARTIAL, 840 PENDING, with zero
+`apply-def` PENDING; it is not a promotion result. The
+separate paired timing control above uses current modules but a different proof
+63 hash, so its 839 aggregate is not comparable burn-down and per-rule
+diagnostics remain N/M. The older `818cab` paired timing control remains
+historical only; see its timeline entry and
+`conditional-current-source-control-03.json`.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The current sorted Core has fixed-proof results above but has not been run
