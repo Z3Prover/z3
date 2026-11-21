@@ -1,10 +1,10 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T16:58:00-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T17:02:00-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The AProVE candidate below was captured at source `817035eb8`, based on master
-through `bf981cb1b`; the PR branch now includes master through `a4b03329f`.
-Fresh cohort results remain N/M.
+through `bf981cb1b`; since then, the PR branch has advanced through master
+`a2fd7e6b1`. Fresh cohort results remain N/M.
 
 **Old historical** means archived measurements from earlier Legacy-checker
 captures, not a current checker binary. **Core** is the sort-indexed checker
@@ -146,6 +146,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 17:02 | Sync PR branch with latest master | Merged fetched master through `a2fd7e6b1`; no new checker/cohort metric measured. The active cohort continues on its pinned binaries | merge `743908848`; active cohort state |
 | Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
 | Nov 20 14:59 | Merge master unbounded-objective fix | At merged HEAD `23a61f9c0`, the focused build and `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `a4b03329f`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
@@ -155,7 +156,6 @@ overlapping candidate effects must not be added.
 | Nov 20 14:06 | Generate/attach bound proof evidence per consequent | Native `proof_checker`, `lp_evidence`, and `smt_context` tests pass; authentic-bound bridge case passes. No post-fix cohort or matched-proof comparison yet | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; native test commands in Validation |
 | Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
-| Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
 
 ## Validation and active cadence
 
