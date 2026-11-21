@@ -97,6 +97,11 @@ let lemma_core_array_support (u:TR.uninterpreted) (schema:S.checked_schema) (e:e
           (ensures A.supported (AF.family u (S.signature schema)) e) =
   lemma_core_array_supports u schema e
 
+let lemma_core_array_support_entry (u:TR.uninterpreted) (schema:S.checked_schema) (e:expr)
+  : Lemma (ensures SP.array_lemma_supported schema e ==>
+                    A.supported (AF.family u (S.signature schema)) e) =
+  if SP.array_lemma_supported schema e then lemma_core_array_support u schema e
+
 let rec has_core_candidates (schema:S.checked_schema) (entries:list P.entry)
   : Tot bool (decreases entries) =
   match entries with
@@ -108,7 +113,7 @@ let core_selected (schema:S.schema) (doc:P.document) : option P.document =
   else if within_budget doc &&
           AP.eligible (S.signature schema) max_assertions doc.P.assertions &&
           has_core_candidates schema doc.P.entries &&
-          SP.check_document_array schema doc == Some 0
+          SP.check_document_array schema doc = Some 0
   then Some doc
   else None
 
@@ -230,7 +235,7 @@ let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
       let kernel : SP.array_kernel schema (TR.booleans u) (SR.root_scalars u) extended = {
         SP.family = family;
         SP.model = model;
-        SP.supports = lemma_core_array_support u schema
+        SP.supports = lemma_core_array_support_entry u schema
       } in
       Root.lemma_root_check_document_array u schema extended kernel doc;
       AP.lemma_eligible_truths u schema symbols max_assertions doc.P.assertions)
