@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T14:59:54-08:00**. The cohort figures below are the last
+Updated: **2026-11-20T16:58:00-08:00**. The cohort figures below are the last
 completed diagnostics, not measurements of the current LP-bound candidate.
 The AProVE candidate below was captured at source `817035eb8`, based on master
 through `bf981cb1b`; the PR branch now includes master through `a4b03329f`.
@@ -92,6 +92,15 @@ integer-tighten steps also have typed checks. The `lp-monomial-*` steps still
 lack equivalent typed replay. No controlled QF_LIA failure or producer defect
 is established by the current cohort data.
 
+The attempted current-pin fstar-build Farkas recapture is not proof evidence:
+`current-fstar-build-farkas-trace-20261120.json` records
+`--definition-replay`, return code 2, and no proof document. The cohort
+executable uses the `Z3NativeMain` CLI, which supports `--sorted-core` but not
+`--definition-replay`; this is a capture-mode mismatch, not a solver or proof
+failure. The three fstar-build Farkas PENDING remain scoped to the prior
+completed diagnostics. Retry an instrumented capture in the cohort's
+`--sorted-core` mode after the active corpus lock releases.
+
 A post-follow-up producer/checker run on the AProVE input is now pinned. The
 input SHA-256 is `8e9c33d59fec315a4853913768f76e15f98aea47938c6bb69ac484ece919219a`;
 the checker SHA-256 is `53f2b433d0a37ba5470ab3ebda9ce27d6316c188ceb6c4f73ae5002982df73aa`,
@@ -137,6 +146,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
 | Nov 20 14:59 | Merge master unbounded-objective fix | At merged HEAD `23a61f9c0`, the focused build and `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `a4b03329f`; `cmake --build build --target test-z3 --parallel 32` |
 | Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
 | Nov 20 14:45 | Merge latest master optimization fix into the PR candidate | At merged HEAD `c502703ad`, `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `8d5366f8c`; `cmake --build build --target test-z3 --parallel 32` |
@@ -146,7 +156,6 @@ overlapping candidate effects must not be added.
 | Nov 20 13:58 | LP derivation attachment for bound propagation; native validation | Focused `test-z3` targets pass. AProVE candidate has 12 `lp-context` nodes and PARTIAL 22, but its proof differs from the prior PARTIAL 24 capture; no burn-down or performance claim | `src/smt/theory_lra.cpp`, `src/smt/smt_justification.cpp`; `current-lp-bound-aprove-trace03.*` |
 | Nov 20 12:33 | Same-pin QF_LIA and extended Farkas trace | Both sample QF_LIA PARTIAL documents have no failed Farkas node; their 52 PENDING remain `intro-def`/`rewrite`. Three extended nonlinear cases reproduce 12 weighted Farkas PENDING; no matched-proof claim | `current-farkas-trace-summary-20261120.json`, `current-farkas-trace-20261120.json`, `current-qflia-farkas-trace-20261120.json` |
 | Nov 20 12:04 | Mixed-sort strict-bound rounding guard; serial SMT-LIB rerun | Forged mixed-sort contradiction rejected; integer-valued control accepted. Sample QF_LIA has 0 Farkas PENDING; sample total remains 4,020; extended total rises by 9. No matched-proof gain | `current-farkas-rounding-validation`, `periodic-smtlib-20261120T185721Z` |
-| Nov 19 20:41 | Same-run QF_LIA producer/checker trace | Pinned 1,196-node proof: 33 `farkas` hints and one six-premise `bound` hint. Same-capture diagnostic PARTIAL 46; differs from typed replay proof, so no burn-down credit | `ring-producer-trace-06.json`, `ring-producer-trace-06.stderr` |
 
 ## Validation and active cadence
 
