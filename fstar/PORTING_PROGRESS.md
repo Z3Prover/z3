@@ -1,11 +1,11 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-20T21:17:43-08:00**. The cohort figures below are the latest
+Updated: **2026-11-21T02:32:14-05:00**. The cohort figures below are the latest
 completed diagnostics, not measurements of the current LP-bound candidate.
-The Nov 20 rerun kept the sample figures unchanged and the extended verdict
-counts unchanged, but extended weighted PENDING moved from 31,254 to 31,271.
+The Nov 21 recapture kept both cohorts' observed verdict counts and sample
+PENDING unchanged; extended weighted PENDING moved from 31,271 to 31,262.
 The input manifest, checker, and native-library pins match; proof-document
-hashes were not retained for the cohort, so this is not matched-proof burn-down.
+hashes were not retained for this cohort, so this is not matched-proof burn-down.
 The PR branch includes master through `a2fd7e6b1`.
 
 **Old historical** means archived measurements from earlier Legacy-checker
@@ -22,8 +22,8 @@ N/M, never zero.
 
 | Dataset | Checker pin and mode | Observed / selected | Case status / observed verdicts | Diagnostics / observed | Diagnostic errors | Weighted PENDING |
 | --- | --- | ---: | --- | ---: | ---: | ---: |
-| smtlib-sample | Definition `b5e8cb065f06`, `--sorted-core` | 225 / 225 | 100 ACCEPT, 88 PARTIAL, 20 UNKNOWN, 17 TIMEOUT; 0 SAT/REJECT/crash/error/NOT_RUN | 188 / 225 | 0 | 4,020 |
-| smtlib-extended | Definition `b5e8cb065f06`, `--sorted-core` | 285 / 285 | 73 ACCEPT, 135 PARTIAL, 70 UNKNOWN, 7 TIMEOUT; 0 SAT/REJECT/crash/error/NOT_RUN | 208 / 285 | 0 | 31,271 |
+| smtlib-sample | Core `b5e8cb065f06`, `--sorted-core` | 225 / 225 | 100 ACCEPT, 88 PARTIAL, 20 UNKNOWN, 17 TIMEOUT; 0 SAT/REJECT/crash/error/NOT_RUN | 188 / 225 | 0 | 4,020 |
+| smtlib-extended | Core `b5e8cb065f06`, `--sorted-core` | 285 / 285 | 73 ACCEPT, 135 PARTIAL, 70 UNKNOWN, 7 TIMEOUT; 0 SAT/REJECT/crash/error/NOT_RUN | 208 / 285 | 0 | 31,262 |
 | fstar-build | Definition `2671dc150931` | 407 / 583 observed; 384 completed, 23 TIMEOUT, 176 NOT_RUN | 8,411 ACCEPT, 209 PARTIAL verdicts; 0 UNKNOWN/REJECT among observed verdicts; 256 solver-UNKNOWN queries | 7,190 / 7,190 completed diagnostics | 0 | 430 |
 
 The SMT-LIB checker SHA-256 is
@@ -39,19 +39,19 @@ extended `6f6ad04db40a0f49733329ce056d5e599328a4468133f987a56c2172ac08cb34`.
 
 | Rule | smtlib-sample PENDING | smtlib-extended PENDING | fstar-build PENDING |
 | --- | ---: | ---: | ---: |
-| `arith/farkas` | 0 | 15 | 3 |
+| `arith/farkas` | 0 | 19 | 3 |
 | `arith/lp-integer-lattice` | N/M | N/M | N/M |
 | `arith/lp-gomory` | N/M | N/M | N/M |
 | `arith/lp-monomial-interval` | 0 | 40 | 1 |
-| `assumed:nlsat` | 0 | 129 | 139 |
+| `assumed:nlsat` | 0 | 128 | 139 |
 | `def-axiom` | 4 | 89 | 0 |
 | `der` | 6 | 0 | 0 |
-| `intro-def` | 307 | 143 | 0 |
+| `intro-def` | 307 | 139 | 0 |
 | `nnf-neg` | 0 | 0 | 10 |
 | `quant-intro` | 52 | 83 | 23 |
-| `rewrite` | 152 | 24,650 | 8 |
+| `rewrite` | 152 | 24,641 | 8 |
 | `sk` | 0 | 0 | 10 |
-| `th-lemma` | 3,499 | 6,122 | 236 |
+| `th-lemma` | 3,499 | 6,123 | 236 |
 
 The sample QF_LIA slice contains 25 inputs: 17 ACCEPT, 2 PARTIAL, 1 TIMEOUT,
 and 5 UNKNOWN. Its two PARTIAL proofs have 52 PENDING (34 `intro-def`, 18
@@ -120,24 +120,28 @@ burn-down or a performance result. The earlier document SHA-256 is
 `a4010d3132426167c23a5eb31e85077af9efcbfd1b0f46b9424453aa1a1c627d`;
 the prior capture is `a223a1c83bccc50ec3a93a34dea312f2862f6091dece34995bdcac35607317bf`.
 
-The latest extended cohort has 15 weighted `arith/farkas` PENDING. Pinned
-traces cover 12 at the cohort-reported indices (AProVE QF_NIA: 3; LassoRanker
-QF_NIA: 7; meti-tarski QF_NRA: 2). The AProVE document hash
+The preceding extended cohort had 15 weighted `arith/farkas` PENDING. Pinned
+traces covered 12 at that cohort's reported indices (AProVE QF_NIA: 3;
+LassoRanker QF_NIA: 7; meti-tarski QF_NRA: 2). The AProVE document hash
 `a223a1c83bccc50ec3a93a34dea312f2862f6091dece34995bdcac35607317bf` matches
 a previously saved proof document for that input, but the latest cohort did
 not retain document hashes, so identity to that cohort's document is
 unverified. Original cohort document hashes are also unavailable for
 LassoRanker and meti-tarski, so matching indices do not establish exact proof
-identity there. At the traced PENDING nodes, AProVE and LassoRanker leave
-bilinear or higher-degree products in the residual; meti-tarski leaves cubic
-terms. The supplied weights therefore do not cancel the original nonlinear
-formulas. These are QF_NIA/QF_NRA cases, not evidence that the checker rejects
-a well-formed pure-linear QF_LIA certificate. To check such nonlinear steps
-without search, the proof object must expose the sound product
+identity there. The Nov 21 recapture also omitted proof hashes, so its 19
+`arith/farkas` PENDING are not connected to these older traces and their
+producer evidence is N/M. At the earlier traced PENDING nodes, AProVE and
+LassoRanker leave bilinear or higher-degree products in the residual;
+meti-tarski leaves cubic terms. The supplied weights therefore do not cancel
+the original nonlinear formulas. These are QF_NIA/QF_NRA cases, not evidence
+that the checker rejects a well-formed pure-linear QF_LIA certificate. To
+check such nonlinear steps without search, the proof object must expose the
+sound product
 linearization/bounds or another separately checkable nonlinear lemma that
-accounts for the residual; the current Farkas weights alone do not. VeryMax
-QF_NIA accounts for the remaining 3 PENDING; its same-input recapture timed
-out without a proof document, so its producer/checker evidence remains N/M.
+accounts for the residual; the current Farkas weights alone do not. In that
+preceding cohort, VeryMax QF_NIA accounted for the other 3 PENDING; its
+same-input recapture timed out without a proof document, so its
+producer/checker evidence remains N/M.
 The two sample QF_LIA PARTIAL documents have no Farkas PENDING, and the
 extended selection has no QF_LIA inputs. The 40 `arith/lp-monomial-interval`
 PENDING are a separate rule family. Current data does not implicate integer
@@ -244,12 +248,19 @@ PR source, but root outcomes still trail Legacy's 11/11 ACCEPT. The current
 source replay is not a paired timing measurement, and the 1.0141 ratio cannot
 be transferred to it; do not claim root parity or a current-source speedup.
 
-Five alternating-order paired timing repetitions were then run on current
-checker `818cab5a190f` for captures 10, 37, 49, 51, 59, 63, and 69. The sum of
-the seven per-capture median times was 51.576s sorted vs. 19.240s Legacy
-(2.68x); the sorted checker was slower on all seven. This subset timing does
-not alter the 11-capture verdicts or establish cohort performance. Exact
-per-capture medians and hashes: `conditional-current-source-control-03.json`.
+Five alternating-order paired timing repetitions were run on checker
+`818cab5a190f` for all 11 frozen captures. The sum of per-capture medians is
+88.699s sorted vs. 26.251s Legacy (3.38x); sorted is slower on 10/11 captures.
+Per-capture sorted / Legacy medians are 10: 2.118 / 1.512s, 20: 3.186 /
+4.842s, 37: 15.625 / 0.283s, 40: 5.932 / 0.101s, 45: 10.162 / 1.934s,
+49: 0.013 / 0.005s, 51: 2.230 / 0.059s, 59: 1.786 / 0.791s, 63: 23.841 /
+16.023s, 69: 5.964 / 0.569s, and 90: 17.843 / 0.133s. These timings do not
+alter the 11-capture verdicts or establish cohort performance. The control
+uses the `818cab` checker, not current HEAD `1ef5585c7`; do not transfer the
+result to current source. Proof hashes and the first seven medians are in
+`conditional-current-source-control-03.json`; the remaining four captures'
+five-pair results are in
+`conditional-current-source-control-03-remaining-timing-20261121T0208Z.log`.
 
 ## Last 10 measured improvements and corrections
 
@@ -258,6 +269,8 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample remains 4,020 PENDING; extended falls 31,271 → 31,262 without retained proof hashes, not matched-proof burn-down. The 19 extended Farkas PENDING are untraced. Fixed-control medians total 88.699s sorted vs. 26.251s Legacy (3.38x), sorted slower on 10/11; this is not current-source performance. Strict F* verification passed for the 113-module array-document closure, including interfaces. Full `-RunTests` stopped at an unrelated finite-field VC before extraction/OCaml tests | `periodic-smtlib-20261121T060114Z`; `conditional-current-source-control-03.json`; remaining-timing log; F* output `1795246163690-copilot-tool-output-57984-e771cb18-86b4-4b05-8557-931ad6ef986c.txt` |
+| Nov 20 22:25 | Correct SMT-LIB cohort mode attribution | No metric change: checker `b5e8cb065f06` was invoked with `--sorted-core`, so these captures are Core, not Definition. The active cycle uses the same Core mode; no burn-down or parity claim | `periodic-smtlib-20261121T060114Z/smtlib-sample/selection.json`; `periodic-smtlib-launcher.py` |
 | Nov 20 21:17 | Replay current sorted Core on identical QF_LIA sample proofs | Current Core ACCEPTed 1/2 vs Legacy 2/2; against the prior Definition control, weighted PENDING fell 44 → 4 (proof 51: 43 → 4 `intro-def`; proof 52: 1 → 0 `rewrite`). Five paired medians: 2.421s vs. 0.108s and 0.0505s vs. 0.0225s (Core slower than Legacy); modes differ, so this is fixed-proof evidence, not cohort burn-down or a source-only delta | `sample-sorted-core-matched-20261120.json`; checker SHA-256 `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875` |
 | Nov 20 19:37 | Pair exact-current-source conditional apply-def controls | On seven of the 11 frozen captures, five alternating pairs: sum of per-capture medians 51.576s sorted vs. 19.240s Legacy (2.68x); sorted slower on all seven. Full 11-capture control remains 1 ACCEPT / 10 PARTIAL and 840 weighted PENDING vs. Legacy 11/11 ACCEPT; apply-def itself has zero PENDING. No cohort burn-down or promotion | `conditional-current-source-control-03.json`; checker SHA-256 `818cab5a190fe340fa7c75ade37b78ecfa7681878d6fdad0715656dab24aea13` |
 | Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
@@ -266,8 +279,6 @@ overlapping candidate effects must not be added.
 | Nov 20 17:05 | Complete six-hour SMT-LIB rerun and targeted interactive F* capture | Sample unchanged at 4,020; extended outcomes unchanged and PENDING 31,254 → 31,271, not matched-proof burn-down. Extended Farkas PENDING is 15: 12 traced NIA/NRA residuals and 3 VeryMax without a reproduced document. Fourteen targeted F* queries have 16 non-Farkas PENDING and zero official `arith/farkas` PENDING | `periodic-smtlib-20261120T235732Z`, `current-farkas-trace-20261120T170526Z-run02.json`, `current-fstar-build-farkas-interactive-20261120T1705Z.json`; `fstar/Z3SortedProof.fst:2030-2047,3230-3237` |
 | Nov 20 17:02 | Sync PR branch with latest master | Merged fetched master through `a2fd7e6b1`; no new checker/cohort metric measured. The active cohort continues on its pinned binaries | merge `743908848`; active cohort state |
 | Nov 20 16:58 | Diagnose fstar-build Farkas recapture mode | The attempted recapture used unsupported `--definition-replay` on the cohort's `Z3NativeMain` CLI; return code 2 and no proof document. No new proof or producer conclusion; retry in matching mode after the active stage | `current-fstar-build-farkas-trace-20261120.json`; `fstar/ocaml_runtime/Z3NativeMain.ml:799-830` |
-| Nov 20 14:59 | Merge master unbounded-objective fix | At merged HEAD `23a61f9c0`, the focused build and `opt_bounds`, `opt_pareto`, `proof_checker`, `lp_evidence`, and `smt_context` pass (5/5); cohort figures unchanged | master `a4b03329f`; `cmake --build build --target test-z3 --parallel 32` |
-| Nov 20 14:55 | Conditional apply-def checkout and matched-proof audit | Weighted rule diagnostic: 80 apply-def PENDING → 0 across 11 frozen captures, with 0 per-rule regressions; candidate/retained CLI outcomes 1 ACCEPT, 10 PARTIAL (Legacy 11 ACCEPT); paired timing ratio 1.0141. Candidate source differs from current PR checkout; no parity/promotion claim | `conditional-weighted-01.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json`, `conditional-checkout-controls-01.json`, `conditional-current-source-control-02.json` |
 
 ## Validation and active cadence
 
@@ -277,14 +288,16 @@ At merged HEAD `23a61f9c0`, `cmake --build build --target test-z3 --parallel
 Linux `shell` and `libz3_ocaml` were built and installed; the one-case checker
 was relinked against pinned `libz3.a` and `libz3ml.a` and returned PARTIAL 22
 on the AProVE input.
-F* checker sources are unchanged since the prior checker-only strict pass, but
-a strict refresh timed out in `Z3SortedRealOrder.real_negated_operand` at the
-default Z3 resource limit. An initial cached-module relink failed because
-`main.cmx` and `Z3NativeMain.cmx` had inconsistent assumptions; rebuilding
-`main.ml` resolved the relink. The full bridge suite's unchanged synthetic
-Real-product mismatch remains unrerun. Two full
-`build_ocaml_checker.ps1 -RunTests` attempts previously timed out at
-`Z3SortedBv.fst:456`; no cohort candidate run is complete. The separate
+The current `Z3IndependentArrayDocument.fst` and its dependency closure were
+strictly verified with warning errors `@1..999`: all 113 registered modules,
+including the explicit `.fsti` interfaces, passed against installed Z3
+5.4.2. The changed Python test passes `py_compile`. A full
+`build_ocaml_checker.ps1 -RunTests` attempt rebuilt/installed Z3 and verified
+185 production modules, then stopped at the unrelated
+`Z3IndependentFiniteFieldPolynomial.fst` VC (assertion at line 638); extraction,
+OCaml compilation, and native/CLI tests were not reached. Do not treat this as
+a failure in the array changes, but retain the native test status as
+unvalidated. No cohort candidate run is complete. The separate
 interactive `--sorted-core` capture of CommMonoid and Math.Exp completed with
 16 non-Farkas PENDING across 14 proof queries; it is not comparable to the
 `2671dc150931` fstar-build cohort capture. The current PR source's conditional
@@ -292,9 +305,11 @@ apply-def replay on the 11 fixed sample proofs completed with 1 ACCEPT, 10
 PARTIAL and zero `apply-def` PENDING; its 840 total PENDING and lack of
 11/11 Legacy parity mean it is not a promotion result. No paired timing was
 collected for this exact source pin at the time of that replay. Five
-alternating paired timings on seven captures show the sorted checker slower
-on all seven; their summed per-capture medians are 51.576s sorted vs. 19.240s
-Legacy. The timing artifact is `conditional-current-source-control-03.json`.
+alternating paired timing repetitions now cover all 11 fixed captures on the
+older `818cab` checker pin; sorted is slower on 10/11, with summed
+per-capture medians 88.699s vs. 26.251s Legacy. This is not a timing result
+for the exact current source. Details and pins are in
+`conditional-current-source-control-03.json` and the remaining-timing log.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The current sorted Core has fixed-proof results above but has not been run
