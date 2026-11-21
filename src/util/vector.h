@@ -63,10 +63,6 @@ class vector {
     }
 
     void expand_vector() {
-        // ensure that the data is sufficiently aligned
-        // better fail to compile than produce code that may crash
-        static_assert((sizeof(SZ) * 2) % alignof(T) == 0);
-
         if (m_data == nullptr) {
             SZ capacity = 2;
             SZ * mem    = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));

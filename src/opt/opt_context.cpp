@@ -1069,10 +1069,18 @@ namespace opt {
         }
         if (!m_pareto_unknown.empty())
             return m_pareto_unknown;
+        if (m_unknown != "unknown")
+            return m_unknown;
         if (m_solver.get()) {
             return m_solver->reason_unknown();
         }
         return m_unknown;
+    }
+
+    void context::set_reason_unknown(char const* msg) {
+        m_unknown = msg;
+        if (m_solver)
+            m_solver->set_reason_unknown(msg);
     }
 
     void context::display_bounds(std::ostream& out, bounds_t const& b) const {

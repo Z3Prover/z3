@@ -1033,7 +1033,9 @@ namespace smt {
             seq = tail;
         }
         seq = m_seq.str.mk_concat(units.size(), units.data(), e->get_sort());
-        expr_ref eq(m_sk.mk_eq(e, seq), m);
+        expr_ref eq(m.mk_eq(e, seq), m);
+        if (!ctx.b_internalized(eq))
+            ctx.internalize(eq, true);
         // A short length is a guarded choice, never an unconditional equality.
         expr_ref value(m_autil.mk_int(length), m);
         expr_ref lower(m_autil.mk_ge(len, value), m), upper(m_autil.mk_le(len, value), m);
@@ -1096,9 +1098,6 @@ namespace smt {
         if (assume_shared_equalities())
             return FC_CONTINUE;
 
-        if (hf.propagate())
-            return FC_CONTINUE;
-
         // Speculatively materializing a short decomposition for a free HO
         // input can itself spawn new, derived HO terms (e.g. unfolding
         // map(f, s) over an elaborated s = head ++ tail produces a new,
@@ -1120,6 +1119,9 @@ namespace smt {
                 }
             }
         }
+
+        if (hf.propagate())
+            return FC_CONTINUE;
 
         if (check_ubv_strings())
             return FC_CONTINUE;
@@ -1299,6 +1301,8 @@ namespace smt {
             // Reconcile digits only after word search stalls, not at its preliminary node budget.
             if (conversions && branch_stoi_digit(true))
                 return FC_CONTINUE;
+            if (!hf.terms().empty() && m_num_unhandled == 0 && hf.is_satisfied())
+                return FC_DONE;
             if (getenv("NSEQ_DUMP_UNKNOWN")) {
                 std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
                 for (unsigned id = 0; id < m_root->num_facets(); ++id)
@@ -1411,11 +1415,7 @@ namespace smt {
         if (ctx.get_enode(lhs)->get_root() == ctx.get_enode(rhs)->get_root())
             return false;
 
-        expr_ref eq(m);
-        if (m_seq.is_seq(lhs))
-            eq = m_sk.mk_eq(lhs, rhs);
-        else
-            eq = m.mk_eq(lhs, rhs);
+        expr_ref eq(m.mk_eq(lhs, rhs), m);
         if (!ctx.b_internalized(eq))
             ctx.internalize(eq, true);
         literal lit = ctx.get_literal(eq);
@@ -1424,8 +1424,15 @@ namespace smt {
             return false;
         if (premise) {
             literal guard = mk_literal(premise);
-            literal clause[] = {~guard, lit};
-            ctx.mk_th_axiom(get_id(), 2, clause);
+            if ((m_seq.str.is_foldl(lhs) || m_seq.str.is_foldli(lhs)) &&
+                ctx.get_assignment(guard) == l_true &&
+                ctx.get_assignment(lit) == l_undef) {
+                propagate_eq(guard, lhs, rhs);
+            }
+            else {
+                literal clause[] = {~guard, lit};
+                ctx.mk_th_axiom(get_id(), 2, clause);
+            }
         }
         else
             ctx.mk_th_axiom(get_id(), 1, &lit);

@@ -103,6 +103,21 @@ namespace seq {
                 expr* f = nullptr, *s = nullptr, *b = nullptr, *idx = nullptr;
                 VERIFY(is_ho_term(term, f, idx, b, s));
 
+                expr_ref eager_rewritten(m);
+                br_status eager_status = m_rewriter.mk_app_core(
+                    term->get_decl(),
+                    term->get_num_args(),
+                    term->get_args(),
+                    eager_rewritten);
+                if (eager_status != BR_FAILED) {
+                    if (m_add_eq(term, eager_rewritten, nullptr))
+                        ++m_num_ho_unfolds;
+                    m_unfolded.insert(term);
+                    m_trail.push(insert_obj_trail<expr>(m_unfolded, term));
+                    progress = true;
+                    continue;
+                }
+
                 expr* elaboration = nullptr;
                 if (!m_find_elaboration(s, elaboration))
                     continue;

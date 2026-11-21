@@ -775,7 +775,7 @@ namespace smt {
             // don't register any solver.
         }
         else if (m_params.m_string_solver == "auto") {            
-                setup_nseq();
+            setup_nseq();
         } 
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'nseq', 'auto'");
