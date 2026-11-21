@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T05:17:13-08:00**. The latest completed full SMT-LIB
+Updated: **2026-11-21T07:49:32-08:00**. The latest completed full SMT-LIB
 capture below used a retained Definition-mode checker, not a fresh current-PR
 build. Its binary, runtime, and input manifests are pinned, but proof-document
 hashes were not retained; these counts are not matched-proof burn-down or a
@@ -201,6 +201,23 @@ PENDING are a separate rule family. Current data does not implicate integer
 rounding, cuts, or bound propagation in a pure QF_LIA Farkas failure, and does
 not justify a producer change without a pinned QF_LIA counterexample.
 
+A current-source paired replay of the same two frozen documents used PR HEAD
+`a76daae251fa66ed61816e58333098b3e563358d`. The checker-only build strictly
+verified 167 modules; the replay used `Z3SortedProof.cmx`
+`bc87a39b7f3edc6f4d0b4e595a10d2e53a5c6b9eeda3341348c6c211193092de`,
+`Z3ProofDocument.cmx`
+`e749dc33be9f20305b2ff5055f15b58e8a74893c842ead460f55704c2082bf97`,
+and helper `Qflia_sorted_rewrite_replay.ml`
+`a1528c55da5e616819405227ff91fd30f64295dd82b364db5d8f2f694a3a3b29`;
+OCaml is 5.3.0. Five alternating pairs gave proof 51 `PARTIAL 4`
+(`intro-def` 4), median 0.036309s sorted vs. 0.017596s Legacy (2.06x
+slower), and proof 52 `PARTIAL 30` (`intro-def` 30, no `rewrite` PENDING),
+median 0.464344s vs. 0.830512s (1.79x faster). Legacy ACCEPTed both 5/5;
+sort-indexed remains PARTIAL on both, so acceptance parity is not met. On
+the identical proof-52 hash, weighted PENDING fell from 48 on checker
+`818cab5a190f` to 30; the 18 cleared obligations were all `rewrite`. This is
+fixed-proof evidence, not cohort burn-down or a source-only causal claim.
+
 A current interactive `--sorted-core` diagnostic covered the three
 CommMonoid and eleven Math.Exp proof queries, using checker `b5e8cb065f06` and
 the pinned native libraries above. Its official per-query diagnostics total
@@ -252,6 +269,7 @@ or performance claim follows.
 | --- | --- | --- | ---: | ---: | ---: |
 | QF_LIA frozen ring, one document | Same checker `421406127c03`, lattice evidence erased → typed | `arith/lp-integer-lattice` | 18 | 18 | 0 |
 | Same QF_LIA document | Typed-evidence result | `intro-def` | 4 | 0 | 4 |
+| QF_LIA frozen proof 52, fixed document | `818cab5a190f` → current-source `a76daae251fa` | all rules, weighted PENDING | 48 | 18 | 30 |
 | smtlib-sample, 11 fixed proofs | `a0ca7df92173` → `79de3a41dcdb` | `apply-def` | 80 | 80 | 0 |
 | smtlib-sample, 11 fixed proofs | `79de3a41dcdb` → `2671dc150931` | `rewrite` | 43 | 7 | 36 |
 | smtlib-sample, two frozen QF_LIA ring proofs | Prior Definition control → current sorted Core | all rules, weighted PENDING | 44 | 40 | 4 |
@@ -278,7 +296,7 @@ This is a fixed-document comparison across different checker modes, not an
 isolated source delta or cohort burn-down. The remaining proof-51 definitions
 are conditional fresh-integer definitions, not Farkas or NNF obligations.
 
-The current checker pin is `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875`;
+The earlier fixed-document checker pin is `2d086fe27e764778b335f6a3706228769ac81e35e7ab715c1cbc6a432601d875`;
 the earlier Definition and Legacy pins are
 `b8f6e0763cbc86b2474cf2ce6b39aa4fe538c5d0cf534422605c78a41ac8ada1` and
 `9d590c3d12a50c49798a07a52a61d477971048d28a542845704e3f4a00d1b949`.
@@ -322,6 +340,7 @@ overlapping candidate effects must not be added.
 
 | Time (PST) | Change / scope | Measured effect | Evidence |
 | --- | --- | --- | --- |
+| Nov 21 07:49 | Re-run paired QF_LIA ring controls on current PR source | On identical proof hashes, proof 52 falls 48 → 30 weighted PENDING, clearing all 18 `rewrite` obligations; both proofs still PARTIAL from `intro-def`. Five-pair medians: proof 51 sorted/Legacy 0.036309/0.017596s; proof 52 0.464344/0.830512s. Current sorted accepts 0/2 vs. Legacy 2/2; no parity or cohort claim | Proofs `000797dfef56`, `0ff8d8b000f3`; source `a76daae251fa`; `Z3SortedProof.cmx` `bc87a39b7f3e`; helper `a1528c55da5e` |
 | Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample: 83/225 ACCEPT, 5,907 PENDING across 186 diagnostics; extended: 74/285 ACCEPT, 31,516 PENDING across 209 diagnostics. Not comparable to the prior Core run; no proof hashes, matched-proof burn-down, current-source, or Legacy-parity claim | `periodic-smtlib-20261121T120903Z/smtlib-sample/report.md`, `periodic-smtlib-20261121T120903Z/smtlib-extended/report.md`; checker `6eb16f0b187e`; manifests `72cba03d2816`, `6f6ad04db40a` |
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Checker `d52b5df5e` retained Legacy ACCEPT 2/2 and sort-indexed ACCEPT 1/2; current medians are 6.32x and 8.25x slower than Legacy. Confirms the same-pin dispatch-order speedup; no cohort burn-down or parity | `pr-head-control-replay.log`; checker `1c7b0f43`; `libz3.a` `6e4e68e1`; fixed proof hashes unchanged |
 | Nov 21 03:11 | Defer integer-product fallback behind cheaper consequence checks | On identical frozen proof 51, sort-indexed median fell 2,258.694 → 367.665 ms (6.14x within-checker speedup), but remained 6.39x slower than Legacy and PARTIAL 4. Proof 52 remained ACCEPT and unchanged against the preceding checker (29.093 ms; 8.24x slower than Legacy); no cohort burn-down or parity | `integer-product-frozen-replay.log` → `integer-product-reorder-frozen-replay.log`; checker `e6f6e04e` → `1db30488`; same proof hashes and native-library pins |
@@ -331,7 +350,6 @@ overlapping candidate effects must not be added.
 | Nov 20 19:37 | Pair exact-current-source conditional apply-def controls | On seven of the 11 frozen captures, five alternating pairs: sum of per-capture medians 51.576s sorted vs. 19.240s Legacy (2.68x); sorted slower on all seven. Full 11-capture control remains 1 ACCEPT / 10 PARTIAL and 840 weighted PENDING vs. Legacy 11/11 ACCEPT; apply-def itself has zero PENDING. No cohort burn-down or promotion | `conditional-current-source-control-03.json`; checker SHA-256 `818cab5a190fe340fa7c75ade37b78ecfa7681878d6fdad0715656dab24aea13` |
 | Nov 20 18:17 | Attribute exact QF_LIA ring obligations | PARTIAL 4 / 48 persisted at 0.0296s / 4.6018s in one diagnostic run. All 18 `rewrite` nodes pass Legacy local dispatch (`conditional` on all; one also arithmetic and theory-normalize); the 4 / 30 `intro-def` nodes fail the local DR/TN checks. This is obligation-level evidence only, not a Legacy document verdict, soundness proof, cohort burn-down, or current-PR result | `qflia-legacy-rule-attribution-20261121T0217Z.json`; `fstar/Z3UnifiedProof.fst:73-114`; `fstar/Z3SortedProof.fst:3209-3248` |
 | Nov 20 17:48 | Pair Legacy and sort-indexed QF_LIA ring checks | On identical frozen documents, Legacy ACCEPTed both 5/5; sort-indexed stayed PARTIAL 4 and 48 (34 `intro-def`, 18 `rewrite`). Median times 0.028/0.047s and 4.569/0.775s, respectively; sort-indexed is 5.9x slower on the larger proof. Not matched to cohort proof hashes or current PR-source timing; no Farkas PENDING or producer conclusion | `qflia-legacy-matched-replay-20261121T014813Z.json`, `current-qflia-farkas-trace-20261120.json`; current integer-certificate path: `src/math/lp/lar_solver.cpp:2544-2550`, `src/math/lp/evidence.cpp:513-538`, `fstar/Z3UnifiedProof.fst:265-276` |
-| Nov 20 17:26 | Complete exact-PR-source conditional apply-def control | On the same 11 frozen proofs: 1 ACCEPT / 10 PARTIAL, 840 weighted PENDING, zero `apply-def` PENDING; Legacy accepts 11/11, so root parity is not met. Strict 167-module F* verification and the focused native control passed; no exact-source paired timing | `conditional-current-pr-sample-20261120T2020Z.json`, `conditional-current-source-control-02.json`, `conditional-sample-01.json`, `conditional-sample-timing-01.json` |
 
 ## Validation and active cadence
 
