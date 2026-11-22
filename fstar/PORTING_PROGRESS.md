@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T18:34:53-08:00**.
+Updated: **2026-11-21T18:59:28-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -79,6 +79,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 21 18:59 | Pair trace-06 QF_LIA ring proof with Legacy | On identical capture, trace checker PENDING 46 vs Legacy 18; both leave 18 lattice obligations, while the trace checker has 28 additional definition/rewrite obligations. Legacy accepts all 252 serialized Farkas entries; producer records 33 Farkas hints, 1 bound, and 0 pending `th-lemma`. The earlier 15-unsupported capture differs, so no producer-version delta is inferred; trace build is not latest PR HEAD. |
 | Nov 21 18:21 | Add bounded Boolean search to sorted rewrite; measure pinned cohorts | Sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 28,404 PENDING. Relative to the retained Definition capture, +27/+4 ACCEPT and -2,071/-3,097 PENDING by saved totals; extended PENDING differs by 15 from the older dashboard. Proof hashes are absent, so not matched-proof burn-down. |
 | Nov 21 13:31 | Run current Definition+Array checker on both pinned SMT-LIB cohorts | Sample 139/225 ACCEPT and 471 PENDING; extended 77/285 ACCEPT and 29,457 PENDING. Relative to the prior Definition capture: sample +56 ACCEPT, extended +3; proofs are not hash-matched, so no burn-down or Legacy-parity claim. |
 | Nov 21 08:26 | Pair current-source SMT-LIB sample timing controls | Sorted accepted 1/11 vs Legacy 11/11; summed medians 89.838s vs 18.253s (4.92x slower), sorted slower on 10/11. |
@@ -88,7 +89,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 03:11 | Defer `integer_product` behind cheaper consequence checks | Fixed proof 51 fell 2,258.694→367.665 ms (6.14x within-checker speedup); still PARTIAL and slower than Legacy. |
 | Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample 4,020 PENDING; extended 31,262 (proof hashes absent). Earlier fixed-control timing was 88.699s sorted vs 26.251s Legacy (3.38x); strict F* array closure passed. |
 | Nov 20 22:25 | Correct SMT-LIB mode attribution | No metric change: checker `b5e8cb065f06` used `--sorted-core`, so the capture was Core, not Definition. |
-| Nov 20 21:17 | Replay sorted Core on identical QF_LIA sample proofs | Sorted accepted 1/2 vs Legacy 2/2; PENDING fell 44→4 against a different-mode control, so not source-only burn-down. |
 
 ## Validation and cadence
 
@@ -106,3 +106,39 @@ The separate parity/performance schedule has been updated to prioritize
 smtlib-sample and legacy-method parity. Preserve `N/M` for unobserved evidence,
 serialize native runs with `files\current-corpus.lock`, and claim burn-down only
 for identical fixed proof documents.
+
+## QF_LIA ring: producer and checker evidence
+
+The pinned ring input SHA-256 is
+`bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`. On the
+trace-06 capture (`c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb`),
+the instrumented native producer recorded 33 Farkas hints, one bound hint, and
+zero pending `th-lemma` hints. The same run's checker diagnostic was PARTIAL 46:
+18 `arith/lp-integer-lattice`, 4 `intro-def`, 4 `apply-def`, and 20 `rewrite`.
+No producer fallback trace events were recorded.
+
+Legacy replayed that exact capture as PARTIAL 18: all 252 serialized
+`arith/farkas` entries were accepted, while the same 18 integer-lattice
+obligations remained pending. Thus the 28-obligation matched gap on this proof
+is in definitions and rewrites, not Farkas checking. The trace-06 checker
+executable SHA-256 is `d3c61e8abd8458e171a26bcaa30805fb7fc8386760e3e2f49df34a8684bc6388`;
+its instrumented C++ source SHA-256 is
+`4da9870f0c3e28ed6d462fab0f54492620f06df8f5fd24d289cd4e746c731c02`.
+This is a matched replay for the trace-06 build, not a result for the latest
+PR-head checker.
+
+An earlier capture of the same input (`1e9b4745f1c67b6eb8480d652208f946b5564581ac9676b92f25ef8ae80256f7`)
+is a different proof document. It contains 15 `arith unsupported` lemmas and
+was PARTIAL 43 under its capture checker, while Legacy accepts that document.
+This confirms that the older proof supplied no Farkas certificate for those
+lemmas and that Legacy's acceptance is not evidence that such a certificate
+was checked: `proof_checker.cpp` returns true for bare `arith` and non-`farkas`
+hints (lines 1448-1468). Because the capture hashes differ, this is not a
+producer-version delta. No producer change is justified by the trace-06 proof;
+the evidence points instead to integer-lattice support and the independent
+checker's definition/rewrite gap.
+
+The trace and exact Legacy replay are retained as
+`files\ring-producer-trace-06.json` and
+`files\ring-producer06-legacy-replay.json`. The separate cohort table above is
+unchanged; these ring observations are not cohort totals.
