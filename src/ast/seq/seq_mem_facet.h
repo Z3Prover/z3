@@ -66,14 +66,17 @@ namespace seq {
         expr_ref_vector      m_str;
         view                 m_view;
         eq_tree::dep_tracker m_dep = nullptr;
+        proof_ref            m_proof;
         bool                 m_active = true;
 
-        str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(m), m_view(v), m_dep(dep) {
+        str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_str(m), m_view(v), m_dep(dep), m_proof(pr, m) {
             seq_util(m).str.get_concat_units(s, m_str);
         }
-        str_mem(ast_manager& m, expr_ref_vector const& ts, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(ts), m_view(v), m_dep(dep) {}
+        str_mem(ast_manager& m, expr_ref_vector const& ts, view const& v, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_str(ts), m_view(v), m_dep(dep), m_proof(pr, m) {}
+
+        expr_ref fact(seq_util& u) const;
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
@@ -82,7 +85,7 @@ namespace seq {
         // -- stx::constraint_i (unsat-cache identity) --
         // Identity is (token list, view): the same string term driving
         // the same (state,target) automaton view. `clone()` intentionally
-        // drops `m_dep`/`m_active` - see stx::constraint_i's class
+        // drops `m_dep`/`m_proof`/`m_active` - see stx::constraint_i's class
         // comment - and recovers the ast_manager it needs from
         // `m_str`'s own ref-vector (str_mem itself holds no separate
         // `ast_manager&` member).
@@ -119,6 +122,7 @@ namespace seq {
                   ambient_context_i<eq_tree::dep_tracker>& ac) :
             facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw),
             m_vw(trail, rw, m_live, transition_mode::brzozowski_tm), m_witness_pin(m), m_ac(ac) {
+            m_dm.set_manager(m);
             m_vw.set_checkpoint([this]() {
                 if (!this->m.limit().inc())
                     return view_failure_reason::resource;
@@ -168,9 +172,12 @@ namespace seq {
         // same lifetime as the model being built).
         void get_witness_model(obj_map<expr, expr*>& subst, expr_ref_vector& pin) const;
 
-        void add(str_mem const& sm);
-        void remove(unsigned idx);
-        void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
+        // Appended replacements trail their proof with the entry; removal keeps
+        // the inactive fact's proof and emits a named discharge into the rule log.
+        void add(str_mem const& sm, symbol const& rule = symbol("seq-mem-add"));
+        void remove(unsigned idx, symbol const& rule = symbol("seq-mem-discharge"));
+        void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr,
+                     symbol const& rule = symbol("seq-mem-replace"));
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         stx::facet_i* clone(trail_stack& trail) const override;

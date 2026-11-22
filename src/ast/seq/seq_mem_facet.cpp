@@ -294,30 +294,49 @@ namespace seq {
         m_bounds_qhead = head;
     }
 
-    void mem_facet::add(str_mem const& sm) {
-        m_mems.push_back(sm);
+    expr_ref str_mem::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        sort* s = nullptr;
+        VERIFY(u.is_re(m_view.m_state->get_sort(), s));
+        expr_ref word(u.str.mk_concat(m_str, s), m);
+        if (is_plain())
+            return expr_ref(u.re.mk_in_re(word, m_view.m_state), m);
+        // Reach is a relation between two exact automaton states, not L(state).
+        expr* args[] = { word.get(), m_view.m_state.get(), m_view.m_target.get() };
+        return expr_ref(u.mk_skolem(symbol("seq.reach"), 3, args, m.mk_bool_sort()), m);
+    }
+
+    void mem_facet::add(str_mem const& sm, symbol const& rule) {
+        str_mem added(sm);
+        if (m_dm.proofs_enabled() && !added.m_proof)
+            added.m_proof = m_dm.mk_proof(rule, added.fact(u));
+        m_mems.push_back(added);
         m_trail.push(push_back_trail<str_mem>(m_mems));
-        if (is_single_var_plain(sm))
-            m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
+        if (is_single_var_plain(added))
+            m_vw.add(added.m_str.get(0), added.m_view, added.m_dep);
         if (m_witness_extracted)
             set_witness_extracted(false);
     }
 
-    void mem_facet::remove(unsigned idx) {
+    void mem_facet::remove(unsigned idx, symbol const& rule) {
         SASSERT(idx < m_mems.size());
+        if (m_dm.proofs_enabled() && m_mems[idx].active())
+            m_dm.mk_proof(rule, m.mk_true(), { m_mems[idx].m_proof.get() });
         m_trail.push(vector_field_trail<str_mem, bool>(m_mems, idx, &str_mem::m_active));
         m_mems[idx].m_active = false;
     }
 
-    void mem_facet::replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep) {
+    void mem_facet::replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep, symbol const& rule) {
         SASSERT(idx < m_mems.size());
         str_mem const& sm = m_mems[idx];
         if (!sm.active())
             return;
-        view v = sm.m_view;
         eq_tree::dep_tracker new_dep = m_dm.mk_join(sm.m_dep, dep);
-        remove(idx);
-        add(str_mem(m, new_str, v, new_dep));
+        str_mem replacement(m, new_str, sm.m_view, new_dep);
+        if (m_dm.proofs_enabled())
+            replacement.m_proof = m_dm.mk_proof(rule, replacement.fact(u), { sm.m_proof.get() });
+        remove(idx, rule);
+        add(replacement, rule);
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
@@ -335,10 +354,13 @@ namespace seq {
                 continue;
             expr_ref_vector new_str(sm.m_str);
             subst_in(new_str, var, repl);
-            view v = sm.m_view;
             eq_tree::dep_tracker dep = m_dm.mk_join(sm.m_dep, subst_dep);
-            remove(i);
-            add(str_mem(m, new_str, v, dep));
+            str_mem replacement(m, new_str, sm.m_view, dep);
+            if (m_dm.proofs_enabled())
+                replacement.m_proof = m_dm.mk_proof(symbol("seq-mem-substitute"), replacement.fact(u),
+                                                   { sm.m_proof.get(), m_dm.substitution_proof() });
+            remove(i, symbol("seq-mem-substitute"));
+            add(replacement, symbol("seq-mem-substitute"));
         }
     }
 
@@ -543,7 +565,7 @@ namespace seq {
             if (!sf.value(len_expr, k) || !k.is_unsigned())
                 continue;
             expr_ref len_eq(m.mk_eq(len_expr, au.mk_int(k)), m);
-            eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context());
+            eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context(), nullptr, symbol("seq-mem-model-length"));
             m_mon.add_len(v, k.get_unsigned(), static_cast<void*>(cond_dep));
         }
         lbool result = m_mon.check();
@@ -616,7 +638,7 @@ namespace seq {
                     expr_ref sum(a.mk_add(len_left, len_right), m);
                     expr_ref positive(a.mk_gt(sum, a.mk_int(0)), m);
                     auto dep = f.dm().mk_join(d.m_dep, f.dm().mk_join(left_dep, right_dep));
-                    sf.add_constraint(positive, dep);
+                    sf.add_constraint(positive, dep, d.m_proof.get(), symbol("seq-mem-disjoint-letter-length"));
                     df.remove_disequation_trailed(i);
                     changed = true;
                     continue;
@@ -646,7 +668,11 @@ namespace seq {
                 expr_ref literal(u.str.mk_string(zstring(characters.size(), characters.data())), m);
                 expr_ref re(u.re.mk_to_re(literal), m);
                 re = u.re.mk_complement(re);
-                f.add(str_mem(m, *variable, view::membership(re, m), d.m_dep));
+                str_mem derived(m, *variable, view::membership(re, m), d.m_dep);
+                if (f.dm().proofs_enabled())
+                    derived.m_proof = f.dm().mk_proof(symbol("seq-mem-exclude-literal"), derived.fact(u),
+                                                    { d.m_proof.get() });
+                f.add(derived, symbol("seq-mem-exclude-literal"));
                 df.remove_disequation_trailed(i);
                 changed = true;
             }
@@ -671,10 +697,14 @@ namespace seq {
                     expr_ref tok_len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
                     len_str = a.mk_add(len_str, tok_len);
                 }
-                if (lo > 0)
-                    sf.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
-                if (hi < UINT_MAX)
-                    sf.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
+                if (lo > 0) {
+                    expr_ref bound(a.mk_ge(len_str, a.mk_int(lo)), m);
+                    sf.add_constraint(bound, sm.m_dep, sm.m_proof.get(), symbol("seq-mem-min-length"));
+                }
+                if (hi < UINT_MAX) {
+                    expr_ref bound(a.mk_le(len_str, a.mk_int(hi)), m);
+                    sf.add_constraint(bound, sm.m_dep, sm.m_proof.get(), symbol("seq-mem-max-length"));
+                }
             }
             sort* seq_sort = nullptr;
             VERIFY(u.is_re(sm.m_view.m_state->get_sort(), seq_sort));
@@ -689,8 +719,10 @@ namespace seq {
                 for (expr* e : lemmas) {
                     expr_ref lemma(e, m);
                     m_th_rw(lemma);
-                    if (!m.is_true(lemma) && sf.add_constraint(lemma, sm.m_dep))
-                        ++m_stats.m_num_length_axioms;
+                    if (!m.is_true(lemma)) {
+                        if (sf.add_constraint(lemma, sm.m_dep, sm.m_proof.get(), symbol("seq-mem-length-set")))
+                            ++m_stats.m_num_length_axioms;
+                    }
                 }
             }
         }
@@ -745,7 +777,7 @@ namespace seq {
                     return stx::simplify_result::conflict;
                 }
                 if (accepted == l_true) {
-                    f.remove(i);
+                    f.remove(i, symbol("seq-mem-ground-accept"));
                     changed = true;
                     continue;
                 }
@@ -799,13 +831,13 @@ namespace seq {
                     return stx::simplify_result::conflict;
                 }
                 if (m_rw.m().is_true(nb)) {
-                    f.remove(i);
+                    f.remove(i, symbol("seq-mem-nullable"));
                     changed = true;
                     continue;
                 }
-                ac.solver_facet_ref().add_constraint(nb, sm.m_dep);
-                ac.assumption_facet_ref().add_assumption(nb, ac.context());
-                f.remove(i);
+                ac.solver_facet_ref().add_constraint(nb, sm.m_dep, sm.m_proof.get(), symbol("seq-mem-nullable"));
+                ac.assumption_facet_ref().add_assumption(nb, ac.context(), sm.m_proof.get(), symbol("seq-mem-nullable"));
+                f.remove(i, symbol("seq-mem-nullable"));
                 changed = true;
                 continue;
             }
@@ -937,7 +969,8 @@ namespace seq {
                         changed = true;
                         vw.shrink(num_views);
                         for (auto const& req : lens) {
-                            eq_tree::dep_tracker dep = ac.assumption_facet_ref().add_assumption(mk_len_eq(req), ac.context());
+                            eq_tree::dep_tracker dep = ac.assumption_facet_ref().add_assumption(
+                                mk_len_eq(req), ac.context(), nullptr, symbol("seq-mem-model-length"));
                             vw.add(req.v, view::membership(mk_exact_len(req), m), static_cast<void*>(dep));
                         }
                         num_views = vw.size(); // drop_guesses must keep the trailed views
@@ -1027,8 +1060,12 @@ namespace seq {
         if (m_fwd) { repl.append(base); repl.push_back(nested_pow.get()); }
         else       { repl.push_back(nested_pow.get()); repl.append(base); }
 
-        broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
+        expr_ref condition(a.mk_ge(p.m_n, a.mk_int(1)), m);
+        proof_ref choice(m);
+        if (mf.dm().proofs_enabled())
+            choice = mf.dm().mk_proof(symbol("seq-mem-power-positive-split"), condition);
+        broadcast_subst(m_n, p.m_e, repl, m_dep, p.m_proof.get(), symbol("seq-mem-power-peel"));
+        ac.solver_facet_ref().add_constraint(condition, m_dep, choice.get(), symbol("seq-mem-power-positive-split"));
 
         out = eq_tree::edge("power-peel-mem:n>=1", m_dep, false, 0);
         return true;
@@ -1052,8 +1089,12 @@ namespace seq {
 
         // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon
         expr_ref_vector empty(m);
-        broadcast_subst(n, p.m_e, empty, dep);
-        ac.solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);
+        expr_ref condition(a.mk_le(p.m_n, a.mk_int(0)), m);
+        proof_ref choice(m);
+        if (mf.dm().proofs_enabled())
+            choice = mf.dm().mk_proof(symbol("seq-mem-power-empty-split"), condition);
+        broadcast_subst(n, p.m_e, empty, dep, p.m_proof.get(), symbol("seq-mem-power-empty"));
+        ac.solver_facet_ref().add_constraint(condition, dep, choice.get(), symbol("seq-mem-power-empty-split"));
 
         iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);
         out = eq_tree::edge("power-peel-mem:n<=0", dep, true, 0);
@@ -1246,14 +1287,16 @@ namespace seq {
                 expr_ref pos(a.mk_int(rhs.size()), m);
                 expr_ref k(ac.mk_fresh_var("word-template-n", a.mk_int(), { x, sm.m_view.m_state, pos }), m);
                 expr_ref power(u.str.mk_power(word, k), m);
-                sf.add_constraint(a.mk_ge(k, a.mk_int(0)), sm.m_dep);
+                sf.add_constraint(a.mk_ge(k, a.mk_int(0)), sm.m_dep, sm.m_proof.get(), symbol("seq-mem-word-template-lower"));
                 if (p.hi != UINT_MAX)
-                    sf.add_constraint(a.mk_le(k, a.mk_int(rational(p.hi - p.lo))), sm.m_dep);
+                    sf.add_constraint(a.mk_le(k, a.mk_int(rational(p.hi - p.lo))), sm.m_dep,
+                                      sm.m_proof.get(), symbol("seq-mem-word-template-upper"));
                 pf.add_power(power, word, k, sm.m_dep);
                 rhs.push_back(power);
             }
-            mf.remove(i);
-            ef.add_equation(expr_ref_vector(m, 1, &x), rhs, sm.m_dep);
+            expr_ref_vector lhs(m, 1, &x);
+            mf.remove(i, symbol("seq-mem-word-template"));
+            ef.add_equation(lhs, rhs, sm.m_dep, sm.m_proof.get(), symbol("seq-mem-word-template"));
             m_stats.m_num_rewrites++;
             changed = true;
         }
@@ -1269,10 +1312,18 @@ namespace seq {
         ast_manager& m = m_ch.get_manager();
         var_subst sub(m);
         auto ac = get_ambient(m_n);
-        ac.add_assumption(sub(guard, m_ch), m_dep);
         auto& mf = ac.mem_facet_ref();
-        mf.remove(m_idx);
-        mf.add(str_mem(m, m_rest, view(target, m_target, m), m_dep));
+        expr_ref condition(sub(guard, m_ch), m);
+        proof_ref choice(m);
+        if (mf.dm().proofs_enabled())
+            choice = mf.dm().mk_proof(symbol("seq-mem-char-split"), condition);
+        ac.add_assumption(condition, m_dep, choice.get(), symbol("seq-mem-char-split"));
+        str_mem derived(m, m_rest, view(target, m_target, m), m_dep);
+        if (mf.dm().proofs_enabled())
+            derived.m_proof = mf.dm().mk_proof(symbol("seq-mem-derivative"), derived.fact(mf.get_seq_util()),
+                                             { mf.memberships()[m_idx].m_proof.get() });
+        mf.remove(m_idx, symbol("seq-mem-derivative"));
+        mf.add(derived, symbol("seq-mem-derivative"));
         out = eq_tree::edge("mem-char", m_dep, true, 0);
         return true;
     }
@@ -1572,11 +1623,11 @@ namespace seq {
             return false;
         auto ac = get_ambient(m_n);
         auto& mf = ac.mem_facet_ref();
-        mf.remove(m_mem_idx);
+        mf.remove(m_mem_idx, symbol("seq-mem-split"));
         for (auto const& e : br) {
             expr_ref_vector ts(m);
             ts.push_back(e.var.get());
-            mf.add(str_mem(m, ts, e.m_view, m_dep));
+            mf.add(str_mem(m, ts, e.m_view, m_dep), symbol("seq-mem-split"));
         }
         out = eq_tree::edge("mem-monadic", m_dep, false, 0);
         return true;
@@ -1819,8 +1870,8 @@ namespace seq {
                 seen.mark(var);
                 expr_ref length(u.str.mk_length(var), m);
                 expr_ref bound(sf.get_arith_util().mk_le(length, sf.get_arith_util().mk_int(16)), m);
-                auto bound_dep = af.add_assumption(bound, ac.context());
-                sf.add_constraint(bound, bound_dep);
+                auto bound_dep = af.add_assumption(bound, ac.context(), nullptr, symbol("seq-mem-short-witness-split"));
+                sf.add_constraint(bound, bound_dep, nullptr, symbol("seq-mem-short-witness-split"));
                 dep = mf.dm().mk_join(dep, bound_dep);
             }
             mf.prefer_short_witness(false);
@@ -1856,8 +1907,12 @@ namespace seq {
         // Child A: pin every variable to its witness word via a fresh
         // equation.
         auto& ef = ac.eq_facet_ref();
-        for (auto const& entry : witnesses.sub())
-            ef.add_equation(&entry.get_key(), entry.get_value(), dep);
+        for (auto const& entry : witnesses.sub()) {
+            expr* var = &entry.get_key();
+            expr_ref_vector lhs(m, 1, &var), rhs(m);
+            u.str.get_concat_units(entry.get_value(), rhs);
+            ef.add_equation(lhs, rhs, dep, nullptr, symbol("seq-mem-witness-split"));
+        }
         out = eq_tree::edge("mem-leaf", dep, true, cost);
         committed = true;
         m_stats.m_num_committed++;
@@ -1875,7 +1930,7 @@ namespace seq {
         unsigned head = mf.bounds_qhead();
         unsigned end = mf.memberships().size();
         while (head < end) {
-            str_mem const& sm = mf.memberships()[head++];
+            str_mem sm = mf.memberships()[head++];
             if (!sm.active())
                 continue;
             for (expr* var : sm.m_str) {
@@ -1918,7 +1973,11 @@ namespace seq {
                 if (has_hi)
                     dep = mf.dm().mk_join(dep, hi_dep);
 
-                mf.add(str_mem(m, var, view::membership(state, m), dep));
+                str_mem derived(m, var, view::membership(state, m), dep);
+                if (mf.dm().proofs_enabled())
+                    derived.m_proof = mf.dm().mk_proof(symbol("seq-mem-length-bounds"), derived.fact(u),
+                                                     { sm.m_proof.get() });
+                mf.add(derived, symbol("seq-mem-length-bounds"));
                 // `m_done` is a plugin-local, whole-search cache (variable
                 // identity is global), so it is unwound with the shared
                 // trail.

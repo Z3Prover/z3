@@ -60,14 +60,17 @@ Author:
 
 namespace seq {
 
-    // One pending lexicographic-order obligation over token vectors.
+    // One pending lexicographic-order obligation over token vectors,
+    // with a derivation of the current comparison (not the original sides).
     struct str_lex {
         expr_ref_vector      m_lhs;
         expr_ref_vector      m_rhs;
         bool                 m_strict;
         eq_tree::dep_tracker m_dep;
-        str_lex(expr_ref_vector const& lhs, expr_ref_vector const& rhs, bool strict, eq_tree::dep_tracker dep = nullptr) :
-            m_lhs(lhs), m_rhs(rhs), m_strict(strict), m_dep(dep) {}
+        proof_ref            m_proof;
+        str_lex(expr_ref_vector const& lhs, expr_ref_vector const& rhs, bool strict, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_lhs(lhs), m_rhs(rhs), m_strict(strict), m_dep(dep), m_proof(pr, lhs.get_manager()) {}
+        expr_ref fact(seq_util& u) const;
     };
 
     /**
@@ -89,6 +92,7 @@ namespace seq {
         unsigned m_deq_qhead = 0;
         // Dependency for each merge/diseq registered into m_g.
         vector<eq_tree::dep_tracker> m_reasons;
+        vector<proof_ref> m_reason_proofs;
 
     public:
         lex_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm);
@@ -98,22 +102,22 @@ namespace seq {
         eq_tree::dep_manager_t& dm() const { return m_dm; }
 
         // Trailed lexicographic-obligation insertion.
-        void add_lex(expr_ref_vector const& lhs, expr_ref_vector const& rhs, bool strict, eq_tree::dep_tracker dep = nullptr) {
-            m_lexs.push_back(str_lex(lhs, rhs, strict, dep));
+        void add_lex(expr_ref_vector const& lhs, expr_ref_vector const& rhs, bool strict, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr, symbol rule = symbol("lex-input")) {
+            str_lex lx(lhs, rhs, strict, dep, pr);
+            if (!pr && m_dm.proofs_enabled())
+                lx.m_proof = m_dm.mk_proof(rule, lx.fact(u));
+            m_lexs.push_back(lx);
             m_trail.push(push_back_trail<str_lex>(m_lexs));
         }
 
         vector<str_lex> const& lexs() const { return m_lexs; }
 
         // Overwrite entry idx's (lhs,rhs) pair. Trailed.
-        void set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs);
+        void set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs, symbol rule = symbol("lex-cancel-prefix"), proof* pr = nullptr);
 
         // Trailed removal of the obligation at `idx` (discharged: proved
         // to hold, so no longer pending).
-        void remove(unsigned idx) {
-            m_trail.push(vector_erase_trail<str_lex>(m_lexs, idx));
-            m_lexs.erase(m_lexs.begin() + idx);
-        }
+        void remove(unsigned idx, symbol rule = symbol("lex-discharge"), proof* pr = nullptr);
 
         // Apply a broadcast substitution to every pending obligation.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
@@ -170,12 +174,13 @@ namespace seq {
             eq_tree::node& m_n;
             expr_ref_vector m_lhs, m_rhs;
             eq_tree::dep_tracker m_dep;
+            proof_ref m_proof;
             ast_manager& m;
             seq_util& u;
             unsigned m_next_case = 0;
         public:
             iterator(eq_tree::node& n, str_lex const& lx, ast_manager& m, seq_util& u) :
-                m_n(n), m_lhs(lx.m_lhs), m_rhs(lx.m_rhs), m_dep(lx.m_dep), m(m), u(u) {}
+                m_n(n), m_lhs(lx.m_lhs), m_rhs(lx.m_rhs), m_dep(lx.m_dep), m_proof(lx.m_proof), m(m), u(u) {}
             bool next(eq_tree::edge& out) override;
         };
 

@@ -46,7 +46,12 @@ namespace seq {
     }
 
     void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-        m_subst.push_back(subst_entry(m, var, repl, subst_dep));
+        proof_ref substitution(m_dm.substitution_proof(), m);
+        if (m_dm.proofs_enabled() && !substitution) {
+            expr_ref fact = substitution_fact(u, var, repl);
+            substitution = m_dm.mk_proof(symbol("seq-substitute"), fact);
+        }
+        m_subst.push_back(subst_entry(m, var, repl, subst_dep, substitution));
         m_trail.push(push_back_trail<subst_entry>(m_subst));
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             if (!m_eqs[i].active())
@@ -57,6 +62,8 @@ namespace seq {
                 m_trail.push(vector_field_trail<equation, eq_tree::dep_tracker>(m_eqs, i, &equation::m_dep));
                 m_eqs[i].m_dep = m_dm.mk_join(m_eqs[i].m_dep, subst_dep);
             }
+            if (touched_l || touched_r)
+                update_proof(i, symbol("seq-eq-substitute"), substitution);
         }
     }
 
@@ -189,6 +196,7 @@ namespace seq {
     bool eq_facet::simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         eq_tree::dep_tracker parent_dep = eq.m_dep;
+        proof_ref parent_proof(eq.m_proof);
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
         sort* word_sort = !L.empty() ? L[0]->get_sort() : !R.empty() ? R[0]->get_sort() : nullptr;
@@ -198,6 +206,10 @@ namespace seq {
         expr_ref_pair_vector new_eqs(m);
         bool eq_changed = false;
         if (!m_rw.reduce_eq(L, R, new_eqs, eq_changed)) {
+            if (m_dm.proofs_enabled()) {
+                expr_ref fact(m.mk_false(), m);
+                m_dm.mk_proof(symbol("seq-eq-clash"), fact, {eq.m_proof});
+            }
             conflict = true;
             conflict_dep = eq.m_dep;
             return false;
@@ -210,6 +222,8 @@ namespace seq {
         m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_rhs));
         eq.m_lhs = std::move(L);
         eq.m_rhs = std::move(R);
+        if (eq_changed || !new_eqs.empty())
+            update_proof(idx, symbol("seq-eq-reduce"));
 
         // Only word equalities belong in the word-equation queue.
         // Use parent_dep because add_equation may invalidate `eq`.
@@ -250,7 +264,7 @@ namespace seq {
                         conflict_dep = m_dm.mk_join(eq_dep, false_dep);
                         return false;
                     }
-                    get_ambient(n).add_assumption(eq_expr, eq_dep);
+                    get_ambient(n).add_assumption(eq_expr, eq_dep, parent_proof, symbol("seq-eq-unit"));
                     if (element_eq) {
                         // Substitute whole unit tokens so other word equations
                         // and membership facets see the element equality.
@@ -260,12 +274,12 @@ namespace seq {
                             std::swap(from, to);
                         expr_ref_vector repl(m);
                         repl.push_back(to);
-                        broadcast_subst(n, from, repl, eq_dep);
+                        broadcast_subst(n, from, repl, eq_dep, parent_proof, symbol("seq-eq-unit"));
                     }
                 }
             }
             if (word_eq)
-                add_equation(lts, rts, eq_dep);
+                add_equation(lts, rts, eq_dep, parent_proof, symbol("seq-eq-factor"));
         }
 
         // If one side is empty, the other side must reduce to epsilon.
@@ -283,13 +297,12 @@ namespace seq {
                     return false;
                 }
                 expr_ref_vector empty_repl(m);
-                broadcast_subst(n, tok, empty_repl, eq_dep);
+                broadcast_subst(n, tok, empty_repl, eq_dep, cur.m_proof, symbol("seq-eq-empty"));
             }
         }
 
         if (cur.m_lhs.empty() && cur.m_rhs.empty()) {
-            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
-            m_eqs[idx].m_active = false;
+            remove_equation_trailed(idx);
         }
 
         // If x = t and x does not occur in t, substitute x := t.
@@ -301,7 +314,7 @@ namespace seq {
             expr_ref x(vs.get(0), m);
             if (any_of(def, [&](expr* t) { return occurs(x, t); }))
                 continue;
-            broadcast_subst(n, x, def, cur.m_dep);
+            broadcast_subst(n, x, def, cur.m_dep, cur.m_proof, symbol("seq-eq-solve"));
             changed = true;
             break;
         }
@@ -350,7 +363,7 @@ namespace seq {
                 // Different unit delimiters cannot occupy the same position.
                 expr_ref lx(u.str.mk_length(x), m), lp(u.str.mk_length(p), m);
                 expr_ref different(m.mk_not(m.mk_eq(lx, lp)), m);
-                if (sf.add_constraint(different, eq.m_dep)) {
+                if (sf.add_constraint(different, eq.m_dep, eq.m_proof, symbol("seq-eq-position"))) {
                     changed = true;
                     ++m_stats.m_num_positional_bounds;
                 }
@@ -370,7 +383,20 @@ namespace seq {
 
     // Broadcast a substitution to every subst_sink_i facet in the node so
     // token-based facets stay synchronized.
-    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep,
+                         proof* premise, symbol const& rule) {
+        auto ac = get_ambient(target);
+        auto& sf = ac.solver_facet_ref();
+        ast_manager& mgr = sf.get_arith_util().get_manager();
+        proof_manager* dm = sf.get_proof_manager();
+        proof_ref substitution(mgr);
+        if (dm && dm->proofs_enabled()) {
+            seq_util u(mgr);
+            expr_ref fact = substitution_fact(u, var, repl);
+            substitution = premise ? dm->mk_proof(rule, fact, {premise}) : dm->mk_proof(rule, fact);
+        }
+        proof* no_substitution = nullptr;
+        flet<proof*> scoped_substitution(dm ? dm->substitution_proof_ref() : no_substitution, substitution.get());
         for (unsigned id = 0; id < target.num_facets(); ++id) {
             if (!target.has_facet(id))
                 continue;
@@ -379,24 +405,21 @@ namespace seq {
         }
         // Also assert the matching length equation for sequence-sorted
         // variables. Character-sorted substitutions have no len().
-        auto ac = get_ambient(target);
-        auto& sf = ac.solver_facet_ref();
-        ast_manager& mgr = sf.get_arith_util().get_manager();
         if (var->get_sort()->get_family_id() != mgr.mk_family_id("seq"))
             return;
         expr_ref_vector lhs(mgr);
         lhs.push_back(var);
-        sf.add_length_constraint(lhs, repl, subst_dep);
+        sf.add_length_constraint(lhs, repl, subst_dep, substitution);
     }
 
     bool word_eq_split::iterator::next(eq_tree::edge& out) {
         if (m_pos >= m_pending.size())
             return false;
         auto& a = m_pending[m_pos++];
-        broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);
+        broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep, nullptr, symbol(a.m_name));
         if (a.m_guard.get()) {
             auto ac = get_ambient(m_n);
-            ac.solver_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);
+            ac.solver_facet_ref().add_constraint(a.m_guard.get(), a.m_dep, nullptr, symbol(a.m_name));
         }
         out = eq_tree::edge(a.m_name, a.m_dep, a.m_progress, 0);
         return true;
@@ -510,6 +533,7 @@ namespace seq {
                     if (lch == rch)
                         continue;
                     eq_tree::dep_tracker eq_dep = eq.m_dep;
+                    proof_ref eq_proof(eq.m_proof, m);
                     // If the implied character equality is already false
                     // in the ambient context, report a conflict instead
                     // of substituting.
@@ -526,11 +550,11 @@ namespace seq {
                     expr* val_tok = elim_lh ? rh : lh;
                     expr_ref_vector repl(m);
                     repl.push_back(val_tok);
-                    broadcast_subst(n, var_tok, repl, eq_dep);
+                    broadcast_subst(n, var_tok, repl, eq_dep, eq_proof, symbol("seq-eq-char"));
                     // Record the implied character equality alongside the
                     // substitution.
-                    ac.solver_facet_ref().add_constraint(eq_expr, eq_dep);
-                    ac.assumption_facet_ref().add_assumption(eq_expr, ac.context());
+                    ac.solver_facet_ref().add_constraint(eq_expr, eq_dep, eq_proof, symbol("seq-eq-char"));
+                    ac.assumption_facet_ref().add_assumption(eq_expr, ac.context(), eq_proof, symbol("seq-eq-char"));
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
                     m_stats.m_num_splits++;
@@ -658,10 +682,10 @@ namespace seq {
                     // Materialize the chosen first branch now, in the
                     // scope the driver already pushed for this call.
                     branch& first = br[order[0]];
-                    broadcast_subst(n, first.var, first.repl, eq_dep);
+                    broadcast_subst(n, first.var, first.repl, eq_dep, nullptr, symbol(first.name));
                     if (first.guard) {
                         auto gc = get_ambient(n);
-                        gc.solver_facet_ref().add_constraint(first.guard, eq_dep);
+                        gc.solver_facet_ref().add_constraint(first.guard, eq_dep, nullptr, symbol(first.name));
                     }
                     out = eq_tree::edge(first.name, eq_dep, first.progress, 0);
                     committed = true;
@@ -709,7 +733,7 @@ namespace seq {
 
                 // Materialize the first branch now in the caller's scope.
                 expr_ref_vector empty(m);
-                broadcast_subst(n, var, empty, eq_dep);
+                broadcast_subst(n, var, empty, eq_dep, nullptr, symbol("v:=eps"));
                 out = eq_tree::edge("v:=eps", eq_dep, true, 0);
                 committed = true;
                 m_stats.m_num_splits++;
@@ -935,6 +959,11 @@ namespace seq {
     // -- deq_facet --
 
     void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+        proof_ref substitution(m_dm.substitution_proof(), m);
+        if (m_dm.proofs_enabled() && !substitution) {
+            expr_ref fact = substitution_fact(u, var, repl);
+            substitution = m_dm.mk_proof(symbol("seq-substitute"), fact);
+        }
         for (unsigned i = 0; i < m_diseqs.size(); ++i) {
             if (!m_diseqs[i].active())
                 continue;
@@ -944,6 +973,8 @@ namespace seq {
                 m_trail.push(vector_field_trail<disequation, eq_tree::dep_tracker>(m_diseqs, i, &disequation::m_dep));
                 m_diseqs[i].m_dep = m_dm.mk_join(m_diseqs[i].m_dep, subst_dep);
             }
+            if (touched_l || touched_r)
+                update_proof(i, symbol("seq-deq-substitute"), substitution);
         }
     }
 
@@ -1006,8 +1037,7 @@ namespace seq {
                 expr_ref_pair_vector new_eqs(m);
                 bool eq_changed = false;
                 if (!m_rw.reduce_eq(eq_lhs, eq_rhs, new_eqs, eq_changed)) {
-                    m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, i, &disequation::m_active));
-                    m_diseqs[i].m_active = false;
+                    remove_disequation_trailed(i);
                     changed = true;
                     continue;
                 }
@@ -1030,10 +1060,15 @@ namespace seq {
                 m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_rhs));
                 L = std::move(newL);
                 R = std::move(newR);
+                update_proof(i, symbol("seq-deq-cancel"));
                 changed = true;
             }
 
             if (L.empty() && R.empty()) {
+                if (m_dm.proofs_enabled()) {
+                    expr_ref fact(m.mk_false(), m);
+                    m_dm.mk_proof(symbol("seq-deq-identical"), fact, {dq.m_proof});
+                }
                 // both sides forced identical: the disequation cannot hold.
                 conflict = true;
                 conflict_dep = dq.m_dep;
@@ -1047,8 +1082,7 @@ namespace seq {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
-                    m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, i, &disequation::m_active));
-                    m_diseqs[i].m_active = false;
+                    remove_disequation_trailed(i);
                     changed = true;
                     continue;
                 }
@@ -1092,6 +1126,7 @@ namespace seq {
                 if (side_changed) {
                     m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, side));
                     m_diseqs[i].*side = std::move(out);
+                    update_proof(i, symbol("seq-deq-merge-powers"));
                     changed = true;
                 }
             }
@@ -1139,7 +1174,7 @@ namespace seq {
             auto& a = sf.get_arith_util();
             expr_ref len = mk_side_len(u, a, m, dq.m_lhs.empty() ? dq.m_rhs : dq.m_lhs);
             expr_ref zero(a.mk_int(0), m);
-            sf.add_constraint(a.mk_gt(len, zero), dq.m_dep);
+            sf.add_constraint(a.mk_gt(len, zero), dq.m_dep, dq.m_proof, symbol("seq-deq-nonempty"));
             f.remove_disequation_trailed(i);
             changed = true;
         }
@@ -1171,8 +1206,10 @@ namespace seq {
             expr_ref_vector lhs(dq.m_lhs), rhs(dq.m_rhs);
             expr* a = nullptr, *b = nullptr;
             if (lhs.size() == 1 && rhs.size() == 1 && u.str.is_unit(lhs.get(0), a) && u.str.is_unit(rhs.get(0), b)) {
+                proof_ref dq_proof(dq.m_proof, m);
                 f.remove_disequation_trailed(idx);
-                ac.add_assumption(expr_ref(m.mk_not(m.mk_eq(a, b)), m), dq_dep);
+                expr_ref fact(m.mk_not(m.mk_eq(a, b)), m);
+                ac.add_assumption(fact, dq_dep, dq_proof, symbol("seq-deq-char"));
                 out = eq_tree::edge("diseq char", dq_dep, true, 0);
                 committed = true;
                 return nullptr;
@@ -1185,7 +1222,7 @@ namespace seq {
 
             // A strict length mismatch already proves the disequation.
             f.remove_disequation_trailed(idx);
-            sf.add_constraint(sf.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
+            sf.add_constraint(sf.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep, nullptr, symbol("seq-deq-length-less"));
             out = eq_tree::edge("diseq len<", dq_dep, true, 0);
             committed = true;
             m_stats.m_num_splits++;
@@ -1207,7 +1244,7 @@ namespace seq {
         if (this_case == 2) {
             // Symmetric length-mismatch branch.
             f.remove_disequation_trailed(m_diseq_idx);
-            sf.add_constraint(sf.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep);
+            sf.add_constraint(sf.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep, nullptr, symbol("seq-deq-length-greater"));
             out = eq_tree::edge("diseq len>", m_dep, true, 0);
             return true;
         }
@@ -1235,7 +1272,7 @@ namespace seq {
 
         expr_ref len_up(u.str.mk_length(up), m);
         expr_ref len_vp(u.str.mk_length(vp), m);
-        sf.add_constraint(m.mk_eq(len_up, len_vp), m_dep);
+        sf.add_constraint(m.mk_eq(len_up, len_vp), m_dep, nullptr, symbol("seq-deq-length-equal"));
 
         f.remove_disequation_trailed(m_diseq_idx);
         expr_ref_vector a_vec(m); a_vec.push_back(a_unit);
@@ -1526,7 +1563,8 @@ namespace seq {
                 svector<bool> fixed;
                 chars.resize(n, 0);
                 fixed.resize(n, false);
-                for (auto const& [a, dep] : asf.assumptions()) {
+                for (auto const& assumption : asf.assumptions()) {
+                    expr* a = assumption.first;
                     expr* lhs = nullptr, *rhs = nullptr;
                     if (!m.is_eq(a, lhs, rhs))
                         continue;
@@ -1611,7 +1649,8 @@ namespace seq {
                 expr_ref ch_value(m);
                 unsigned code = 0;
                 bool found = false;
-                for (auto const& [a, dep] : asf.assumptions()) {
+                for (auto const& assumption : asf.assumptions()) {
+                    expr* a = assumption.first;
                     expr* lhs = nullptr, *rhs = nullptr;
                     if (!m.is_eq(a, lhs, rhs))
                         continue;

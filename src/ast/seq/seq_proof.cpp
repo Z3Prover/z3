@@ -7,8 +7,8 @@ Module Name:
 
 Abstract:
 
-    Owning snapshots of every intermediate sequence search state and
-    conditional branch refutations, independent of the search trail.
+    Collect fact-level derivations stored by facets and close their
+    conditional branch refutations independently of the search trail.
 
 --*/
 
@@ -27,8 +27,10 @@ Abstract:
 
 namespace seq {
 
-    proof_tracker::proof_tracker(ast_manager& m) :
-        m(m), u(m), m_proof(m), m_fact(m), m_root_state(m), m_context(m), m_reach_pin(m) {}
+    proof_tracker::proof_tracker(ast_manager& m, proof_manager& dm) :
+        m(m), u(m), m_dm(dm), m_proof(m), m_fact(m), m_root_state(m), m_context(m), m_pending(m), m_inputs(m) {
+        dm.set_manager(m);
+    }
 
     void proof_tracker::reset() {
         m_stack.clear();
@@ -36,8 +38,9 @@ namespace seq {
         m_fact = nullptr;
         m_root_state = nullptr;
         m_context.reset();
-        m_reach_regex.reset();
-        m_reach_pin.reset();
+        m_pending.reset();
+        m_inputs.reset();
+        m_dm.end_rule();
     }
 
     sort* proof_tracker::side_sort(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
@@ -61,91 +64,6 @@ namespace seq {
         facts.push_back(fact);
     }
 
-    expr_ref proof_tracker::reach_regex(mem_facet const& f, view const& v) {
-        expr* cached = nullptr;
-        if (m_reach_regex.find(v.m_state, v.m_target, cached))
-            return expr_ref(cached, m);
-
-        // Membership facets use the Brzozowski transition relation. The
-        // target is an AST state identity, NOT its nullable language. Build
-        // the language of paths to that exact state by GNFA elimination.
-        auto reachable = f.live().reachable_live(v);
-        expr_ref_vector states(m);
-        obj_map<expr, unsigned> ids;
-        for (expr* state : reachable) {
-            ids.insert(state, states.size());
-            states.push_back(state);
-        }
-        if (reachable.failed())
-            throw default_exception("sequence proof: reach-view automaton could not be completed");
-
-        sort* seq_sort = u.re.to_seq(v.m_state->get_sort());
-        sort* re_sort = v.m_state->get_sort();
-        expr_ref empty(u.re.mk_empty(re_sort), m);
-        expr_ref empty_word(u.str.mk_empty(seq_sort), m);
-        expr_ref epsilon(u.re.mk_to_re(empty_word), m);
-        expr_ref result(empty);
-        unsigned source = 0, target = 0;
-        if (ids.find(v.m_state, source) && ids.find(v.m_target, target)) {
-            unsigned count = states.size();
-            // Two extra vertices keep the source and target intact while
-            // eliminating all original states (including their loops).
-            unsigned start = count, finish = count + 1, size = count + 2;
-            vector<expr_ref_vector> edges;
-            for (unsigned i = 0; i < size; ++i) {
-                edges.push_back(expr_ref_vector(m));
-                for (unsigned j = 0; j < size; ++j)
-                    edges[i].push_back(empty);
-            }
-            edges[start].set(source, epsilon);
-            edges[target].set(finish, epsilon);
-            sort* elem_sort = nullptr;
-            VERIFY(u.is_seq(seq_sort, elem_sort));
-            symbol name("element");
-            seq_rewriter& rw = f.get_rewriter();
-            for (unsigned i = 0; i < count; ++i) {
-                expr_ref_pair_vector cofactors(rw.get_derive().get_cached_cofactors(
-                    transition_mode::brzozowski_tm, states.get(i)));
-                for (auto const& [guard, next] : cofactors) {
-                    unsigned j = 0;
-                    if (!ids.find(next, j) || u.re.is_empty(next))
-                        continue;
-                    expr_ref predicate(m.mk_lambda(1, &elem_sort, &name, guard), m);
-                    expr_ref label(u.re.mk_of_pred(predicate), m);
-                    if (!u.re.is_empty(edges[i].get(j)))
-                        label = u.re.mk_union(edges[i].get(j), label);
-                    edges[i].set(j, label);
-                }
-            }
-            for (unsigned k = 0; k < count; ++k) {
-                if (!m.limit().inc())
-                    throw default_exception("sequence proof: reach-view elimination canceled");
-                expr_ref loop(epsilon);
-                if (!u.re.is_empty(edges[k].get(k)))
-                    loop = u.re.mk_star(edges[k].get(k));
-                for (unsigned i = k + 1; i < size; ++i) {
-                    if (u.re.is_empty(edges[i].get(k)))
-                        continue;
-                    expr_ref prefix(u.re.mk_concat(edges[i].get(k), loop), m);
-                    for (unsigned j = k + 1; j < size; ++j) {
-                        if (u.re.is_empty(edges[k].get(j)))
-                            continue;
-                        expr_ref path(u.re.mk_concat(prefix, edges[k].get(j)), m);
-                        if (!u.re.is_empty(edges[i].get(j)))
-                            path = u.re.mk_union(edges[i].get(j), path);
-                        edges[i].set(j, path);
-                    }
-                }
-            }
-            result = edges[start].get(finish);
-        }
-        m_reach_pin.push_back(v.m_state);
-        m_reach_pin.push_back(v.m_target);
-        m_reach_pin.push_back(result);
-        m_reach_regex.insert(v.m_state, v.m_target, result);
-        return result;
-    }
-
     void proof_tracker::append_facts(stx::facet_i const& facet, expr_ref_vector& facts) {
         if (auto* f = dynamic_cast<eq_facet const*>(&facet)) {
             for (auto const& e : f->equations())
@@ -166,12 +84,7 @@ namespace seq {
             for (auto const& sm : f->memberships()) {
                 if (!sm.active())
                     continue;
-                expr_ref regex(sm.m_view.m_state);
-                if (sm.m_view.is_reach())
-                    regex = reach_regex(*f, sm.m_view);
-                sort* seq_sort = u.re.to_seq(regex->get_sort());
-                expr_ref word(u.str.mk_concat(sm.m_str, seq_sort), m);
-                expr_ref fact(u.re.mk_in_re(word, regex), m);
+                expr_ref fact = sm.fact(u);
                 facts.push_back(fact);
             }
         }
@@ -245,17 +158,49 @@ namespace seq {
             throw default_exception("sequence proof: unsupported facet in state snapshot");
     }
 
-    expr_ref proof_tracker::snapshot(eq_tree::node const& n, bool include_conflict) {
+    void proof_tracker::collect_proofs(eq_tree::node const& n, proof_ref_vector& proofs) {
+        auto add = [&](proof* pr) { if (pr && !proofs.contains(pr)) proofs.push_back(pr); };
+        for (unsigned id = 0; id < n.num_facets(); ++id) {
+            if (!n.has_facet(id)) continue;
+            auto const& facet = n.facet(id);
+            if (auto* f = dynamic_cast<eq_facet const*>(&facet)) {
+                for (auto const& e : f->equations()) if (e.active()) add(e.m_proof);
+                for (auto const& s : f->substitutions()) add(s.m_proof);
+            }
+            else if (auto* f = dynamic_cast<deq_facet const*>(&facet)) {
+                for (auto const& e : f->disequations()) if (e.active()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<mem_facet const*>(&facet)) {
+                for (auto const& e : f->memberships()) if (e.active()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<ncontains_facet const*>(&facet)) {
+                for (auto const& e : f->ncontains()) if (e.active()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<power_facet const*>(&facet)) {
+                for (auto const& e : f->powers()) if (e.active()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<replace_all_facet const*>(&facet)) {
+                for (auto const& e : f->obligations()) if (e.active()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<req_facet const*>(&facet)) {
+                for (auto const& e : f->reqs()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<lex_facet const*>(&facet)) {
+                for (auto const& e : f->lexs()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<assumption_facet const*>(&facet)) {
+                for (auto const& e : f->assumptions()) add(e.m_proof);
+            }
+            else if (auto* f = dynamic_cast<solver_facet_i const*>(&facet))
+                f->append_proofs(proofs);
+        }
+    }
+
+    expr_ref proof_tracker::snapshot(eq_tree::node const& n) {
         expr_ref_vector facts(m);
         for (unsigned id = 0; id < n.num_facets(); ++id)
             if (n.has_facet(id))
                 append_facts(n.facet(id), facts);
-        // Keep the actual conflict state alongside false, even if the
-        // conflicting obligation was discharged during propagation.
-        if (include_conflict && n.is_conflict()) {
-            expr_ref conflict(m.mk_false(), m);
-            facts.push_back(conflict);
-        }
         if (facts.empty())
             return expr_ref(m.mk_true(), m);
         if (facts.size() == 1)
@@ -293,24 +238,56 @@ namespace seq {
         if (m_stack.empty())
             reset();
         expr_ref state = snapshot(n);
-        if (m_stack.empty())
+        if (m_stack.empty()) {
             m_root_state = state;
+            collect_proofs(n, m_inputs);
+        }
         m_stack.push_back(std::make_unique<frame>(m, state, rule));
+        m_stack.back()->m_premises.append(m_pending);
+        m_pending.reset();
         collect_context(n, *m_stack.back());
+    }
+
+    void proof_tracker::start_step(eq_tree::node const& n, char const* rule, bool branch) {
+        SASSERT(!m_stack.empty());
+        frame& f = *m_stack.back();
+        collect_context(n, f);
+        proof_ref_vector sources(m);
+        collect_proofs(n, sources);
+        for (expr* fact : f.m_context)
+            sources.push_back(m.mk_hypothesis(fact));
+        m_dm.begin_rule(symbol(rule ? rule : "seq-step"), branch, sources);
+    }
+
+    void proof_tracker::append_input_proofs(proof_ref_vector& proofs) const {
+        proofs.append(m_inputs);
+        for (expr* fact : m_context)
+            proofs.push_back(m.mk_hypothesis(fact));
+    }
+
+    void proof_tracker::finish_step(eq_tree::node const& n, char const* rule, bool committed) {
+        if (n.is_conflict()) {
+            propagate(n, rule);
+            return;
+        }
+        collect_context(n, *m_stack.back());
+        if (committed) {
+            m_pending.reset();
+            m_pending.append(m_dm.generated());
+        }
+        m_dm.end_rule();
     }
 
     void proof_tracker::propagate(eq_tree::node const& n, char const* rule) {
         SASSERT(!m_stack.empty());
         frame& f = *m_stack.back();
-        expr_ref after = snapshot(n, true);
         collect_context(n, f);
-        // Newly observed external premises strengthen the theorem's
-        // antecedent; they are never claimed to follow from the old state.
-        expr_ref before = conditional_state(f.m_current, f.m_context);
-        expr_ref transition(m.mk_implies(before, after), m);
-        proof_ref lemma(u.mk_proof(symbol(rule ? rule : "seq-propagate"), 0, nullptr, transition), m);
-        f.m_premises.push_back(lemma);
-        f.m_current = after;
+        if (n.is_conflict() && (m_dm.generated().empty() || !m.is_false(m.get_fact(m_dm.generated().back())))) {
+            expr_ref fact(m.mk_false(), m);
+            m_dm.mk_proof(symbol(rule ? rule : "seq-conflict"), fact, {nullptr});
+        }
+        f.m_premises.append(m_dm.generated());
+        m_dm.end_rule();
     }
 
     void proof_tracker::end(eq_tree::node const& n, stx::search_result result) {

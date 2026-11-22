@@ -34,24 +34,50 @@ Notes:
 
 namespace seq {
 
+    expr_ref str_lex::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        sort* s = !m_lhs.empty() ? m_lhs[0]->get_sort() : !m_rhs.empty() ? m_rhs[0]->get_sort() : u.mk_string_sort();
+        expr_ref lhs(u.str.mk_concat(m_lhs, s), m), rhs(u.str.mk_concat(m_rhs, s), m);
+        return expr_ref(m_strict ? u.str.mk_lex_lt(lhs, rhs) : u.str.mk_lex_le(lhs, rhs), m);
+    }
+
     lex_facet::lex_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
         facet_i(trail), m(m), u(u), m_dm(dm), m_g(m) {
+        dm.set_manager(m);
         m_g.add_plugin(alloc(euf::seq_plugin, m_g));
     }
 
-    void lex_facet::set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
+    void lex_facet::set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs, symbol rule, proof* pr) {
         m_trail.push(vector_field_trail<str_lex, expr_ref_vector>(m_lexs, idx, &str_lex::m_lhs));
         m_trail.push(vector_field_trail<str_lex, expr_ref_vector>(m_lexs, idx, &str_lex::m_rhs));
         m_lexs[idx].m_lhs.reset();
         m_lexs[idx].m_lhs.append(lhs);
         m_lexs[idx].m_rhs.reset();
         m_lexs[idx].m_rhs.append(rhs);
+        if (m_dm.proofs_enabled()) {
+            m_trail.push(vector_field_trail<str_lex, proof_ref>(m_lexs, idx, &str_lex::m_proof));
+            m_lexs[idx].m_proof = m_dm.mk_proof(rule, m_lexs[idx].fact(u), { m_lexs[idx].m_proof.get(), pr });
+        }
+    }
+
+    void lex_facet::remove(unsigned idx, symbol rule, proof* pr) {
+        if (m_dm.proofs_enabled()) {
+            m_trail.push(vector_field_trail<str_lex, proof_ref>(m_lexs, idx, &str_lex::m_proof));
+            m_lexs[idx].m_proof = m_dm.mk_proof(rule, m.mk_true(), { m_lexs[idx].m_proof.get(), pr });
+        }
+        m_trail.push(vector_erase_trail<str_lex>(m_lexs, idx));
+        m_lexs.erase(m_lexs.begin() + idx);
     }
 
     void lex_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
             bool touched_l = subst_in_trailed(m_trail, m_lexs, i, &str_lex::m_lhs, var, repl);
             bool touched_r = subst_in_trailed(m_trail, m_lexs, i, &str_lex::m_rhs, var, repl);
+            if ((touched_l || touched_r) && m_dm.proofs_enabled()) {
+                m_trail.push(vector_field_trail<str_lex, proof_ref>(m_lexs, i, &str_lex::m_proof));
+                m_lexs[i].m_proof = m_dm.mk_proof(symbol("lex-substitute"), m_lexs[i].fact(u),
+                                               { m_lexs[i].m_proof.get(), m_dm.substitution_proof() });
+            }
             if ((touched_l || touched_r) && subst_dep) {
                 m_trail.push(vector_field_trail<str_lex, eq_tree::dep_tracker>(m_lexs, i, &str_lex::m_dep));
                 m_lexs[i].m_dep = m_dm.mk_join(m_lexs[i].m_dep, subst_dep);
@@ -140,7 +166,7 @@ namespace seq {
                     conflict_dep = lx.m_dep;
                     return true;
                 }
-                remove(i);
+                remove(i, symbol("lex-reflexive-nonstrict"));
                 changed = true;
                 continue;
             }
@@ -151,7 +177,7 @@ namespace seq {
                     continue;
                 }
                 // lhs is a proper prefix of rhs.
-                remove(i);
+                remove(i, symbol("lex-empty-prefix"));
                 changed = true;
                 continue;
             }
@@ -176,7 +202,7 @@ namespace seq {
                 SASSERT(c != 0); // equal case already stripped above
                 if (c < 0) {
                     // lhs < rhs.
-                    remove(i);
+                    remove(i, symbol("lex-constant-character-order"));
                     changed = true;
                     continue;
                 }
@@ -237,15 +263,15 @@ namespace seq {
         expr* tail = ac.mk_fresh_var("lex.tail", s, { lhs, rhs });
         expr_ref_vector prefix(lx.m_lhs);
         prefix.push_back(tail);
-        f.remove(0);
-        ac.eq_facet_ref().add_equation(lx.m_rhs, prefix, lx.m_dep);
+        ac.eq_facet_ref().add_equation(lx.m_rhs, prefix, lx.m_dep, nullptr, symbol("lex-prefix-case"));
         if (lx.m_strict) {
             auto& sf = ac.solver_facet_ref();
             auto& a = sf.get_arith_util();
             expr_ref len(u.str.mk_length(tail), m);
             expr_ref zero(a.mk_int(0), m);
-            sf.add_constraint(a.mk_gt(len, zero), lx.m_dep);
+            sf.add_constraint(a.mk_gt(len, zero), lx.m_dep, lx.m_proof, symbol("lex-strict-prefix-nonempty-tail"));
         }
+        f.remove(0, symbol("lex-prefix-split-discharge"));
         out = eq_tree::edge("lex prefix", lx.m_dep, true, 0);
         has_more = true;
         committed = true;
@@ -277,19 +303,20 @@ namespace seq {
             auto& arith = sf.get_arith_util();
             expr_ref len(u.str.mk_length(prefix), m);
             expr_ref zero(arith.mk_int(0), m);
-            sf.add_constraint(arith.mk_gt(len, zero), m_dep);
+            sf.add_constraint(arith.mk_gt(len, zero), m_dep, nullptr, symbol("lex-later-difference-nonempty-prefix"));
         }
         left.push_back(a_unit);
         left.push_back(lhs_tail);
         right.push_back(b_unit);
         right.push_back(rhs_tail);
-        ac.lex_facet_ref().remove(0);
-        ac.eq_facet_ref().add_equation(m_lhs, left, m_dep);
-        ac.eq_facet_ref().add_equation(m_rhs, right, m_dep);
+        ac.eq_facet_ref().add_equation(m_lhs, left, m_dep, nullptr, symbol(at_start ? "lex-first-character-left" : "lex-later-difference-left"));
+        ac.eq_facet_ref().add_equation(m_rhs, right, m_dep, nullptr, symbol(at_start ? "lex-first-character-right" : "lex-later-difference-right"));
         // The arithmetic backend only relaxes character order; the outer
         // character theory must adopt it before accepting this leaf.
         expr_ref less(u.mk_lt(a, b), m);
-        ac.add_assumption(less, m_dep);
+        ac.add_assumption(less, m_dep, m_proof,
+                          symbol(at_start ? "lex-first-character-order" : "lex-later-difference-order"));
+        ac.lex_facet_ref().remove(0, symbol(at_start ? "lex-first-character-discharge" : "lex-later-difference-discharge"));
         out = eq_tree::edge(at_start ? "lex first character" : "lex later difference", m_dep, true, 0);
         return true;
     }
@@ -333,6 +360,8 @@ namespace seq {
                 euf::enode* r = mk_concat_node(eq.m_rhs, s);
                 m_reasons.push_back(eq.m_dep);
                 m_trail.push(push_back_trail<eq_tree::dep_tracker>(m_reasons));
+                m_reason_proofs.push_back(eq.m_proof);
+                m_trail.push(push_back_trail<proof_ref>(m_reason_proofs));
                 m_g.merge(l, r, to_ptr(m_reasons.size() - 1));
                 added = true;
             }
@@ -356,6 +385,8 @@ namespace seq {
                 euf::enode* eqn = m_g.mk(eqe, 0, args.size(), args.data());
                 m_reasons.push_back(de.m_dep);
                 m_trail.push(push_back_trail<eq_tree::dep_tracker>(m_reasons));
+                m_reason_proofs.push_back(de.m_proof);
+                m_trail.push(push_back_trail<proof_ref>(m_reason_proofs));
                 m_g.new_diseq(eqn, to_ptr(m_reasons.size() - 1));
                 added = true;
             }
@@ -474,6 +505,12 @@ namespace seq {
                     while (path_node[start] != v_id) ++start;
                     bool has_strict = false;
                     eq_tree::dep_tracker dep = nullptr;
+                    expr_ref cycle_facts(m);
+                    proof_ref cycle_pr(m);
+                    auto include_premise = [&](expr* fact, proof* pr) {
+                        cycle_facts = cycle_facts ? m.mk_and(cycle_facts, fact) : fact;
+                        cycle_pr = m_dm.mk_proof(symbol("lex-cycle-premises"), cycle_facts, { cycle_pr.get(), pr });
+                    };
                     unsigned cycle_len = on_path.size() - start;
                     for (unsigned k = start; k < on_path.size(); ++k) {
                         auto edge_id = on_path[k];
@@ -481,6 +518,8 @@ namespace seq {
                         auto& lx = m_lexs[e.lex_idx];
                         has_strict |= e.strict;
                         dep = m_dm.mk_join(dep, lx.m_dep);
+                        if (m_dm.proofs_enabled())
+                            include_premise(lx.fact(u), lx.m_proof);
                         // Consecutive obligations may share a root only by
                         // egraph congruence, so explain that equality and
                         // include its dependencies.
@@ -494,8 +533,13 @@ namespace seq {
                             m_g.begin_explain();
                             m_g.explain_eq(eq_just, nullptr, b, c);
                             m_g.end_explain();
-                            for (size_t* j : eq_just)
+                            for (size_t* j : eq_just) {
                                 dep = m_dm.mk_join(dep, m_reasons[from_ptr(j)]);
+                                if (m_dm.proofs_enabled() && m_reason_proofs[from_ptr(j)]) {
+                                    proof* pr = m_reason_proofs[from_ptr(j)].get();
+                                    include_premise(m.get_fact(pr), pr);
+                                }
+                            }
                         }
                     }
                     if (has_strict) {
@@ -513,8 +557,12 @@ namespace seq {
                     std::sort(to_remove.begin(), to_remove.end(), std::greater<unsigned>());
                     for (unsigned idx : to_remove) {
                         str_lex const& lx = m_lexs[idx];
-                        eqf.add_equation(lx.m_lhs, lx.m_rhs, dep);
-                        remove(idx);
+                        proof_ref equality_pr(m);
+                        if (m_dm.proofs_enabled())
+                            equality_pr = m_dm.mk_proof(symbol("lex-nonstrict-cycle-equality"), equation_fact(u, lx.m_lhs, lx.m_rhs),
+                                                       { lx.m_proof.get(), cycle_pr.get() });
+                        eqf.add_equation(lx.m_lhs, lx.m_rhs, dep, equality_pr, symbol("lex-nonstrict-cycle-equality"));
+                        remove(idx, symbol("lex-nonstrict-cycle-discharge"), equality_pr);
                     }
                     return true;
                 }

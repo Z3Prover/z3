@@ -36,6 +36,8 @@ namespace seq {
             expr_ref bound(m_th.m_autil.mk_ge(e, value), m);
             if (m.proofs_enabled() && !m_th.m_proof_context.contains(bound))
                 m_th.m_proof_context.push_back(bound);
+            if (m.proofs_enabled())
+                m_th.m_tree.dep_mgr().add_premise(m.mk_hypothesis(bound));
             dep = add_conditional_dep(bound);
             return true;
         }
@@ -48,6 +50,8 @@ namespace seq {
             expr_ref bound(m_th.m_autil.mk_le(e, value), m);
             if (m.proofs_enabled() && !m_th.m_proof_context.contains(bound))
                 m_th.m_proof_context.push_back(bound);
+            if (m.proofs_enabled())
+                m_th.m_tree.dep_mgr().add_premise(m.mk_hypothesis(bound));
             dep = add_conditional_dep(bound);
             return true;
         }

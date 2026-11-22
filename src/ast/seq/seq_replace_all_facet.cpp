@@ -21,6 +21,25 @@ Author:
 
 namespace seq {
 
+    expr_ref str_replace_all::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        sort* s = m_pattern->get_sort();
+        expr_ref result(u.str.mk_concat(m_result, s), m), input(u.str.mk_concat(m_input, s), m);
+        expr_ref repl(u.str.mk_concat(m_repl, s), m);
+        expr* args[3] = { input, m_pattern, repl };
+        expr_ref replaced(m.mk_app(u.get_family_id(), OP_SEQ_REPLACE_ALL, 3, args), m);
+        return expr_ref(m.mk_eq(result, replaced), m);
+    }
+
+    void replace_all_facet::remove(unsigned idx, symbol rule, proof* pr) {
+        if (m_dm.proofs_enabled()) {
+            m_trail.push(vector_field_trail<str_replace_all, proof_ref>(m_ras, idx, &str_replace_all::m_proof));
+            m_ras[idx].m_proof = m_dm.mk_proof(rule, m.mk_true(), { m_ras[idx].m_proof.get(), pr });
+        }
+        m_trail.push(vector_field_trail<str_replace_all, bool>(m_ras, idx, &str_replace_all::m_active));
+        m_ras[idx].m_active = false;
+    }
+
     void replace_all_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_ras.size(); ++i) {
             if (!m_ras[i].active())
@@ -28,6 +47,12 @@ namespace seq {
             bool touched = subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_result, var, repl);
             touched |= subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_input, var, repl);
             touched |= subst_in_trailed(m_trail, m_ras, i, &str_replace_all::m_repl, var, repl);
+            if (touched && m_dm.proofs_enabled()) {
+                seq_util u(m);
+                m_trail.push(vector_field_trail<str_replace_all, proof_ref>(m_ras, i, &str_replace_all::m_proof));
+                m_ras[i].m_proof = m_dm.mk_proof(symbol("replace-all-substitute"), m_ras[i].fact(u),
+                                              { m_ras[i].m_proof.get(), m_dm.substitution_proof() });
+            }
             if (touched && subst_dep) {
                 m_trail.push(vector_field_trail<str_replace_all, eq_tree::dep_tracker>(m_ras, i, &str_replace_all::m_dep));
                 m_ras[i].m_dep = m_dm.mk_join(m_ras[i].m_dep, subst_dep);
@@ -87,7 +112,8 @@ namespace seq {
 
     // Appends a fresh r to `out` with the obligation r = replace_all(ts, pattern, repl).
     static void add_rest(ambient_ref<eq_tree::node, eq_tree::dep_tracker> const& ac, expr* pattern, expr_ref_vector const& repl,
-                         eq_tree::dep_tracker dep, unsigned n, expr* const* ts, expr_ref_vector& out) {
+                         eq_tree::dep_tracker dep, unsigned n, expr* const* ts, expr_ref_vector& out, proof* source,
+                         symbol rule) {
         if (n == 0)
             return;
         ast_manager& m = out.get_manager();
@@ -100,10 +126,16 @@ namespace seq {
         expr_ref repl_expr(u.str.mk_concat(repl, s), m);
         expr_ref r(ac.mk_fresh_var("replace-all-result", s, { input_expr, pattern, repl_expr }), m);
         result.push_back(r);
-        ac.replace_all_facet_ref().add(result, input, pattern, repl, dep);
+        auto& f = ac.replace_all_facet_ref();
+        proof_ref pr(m);
+        if (f.dm().proofs_enabled()) {
+            str_replace_all ra(result, input, pattern, repl, dep);
+            pr = f.dm().mk_proof(rule, ra.fact(u), { source });
+        }
+        f.add(result, input, pattern, repl, dep, pr, rule);
         expr_ref rel = replace_all_length_relation(u, sf.get_arith_util(), r, input_expr, pattern, repl);
         if (rel)
-            sf.add_constraint(rel, dep);
+            sf.add_constraint(rel, dep, pr, symbol("replace-all-rest-length"));
         out.push_back(r);
     }
 
@@ -142,6 +174,7 @@ namespace seq {
             str_replace_all const& ra = f.obligations()[idx];
             expr_ref_vector result(ra.m_result), input(ra.m_input), repl(ra.m_repl);
             expr_ref pattern(ra.m_pattern);
+            proof_ref source(ra.m_proof);
             eq_tree::dep_tracker dep = ra.m_dep;
             zstring p;
             VERIFY(u.str.is_string(pattern, p));
@@ -152,16 +185,16 @@ namespace seq {
                 // Homomorphism: every token is handled on its own.
                 if (input.size() == 1 && !is_const_unit(u, input.get(0), c))
                     continue;
-                f.remove(idx);
                 for (expr* t : input) {
                     if (!is_const_unit(u, t, c))
-                        add_rest(ac, pattern, repl, dep, 1, &t, out);
+                        add_rest(ac, pattern, repl, dep, 1, &t, out, source, symbol("replace-all-homomorphism-rest"));
                     else if (c == p[0])
                         out.append(repl);
                     else
                         out.push_back(t);
                 }
-                ef.add_equation(result, out, dep);
+                ef.add_equation(result, out, dep, source, symbol("replace-all-homomorphism-result"));
+                f.remove(idx, symbol("replace-all-homomorphism-discharge"));
                 changed = true;
                 ++m_stats.m_num_eval;
                 continue;
@@ -180,9 +213,9 @@ namespace seq {
                     out.push_back(input.get(pos++));
             }
             if (pos > 0 || input.empty()) {
-                f.remove(idx);
-                add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out);
-                ef.add_equation(result, out, dep);
+                add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out, source, symbol("replace-all-evaluate-prefix-rest"));
+                ef.add_equation(result, out, dep, source, symbol("replace-all-evaluate-prefix-result"));
+                f.remove(idx, symbol("replace-all-evaluate-prefix-discharge"));
                 changed = true;
                 ++m_stats.m_num_eval;
                 continue;
@@ -196,12 +229,12 @@ namespace seq {
             }
             if (pos >= input.size())
                 continue;
-            f.remove(idx);
-            add_rest(ac, pattern, repl, dep, pos, input.data(), out);
+            add_rest(ac, pattern, repl, dep, pos, input.data(), out, source, symbol("replace-all-unbordered-prefix"));
             out.append(repl);
             pos += p.length();
-            add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out);
-            ef.add_equation(result, out, dep);
+            add_rest(ac, pattern, repl, dep, input.size() - pos, input.data() + pos, out, source, symbol("replace-all-unbordered-suffix"));
+            ef.add_equation(result, out, dep, source, symbol("replace-all-unbordered-cut-result"));
+            f.remove(idx, symbol("replace-all-unbordered-cut-discharge"));
             changed = true;
             ++m_stats.m_num_cut;
         }
@@ -219,6 +252,7 @@ namespace seq {
         str_replace_all const& ra = f.obligations()[idx];
         expr_ref_vector result(ra.m_result), input(ra.m_input), repl(ra.m_repl);
         expr_ref pattern(ra.m_pattern);
+        proof_ref source(ra.m_proof);
         eq_tree::dep_tracker dep = ra.m_dep;
         zstring p;
         VERIFY(u.str.is_string(pattern, p));
@@ -231,10 +265,10 @@ namespace seq {
         expr_ref_vector pat(m), in_rhs(m), out_rhs(m), rest_in(m);
         u.str.get_concat_units(pattern, pat);
         in_rhs.append(k, pat.data());
-        f.remove(idx);
         if (ends) {
-            ef.add_equation(input, in_rhs, dep);
-            ef.add_equation(result, in_rhs, dep);
+            ef.add_equation(input, in_rhs, dep, nullptr, symbol("replace-all-end-input"));
+            ef.add_equation(result, in_rhs, dep, source, symbol("replace-all-end-result"));
+            f.remove(idx, symbol("replace-all-end-discharge"));
             out = eq_tree::edge("replace-all end", dep, true, 0);
             return true;
         }
@@ -245,12 +279,13 @@ namespace seq {
         else {
             expr_ref y(ac.mk_fresh_var("replace-all-copy-char", srt, { input_expr, pattern, prefix }), m);
             auto& sf = ac.solver_facet_ref();
-            sf.add_constraint(expr_ref(m.mk_eq(u.str.mk_length(y), sf.get_arith_util().mk_int(1)), m), dep);
+            sf.add_constraint(expr_ref(m.mk_eq(u.str.mk_length(y), sf.get_arith_util().mk_int(1)), m), dep,
+                              nullptr, symbol("replace-all-copy-character-length"));
             sort* re_sort = u.re.mk_re(srt);
             expr_ref other(u.re.mk_inter(u.re.mk_full_char(re_sort), u.re.mk_complement(u.re.mk_to_re(u.str.mk_string(zstring(p[k]))))), m);
             expr_ref_vector yv(m);
             yv.push_back(y);
-            ac.mem_facet_ref().add(str_mem(m, yv, view::membership(other, m), dep));
+            ac.mem_facet_ref().add(str_mem(m, yv, view::membership(other, m), dep), symbol("replace-all-copy-character-mismatch"));
             in_rhs.push_back(y);
             // Only the first character is copied, scanning resumes after it.
             out_rhs.push_back(in_rhs.get(0));
@@ -260,9 +295,11 @@ namespace seq {
                                      srt, { input_expr, pattern, prefix }), m);
         in_rhs.push_back(rest);
         rest_in.push_back(rest);
-        ef.add_equation(input, in_rhs, dep);
-        add_rest(ac, pattern, repl, dep, rest_in.size(), rest_in.data(), out_rhs);
-        ef.add_equation(result, out_rhs, dep);
+        ef.add_equation(input, in_rhs, dep, nullptr, symbol(match ? "replace-all-match-input" : "replace-all-copy-input"));
+        add_rest(ac, pattern, repl, dep, rest_in.size(), rest_in.data(), out_rhs, source,
+                 symbol(match ? "replace-all-match-rest" : "replace-all-copy-rest"));
+        ef.add_equation(result, out_rhs, dep, source, symbol(match ? "replace-all-match-result" : "replace-all-copy-result"));
+        f.remove(idx, symbol(match ? "replace-all-match-discharge" : "replace-all-copy-discharge"));
         // The input is not bounded, so this does not count as progress.
         out = eq_tree::edge(match ? "replace-all match" : "replace-all copy", dep, false, 0);
         return true;

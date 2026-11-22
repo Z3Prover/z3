@@ -193,10 +193,10 @@ namespace stx {
      * Domain-agnostic plugin-based search tree.
      *
      */
-    template <typename dep_source_t>
+    template <typename dep_source_t, typename dependency_manager_t = scoped_dependency_manager<dep_source_t>>
     class search_tree {
     public:
-        using dep_manager_t = scoped_dependency_manager<dep_source_t>;
+        using dep_manager_t = dependency_manager_t;
         using dep_tracker   = typename dep_manager_t::dependency*;
 
         class node;
@@ -208,6 +208,10 @@ namespace stx {
             virtual ~proof_tracker_i() = default;
             virtual void reset() = 0;
             virtual void begin(node const& n, char const* rule) = 0;
+            virtual void start_step(node const& n, char const* rule, bool branch) {}
+            virtual void finish_step(node const& n, char const* rule, bool committed) {
+                if (n.is_conflict()) propagate(n, rule);
+            }
             virtual void propagate(node const& n, char const* rule) = 0;
             virtual void end(node const& n, search_result result) = 0;
         };
@@ -519,6 +523,7 @@ namespace stx {
         struct dfs_frame {
             scoped_ptr<split_iterator_i>           m_iter;                // resumable remaining branches, if any
             edge                                   m_last_edge;
+            char const*                            m_split_rule = nullptr;
         };
 
         unsigned                              m_next_facet_id = 0;
@@ -990,8 +995,10 @@ namespace stx {
                 bool any_change = false;
                 for (auto* p : m_prop_plugins) {
                     m_stats.m_propagate_counts[p->name()]++;
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, p->name(), false);
                     simplify_result r = p->propagate(n);
-                    if (m_proof_tracker && r != simplify_result::noop)
+                    if (m_proof_tracker)
                         m_proof_tracker->propagate(n, p->name());
                     if (r == simplify_result::conflict)
                         return r;
@@ -1017,15 +1024,18 @@ namespace stx {
                     bool has_more = false;
                     bool committed = false;
                     scoped_push guard(*this);
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, sp->name(), true);
                     auto it = sp->split(n, 0, out, has_more, committed);
+                    if (m_proof_tracker)
+                        m_proof_tracker->finish_step(n, sp->name(), committed);
                     if (n.is_conflict()) {
-                        if (m_proof_tracker)
-                            m_proof_tracker->propagate(n, sp->name());
                         return false;
                     }
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
+                        frame.m_split_rule = sp->name();
                         return true;
                     }
                 }
@@ -1042,15 +1052,18 @@ namespace stx {
                     bool has_more = false;
                     bool committed = false;
                     scoped_push guard(*this);
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, sp->name(), true);
                     auto it = sp->split(n, cost, out, has_more, committed);
+                    if (m_proof_tracker)
+                        m_proof_tracker->finish_step(n, sp->name(), committed);
                     if (n.is_conflict()) {
-                        if (m_proof_tracker)
-                            m_proof_tracker->propagate(n, sp->name());
                         return false;
                     }
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
+                        frame.m_split_rule = sp->name();
                         return true;
                     }
                     if (has_more)
@@ -1062,9 +1075,15 @@ namespace stx {
             return try_completion();
         }
 
-        bool advance_iter(split_iterator_i& iter, edge& out) {
+        bool advance_iter(split_iterator_i& iter, edge& out, char const* rule) {
             scoped_push guard(*this);
-            if (iter.next(out)) {
+            m_root->clear_status();
+            if (m_proof_tracker)
+                m_proof_tracker->start_step(*m_root, rule, true);
+            bool committed = iter.next(out);
+            if (m_proof_tracker)
+                m_proof_tracker->finish_step(*m_root, rule, committed);
+            if (committed) {
                 guard.release();
                 return true;
             }
@@ -1160,7 +1179,7 @@ namespace stx {
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
-                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
+                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge, frame.m_split_rule);
                     }
                     if (result != search_result::sat) {
                         result = saw_depth_cutoff ? search_result::depth_cutoff

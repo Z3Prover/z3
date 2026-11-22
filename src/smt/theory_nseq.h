@@ -188,6 +188,7 @@ namespace smt {
         void flush_assigned_literals();
         bool assume_shared_equalities();
         expr_ref_vector tokenize(seq::eq_tree::dep_tracker& dep, expr* e);
+        proof_ref mk_facet_proof(expr* input, expr* fact, char const* rule);
 
         // Propagate e1 = e2 into the SMT core, justified by `lit`.
         bool propagate_eq(literal lit, expr* e1, expr* e2);

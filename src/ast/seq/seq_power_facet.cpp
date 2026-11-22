@@ -24,10 +24,19 @@ Author:
 
 namespace seq {
 
-    void power_facet::remove(unsigned idx) {
+    expr_ref str_power::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        return expr_ref(m.mk_eq(m_e, u.str.mk_power(m_s, m_n)), m);
+    }
+
+    void power_facet::remove(unsigned idx, symbol rule, proof* pr) {
         SASSERT(idx < m_pows.size());
         if (!m_pows[idx].m_active)
             return;
+        if (m_dm.proofs_enabled()) {
+            m_trail.push(vector_field_trail<str_power, proof_ref>(m_pows, idx, &str_power::m_proof));
+            m_pows[idx].m_proof = m_dm.mk_proof(rule, m.mk_true(), { m_pows[idx].m_proof.get(), pr });
+        }
         m_trail.push(vector_field_trail<str_power, bool>(m_pows, idx, &str_power::m_active));
         m_pows[idx].m_active = false;
     }
@@ -43,9 +52,18 @@ namespace seq {
     void power_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker) {
         unsigned idx;
         if (find_power(var, idx))
-            remove(idx);
-        for (expr* t : repl)
-            add_power_if(t);
+            remove(idx, symbol("power-substitution-discharge"), m_dm.substitution_proof());
+        for (expr* t : repl) {
+            expr* s = nullptr, *n = nullptr;
+            if (!u.str.is_power(t, s, n))
+                continue;
+            proof_ref pr(m);
+            if (m_dm.proofs_enabled()) {
+                str_power p(m, t, s, n);
+                pr = m_dm.mk_proof(symbol("power-substitution-token-definition"), p.fact(u), { m_dm.substitution_proof() });
+            }
+            add_power(t, s, n, nullptr, pr, symbol("power-substitution-token-definition"));
+        }
         // rebase obligations whose base mentions var; the power token keeps its identity
         for (unsigned i = 0; i < m_pows.size(); ++i) {
             if (!m_pows[i].active())
@@ -57,6 +75,11 @@ namespace seq {
             subst_in(base, var, repl);
             m_trail.push(vector_field_trail<str_power, expr_ref>(m_pows, i, &str_power::m_s));
             m_pows[i].m_s = u.str.mk_concat(base, m_pows[i].m_e->get_sort());
+            if (m_dm.proofs_enabled()) {
+                m_trail.push(vector_field_trail<str_power, proof_ref>(m_pows, i, &str_power::m_proof));
+                m_pows[i].m_proof = m_dm.mk_proof(symbol("power-substitute-base"), m_pows[i].fact(u),
+                                                { m_pows[i].m_proof.get(), m_dm.substitution_proof() });
+            }
         }
     }
 
@@ -121,7 +144,7 @@ namespace seq {
 
             // `epsilon^n = epsilon`; otherwise power_peel unfolds it forever.
             if (u.str.is_empty(p.m_s)) {
-                broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep);
+                broadcast_subst(n, p.m_e.get(), expr_ref_vector(m), p.m_dep, p.m_proof, symbol("power-empty-base"));
                 changed = true;
                 continue;
             }
@@ -135,7 +158,7 @@ namespace seq {
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
                 u.str.get_concat_units(rhs.get(), repl);
-                broadcast_subst(n, p.m_e.get(), repl, p.m_dep);
+                broadcast_subst(n, p.m_e.get(), repl, p.m_dep, p.m_proof, symbol("power-fixed-numeral-unfold"));
                 changed = true;
                 continue;
             }
@@ -152,14 +175,14 @@ namespace seq {
                 expr_ref e_is_emp(m.mk_eq(len_e, a.mk_int(0)), m);
                 expr_ref s_is_emp(m.mk_eq(len_s, a.mk_int(0)), m);
 
-                sf.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
-                sf.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
+                sf.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep, p.m_proof, symbol("power-nonpositive-length"));
+                sf.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep, p.m_proof, symbol("power-empty-base-length"));
                 // Preserve sharing counts; add_constraint retains the whole clause.
                 expr* n_lt_1 = m.mk_not(n_ge_1);
                 expr* len_power = a.mk_mul(p.m_n.get(), len_s);
                 expr* length_eq = m.mk_eq(len_e, len_power);
-                sf.add_constraint(m.mk_or(n_lt_1, length_eq), p.m_dep);
-                sf.add_constraint(m.mk_or(n_lt_1, s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
+                sf.add_constraint(m.mk_or(n_lt_1, length_eq), p.m_dep, p.m_proof, symbol("power-positive-length-product"));
+                sf.add_constraint(m.mk_or(n_lt_1, s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep, p.m_proof, symbol("power-positive-length-lower-bound"));
                 f.mark(i, &str_power::m_axiomatized);
                 changed = true;
             }
@@ -192,7 +215,7 @@ namespace seq {
 
         if (j > m_bound) {
             // Residual branch `n > bound`: no substitution, obligation stays pending.
-            ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(m_bound + 1)), m_dep);
+            ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(m_bound + 1)), m_dep, nullptr, symbol("power-exponent-residual-guard"));
             f.mark(m_pow_index, &str_power::m_split_exhausted);
             out = eq_tree::edge("power:n>bound", m_dep, false, 0);
             return true;
@@ -201,8 +224,8 @@ namespace seq {
         expr_ref rhs = mk_power_unfold(u, m, p.m_s, j);
         expr_ref_vector repl(m);
         u.str.get_concat_units(rhs.get(), repl);
-        broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.solver_facet_ref().add_constraint(m.mk_eq(p.m_n, a.mk_int(j)), m_dep);
+        ac.solver_facet_ref().add_constraint(m.mk_eq(p.m_n, a.mk_int(j)), m_dep, nullptr, symbol("power-exponent-case-guard"));
+        broadcast_subst(m_n, p.m_e, repl, m_dep, p.m_proof, symbol("power-exponent-case-unfold"));
 
         out = eq_tree::edge("power:n=j", m_dep, true, 0);
         return true;
@@ -213,8 +236,8 @@ namespace seq {
         arith_util& a = f.get_arith_util();
         str_power p = f.powers()[idx]; // copy: broadcast_subst may reallocate m_pows
         expr_ref_vector empty(a.get_manager());
-        broadcast_subst(n, p.m_e, empty, dep);
-        get_ambient(n).solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);
+        get_ambient(n).solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep, nullptr, symbol("power-nonpositive-exponent-guard"));
+        broadcast_subst(n, p.m_e, empty, dep, p.m_proof, symbol("power-nonpositive-unfold"));
     }
 
     // `side` with `k` tokens removed from the chosen end, optionally
@@ -473,11 +496,16 @@ namespace seq {
         zstring sx, sy;
         bool gx = constant_word(u, xs, sx), gy = constant_word(u, ys, sy);
 
-        auto constrain = [&](expr* c) { sf.add_constraint(c, dep); };
+        auto constrain = [&](expr* c) { sf.add_constraint(c, dep, nullptr, symbol("power-trichotomy-case-guard")); };
         auto mk_pow = [&](expr* base, expr* exp) {
             expr_ref e = mk_exp(m, exp);
             expr_ref tok(u.str.mk_power(base, e), m);
-            f.add_power(tok, base, e, dep);
+            proof_ref pr(m);
+            if (f.dm().proofs_enabled()) {
+                str_power p(m, tok, base, e);
+                pr = f.dm().mk_proof(symbol("power-trichotomy-token-definition"), p.fact(u), { px.m_proof.get(), py.m_proof.get() });
+            }
+            f.add_power(tok, base, e, dep, pr, symbol("power-trichotomy-token-definition"));
             return tok;
         };
         auto fresh_str = [&](char const* name) { return expr_ref(ac.mk_fresh_var(name, px.m_e->get_sort(), { px.m_e.get(), py.m_e.get() }), m); };
@@ -509,13 +537,13 @@ namespace seq {
         case 0:
             // X^M = epsilon
             constrain(m.mk_or(a.mk_le(M, a.mk_int(0)), m.mk_eq(mk_len_sum(u, a, m, xs, 0, xs.size()), a.mk_int(0))));
-            broadcast_subst(n, px.m_e, expr_ref_vector(m), dep);
+            broadcast_subst(n, px.m_e, expr_ref_vector(m), dep, px.m_proof, symbol("power-trichotomy-empty"));
             return;
         case 1: {
             // Y = X^M y',  z = y' Y^(N-1)
             expr_ref y1 = fresh_str("power-trichotomy-f1-y");
             constrain(a.mk_ge(N, a.mk_int(1)));
-            ef.add_equation(ys, cat({one(px.m_e), one(y1)}), dep);
+            ef.add_equation(ys, cat({one(px.m_e), one(y1)}), dep, nullptr, symbol("power-trichotomy-base-prefix"));
             z = cat({one(y1), one(mk_pow(Y, a.mk_sub(N, a.mk_int(1))))});
             break;
         }
@@ -536,12 +564,12 @@ namespace seq {
             if (!i) {
                 i = fresh_int("power-trichotomy-f2-i");
                 constrain(a.mk_ge(i, a.mk_int(1)));
-                ef.add_equation(xs, one(mk_pow(w, i)), dep);
+                ef.add_equation(xs, one(mk_pow(w, i)), dep, nullptr, symbol("power-trichotomy-short-base-period"));
             }
             if (!j) {
                 j = fresh_int("power-trichotomy-f2-j");
                 constrain(a.mk_ge(j, a.mk_int(1)));
-                ef.add_equation(ys, one(mk_pow(w, j)), dep);
+                ef.add_equation(ys, one(mk_pow(w, j)), dep, nullptr, symbol("power-trichotomy-long-base-period"));
             }
             z = one(mk_pow(w, a.mk_sub(a.mk_mul(j, N), a.mk_mul(i, M))));
             break;
@@ -561,9 +589,9 @@ namespace seq {
                 expr_ref v1 = fresh_str("power-trichotomy-f3-p1"), v2 = fresh_str("power-trichotomy-f3-p2"), k = fresh_int("power-trichotomy-f3-k");
                 p1 = one(v1);
                 p2 = one(v2);
-                ef.add_equation(xs, cat({one(mk_pow(u.str.mk_concat(v1, v2), k)), p1}), dep);
+                ef.add_equation(xs, cat({one(mk_pow(u.str.mk_concat(v1, v2), k)), p1}), dep, nullptr, symbol("power-trichotomy-periodic-prefix"));
             }
-            ef.add_equation(ys, cat({one(mk_pow(X, a.mk_sub(M, a.mk_int(1)))), p1, p2}), dep);
+            ef.add_equation(ys, cat({one(mk_pow(X, a.mk_sub(M, a.mk_int(1)))), p1, p2}), dep, nullptr, symbol("power-trichotomy-periodic-long-base"));
             z = cat({p2, p1, one(mk_pow(X, a.mk_sub(M, a.mk_int(2)))), p1, p2, one(mk_pow(Y, a.mk_sub(N, a.mk_int(2))))});
             break;
         }
@@ -573,13 +601,13 @@ namespace seq {
             constrain(m.mk_eq(M, a.mk_int(1)));
             constrain(a.mk_ge(q, a.mk_int(0)));
             constrain(a.mk_le(a.mk_add(q, a.mk_int(1)), N));
-            ef.add_equation(ys, cat({one(y1), one(y2)}), dep);
-            ef.add_equation(xs, cat({one(mk_pow(Y, q)), one(y1)}), dep);
+            ef.add_equation(ys, cat({one(y1), one(y2)}), dep, nullptr, symbol("power-trichotomy-long-base-cut"));
+            ef.add_equation(xs, cat({one(mk_pow(Y, q)), one(y1)}), dep, nullptr, symbol("power-trichotomy-short-base-cut"));
             z = cat({one(y2), one(mk_pow(Y, a.mk_sub(a.mk_sub(N, q), a.mk_int(1))))});
             break;
         }
         }
-        broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep);
+        broadcast_subst(n, py.m_e, cat({one(px.m_e), z}), dep, py.m_proof, symbol("power-trichotomy-remainder"));
     }
 
     static char const* const trichotomy_labels[10] = {
@@ -737,15 +765,23 @@ namespace seq {
         ast_manager& m = a.get_manager();
         str_power p = f.powers()[t.m_pow_idx]; // copy: add_power may reallocate m_pows
         expr* e = p.m_n, *count = t.m_count;
-        ac.solver_facet_ref().add_constraint(covered ? a.mk_ge(count, a.mk_add(e, a.mk_int(1))) : a.mk_ge(e, count), t.m_dep);
+        ac.solver_facet_ref().add_constraint(covered ? a.mk_ge(count, a.mk_add(e, a.mk_int(1))) : a.mk_ge(e, count), t.m_dep,
+                                           nullptr, symbol("power-elimination-exponent-order"));
         expr_ref rest_exp = mk_exp(m, covered ? a.mk_sub(count, e) : a.mk_sub(e, count));
         expr_ref rest(f.get_seq_util().str.mk_power(p.m_s, rest_exp), m);
-        f.add_power(rest, p.m_s, rest_exp);
+        proof_ref rest_pr(m);
+        if (f.dm().proofs_enabled()) {
+            str_power rest_p(m, rest, p.m_s, rest_exp);
+            rest_pr = f.dm().mk_proof(symbol("power-elimination-rest-definition"), rest_p.fact(f.get_seq_util()), { p.m_proof.get() });
+        }
+        f.add_power(rest, p.m_s, rest_exp, nullptr, rest_pr, symbol("power-elimination-rest-definition"));
         eq_facet::equation const& eq = ef.equations()[t.m_eq_idx];
+        proof_ref eq_pr(eq.m_proof);
         expr_ref_vector ps = replace_end(t.m_pow_on_lhs ? eq.m_lhs : eq.m_rhs, t.m_fwd, 1, covered ? nullptr : rest.get());
         expr_ref_vector os = replace_end(t.m_pow_on_lhs ? eq.m_rhs : eq.m_lhs, t.m_fwd, t.m_consumed, covered ? rest.get() : nullptr);
         ef.remove_equation_trailed(t.m_eq_idx);
-        ef.add_equation(t.m_pow_on_lhs ? ps : os, t.m_pow_on_lhs ? os : ps, t.m_dep);
+        ef.add_equation(t.m_pow_on_lhs ? ps : os, t.m_pow_on_lhs ? os : ps, t.m_dep, eq_pr,
+                        symbol(covered ? "power-eliminate-covered-prefix" : "power-eliminate-base-prefix"));
     }
 
     bool power_split_elim::iterator::next(eq_tree::edge& out) {
@@ -803,7 +839,8 @@ namespace seq {
             expr_ref_vector repl(m);
             if (v.is_pos())
                 u.str.get_concat_units(mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned()), repl);
-            broadcast_subst(n, p.m_e.get(), repl, dep);
+            sf.add_constraint(m.mk_eq(p.m_n, a.mk_numeral(v, true)), core, p.m_proof, symbol("power-implied-fixed-exponent"));
+            broadcast_subst(n, p.m_e.get(), repl, dep, p.m_proof, symbol("power-implied-exponent-unfold"));
             has_more = true;
             committed = true;
             m_stats.m_num_splits++;
@@ -863,8 +900,8 @@ namespace seq {
         u.str.get_concat_units(p.m_s, base);
         if (m_fwd) { repl.append(base); repl.push_back(nested_pow); }
         else       { repl.push_back(nested_pow); repl.append(base); }
-        broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
+        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep, nullptr, symbol("power-peel-positive-guard"));
+        broadcast_subst(m_n, p.m_e, repl, m_dep, p.m_proof, symbol("power-peel-positive-unfold"));
 
         out = eq_tree::edge("power-peel:n>=1", m_dep, false, 0);
         return true;
@@ -988,12 +1025,12 @@ namespace seq {
             // In the plain-token case the current token is absorbed into the
             // repeated base and is not appended again literally.
 
-            broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
-            sf.add_constraint(a.mk_ge(n_exp, a.mk_add(m_fresh_m.get(), a.mk_int(1))), m_dep); // v is a proper prefix of U^n
+            broadcast_subst(m_n, m_var.get(), repl, m_dep, nullptr, symbol("power-variable-prefix-cut"));
+            sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep, nullptr, symbol("power-variable-prefix-exponent"));
+            sf.add_constraint(a.mk_ge(n_exp, a.mk_add(m_fresh_m.get(), a.mk_int(1))), m_dep, nullptr, symbol("power-variable-proper-prefix-guard")); // v is a proper prefix of U^n
             if (fresh_inner_m) {
-                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
-                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep, nullptr, symbol("power-variable-inner-prefix-exponent"));
+                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep, nullptr, symbol("power-variable-inner-prefix-bound"));
             }
             out = eq_tree::edge("power-var-decompose:pos", m_dep, true, 0);
             return true;
@@ -1008,8 +1045,8 @@ namespace seq {
             expr_ref_vector repl(m);
             if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }
             else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
-            broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            sf.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
+            broadcast_subst(m_n, m_var.get(), repl, m_dep, nullptr, symbol("power-variable-extension"));
+            sf.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep, nullptr, symbol("power-variable-extension-length"));
             out = eq_tree::edge("power-var-decompose:extend", m_dep, false, 0);
             return true;
         }
@@ -1169,11 +1206,11 @@ namespace seq {
                 repl.push_back(m_pow_e.get());
             }
 
-            broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            sf.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);
+            broadcast_subst(m_n, m_var.get(), repl, m_dep, nullptr, symbol("power-ground-prefix-cut"));
+            sf.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep, nullptr, symbol("power-ground-prefix-exponent"));
             if (fresh_inner_m) {
-                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
-                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep, nullptr, symbol("power-ground-inner-prefix-exponent"));
+                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep, nullptr, symbol("power-ground-inner-prefix-bound"));
             }
             out = eq_tree::edge("power-gpower-intro:pos", m_dep, true, 0);
             return true;
@@ -1246,7 +1283,12 @@ namespace seq {
         expr_ref power_expr(u.str.mk_power(base_str.get(), fresh_n), m);
 
         // Register the fresh power obligation shared by every branch.
-        f.add_power(power_expr.get(), base_str.get(), fresh_n, dep);
+        proof_ref power_pr(m);
+        if (f.dm().proofs_enabled()) {
+            str_power fresh_power(m, power_expr, base_str, fresh_n);
+            power_pr = f.dm().mk_proof(symbol("power-ground-prefix-definition"), fresh_power.fact(u), { nullptr });
+        }
+        f.add_power(power_expr.get(), base_str.get(), fresh_n, dep, power_pr, symbol("power-ground-prefix-definition"));
         has_more = true;
 
         iterator* it = alloc(iterator, n, var, power_expr.get(), compressed, fresh_n, fwd, dep, m, u, a);

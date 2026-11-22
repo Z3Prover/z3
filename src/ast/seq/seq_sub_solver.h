@@ -43,6 +43,7 @@ namespace seq {
     class sub_solver_i {
     public:
         virtual ~sub_solver_i() = default;
+        virtual proof_manager* get_proof_manager() const { return nullptr; }
 
         // Assert `e`. If `dep` is null, `e` is an unconditional fact of
         // the backend's state (asserted directly, e.g. `len(v) >= 0`);
