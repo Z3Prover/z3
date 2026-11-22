@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T22:19:17-08:00**.
+Updated: **2026-11-21T23:04:33-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -85,8 +85,25 @@ PENDING; that run used eight workers while this run was serial, so no causal
 improvement is inferred. Proof-document hashes were not retained. The earlier
 Definition+Array capture is a different checker mode and is not a direct
 comparison. A prior fixed-proof control accepted 1/11 with the sort-indexed
-checker versus Legacy's 11/11; current-source matched Legacy controls remain
-necessary to show the new checker meets or beats Legacy.
+checker versus Legacy's 11/11; the completed current-source control below uses
+new frozen proof documents, so it is not a burn-down comparison.
+
+## Matched current-source sample control (separate from cohort totals)
+
+Eleven pinned sample inputs selected for conditional-definition/apply-def
+controls were hash-verified against the current sample manifest. Each was
+captured once, then replayed by the independent `check_definition_diagnosed`
+route and Legacy on the same frozen document. All 11 schema records had zero
+datatype cases, so Legacy used `Z3ProofDocument`. The independent checker
+accepted 3/11 and returned PARTIAL on 8/11 (811 total PENDING); Legacy accepted
+11/11. Current PENDING was 681 `th-lemma`, 93 `intro-def`, 27 `rewrite`, 9
+`quantifier-intro`, and 1 `def-axiom`; `apply-def` PENDING was 0. Thus
+apply-def was not the unresolved-rule blocker in this control set. Single-pass
+paired replay medians were 6.038s current versus 0.573s Legacy; one timing per
+proof is indicative only, not a stable performance estimate. These 11 controls
+are not cohort totals and do not establish parity or burn-down. Hashes, logs,
+and build provenance are retained under
+`files\conditional-current-source-control-04e`.
 
 ## Last 10 updates (measurements and corrections)
 
@@ -95,6 +112,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 21 23:04 | Complete current-source matched 11-input sample control | Independent checker 3/11 ACCEPT, 8/11 PARTIAL (811 PENDING); Legacy 11/11 ACCEPT. `apply-def` PENDING=0; single-pass medians 6.038s vs 0.573s. Fixed control only, no cohort burn-down; parity not met. |
 | Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
 | Nov 21 21:56 | Rebuild current-source ITE `DefinitionIntroduction` path; rerun pinned cohorts serially | Sample unchanged at 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT, with one TIMEOUT→PARTIAL and 30,907 PENDING. No matched-proof burn-down or causal claim: the prior run used eight workers. |
 | Nov 21 18:59 | Pair trace-06 QF_LIA ring proof with Legacy | On identical capture, trace checker PENDING 46 vs Legacy 18; both leave 18 lattice obligations, while the trace checker has 28 additional definition/rewrite obligations. Legacy accepts all 252 serialized Farkas entries; producer records 33 Farkas hints, 1 bound, and 0 pending `th-lemma`. The earlier 15-unsupported capture differs, so no producer-version delta is inferred; trace build is not latest PR HEAD. |
@@ -104,7 +122,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 07:49 | Replay fixed QF_LIA ring proofs on current source | Proof 52 fell 48→30 PENDING, clearing 18 `rewrite` obligations; both proofs remained PARTIAL. Sorted accepted 0/2 vs Legacy 2/2. |
 | Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample 83/225 ACCEPT, 5,907 PENDING; extended 74/285 ACCEPT; saved PENDING 31,501 vs older dashboard 31,516 (unresolved). Proof hashes absent; not matched-proof burn-down. |
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Legacy accepted 2/2 vs sorted 1/2; sorted was 6.32x and 8.25x slower on the two proofs. |
-| Nov 21 03:11 | Defer `integer_product` behind cheaper consequence checks | Fixed proof 51 fell 2,258.694→367.665 ms (6.14x within-checker speedup); still PARTIAL and slower than Legacy. |
 
 ## Validation and cadence
 
@@ -115,8 +132,9 @@ completed both cohorts with zero diagnostic errors or replay mismatches.
 `Z3IndependentFiniteFieldPolynomial` extraction because that module's cached
 `.checked` file was stale; the full standalone suite remains unverified and
 finite-field work remains paused. Current-source paired Legacy controls are
-still pending. Do not treat these cohort observations as matched-proof
-burn-down or Legacy parity.
+now measured on the 11-input fixed control above, where the independent checker
+still trails Legacy; broader cohort parity remains unestablished. Do not treat
+these cohort observations as matched-proof burn-down or Legacy parity.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The separate parity/performance schedule has been updated to prioritize
