@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-22T05:13:47-08:00**.
+Updated: **2026-11-22T06:34:53-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -54,15 +54,20 @@ mode `--definition-replay`, OCaml 5.3.0, Z3 5.4.2, and static linkage
 This source includes bounded Boolean search and recognizes the validated,
 premise-free ITE branch axiom when represented by `DefinitionIntroduction`.
 Both pinned cohorts ran serially with 10,000-ms solver queries, a 60-s
-per-case cap, a 4,096-MiB limit, and a 3,600-s cohort budget. Aggregate case
-wall time / median per case was 2,016.1s / 0.579s for sample and
-1,746.4s / 0.580s for extended. Diagnostic replays covered all PARTIAL cases,
-with zero diagnostic errors or replay mismatches.
+per-case cap, a 4,096-MiB limit, and a 3,600-s cohort budget. The retained
+checker was rerun on 2026-11-22 at 06:34 Pacific with the same binary and
+pinned manifests. Latest aggregate case wall time / median per case was
+2,013.1s / 0.580s for sample and 1,739.6s / 0.580s for extended. Outcomes,
+diagnostic counts, weighted PENDING, and per-rule totals reproduced exactly;
+all PARTIAL cases had diagnostics with zero errors or replay mismatches. This
+confirms repeatability, not matched-proof burn-down: proof-document hashes
+were not retained. The repeat artifacts are under
+`files\current-retained-definition-cycle-02`.
 
 | Dataset | Outcomes (all statuses) | Diagnostic replays | Diagnostic errors / replay mismatches | Weighted PENDING | Aggregate case time / median per case |
 | --- | --- | ---: | ---: | ---: | ---: |
-| smtlib-sample | 110 ACCEPT, 77 PARTIAL, 0 REJECT, 0 SAT, 21 solver UNKNOWN, 17 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 77 / 225 | 0 / 0 | 3,836 | 2,016.1s / 0.579s |
-| smtlib-extended | 78 ACCEPT, 126 PARTIAL, 0 REJECT, 0 SAT, 74 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 126 / 285 | 0 / 0 | 30,907 | 1,746.4s / 0.580s |
+| smtlib-sample | 110 ACCEPT, 77 PARTIAL, 0 REJECT, 0 SAT, 21 solver UNKNOWN, 17 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 77 / 225 | 0 / 0 | 3,836 | 2,013.1s / 0.580s |
+| smtlib-extended | 78 ACCEPT, 126 PARTIAL, 0 REJECT, 0 SAT, 74 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 126 / 285 | 0 / 0 | 30,907 | 1,739.6s / 0.580s |
 | fstar-build | **No current-source capture**; last measured checker `2671dc150931` | 7,190 / 7,190 completed diagnostics | 0 / N/M | 430 (last known) | N/M |
 
 Every PARTIAL case has a completed proof diagnostic (77/77 and 126/126);
@@ -100,9 +105,11 @@ its original run observed 407/583 cases, completed 384, timed out on 23, and
 left 176 `NOT_RUN`. The current SMT-LIB input-manifest SHA-256 values are
 sample `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`
 and extended
-`6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
-Current checker, manifest, per-case results, and diagnostic logs are retained
-under `files\current-ite-intro-cohorts-01`.
+`6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`. The
+original checker, manifest, per-case results, and diagnostics are under
+`files\current-ite-intro-cohorts-01`; the repeated run's checker, reports,
+per-case results, and diagnostics are under
+`files\current-retained-definition-cycle-02`.
 
 ## Current PR-head sample: Definition+Array route
 
@@ -170,6 +177,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 22 06:34 | Repeat the retained Definition-mode checker on both pinned cohorts; diagnose every PARTIAL | Same outcomes and per-rule PENDING as the prior capture: sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 30,907 PENDING. Diagnostics: 77/77 and 126/126, zero errors/mismatches. Latest aggregate case times 2,013.1s / 1,739.6s; no matched-proof burn-down inferred. |
 | Nov 22 02:56 | Rerun the retained PR-head checker on pinned sample inputs with `--definition-array-replay`; diagnose all PARTIALs | 142/225 ACCEPT, 42 PARTIAL, 21 UNKNOWN, 20 TIMEOUT; versus Definition-only, 32 PARTIAL→ACCEPT and 3 PARTIAL→TIMEOUT with no ACCEPT regressions. 344 observed PENDING; combined mode is slower (0.779s vs 0.579s median). Input-matched only, not frozen-proof burn-down or Legacy parity. |
 | Nov 21 23:04 | Complete current-source matched 11-input sample control | Independent checker 3/11 ACCEPT, 8/11 PARTIAL (811 PENDING); Legacy 11/11 ACCEPT. `apply-def` PENDING=0; single-pass medians 6.038s vs 0.573s. Fixed control only, no cohort burn-down; parity not met. |
 | Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
@@ -179,7 +187,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 13:31 | Run current Definition+Array checker on both pinned SMT-LIB cohorts | Sample 139/225 ACCEPT and 471 PENDING; extended 77/285 ACCEPT and 29,457 PENDING. Relative to the prior Definition capture: sample +56 ACCEPT, extended +3; proofs are not hash-matched, so no burn-down or Legacy-parity claim. |
 | Nov 21 08:26 | Pair current-source SMT-LIB sample timing controls | Sorted accepted 1/11 vs Legacy 11/11; summed medians 89.838s vs 18.253s (4.92x slower), sorted slower on 10/11. |
 | Nov 21 07:49 | Replay fixed QF_LIA ring proofs on current source | Proof 52 fell 48→30 PENDING, clearing 18 `rewrite` obligations; both proofs remained PARTIAL. Sorted accepted 0/2 vs Legacy 2/2. |
-| Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample 83/225 ACCEPT, 5,907 PENDING; extended 74/285 ACCEPT; saved PENDING 31,501 vs older dashboard 31,516 (unresolved). Proof hashes absent; not matched-proof burn-down. |
 
 ## Validation and cadence
 
