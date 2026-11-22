@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T21:56:06-08:00**.
+Updated: **2026-11-21T22:19:17-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -41,7 +41,7 @@ counts above are explicit and are not treated as zero-PENDING evidence.
 | Rule | fstar-build, last known | smtlib-sample, current | smtlib-extended, current |
 | --- | ---: | ---: | ---: |
 | `arith/bound` | N/M | 0 | 11 |
-| `arith/farkas` | 3 | 0 | 11 |
+| `arith/farkas` | 3 | 0 | 0 |
 | `arith/lp-integer-lattice` | N/M | 0 | 0 |
 | `arith/lp-gomory` | N/M | 0 | 0 |
 | `arith/lp-monomial-interval` | 1 | 0 | 26 |
@@ -57,6 +57,11 @@ counts above are explicit and are not treated as zero-PENDING evidence.
 | `rewrite` | 8 | 124 | 24,342 |
 | `sk` | 10 | 0 | 0 |
 | `th-lemma` | 236 | 3,499 | 6,153 |
+
+Correction recorded 2026-11-21 22:19 Pacific: the extended diagnostics aggregate
+to 11 `arith/bound` and 0 `arith/farkas`; the earlier table duplicated the
+bound count under Farkas. The weighted PENDING total remains 30,907. This is an
+attribution correction only, not a measured improvement or burn-down.
 
 The fstar-build column is a historical baseline, not a current-source result;
 its original run observed 407/583 cases, completed 384, timed out on 23, and
@@ -83,13 +88,14 @@ comparison. A prior fixed-proof control accepted 1/11 with the sort-indexed
 checker versus Legacy's 11/11; current-source matched Legacy controls remain
 necessary to show the new checker meets or beats Legacy.
 
-## Last 10 measured updates
+## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
 is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
 | Nov 21 21:56 | Rebuild current-source ITE `DefinitionIntroduction` path; rerun pinned cohorts serially | Sample unchanged at 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT, with one TIMEOUT→PARTIAL and 30,907 PENDING. No matched-proof burn-down or causal claim: the prior run used eight workers. |
 | Nov 21 18:59 | Pair trace-06 QF_LIA ring proof with Legacy | On identical capture, trace checker PENDING 46 vs Legacy 18; both leave 18 lattice obligations, while the trace checker has 28 additional definition/rewrite obligations. Legacy accepts all 252 serialized Farkas entries; producer records 33 Farkas hints, 1 bound, and 0 pending `th-lemma`. The earlier 15-unsupported capture differs, so no producer-version delta is inferred; trace build is not latest PR HEAD. |
 | Nov 21 18:21 | Add bounded Boolean search to sorted rewrite; measure pinned cohorts | Sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 28,404 PENDING. Relative to the retained Definition capture, +27/+4 ACCEPT and -2,071/-3,097 PENDING by saved totals; extended PENDING differs by 15 from the older dashboard. Proof hashes are absent, so not matched-proof burn-down. |
@@ -99,7 +105,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample 83/225 ACCEPT, 5,907 PENDING; extended 74/285 ACCEPT; saved PENDING 31,501 vs older dashboard 31,516 (unresolved). Proof hashes absent; not matched-proof burn-down. |
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Legacy accepted 2/2 vs sorted 1/2; sorted was 6.32x and 8.25x slower on the two proofs. |
 | Nov 21 03:11 | Defer `integer_product` behind cheaper consequence checks | Fixed proof 51 fell 2,258.694→367.665 ms (6.14x within-checker speedup); still PARTIAL and slower than Legacy. |
-| Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample 4,020 PENDING; extended 31,262 (proof hashes absent). Earlier fixed-control timing was 88.699s sorted vs 26.251s Legacy (3.38x); strict F* array closure passed. |
 
 ## Validation and cadence
 
