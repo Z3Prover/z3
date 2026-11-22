@@ -1866,6 +1866,34 @@ namespace {
 
     static void tst_nseq_array_map_models() {
         check_nseq_candidate_model(R"(
+            (declare-fun f (Int Int) Int)
+            (declare-const s (Seq Int))
+            (assert (= (seq.foldl f 0 s) 5))
+        )", true, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
+            (declare-fun f (Int) Bool)
+            (declare-fun p ((Seq Bool)) Bool)
+            (declare-const s (Seq Int))
+            (assert (p (seq.map f s)))
+            (assert (not (p (seq.unit false))))
+            (assert (not (p (seq.unit true))))
+            (assert (not (= s (as seq.empty (Seq Int)))))
+        )", true, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
+            (declare-fun f (Int) Bool)
+            (declare-const s (Seq Int))
+            (declare-const b (Seq Bool))
+            (assert (= (seq.map f s) b))
+            (assert (> (seq.len s) 1))
+        )", true, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
+            (declare-fun f (Int Int) Bool)
+            (declare-const s (Seq Int))
+            (declare-const b (Seq Bool))
+            (assert (= (seq.mapi f 1 s) b))
+            (assert (> (seq.len s) 1))
+        )", true, nullptr, 1000000, "ALL");
+        check_nseq_candidate_model(R"(
             (declare-const f (Array Int Bool))
             (declare-const s (Seq Int))
             (assert (= (seq.map f s)

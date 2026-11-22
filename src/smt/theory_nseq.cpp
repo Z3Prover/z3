@@ -900,6 +900,14 @@ namespace smt {
     // solver_facet's arithmetic-only backend.
     static bool is_seq_theory_atom(seq_util& seq, seq::skolem const& sk, expr* atom) {
         expr* e1 = nullptr, *e2 = nullptr;
+        // The abstraction has no HO beta-redex support for these function arrays.
+        if (seq.get_manager().is_eq(atom) || is_uninterp(atom)) {
+            expr_ref input(atom, seq.get_manager());
+            for (expr* term : subterms_postorder::ground(input))
+               if (seq.str.is_map(term) || seq.str.is_mapi(term) ||
+                   seq.str.is_foldl(term) || seq.str.is_foldli(term))
+                   return true;
+        }
         return seq.str.is_in_re(atom, e1, e2) || seq.str.is_prefix(atom, e1, e2) ||
                seq.str.is_suffix(atom, e1, e2) || seq.str.is_contains(atom, e1, e2) ||
                seq.str.is_lt(atom, e1, e2) || seq.str.is_le(atom, e1, e2) ||
@@ -1482,8 +1490,6 @@ namespace smt {
             // Reconcile digits only after word search stalls, not at its preliminary node budget.
             if (conversions && branch_stoi_digit(true))
                 return FC_CONTINUE;
-            if (!hf.terms().empty() && m_num_unhandled == 0 && hf.is_satisfied())
-                return FC_DONE;
             if (getenv("NSEQ_DUMP_UNKNOWN")) {
                 std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
                 for (unsigned id = 0; id < m_root->num_facets(); ++id)
