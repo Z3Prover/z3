@@ -416,6 +416,7 @@ extern "C" {
     static Z3_apply_result _tactic_apply(Z3_context c, Z3_tactic t, Z3_goal g, params_ref p) {
         goal_ref new_goal;
         new_goal = alloc(goal, *to_goal_ref(g));
+        new_goal->set_keep_sat_subgoals(p.get_bool("keep_sat_subgoals", false));
         Z3_apply_result_ref * ref = alloc(Z3_apply_result_ref, (*mk_c(c)), mk_c(c)->m());
         mk_c(c)->save_object(ref); 
 
@@ -423,7 +424,13 @@ extern "C" {
         bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         
-        to_tactic_ref(t)->updt_params(p);
+        params_ref tactic_params;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            symbol key = p.get_key(i);
+            if (key != symbol("keep_sat_subgoals"))
+                tactic_params.copy_entry(p, key);
+        }
+        to_tactic_ref(t)->updt_params(tactic_params);
 
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
@@ -466,6 +473,7 @@ extern "C" {
         RESET_ERROR_CODE();
         param_descrs pd;
         to_tactic_ref(t)->collect_param_descrs(pd);
+        pd.insert("keep_sat_subgoals", CPK_BOOL, "keep all satisfiable and undecided subgoals", "false");
         auto &params = to_param_ref(p);
         params.validate(pd);
         Z3_apply_result r = _tactic_apply(c, t, g, params);

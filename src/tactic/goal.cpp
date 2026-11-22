@@ -86,6 +86,7 @@ goal::goal(goal const & src, bool):
     m_core_enabled(src.unsat_core_enabled()),
     m_inconsistent(false),
     m_precision(src.m_precision) {
+    m_keep_sat_subgoals = src.m_keep_sat_subgoals;
     m_mc = src.m_mc.get();
     m_pc = src.m_pc.get();
     m_dc = src.m_dc.get();
@@ -109,6 +110,7 @@ void goal::copy_to(goal & target) const {
     SASSERT(target.m_core_enabled   == m_core_enabled);
     target.m_inconsistent         = m_inconsistent;
     target.m_precision            = mk_union(prec(), target.prec());
+    target.m_keep_sat_subgoals    = m_keep_sat_subgoals;
     target.m_mc                   = m_mc.get(); 
     target.m_pc                   = m_pc.get(); 
     target.m_dc                   = m_dc.get();
@@ -624,6 +626,7 @@ goal * goal::translate(ast_translation & translator) const {
     res->m_inconsistent = m_inconsistent;
     res->m_depth        = m_depth;
     res->m_precision    = m_precision;
+    res->m_keep_sat_subgoals = m_keep_sat_subgoals;
     res->m_pc           = m_pc ? m_pc->translate(translator) : nullptr;
     res->m_mc           = m_mc ? m_mc->translate(translator) : nullptr;
     res->m_dc           = m_dc ? m_dc->translate(translator) : nullptr;

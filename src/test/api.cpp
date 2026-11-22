@@ -467,6 +467,62 @@ static void test_apply_result_subgoal_bounds() {
     Z3_del_context(ctx);
 }
 
+static void test_apply_keep_sat_subgoals_command() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    std::string output = Z3_eval_smtlib2_string(ctx,
+        "(declare-const x Int)"
+        "(assert (or (= x 0) (= x 1)))"
+        "(apply (then split-clause solve-eqs))"
+        "(apply (then split-clause solve-eqs) :keep_sat_subgoals true)"
+        "(apply (then split-clause solve-eqs) :keep_sat_subgoals false)"
+        "(check-sat-using (then split-clause solve-eqs))");
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(output.find("(error") == std::string::npos);
+    unsigned goals = 0;
+    for (size_t pos = 0; (pos = output.find("(goal\n", pos)) != std::string::npos; pos += 6)
+        ++goals;
+    ENSURE(goals == 4);
+    ENSURE(output.find("sat\n") != std::string::npos);
+    Z3_del_context(ctx);
+}
+
+static void test_apply_keep_sat_subgoals_params() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_goal goal = Z3_mk_goal(ctx, true, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_sort ints = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), ints);
+    Z3_ast choices[] = { Z3_mk_eq(ctx, x, Z3_mk_int(ctx, 0, ints)),
+                         Z3_mk_eq(ctx, x, Z3_mk_int(ctx, 1, ints)) };
+    Z3_goal_assert(ctx, goal, Z3_mk_or(ctx, 2, choices));
+    Z3_tactic split = Z3_mk_tactic(ctx, "split-clause");
+    Z3_tactic_inc_ref(ctx, split);
+    Z3_tactic solve = Z3_mk_tactic(ctx, "solve-eqs");
+    Z3_tactic_inc_ref(ctx, solve);
+    Z3_tactic tactic = Z3_tactic_and_then(ctx, split, solve);
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_params params = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, params);
+    Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "keep_sat_subgoals"), true);
+    for (unsigned i = 0; i < 2; ++i) {
+        Z3_apply_result result = Z3_tactic_apply_ex(ctx, tactic, goal, params);
+        Z3_apply_result_inc_ref(ctx, result);
+        ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 2);
+        Z3_apply_result_dec_ref(ctx, result);
+    }
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_params_dec_ref(ctx, params);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_tactic_dec_ref(ctx, solve);
+    Z3_tactic_dec_ref(ctx, split);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_del_context(ctx);
+}
+
 static void test_query_constructor_bounds() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -816,6 +872,8 @@ void tst_api() {
     test_strict_real_maximize_disjunction();
     test_error_handler();
     test_apply_result_subgoal_bounds();
+    test_apply_keep_sat_subgoals_command();
+    test_apply_keep_sat_subgoals_params();
     test_query_constructor_bounds();
     test_command_proof_check_callback();
     test_apply_result_nonempty_subgoal_bounds();
