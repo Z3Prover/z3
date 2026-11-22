@@ -312,6 +312,9 @@ theory_seq::~theory_seq() {
 
 void theory_seq::init() {
     params_ref p;
+    p.set_bool("seq_regular_rewrite", false);
+    m_str_rewrite.updt_params(p);
+    m_seq_rewrite.updt_params(p);
     p.set_bool("coalesce_chars", false);
     m_rewrite.updt_params(p);
 

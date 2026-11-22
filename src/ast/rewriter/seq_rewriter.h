@@ -87,6 +87,7 @@ class seq_rewriter {
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool m_coalesce_chars = true;
+    bool m_regular_rewrite = true;
     unsigned m_max_power_expansion = 2;
     bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };
@@ -299,6 +300,7 @@ public:
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
     br_status mk_le_core(expr* lhs, expr* rhs, expr_ref& result);
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    br_status mk_regular_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
     expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.data()); }
     expr_ref mk_app(func_decl* f, unsigned n, expr* const* args) { 

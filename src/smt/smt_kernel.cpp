@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_util.h"
 #include "params/smt_params_helper.hpp"
+#include "params/seq_rewriter_params.hpp"
 
 namespace smt {
 
@@ -278,6 +279,7 @@ namespace smt {
 
     void kernel::collect_param_descrs(param_descrs & d) {
         smt_params_helper::collect_param_descrs(d);
+        seq_rewriter_params::collect_param_descrs(d);
     }
 
     void kernel::pop_to_base_level() {

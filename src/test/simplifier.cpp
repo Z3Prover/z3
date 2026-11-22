@@ -1355,6 +1355,7 @@ static void test_use_aware_replace_contains() {
     expr_ref contains(seq.str.mk_contains(replaced, observed), m);
     expr_ref expected(seq.str.mk_contains(source, observed), m);
     rw(contains);
+    rw(expected);
     ENSURE(contains == expected);
 
     expr_ref needle_contains(seq.str.mk_contains(replaced, needle), m);

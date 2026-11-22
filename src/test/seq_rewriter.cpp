@@ -35,6 +35,7 @@ Tests:
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_skolem.h"
 #include "model/model.h"
@@ -46,6 +47,94 @@ Tests:
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
+}
+
+static void tst_regular_rewrites(bool proofs) {
+    ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    params_ref baseline_params;
+    baseline_params.set_bool("seq_regular_rewrite", false);
+    th_rewriter concrete(m, baseline_params);
+    expr_ref_vector pin(m);
+    auto hold = [&](expr* e) { pin.push_back(e); return e; };
+    auto text = [&](char const* s) { return hold(u.str.mk_string(zstring(s))); };
+    auto integer = [&](int n) { return hold(a.mk_int(n)); };
+    auto language = [&](char const* s) { return hold(u.re.mk_to_re(text(s))); };
+    expr* s = hold(m.mk_const("regular-s", u.mk_string_sort()));
+    expr* all = hold(u.re.mk_full_seq(u.re.mk_re(s->get_sort())));
+    expr* len = hold(u.str.mk_length(s));
+    expr* first = hold(u.str.mk_at(s, integer(0)));
+    expr* a_word = text("a"), *b_word = text("b"), *colon = text(":");
+    expr* one = integer(1), *two = integer(2);
+    auto check = [&](expr* e, bool root_membership = true) {
+        expr_ref input(e, m), result(m), again(m);
+        proof_ref pr(m);
+        rw(input, result, pr);
+        ENSURE(result != input);
+        if (proofs) {
+            expr *lhs, *rhs;
+            ENSURE(pr && m.is_eq(m.get_fact(pr), lhs, rhs) && lhs == input && rhs == result);
+        }
+        if (root_membership) {
+            expr *subject, *regex;
+            ENSURE(u.str.is_in_re(result, subject, regex) && subject == s);
+        }
+        rw(result, again);
+        ENSURE(again == result);
+        for (char const* word : {"", "a", "b", "ab", "ba", ":", "a:b", "a::b", "ab:", "0", "00", "1", "01", "12", "012", "99", "bad"}) {
+            expr_safe_replace substitute(m);
+            substitute.insert(s, text(word));
+            expr_ref before(m), after(m);
+            substitute(input, before);
+            substitute(result, after);
+            concrete(before);
+            concrete(after);
+            ENSURE(before == after);
+        }
+    };
+    for (unsigned direction = 0; direction < 3; ++direction) {
+        expr* regex = language("a");
+        if (direction == 1) regex = hold(u.re.mk_concat(regex, all));
+        if (direction == 2) regex = hold(u.re.mk_concat(all, regex));
+        expr_ref membership(u.re.mk_in_re(s, regex), m);
+        expr_ref result(m);
+        rw(membership, result);
+        ENSURE(u.str.is_in_re(result));
+    }
+    check(hold(u.str.mk_prefix(text("a"), s)));
+    check(hold(u.str.mk_suffix(text("b"), s)));
+    check(hold(u.str.mk_contains(first, text("a"))));
+    expr* prefixed = hold(u.str.mk_concat(text("a"), s));
+    check(hold(u.re.mk_in_re(prefixed, language("ab"))));
+    expr* suffixed = hold(u.str.mk_concat(s, text("b")));
+    check(hold(u.re.mk_in_re(suffixed, language("ab"))));
+    expr* optional = hold(u.re.mk_union(language(""), language("a")));
+    check(hold(u.re.mk_in_re(first, optional)), false);
+    expr* slice = hold(u.str.mk_substr(s, one, two));
+    check(hold(u.re.mk_in_re(slice, language("b"))));
+    expr* replacement = hold(u.str.mk_replace(s, a_word, b_word));
+    check(hold(u.re.mk_in_re(replacement, language("b"))));
+    expr* number = hold(u.str.mk_stoi(s));
+    check(hold(m.mk_eq(number, integer(12))));
+    check(hold(a.mk_le(number, integer(12))));
+    check(hold(a.mk_ge(number, integer(0))));
+    check(hold(a.mk_lt(number, integer(-1))), false);
+    check(hold(u.str.mk_stoi(first)), false);
+    expr* zero = integer(0);
+    expr* index = hold(u.str.mk_index(s, colon, zero));
+    expr* offset = hold(a.mk_add(index, integer(1)));
+    expr* remaining = hold(a.mk_sub(len, offset));
+    expr* through = hold(u.str.mk_substr(s, integer(0), offset));
+    expr* tail = hold(u.str.mk_substr(s, offset, remaining));
+    expr* left = hold(u.str.mk_replace(through, colon, b_word));
+    expr* rejoin = hold(u.str.mk_concat(left, tail));
+    check(rejoin, false);
+    expr_ref whole(u.str.mk_substr(s, integer(0), len), m), result(m);
+    rw(whole, result);
+    ENSURE(result == s);
 }
 
 static void tst_eq_skolem_arity() {
@@ -776,26 +865,32 @@ static void tst_replace_contains() {
     expr_ref contains(su.str.mk_contains(replaced, observed), m);
     expr_ref expected(su.str.mk_contains(source, observed), m);
     rw(contains);
+    rw(expected);
     ENSURE(contains == expected);
 
     expr_ref needle_contains(su.str.mk_contains(replaced, needle), m);
     expr_ref needle_expected(su.str.mk_contains(source, needle), m);
     rw(needle_contains);
+    rw(needle_expected);
     ENSURE(needle_contains != needle_expected);
 
     expr_ref replacement_contains(su.str.mk_contains(replaced, replacement), m);
     expr_ref replacement_expected(su.str.mk_contains(source, replacement), m);
     rw(replacement_contains);
+    rw(replacement_expected);
     ENSURE(replacement_contains != replacement_expected);
 
     expr_ref multi(su.str.mk_string("YY"), m);
     expr_ref multi_contains(su.str.mk_contains(replaced, multi), m);
     expr_ref multi_expected(su.str.mk_contains(source, multi), m);
     rw(multi_contains);
-    ENSURE(multi_contains != multi_expected);
+    rw(multi_expected);
+    ENSURE(multi_contains == multi_expected);
 }
 
 void tst_seq_rewriter() {
+    tst_regular_rewrites(false);
+    tst_regular_rewrites(true);
     tst_replace_contains();
     tst_extract_equal_offset_length();
     tst_delete_first_character();

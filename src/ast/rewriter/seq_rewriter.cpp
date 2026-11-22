@@ -22,6 +22,7 @@ Authors:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_bisim.h"
 #include "ast/rewriter/seq_range_collapse.h"
+#include "ast/rewriter/seq_regular_rewriter.h"
 #include "ast/rewriter/seq_regex_witness.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -38,11 +39,81 @@ Authors:
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();
+    m_regular_rewrite = sp.seq_regular_rewrite();
     m_max_power_expansion = sp.max_power_expansion();
 }
 
 void seq_rewriter::get_param_descrs(param_descrs & r) {
     seq_rewriter_params::collect_param_descrs(r);
+}
+
+br_status seq_rewriter::mk_regular_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
+    if (!m_regular_rewrite)
+        return BR_FAILED;
+    if (f->get_family_id() == get_fid()) {
+        switch (f->get_decl_kind()) {
+        case OP_SEQ_CONCAT:
+            if (n != 2 || !str().is_replace(args[0])) return BR_FAILED;
+            break;
+        case OP_SEQ_EXTRACT:
+            if (n != 3 || !m_autil.is_zero(args[1])) return BR_FAILED;
+            break;
+        case OP_SEQ_CONTAINS:
+            if (!str().is_string(args[0]) && !str().is_string(args[1])) return BR_FAILED;
+            break;
+        case OP_SEQ_PREFIX:
+        case OP_SEQ_SUFFIX:
+            if (!str().is_string(args[0])) return BR_FAILED;
+            break;
+        case OP_SEQ_IN_RE:
+            if (is_uninterp_const(args[0]) || m().is_value(args[0]) || !re().is_ground(args[1]))
+                return BR_FAILED;
+            break;
+        case OP_STRING_STOI:
+            if (str().is_string(args[0])) return BR_FAILED;
+            break;
+        default:
+            return BR_FAILED;
+        }
+    }
+    else {
+        decl_kind k = f->get_decl_kind();
+        bool basic = f->get_family_id() == m().get_basic_family_id();
+        if (basic ? (k != OP_EQ && k != OP_DISTINCT && k != OP_NOT) :
+            (f->get_family_id() != m_autil.get_family_id() ||
+             (k != OP_LE && k != OP_GE && k != OP_LT && k != OP_GT)))
+            return BR_FAILED;
+        if (k != OP_NOT && n != 2) return BR_FAILED;
+        if (k != OP_NOT && !m_autil.is_int(args[0]) && !m_util.is_string(args[0]->get_sort()))
+            return BR_FAILED;
+        ptr_buffer<expr> todo;
+        obj_hashtable<expr> seen;
+        todo.append(n, args);
+        bool sequence = false;
+        for (unsigned scanned = 0; !todo.empty() && scanned < 256; ++scanned) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (!seen.insert_if_not_there(e) || !is_app(e)) continue;
+            if (to_app(e)->get_family_id() == get_fid()) {
+                sequence = true;
+                break;
+            }
+            for (expr* child : *to_app(e)) todo.push_back(child);
+        }
+        if (!sequence) return BR_FAILED;
+    }
+    expr_ref original(m().mk_app(f, n, args), m());
+    unsigned steps = 0, preimages = 0;
+    try {
+        seq_regular_rewriter regular(m(), 10000, steps, preimages);
+        expr* rewritten = regular.rewrite(to_app(original));
+        if (rewritten == original) return BR_FAILED;
+        result = rewritten;
+        return BR_REWRITE_FULL;
+    }
+    catch (seq_regular_rewriter::failure) {
+        return BR_FAILED;
+    }
 }
 
 br_status seq_rewriter::mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
@@ -163,6 +234,8 @@ br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
+    br_status regular = mk_regular_app(f, num_args, args, result);
+    if (regular != BR_FAILED) return regular;
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
         
@@ -3766,7 +3839,7 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
 /*
     a in empty -> false
     a in full -> true
-    a in (str.to_re a') -> (a == a')
+    a in (str.to_re a) -> true
     "" in b -> is_nullable(b)
     (ele + tail) in b -> tail in (derivative e b)
     (head + ele) in b -> head in (right-derivative e b)
@@ -3809,6 +3882,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_full_seq(b)) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    expr* singleton = nullptr;
+    if (re().is_to_re(b, singleton) && singleton == a) {
         result = m().mk_true();
         return BR_DONE;
     }
@@ -3898,25 +3976,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
-    expr_ref b_s(m());
-    if (lift_str_from_to_re(b, b_s)) {
-       result = m_br.mk_eq_rw(a, b_s);
-       return BR_REWRITE_FULL;
-    }
-    expr* c = nullptr, *d = nullptr, *e = nullptr;
-    if (re().is_concat(b, c, d) && re().is_to_re(c, e) && re().is_full_seq(d)) {
-        result = str().mk_prefix(e, a);
-        return BR_REWRITE1;
-    }
-    if (re().is_concat(b, c, d) && re().is_to_re(d, e) && re().is_full_seq(c)) {
-        result = str().mk_suffix(e, a);
-        return BR_REWRITE1;
-    }
     expr* b1 = nullptr;
     expr* eps = nullptr;
-    if (re().is_opt(b, b1) ||
+    if (!m_regular_rewrite && (re().is_opt(b, b1) ||
         (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
-        (re().is_union(b, eps, b1) && re().is_epsilon(eps)))
+        (re().is_union(b, eps, b1) && re().is_epsilon(eps))))
     {
         // deterministic evaluation order: build sub-expressions first
         auto len_a = str().mk_length(a);
