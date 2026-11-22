@@ -18,7 +18,13 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include <functional>
@@ -166,6 +172,84 @@ namespace seq {
         unsigned num_ho_unfolds() const { return m_num_ho_unfolds; }
         unsigned num_length_axioms() const { return m_num_length_axioms; }
 
+        // DFS refinement stays branch-local; only root refinement publishes SMT axioms.
+        bool propagate_model(solver_facet_i& sf, bool publish = true) {
+            if (m_terms.empty())
+                return false;
+            bool progress = false;
+            th_rewriter rw(m);
+            unsigned num_terms = m_terms.size();
+            for (unsigned j = 0; j < num_terms; ++j) {
+                app_ref term(m_terms.get(j), m);
+                if (is_unfolded(term))
+                    continue;
+                expr* f = nullptr, *s = nullptr, *b = nullptr, *idx = nullptr;
+                VERIFY(is_ho_term(term, f, idx, b, s));
+                expr_ref length(m_seq.str.mk_length(s), m);
+                rw(length);
+                rational n;
+                if (!sf.value(length, n) || !n.is_unsigned() || n > rational(256))
+                    continue;
+                expr_ref_vector units(m);
+                for (unsigned k = 0; k < n.get_unsigned(); ++k) {
+                    expr_ref index(sf.get_arith_util().mk_int(k), m);
+                    expr_ref element(m_seq.str.mk_nth_i(s, index), m);
+                    units.push_back(m_seq.str.mk_unit(element));
+                }
+                expr_ref shape(m_seq.str.mk_concat(units, s->get_sort()), m);
+                expr_ref_vector args(m);
+                for (expr* arg : *term)
+                    args.push_back(arg);
+                args.set(args.size() - 1, shape);
+                expr_ref result(m.mk_app(term->get_decl(), args.size(), args.data()), m);
+                rw(result);
+                recfun::util rec(m);
+                var_subst instantiate(m);
+                // Expand nonrecursive step bodies even when their elements are symbolic.
+                for (unsigned k = 0; k <= n.get_unsigned(); ++k) {
+                    expr_safe_replace macros(m);
+                    bool changed = false;
+                    for (expr* t : subterms_postorder::ground(result)) {
+                        if (!rec.is_defined(t) || !rec.has_def(to_app(t)->get_decl()))
+                            continue;
+                        auto const& d = rec.get_def(to_app(t)->get_decl());
+                        if (!d.is_fun_macro() || !d.get_rhs() || rec.contains_def(d.get_rhs()))
+                            continue;
+                        expr_ref body(instantiate(d.get_rhs(), to_app(t)->get_num_args(), to_app(t)->get_args()), m);
+                        macros.insert(t, body);
+                        changed = true;
+                    }
+                    if (!changed)
+                        break;
+                    macros(result);
+                    rw(result);
+                }
+                expr_ref numeral(sf.get_arith_util().mk_numeral(n, true), m);
+                expr_ref lower(sf.get_arith_util().mk_ge(length, numeral), m);
+                expr_ref upper(sf.get_arith_util().mk_le(length, numeral), m);
+                expr_ref guard(m.mk_and(lower, upper), m);
+                expr_ref definition(m.mk_implies(guard, m.mk_eq(term, result)), m);
+                proof_ref definition_proof(m);
+                if (m.proofs_enabled())
+                    definition_proof = m_seq.mk_proof(symbol("seq-ho-unfold"), 0, nullptr, definition);
+                if (sf.add_constraint(definition, nullptr, definition_proof, symbol("seq-ho-unfold"))) {
+                    if (publish)
+                        m_add_eq(term, result, guard);
+                    progress = true;
+                }
+                expr_ref shape_axiom(m.mk_implies(guard, m.mk_eq(s, shape)), m);
+                proof_ref shape_proof(m);
+                if (m.proofs_enabled())
+                    shape_proof = m_seq.mk_proof(symbol("seq-ho-input"), 0, nullptr, shape_axiom);
+                if (sf.add_constraint(shape_axiom, nullptr, shape_proof, symbol("seq-ho-input"))) {
+                    if (publish)
+                        m_add_eq(s, shape, guard);
+                    progress = true;
+                }
+            }
+            return progress;
+        }
+
         facet_i* clone(trail_stack& trail) const override {
             ho_facet* f = alloc(
                 ho_facet,
@@ -190,6 +274,17 @@ namespace seq {
             for (expr* term : m_terms)
                 out << "  " << mk_pp(term, m) << "\n";
             return out;
+        }
+    };
+
+    class ho_propagation : public eq_tree::propagation_plugin_i {
+    public:
+        char const* name() const override { return "ho-propagate"; }
+        stx::simplify_result propagate(eq_tree::node& n) override {
+            auto ac = get_ambient(n);
+            auto& hf = ac.context().ho_facet(n);
+            return hf.propagate_model(ac.solver_facet_ref(), false) ?
+                stx::simplify_result::proceed : stx::simplify_result::noop;
         }
     };
 

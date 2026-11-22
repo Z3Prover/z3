@@ -23,10 +23,51 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_ho_facet.h"
+#include "ast/array_decl_plugin.h"
 #include "smt/seq_solver_facet.h"
 #include <iostream>
 
 namespace {
+
+    static void tst_ho_candidate_definitions(bool proofs) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        array_util arrays(m);
+        seq_rewriter rw(m);
+        trail_stack trail;
+        seq::eq_tree tree(trail, m.limit());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        seq::solver_facet sf(trail, m, u, solver);
+        sort* domain[] = {a.mk_int(), a.mk_int()};
+        func_decl_ref f(m.mk_func_decl(symbol("step"), 2, domain, a.mk_int()), m);
+        expr_ref function(arrays.mk_as_array(f), m);
+        expr_ref input(m.mk_fresh_const("s", u.str.mk_seq(a.mk_int())), m);
+        expr_ref folded(u.str.mk_foldl(function, a.mk_int(0), input), m);
+        expr_ref length(u.str.mk_length(input), m);
+        sf.add_constraint(m.mk_eq(length, a.mk_int(1)));
+        sf.add_constraint(m.mk_eq(folded, a.mk_int(5)));
+        seq::ho_facet hf(trail, m, u, rw,
+            [](expr*, expr*, expr*) { return false; },
+            [](expr*, expr*&) { return false; });
+        hf.add_term(folded);
+        ENSURE(hf.propagate_model(sf));
+        ENSURE(!hf.propagate_model(sf));
+        expr_ref element(u.str.mk_nth_i(input, a.mk_int(0)), m);
+        expr_ref step(m.mk_app(f, a.mk_int(0), element), m);
+        ENSURE(sf.is_satisfied());
+        trail.push_scope();
+        sf.add_constraint(m.mk_not(m.mk_eq(step, a.mk_int(5))));
+        ENSURE(sf.has_conflict());
+        trail.pop_scope(1);
+        ENSURE(sf.is_satisfied());
+        scoped_ptr<stx::facet_i> snapshot(sf.clone(trail));
+        rational value;
+        ENSURE(static_cast<seq::solver_facet*>(snapshot.get())->value(folded, value));
+        ENSURE(value == rational(5));
+    }
 
     static void tst_sub_solver_string_terms_are_abstract() {
         ast_manager m;
@@ -182,6 +223,8 @@ namespace {
 } // namespace
 
 void tst_seq_solver_facet() {
+    tst_ho_candidate_definitions(false);
+    tst_ho_candidate_definitions(true);
     tst_sub_solver_string_terms_are_abstract();
     tst_sub_solver_symbolic_division();
     tst_arith_length_conflict();

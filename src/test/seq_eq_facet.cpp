@@ -1720,8 +1720,8 @@ namespace {
     }
 
     static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr,
-                                          unsigned budget = 1000000, char const* logic = "QF_SLIA") {
-        ast_manager m;
+                                          unsigned budget = 1000000, char const* logic = "QF_SLIA", bool proofs = false) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
         reg_decl_plugins(m);
         scoped_rlimit limit(m.limit(), budget);
         cmd_context cmd(false, &m);
@@ -1865,6 +1865,23 @@ namespace {
     }
 
     static void tst_nseq_array_map_models() {
+        check_nseq_candidate_model(R"(
+            (declare-const f (Array Int Int Bool))
+            (declare-const s (Seq Int))
+            (assert (= (seq.mapi f 0 s)
+                       (seq.++ (seq.unit false) (seq.unit true) (seq.unit false))))
+        )", true, nullptr, 1000000, "ALL", true);
+        for (bool bounded : {false, true}) {
+            std::string input = R"(
+                (declare-const elements (Seq Int))
+                (define-fun step ((sums (Seq Int)) (element Int)) (Seq Int)
+                    (seq.++ (seq.unit (+ (seq.nth sums 0) element)) sums))
+                (assert (= (seq.nth (seq.foldl step (seq.unit 0) elements) 0) 6))
+            )";
+            if (bounded)
+                input += "(assert (= (seq.len elements) 1))";
+            check_nseq_candidate_model(input.c_str(), true, nullptr, 30000000, "ALL");
+        }
         check_nseq_candidate_model(R"(
             (declare-fun f (Int Int) Int)
             (declare-const s (Seq Int))
