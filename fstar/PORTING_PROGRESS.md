@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T18:59:28-08:00**.
+Updated: **2026-11-21T21:56:06-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -9,25 +9,34 @@ diagnostics.
 
 ## Current SMT-LIB capture
 
-Candidate built atop source HEAD `aef2b8dac0c23fd435ab24fbb05c3b4574893174`, checker
-SHA-256 `a61618bf4602124779f2ddd3ce309a671ac9e6fdbf18cfb4a7887f4f8fdacade`,
-mode `--definition-replay`, OCaml 5.3.0, and statically linked Z3 build
-`aef2b8dac0c23fd435ab24fbb05c3b4574893174` (`libz3ml.a` SHA-256
-`05430e0c6aefd777dac9857dfb58667f236f5e20e29fb49c5fe57c69b994c882`,
+Candidate built from source HEAD `1f910bbc6a19f185ec401394f33ff3eb684ace06`
+plus F* source diff SHA-256
+`a1af51d1468940d9287ae75c7a49b222cacb39a9a4488baeb76160297c928661`;
+checker SHA-256
+`b082bd428205357e7830445b624dee744679be80345f77fc26f0feaf74092c78`,
+mode `--definition-replay`, OCaml 5.3.0, Z3 5.4.2, and static linkage
+(`libz3ml.a` SHA-256
+`62ac403890a049d879e11422efbff9452cd7b849f6dc48a666e22405a354458c`,
 `libz3.a` SHA-256
-`655d31c28d475f13eb802fc88771938362a3a3f4cef1bc0d0b7701b20eefcd39`).
-This candidate adds bounded Boolean search to sorted rewrite checking. The
-cohorts used the pinned 225-case sample and 285-case extended manifests,
-10,000-ms solver queries, 60-s per-case cap, 4,096-MiB limit, and eight
-parallel workers. Elapsed cohort wall time was 274.1s / 245.8s. Inline
-diagnostics were collected for 187 sample and 203 extended cases with zero
-diagnostic errors.
+`2d63d27f2fa75759813154430b3eeba6441abcaa003ce6d92307201eba2cc0d7`).
+This source includes bounded Boolean search and recognizes the validated,
+premise-free ITE branch axiom when represented by `DefinitionIntroduction`.
+Both pinned cohorts ran serially with 10,000-ms solver queries, a 60-s
+per-case cap, a 4,096-MiB limit, and a 3,600-s cohort budget. Aggregate case
+wall time / median per case was 2,016.1s / 0.579s for sample and
+1,746.4s / 0.580s for extended. Diagnostic replays covered all PARTIAL cases,
+with zero diagnostic errors or replay mismatches.
 
-| Dataset | Outcomes | Diagnostics | Diagnostic errors / replay mismatches | Weighted PENDING | Aggregate case time / median per case |
+| Dataset | Outcomes (all statuses) | Diagnostic replays | Diagnostic errors / replay mismatches | Weighted PENDING | Aggregate case time / median per case |
 | --- | --- | ---: | ---: | ---: | ---: |
-| smtlib-sample | 110 ACCEPT, 77 PARTIAL, 21 UNKNOWN, 17 TIMEOUT (225) | 187 / 225 | 0 / N/A | 3,836 | 2,069.7s / 0.630s |
-| smtlib-extended | 78 ACCEPT, 125 PARTIAL, 74 UNKNOWN, 8 TIMEOUT (285) | 203 / 285 | 0 / N/A | 28,404 | 1,789.5s / 0.582s |
+| smtlib-sample | 110 ACCEPT, 77 PARTIAL, 0 REJECT, 0 SAT, 21 solver UNKNOWN, 17 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 77 / 225 | 0 / 0 | 3,836 | 2,016.1s / 0.579s |
+| smtlib-extended | 78 ACCEPT, 126 PARTIAL, 0 REJECT, 0 SAT, 74 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 126 / 285 | 0 / 0 | 30,907 | 1,746.4s / 0.580s |
 | fstar-build | **No current-source capture**; last measured checker `2671dc150931` | 7,190 / 7,190 completed diagnostics | 0 / N/M | 430 (last known) | N/M |
+
+Every PARTIAL case has a completed proof diagnostic (77/77 and 126/126);
+diagnostic error/mismatch counts apply only to those replays. ACCEPT,
+solver-UNKNOWN, and TIMEOUT cases have no proof diagnostic; their outcome
+counts above are explicit and are not treated as zero-PENDING evidence.
 
 | Rule | fstar-build, last known | smtlib-sample, current | smtlib-extended, current |
 | --- | ---: | ---: | ---: |
@@ -45,7 +54,7 @@ diagnostic errors.
 | `nnf-neg` | 10 | 0 | 0 |
 | `nnf-pos` | 0 | 0 | 0 |
 | `quant-intro` | 23 | 42 | 81 |
-| `rewrite` | 8 | 124 | 21,839 |
+| `rewrite` | 8 | 124 | 24,342 |
 | `sk` | 10 | 0 | 0 |
 | `th-lemma` | 236 | 3,499 | 6,153 |
 
@@ -55,22 +64,24 @@ left 176 `NOT_RUN`. The current SMT-LIB input-manifest SHA-256 values are
 sample `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`
 and extended
 `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
-Checker, manifest, and per-case logs are retained under
-`files\boolean-search-cohorts-20261121-212122`.
+Current checker, manifest, per-case results, and diagnostic logs are retained
+under `files\current-ite-intro-cohorts-01`.
 
 The retained pre-patch Definition capture recorded 83/225 sample ACCEPT and
 74/285 extended ACCEPT, with 5,907 sample PENDING. Its extended PENDING is
 31,501 in the saved run state/per-rule totals, while an older dashboard says
-31,516; that discrepancy remains unresolved. This candidate records 27 more
-sample ACCEPT and 2,071 fewer sample PENDING, plus 4 more extended ACCEPT and
-3,097 fewer extended PENDING against the saved run state (3,112 fewer against
-the older dashboard total). Proof-document hashes were not retained, so these
-are cohort coverage observations, **not matched-proof burn-down** or a
-Legacy-parity result. The earlier Definition+Array capture is a different
-checker mode and is not a direct comparison. A prior fixed-proof control
-accepted 1/11 with the sort-indexed checker versus Legacy's 11/11; current-source
-matched Legacy controls remain necessary to show the new checker meets or beats
-Legacy.
+31,516; that discrepancy remains unresolved. The current source records 27
+more sample ACCEPT and 4 more extended ACCEPT than that capture; its PENDING
+totals are 3,836 sample and 30,907 extended. These are cohort observations,
+**not matched-proof burn-down** or a Legacy-parity result. Against the previous
+Boolean-search run, sample outcomes and PENDING are unchanged. Extended has
+one `QF_UFBV` case transition from TIMEOUT to PARTIAL, adding 2,503 observed
+PENDING; that run used eight workers while this run was serial, so no causal
+improvement is inferred. Proof-document hashes were not retained. The earlier
+Definition+Array capture is a different checker mode and is not a direct
+comparison. A prior fixed-proof control accepted 1/11 with the sort-indexed
+checker versus Legacy's 11/11; current-source matched Legacy controls remain
+necessary to show the new checker meets or beats Legacy.
 
 ## Last 10 measured updates
 
@@ -79,6 +90,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 21 21:56 | Rebuild current-source ITE `DefinitionIntroduction` path; rerun pinned cohorts serially | Sample unchanged at 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT, with one TIMEOUT→PARTIAL and 30,907 PENDING. No matched-proof burn-down or causal claim: the prior run used eight workers. |
 | Nov 21 18:59 | Pair trace-06 QF_LIA ring proof with Legacy | On identical capture, trace checker PENDING 46 vs Legacy 18; both leave 18 lattice obligations, while the trace checker has 28 additional definition/rewrite obligations. Legacy accepts all 252 serialized Farkas entries; producer records 33 Farkas hints, 1 bound, and 0 pending `th-lemma`. The earlier 15-unsupported capture differs, so no producer-version delta is inferred; trace build is not latest PR HEAD. |
 | Nov 21 18:21 | Add bounded Boolean search to sorted rewrite; measure pinned cohorts | Sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 28,404 PENDING. Relative to the retained Definition capture, +27/+4 ACCEPT and -2,071/-3,097 PENDING by saved totals; extended PENDING differs by 15 from the older dashboard. Proof hashes are absent, so not matched-proof burn-down. |
 | Nov 21 13:31 | Run current Definition+Array checker on both pinned SMT-LIB cohorts | Sample 139/225 ACCEPT and 471 PENDING; extended 77/285 ACCEPT and 29,457 PENDING. Relative to the prior Definition capture: sample +56 ACCEPT, extended +3; proofs are not hash-matched, so no burn-down or Legacy-parity claim. |
@@ -88,18 +100,18 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 03:34 | Rebuild paired control at PR HEAD | Legacy accepted 2/2 vs sorted 1/2; sorted was 6.32x and 8.25x slower on the two proofs. |
 | Nov 21 03:11 | Defer `integer_product` behind cheaper consequence checks | Fixed proof 51 fell 2,258.694→367.665 ms (6.14x within-checker speedup); still PARTIAL and slower than Legacy. |
 | Nov 20 23:32 | Complete cohort, timing, and strict array-checker controls | Sample 4,020 PENDING; extended 31,262 (proof hashes absent). Earlier fixed-control timing was 88.699s sorted vs 26.251s Legacy (3.38x); strict F* array closure passed. |
-| Nov 20 22:25 | Correct SMT-LIB mode attribution | No metric change: checker `b5e8cb065f06` used `--sorted-core`, so the capture was Core, not Definition. |
 
 ## Validation and cadence
 
-Strict F* verification passed for the changed `Z3SortedProof.fst` and
-`Z3SortedProofTests.fst`; the generic sorted-core native build and all 84 CLI
-tests passed. The candidate independent executable was manually relinked from
-current production extraction and retained independent-only modules after the
-clean Linux F* build hit unrelated cache/solver timeouts. Its cohort runs
-completed with no diagnostic errors, but the canonical independent build and
-its full standalone test suite remain unverified. Do not treat the cohort
-comparison as matched-proof burn-down or Legacy parity.
+Strict F* verification passed for all 185 registered production modules and
+the focused ITE-definition regressions. The independent checker linked and
+completed both cohorts with zero diagnostic errors or replay mismatches.
+`build_independent_checker.py` then stopped in its standalone test-only
+`Z3IndependentFiniteFieldPolynomial` extraction because that module's cached
+`.checked` file was stale; the full standalone suite remains unverified and
+finite-field work remains paused. Current-source paired Legacy controls are
+still pending. Do not treat these cohort observations as matched-proof
+burn-down or Legacy parity.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The separate parity/performance schedule has been updated to prioritize

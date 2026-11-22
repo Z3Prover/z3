@@ -10,6 +10,7 @@ module SA = Z3SortedArray
 module T = Z3SortedSemantics
 module V = Z3DatatypeValue
 module X = Z3BooleanRewriteSyntax
+module LA = Z3LinearArithmeticAst
 
 let lemma_directional (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (model:T.scalar_model base)
@@ -116,6 +117,46 @@ let ite_definition_axiom (formula:expr) : bool =
      f = R.and_decl [first; second] &&
      branch_choice_scoped first && branch_choice_scoped second
    | _ -> false)
+
+let ite_definition_test_condition : expr = App {
+  decl_name = "ite-definition-condition"; domain = []; range = bool_sort;
+  interp = None; int_params = []
+} []
+let ite_definition_test_then : expr = App {
+  decl_name = "ite-definition-then"; domain = []; range = LA.real_s;
+  interp = None; int_params = []
+} []
+let ite_definition_test_else : expr = App {
+  decl_name = "ite-definition-else"; domain = []; range = LA.real_s;
+  interp = None; int_params = []
+} []
+let ite_definition_test_choice =
+  App (T.ite_decl LA.real_s)
+    [ite_definition_test_condition; ite_definition_test_then; ite_definition_test_else]
+let ite_definition_test_positive =
+  let guard = R.mk_not_expr ite_definition_test_condition in
+  let equation = R.mk_eq_expr ite_definition_test_choice ite_definition_test_then in
+  App (R.or_decl [guard; equation]) [guard; equation]
+let ite_definition_test_negative =
+  let equation = R.mk_eq_expr ite_definition_test_choice ite_definition_test_else in
+  App (R.or_decl [ite_definition_test_condition; equation])
+    [ite_definition_test_condition; equation]
+let ite_definition_test_axiom =
+  App (R.and_decl [ite_definition_test_positive; ite_definition_test_negative])
+    [ite_definition_test_positive; ite_definition_test_negative]
+let ite_definition_test_wrong_axiom =
+  let equation = R.mk_eq_expr ite_definition_test_choice ite_definition_test_then in
+  let wrong_negative =
+    App (R.or_decl [ite_definition_test_condition; equation])
+      [ite_definition_test_condition; equation] in
+  App (R.and_decl [ite_definition_test_positive; wrong_negative])
+    [ite_definition_test_positive; wrong_negative]
+
+let ite_definition_axiom_regression ()
+  : Lemma (ite_definition_axiom ite_definition_test_axiom /\
+           not (ite_definition_axiom ite_definition_test_wrong_axiom)) =
+  assert_norm (ite_definition_axiom ite_definition_test_axiom);
+  assert_norm (not (ite_definition_axiom ite_definition_test_wrong_axiom))
 
 let lemma_branch_axiom (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (model:T.scalar_model base)

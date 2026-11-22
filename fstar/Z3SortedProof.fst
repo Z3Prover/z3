@@ -2061,7 +2061,8 @@ let conditional_definition (node:U.proof_node) : bool =
    | _, _ -> false)
 
 let expanded_definition_axiom (node:U.proof_node) : bool =
-  node.kind = U.DefAxiom && node.premises = [] &&
+  (node.kind = U.DefAxiom || node.kind = U.DefinitionIntroduction) &&
+  node.premises = [] &&
   CD.ite_definition_axiom (proposition node.conclusion)
 
 let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
@@ -3296,13 +3297,13 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
+      expanded_definition_axiom node ||
       arithmetic_farkas node || arithmetic_lattice node || real_farkas s node ||
       quantifier_instantiation node || quantifier_flattening node ||
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || sorted_rewrite node ||
       real_order s node || real_equality s node || real_product s node ||
       division_order node ||
       nnf = NR.Replayed || conditional_definition node ||
-      expanded_definition_axiom node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||

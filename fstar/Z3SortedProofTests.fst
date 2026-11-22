@@ -12,6 +12,7 @@ module R = Z3ClauseSyntax
 module BR = Z3BooleanRewriteSyntax
 module NR = Z3NnfReplay
 module ZA = Z3SortedArray
+module CD = Z3IndependentConditionalDefinition
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
@@ -227,6 +228,34 @@ let ite_complement_merge_rejects_wrong_condition ()
            | None -> false) =
   assert_norm (match K.check_node_cached schema [] ite_complement_merge_wrong_condition with
                | Some (_, pending) -> pending > 0
+               | None -> false)
+
+let ite_definition_intro_condition = bool_const "ite-definition-condition"
+let ite_definition_intro_then = real_const "ite-definition-then"
+let ite_definition_intro_else = real_const "ite-definition-else"
+let ite_definition_intro_choice =
+  real_ite ite_definition_intro_condition ite_definition_intro_then ite_definition_intro_else
+let ite_definition_intro_positive =
+  bool_or [R.mk_not_expr ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_choice ite_definition_intro_then]
+let ite_definition_intro_negative =
+  bool_or [ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_choice ite_definition_intro_else]
+let ite_definition_intro_axiom = bool_and [
+  ite_definition_intro_positive; ite_definition_intro_negative]
+let ite_definition_intro_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds ite_definition_intro_axiom;
+  premises = [];
+}
+
+let ite_definition_intro_checked ()
+  : Lemma (requires CD.ite_definition_axiom ite_definition_intro_axiom)
+          (ensures (match K.check_node_cached schema [] ite_definition_intro_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false)) =
+  assert_norm (match K.check_node_cached schema [] ite_definition_intro_node with
+               | Some (_, pending) -> pending == 0
                | None -> false)
 
 let sorted_integer_rewrite_node : U.proof_node = {
