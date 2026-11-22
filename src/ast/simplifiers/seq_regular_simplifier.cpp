@@ -31,6 +31,56 @@ namespace {
 enum class failure { unsupported, budget, canceled };
 enum class normalization_kind { structural, decimal, scalar };
 
+/**
+ * \brief Compiles string "observations" - contains/prefix/suffix, literal
+ * (dis)equalities, length and indexof comparisons - into plain regex
+ * membership atoms `s in R`, so the regex/derivative engine can decide them
+ * uniformly instead of every predicate needing its own theory-specific
+ * reasoning. This is the "regular form" the module name refers to: by the
+ * time this simplifier is done, every string fact it could handle is either
+ * unchanged or has become a membership atom over some root string variable.
+ *
+ * The moving pieces, in the order a reader will want to understand them:
+ *
+ *  - A tiny internal regex-algebra DSL - `lit`, `cat`, `join`, `meet`,
+ *    `star`, `complement`, plus the constants `empty`/`epsilon`/`all`
+ *    (`all` = Sigma*, `character` = Sigma) - used throughout to build the
+ *    regex terms below without spelling out seq_util::re calls everywhere.
+ *
+ *  - `atom()` recognizes one Boolean leaf (e.g. `str.contains(s, "ab")`,
+ *    `str.prefixof("ab", s)`, `str.len(s) >= 3`, `str.indexof(s, "a", 0) = -1`)
+ *    and turns it into a `(source, language)` pair meaning `source in
+ *    language`, using the DSL above to build `language`.
+ *
+ *  - `preimage()` is the part that makes this work for *derived* terms, not
+ *    just root variables: given that some `f(s)` (f being str.replace,
+ *    str.at, str.extract, or a concatenation with a literal) is known to lie
+ *    in a language `r`, it computes a language `r'` such that the fact is
+ *    equivalent to `s in r'` - i.e. the preimage of f under r. `first_cut()`
+ *    is a pattern recognizer feeding it: it spots `str.extract` calls that
+ *    are really "the prefix/tail of s up to/after its first occurrence of a
+ *    delimiter character" (the common indexof+extract manual-split idiom),
+ *    so `preimage` can handle that shape directly instead of only the
+ *    generic constant-offset/length cases.
+ *
+ *  - `translate()` is the recursive compiler tying the above together: it
+ *    walks ite/and/or structure, calls `atom()` at the leaves, merges
+ *    sibling membership atoms that share the same subject via regex
+ *    `meet`/`join` (`regular_boolean()`), and - unless `defer` is set -
+ *    repeatedly calls `preimage()` to pull a membership fact on a derived
+ *    term back onto its parent, deepest shared subject first, until it is
+ *    grounded on a root string variable or no further preimage applies.
+ *
+ * `normalize_node()`/`first_cut()` additionally run a separate, earlier
+ * structural pass (see `normalize()` and `reduce()`'s pipeline comment
+ * below) that folds low-level arithmetic/extract/replace idioms (e.g. a
+ * hand-written split-and-rejoin around one delimiter) back into simpler
+ * equivalent forms before `atom`/`translate` ever see them.
+ *
+ * The parallel `comparison`/`decimal_language`/`decimal_comparison`/
+ * `scalar_comparison` family lowers a different, related concern - decimal
+ * constant comparisons - and is not covered by this comment.
+ */
 class regular_compiler {
     ast_manager& m;
     seq_util u;
@@ -81,6 +131,12 @@ class regular_compiler {
         unsigned maximum;
     };
     std::unordered_map<expr*, bounded_occurrences> occurrence_languages;
+
+    // A recognized "split s at the first occurrence of delimiter" shape:
+    // prefix/prefix_including is the part of `source` before/through that
+    // occurrence, tail/tail_including is the part at/after it. See
+    // first_cut() below for how this is recognized from str.extract's
+    // begin/length arguments, and preimage() for how it is used.
     struct cut {
         enum kind { prefix, prefix_including, tail, tail_including } type;
         expr* source;
@@ -167,6 +223,16 @@ class regular_compiler {
         length_bounds.emplace(e, result);
         return result;
     }
+    // Recognizes str.extract(s, begin, length) as a `cut` of `s` at the
+    // first occurrence of a single delimiter character, i.e. the common
+    // manual-split idiom built from str.indexof(s, ch, 0) (one-character
+    // needle, searched from position 0): begin/length are affine in that
+    // indexof term, and the four cases below are exactly
+    //   prefix:           s.extract(0, indexof)            (before ch)
+    //   prefix_including: s.extract(0, indexof + 1)         (through ch)
+    //   tail:             s.extract(indexof + 1, len(s) - indexof - 1)  (after ch)
+    //   tail_including:   s.extract(indexof, len(s) - indexof)          (at/after ch)
+    // Returns false (not a recognized cut) for any other extract shape.
     bool first_cut(expr* e, cut& out) {
         expr *s, *begin, *length;
         if (!u.str.is_extract(e, s, begin, length)) return false;
@@ -280,6 +346,13 @@ class regular_compiler {
         if (u.re.is_full_seq(x)) return empty;
         return keep(u.re.mk_complement(x));
     }
+    // decimal_greater/decimal_language build a digit-by-digit lexicographic
+    // comparison automaton for an optionally-zero-padded decimal numeral
+    // (str.to_int's encoding): going from the least significant digit
+    // backwards, `greater` accumulates "equal here, decided later" plus
+    // "strictly higher digit here, anything after" alternatives, sharing
+    // the common `suffix` language so the result stays linear in the
+    // numeral's digit count instead of enumerating numbers.
     expr* decimal_range(unsigned lo, unsigned hi) {
         tick();
         return keep(u.re.mk_range(empty->get_sort(), '0' + lo, '0' + hi));
@@ -390,6 +463,9 @@ class regular_compiler {
         else return false;
         return true;
     }
+    // Cheap, cached interval bounds for str.stoi/str.len/ite terms (not a
+    // general solve - just enough to let range_comparison() below decide a
+    // comparison outright when the bounds alone already settle it).
     scalar_range range(linear const& value, unsigned depth = 0, range_map* context = nullptr) {
         scalar_range result{value.constant, value.constant};
         for (auto const& [term, coefficient] : value.terms) {
@@ -462,6 +538,10 @@ class regular_compiler {
         }
         return nullptr;
     }
+    // Simplifies `op(value, 0)` for a single-term affine value. Tries the
+    // cheap range_comparison() short-circuit first, then - if the term is
+    // an ite - pushes the comparison into both branches, folding it away
+    // entirely when the ite is a min/max of the two comparison operands.
     expr* scalar_comparison(comparison_kind op, linear const& value, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
@@ -518,6 +598,12 @@ class regular_compiler {
         expr* result = scalar_comparison(op, value);
         return result ? result : e;
     }
+    // scalar_comparison's counterpart for exact decimal text rather than
+    // numeric bounds: for a single str.stoi term, lowers `op(stoi(s), bound)`
+    // to a membership in decimal_language(op, bound) (pushed through an ite
+    // the same way); `magnitude` records whether any such bound was
+    // nonnegative, i.e. actually distinguishes valid conversions rather
+    // than only ever testing the -1 failure sentinel.
     expr* decimal_comparison(comparison_kind op, linear const& l, bool& changed,
                              bool& magnitude, unsigned depth = 0) {
         tick();
@@ -759,6 +845,21 @@ class regular_compiler {
         occurrence_languages.insert_or_assign(result, bounded_occurrences{body, needle, occurrences + 1});
         return result;
     }
+    // The preimage of a selector/replacement function under a known
+    // membership fact: given `term = f(source, ...)` where `term in r`
+    // holds, computes `result` such that the equivalent fact `source in
+    // result` holds instead - i.e. pulls the membership fact from a derived
+    // term back onto the variable it was built from. Handles:
+    //  - str.replace(source, needle, repl) via replace_preimage() below;
+    //  - str.at(source, i): a fixed small i, or i = len(source)-1 (last
+    //    character);
+    //  - str.extract(source, i, len): the first_cut()-recognized
+    //    delimiter-split shapes, a fixed-length prefix/suffix, or a
+    //    fixed-length *substring* at a fixed offset (the three nested
+    //    length/offset cases);
+    //  - source ++ literal / literal ++ source: via a derivative step
+    //    through the literal (reversed for the trailing-literal case).
+    // Returns false if `term`'s shape is not one of the above.
     bool preimage(expr* term, expr* r, expr*& source, expr*& result) {
         tick();
         expr *s, *i, *len, *needle, *replacement;
@@ -893,6 +994,17 @@ class regular_compiler {
             return keep(m.mk_bool_val(nullable(derivative(language, text))));
         return keep(u.re.mk_in_re(source, language));
     }
+    // Recognizes one Boolean leaf as a string observation and converts it
+    // to a `(source, language)` pair meaning `source in language`, using
+    // the regex DSL above to build `language`. Covers str.in_re itself,
+    // str.contains/prefixof/suffixof against a literal, literal
+    // (dis)equality, and linear comparisons of str.len/str.indexof against
+    // a small constant bound (the str.indexof cases rely on SMT-LIB's
+    // "-1 means not found" encoding, e.g. `indexof(s, "ab", 0) >= 0` is
+    // `s in Sigma*.ab.Sigma*`). Recurses through `not` by complementing the
+    // resulting language. Throws failure::unsupported for a str.in_re whose
+    // regex is not ground, since that is a case this compiler cannot help
+    // with regularizing further.
     bool atom(expr* e, expr*& source, expr*& language, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
@@ -1004,6 +1116,16 @@ class regular_compiler {
         }
         return false;
     }
+    // Combines sibling membership facts that share one subject term before
+    // falling back to a generic Boolean reconstruction: `s in R1 /\ s in R2`
+    // becomes `s in (R1 /\ R2)` (meet, conjunction) and `s in R1 \/ s in R2`
+    // becomes `s in (R1 \/ R2)` (join, disjunction) - a `not (s in R)` arg
+    // contributes its complement. If the args do not all share one subject,
+    // falls back to `boolean()` (an ordinary and/or/not reconstruction).
+    // This is what lets `translate()` below group e.g. the ten digit-value
+    // alternatives of a decimal comparison into one combined language
+    // before `preimage()` is asked to pull it back onto its root variable,
+    // rather than pulling each alternative back separately.
     expr* regular_boolean(bool conjunction, expr_ref_vector const& args) {
         expr* subject = nullptr;
         expr_ref_vector languages(m);
@@ -1026,6 +1148,31 @@ class regular_compiler {
             language = conjunction ? meet(language, r) : join(language, r);
         return membership(subject, language);
     }
+    // The recursive compiler at the core of this module: walks ite/and/or
+    // structure, calls `atom()` at the leaves, and merges sibling
+    // membership facts that share a subject via `regular_boolean()` before
+    // grounding them onto a root string variable via `preimage()`.
+    //
+    // `defer`, when true, means "the caller is itself an and/or that may
+    // still combine this result with siblings sharing the same subject, so
+    // do not force a preimage pull-back yet if the result is already just
+    // one ungrounded `source in language` fact" - that's the `groups.size()
+    // == 1` short-circuit a few lines below. This matters because
+    // `preimage()` pull-back can be expensive and is only sound/useful to
+    // do once per *combined* language: e.g. a decimal comparison's ten
+    // digit-value alternatives each produce their own observation on a
+    // nested selector path, but they all ultimately share one ancestor
+    // variable. Deferring lets `regular_boolean()` merge all ten via `join`
+    // first, so the (identical, in this example) preimage chain back to
+    // that ancestor is computed once instead of ten times.
+    //
+    // Inside one and/or, `pending`/`groups` accumulate one merged language
+    // per distinct subject seen so far, and the main loop repeatedly picks
+    // the *deepest* remaining subject (by AST depth, `term_depth`) and
+    // either resolves it immediately (empty/full language) or calls
+    // `preimage()` to fold it into its parent's group - deepest-first so a
+    // subject is only ever pulled back after every sibling fact about it
+    // (at every nesting level under this and/or) has already been merged in.
     expr* translate(expr* e, bool defer = false, unsigned depth = 0) {
         tick();
         if (depth > 256) throw failure::budget;
@@ -1738,6 +1885,29 @@ void seq_regular_simplifier::collect_param_descrs(param_descrs& r) {
     r.insert("seq_regular.max_steps", CPK_UINT, "maximum work for a transactional regular-preimage pass", "100000");
 }
 
+// The staged pipeline, each stage preserving as much progress as it safely
+// can if a later one fails (regular_compiler's internal `failure` exceptions
+// signal "cannot do more", not "this is wrong" - unsupported syntax, a step
+// budget, or cancellation are all expected, ordinary outcomes here):
+//
+//  1. arithmetic_conflict(): a cheap pre-check with the generic bound
+//     propagator, screening for a plain arithmetic contradiction among the
+//     original assertions before paying for any regex compilation at all.
+//  2. normalize(..., decimal): lowers decimal constant comparisons (a
+//     concern parallel to, and independent of, regularization proper - see
+//     the `comparison`/`decimal_language` family) and retries if nothing
+//     shared was lost (retain_shared_conversions).
+//  3. compile(): the main regularization pass (normalize + translate, see
+//     their own comments) over either every formula individually (if any
+//     carries its own unsat-core dependency - "labeled") or their
+//     conjunction (letting the compiler exploit cross-formula sharing).
+//  4. On a failure::unsupported from (3), compile_definitions() is a
+//     weaker fallback: it retains simple `var = f(...)` equations verbatim
+//     (for the ordinary equation solver and model reconstruction) and
+//     retries compiling the rest.
+//  5. If even that fails, this reduce() call still keeps whatever the
+//     decimal-lowering stage (2) already achieved, unless the failure was
+//     cancellation.
 void seq_regular_simplifier::reduce() {
     if (!m_enabled || qhead() == qtail()) return;
     if (m_automatic) {
