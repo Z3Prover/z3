@@ -189,6 +189,34 @@ let sorted_boolean_search_rewrite_checked ()
                | None -> false);
   K.lemma_sorted_rewrite schema booleans equality model boolean_search_node
 
+let boolean_search_definition_formula =
+  R.mk_not_expr
+    (App (R.and_decl [boolean_search_p; R.mk_not_expr boolean_search_p])
+      [boolean_search_p; R.mk_not_expr boolean_search_p])
+let boolean_search_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds boolean_search_definition_formula;
+  premises = [];
+}
+
+let sorted_boolean_search_definition_axiom_checked ()
+  : Lemma (BR.boolean_search boolean_search_definition_formula R.true_expr /\
+           K.definition_axiom_search boolean_search_definition_node) =
+  assert_norm (BR.boolean_search boolean_search_definition_formula R.true_expr);
+  assert_norm (K.definition_axiom_search boolean_search_definition_node)
+
+let non_tautological_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds boolean_search_p;
+  premises = [];
+}
+
+let sorted_non_tautological_definition_remains_pending ()
+  : Lemma (not (BR.boolean_search boolean_search_p R.true_expr) /\
+           not (K.definition_axiom_search non_tautological_definition_node)) =
+  assert_norm (not (BR.boolean_search boolean_search_p R.true_expr));
+  assert_norm (not (K.definition_axiom_search non_tautological_definition_node))
+
 let ite_complement_merge_p = bool_const "ite-complement-p"
 let ite_complement_merge_q = bool_const "ite-complement-q"
 let ite_complement_merge_x = real_const "ite-complement-x"

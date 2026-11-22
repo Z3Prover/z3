@@ -2065,6 +2065,11 @@ let expanded_definition_axiom (node:U.proof_node) : bool =
   node.premises = [] &&
   CD.ite_definition_axiom (proposition node.conclusion)
 
+let definition_axiom_search (node:U.proof_node) : bool =
+  (node.kind = U.DefAxiom || node.kind = U.DefinitionIntroduction) &&
+  node.premises = [] &&
+  BR.boolean_search (proposition node.conclusion) R.true_expr
+
 let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
   L.map Z3LinearArithmeticAst.positive_literal (propositions node.premises) @
   L.map Z3LinearArithmeticAst.negative_literal (DT.literals (proposition node.conclusion))
@@ -3298,6 +3303,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
       expanded_definition_axiom node ||
+      definition_axiom_search node ||
       arithmetic_farkas node || arithmetic_lattice node || real_farkas s node ||
       quantifier_instantiation node || quantifier_flattening node ||
       lemma_step node || int_bounds_rewrite node || real_rewrite s node || sorted_rewrite node ||
@@ -3383,6 +3389,27 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
        lemma_observational_proposition s bc eq other a b
      | U.Holds _ -> ())
   | _ -> ()
+
+let lemma_truth_true (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+  : Lemma (T.truth s bc eq other R.true_expr) =
+  match R.true_expr with
+  | App f args ->
+    T.lemma_evaluate_core s bc eq other f args;
+    assert (T.classify f == T.Constant true);
+    assert (T.truth s bc eq other R.true_expr)
+  | _ -> ()
+
+let lemma_definition_axiom_search (#base:sort -> Type0) (s:S.checked_schema)
+                                  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                  (other:V.interpretation base (S.signature s))
+                                  (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\
+                    definition_axiom_search node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  let rho = T.empty_environment (S.signature s) in
+  SB.lemma_search s bc eq other [] rho (proposition node.conclusion) R.true_expr;
+  lemma_truth_true s bc eq other
 
 (* An accepted typed Int/Real certificate refutes its literals in every
    Sorted model satisfying the Real laws (RL.real_model: SOME Real carrier). *)
@@ -3661,6 +3688,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | _, _ -> ()))
     else if expanded_definition_axiom node then
       CD.lemma_ite_definition_axiom s bc eq other conclusion
+    else if definition_axiom_search node then
+      lemma_definition_axiom_search s bc eq other node
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;

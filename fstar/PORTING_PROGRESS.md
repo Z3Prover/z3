@@ -1,13 +1,45 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-22T02:56:55-08:00**.
+Updated: **2026-11-22T05:13:47-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
 not zero. Dataset-wide PENDING totals cover only the proofs with completed
 diagnostics.
 
-## Current SMT-LIB capture
+## Native sorted-core candidate (not comparable to Definition mode)
+
+Verified candidate built from source HEAD `08b118df3e51440ec8394cceaf98c31f2c462f7f`
+plus F* source diff SHA-256
+`1f44d355add220803ae0d9d455a3fd84edabe094286a13e8a79ff867efb8149c`;
+checker SHA-256
+`417f0605883481a49d08edae18f364afb654e72ccea9b37072fe7f550dc6f843`,
+mode `--sorted-core`, F* 2026.10.25, OCaml 5.3.0, Z3 5.4.2 (build hash
+`08b118df3e51440ec8394cceaf98c31f2c462f7f`). The strict production build
+verified all 185 modules and linked the native checker; focused
+`Z3SortedProofTests.fst` verification passed. Cohorts ran serially with
+10,000-ms solver queries, 60-s per-case caps, 4,096-MiB per case, and
+3,600-s per-cohort budgets. Artifacts, including the checker, are retained
+under `files\current-definition-axiom-search-02`.
+
+| Dataset | Outcomes (all statuses) | Diagnostic replays | Diagnostic errors / replay mismatches | Weighted PENDING | Aggregate case time / median per case |
+| --- | --- | ---: | ---: | ---: | ---: |
+| smtlib-sample | 101 ACCEPT, 86 PARTIAL, 0 REJECT, 0 SAT, 21 solver UNKNOWN, 17 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 86 / 225 | 0 / 0 | 3,979 | 1,969.7s / 0.579s |
+| smtlib-extended | 73 ACCEPT, 130 PARTIAL, 0 REJECT, 0 SAT, 74 solver UNKNOWN, 8 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 130 / 285 | 0 / 0 | 28,427 | 1,681.8s / 0.580s |
+
+Every PARTIAL case has a completed diagnostic replay (86/86 and 130/130),
+with zero diagnostic errors or replay mismatches. UNKNOWN and TIMEOUT cases
+have no proof diagnostics and are not counted as zero-PENDING. Input manifest
+SHA-256 values are sample
+`72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44` and
+extended `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
+These native `--sorted-core` results are not comparable to the retained
+`--definition-replay` captures below; they do not establish matched-proof
+burn-down or Legacy parity. An initial invocation with unsupported
+`--definition-replay` was preserved separately under
+`files\current-definition-axiom-search-01` and is excluded from these counts.
+
+## Retained Definition-mode SMT-LIB capture
 
 Candidate built from source HEAD `1f910bbc6a19f185ec401394f33ff3eb684ace06`
 plus F* source diff SHA-256
@@ -38,25 +70,25 @@ diagnostic error/mismatch counts apply only to those replays. ACCEPT,
 solver-UNKNOWN, and TIMEOUT cases have no proof diagnostic; their outcome
 counts above are explicit and are not treated as zero-PENDING evidence.
 
-| Rule | fstar-build, last known | smtlib-sample, Definition | smtlib-extended, Definition | smtlib-sample, Definition+Array |
-| --- | ---: | ---: | ---: | ---: |
-| `arith/bound` | N/M | 0 | 11 | 0 |
-| `arith/farkas` | 3 | 0 | 0 | 0 |
-| `arith/lp-integer-lattice` | N/M | 0 | 0 | 0 |
-| `arith/lp-gomory` | N/M | 0 | 0 | 0 |
-| `arith/lp-monomial-interval` | 1 | 0 | 26 | 0 |
-| `arith/lp-monomial-substitute` | N/M | 0 | 0 | 0 |
-| `assumed:nlsat` | 139 | 0 | 102 | 0 |
-| `apply-def` | 0 | 0 | 0 | 0 |
-| `def-axiom` | 0 | 3 | 89 | 1 |
-| `der` | 0 | 6 | 0 | 6 |
-| `intro-def` | 0 | 162 | 103 | 113 |
-| `nnf-neg` | 10 | 0 | 0 | 0 |
-| `nnf-pos` | 0 | 0 | 0 | 0 |
-| `quant-intro` | 23 | 42 | 81 | 26 |
-| `rewrite` | 8 | 124 | 24,342 | 58 |
-| `sk` | 10 | 0 | 0 | 0 |
-| `th-lemma` | 236 | 3,499 | 6,153 | 140 |
+| Rule | fstar-build, last known | smtlib-sample, Definition | smtlib-extended, Definition | smtlib-sample, Definition+Array | smtlib-sample, sorted-core candidate | smtlib-extended, sorted-core candidate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `arith/bound` | N/M | 0 | 11 | 0 | 0 | 11 |
+| `arith/farkas` | 3 | 0 | 0 | 0 | 0 | 0 |
+| `arith/lp-integer-lattice` | N/M | 0 | 0 | 0 | 0 | 0 |
+| `arith/lp-gomory` | N/M | 0 | 0 | 0 | 0 | 0 |
+| `arith/lp-monomial-interval` | 1 | 0 | 26 | 0 | 0 | 26 |
+| `arith/lp-monomial-substitute` | N/M | 0 | 0 | 0 | 0 | 0 |
+| `assumed:nlsat` | 139 | 0 | 102 | 0 | 0 | 102 |
+| `apply-def` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `def-axiom` | 0 | 3 | 89 | 1 | 4 | 89 |
+| `der` | 0 | 6 | 0 | 6 | 6 | 0 |
+| `intro-def` | 0 | 162 | 103 | 113 | 307 | 126 |
+| `nnf-neg` | 10 | 0 | 0 | 0 | 0 | 0 |
+| `nnf-pos` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `quant-intro` | 23 | 42 | 81 | 26 | 52 | 81 |
+| `rewrite` | 8 | 124 | 24,342 | 58 | 111 | 21,839 |
+| `sk` | 10 | 0 | 0 | 0 | 0 | 0 |
+| `th-lemma` | 236 | 3,499 | 6,153 | 140 | 3,499 | 6,153 |
 
 Correction recorded 2026-11-21 22:19 Pacific: the extended diagnostics aggregate
 to 11 `arith/bound` and 0 `arith/farkas`; the earlier table duplicated the
