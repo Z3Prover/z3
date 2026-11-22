@@ -7,8 +7,6 @@ on:
     secrets:
       COPILOT_GITHUB_TOKEN:
         required: false
-      NFV_RELEASE_TOKEN:
-        required: false
   roles: all
 if: vars.NFV_RELEASE_SHA != ''
 permissions:
@@ -55,7 +53,7 @@ safe-outputs:
             name: nfv-source-context-validated
             path: nfv-context-validated
         - if: ${{ needs.agent.result == 'success' }}
-          uses: actions/upload-artifact@v7.0.1
+          uses: actions/upload-artifact@v7.0.2
           with:
             name: nfv-source-context
             path: nfv-context-validated/context.json
@@ -70,7 +68,7 @@ steps:
       repository: microsoft/neuro-formal-verification
       ref: ${{ vars.NFV_RELEASE_SHA }}
       path: nfv-plugin
-      token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
+      token: ${{ github.token }}
       persist-credentials: false
   - uses: actions/setup-python@v7.1.0
     with:
@@ -128,7 +126,7 @@ post-steps:
           sanitize_manifest(load(root / "bundle.json"), "nfv-context.json",
                             "nfv-context-validated/context.json", hints_only=True)
       PY
-  - uses: actions/upload-artifact@v7.0.1
+  - uses: actions/upload-artifact@v7.0.2
     with:
       name: nfv-source-context-validated
       path: nfv-context-validated/context.json

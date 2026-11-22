@@ -61,7 +61,7 @@ jobs:
           repository: microsoft/neuro-formal-verification
           ref: ${{ vars.NFV_RELEASE_SHA }}
           path: nfv-plugin
-          token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
+          token: ${{ github.token }}
           persist-credentials: false
       - uses: actions/setup-python@v7.1.0
         with:
@@ -108,7 +108,7 @@ steps:
       repository: microsoft/neuro-formal-verification
       ref: ${{ vars.NFV_RELEASE_SHA }}
       path: nfv-plugin
-      token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
+      token: ${{ github.token }}
       persist-credentials: false
   - uses: actions/setup-python@v7.1.0
     with:
@@ -225,14 +225,14 @@ steps:
 post-steps:
   - name: Retain summaries-only dashboard metadata
     if: always()
-    uses: actions/upload-artifact@v7.0.1
+    uses: actions/upload-artifact@v7.0.2
     with:
       name: nfv-summary-${{ github.run_attempt }}
       path: /tmp/gh-aw/sandbox/agent/logs/nfv/summary.json
       if-no-files-found: warn
   - name: Retain completed or interrupted NFV evidence
     if: always()
-    uses: actions/upload-artifact@v7.0.1
+    uses: actions/upload-artifact@v7.0.2
     with:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
