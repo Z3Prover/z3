@@ -39,6 +39,10 @@ namespace seq {
 
         virtual arith_util& get_arith_util() = 0;
 
+        // Exact branch-owned constraints, including inherited constraints
+        // still live on the DFS trail. Do not expose backend assumption literals.
+        virtual void append_proof_facts(expr_ref_vector& facts) const = 0;
+
         // Record one more length (or other arithmetic) constraint owned
         // by the current branch. `dep` (if non-null) is the dependency
         // justifying `c`. Returns true iff `c` was newly recorded.

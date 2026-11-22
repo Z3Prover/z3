@@ -34,6 +34,7 @@ Author:
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_ho_facet.h"
+#include "ast/seq/seq_proof.h"
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
@@ -103,6 +104,8 @@ namespace smt {
         unsigned            m_lits_qhead = 0;
 
         seq::eq_tree                     m_tree;
+        seq::proof_tracker               m_proofs;
+        expr_ref_vector                  m_proof_context;
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
@@ -172,7 +175,7 @@ namespace smt {
         char const* get_name() const override { return "nseq"; }
 
         // helpers
-        void report_conflict(seq::eq_tree::dep_tracker dep);
+        void report_conflict(seq::eq_tree::dep_tracker dep, proof* pr = nullptr);
         unsigned mk_dep(assumption const& a);
         void pin(expr* e) { m_pin.push_back(e); ctx.push_trail(push_back_vector(m_pin)); }
         void enqueue_axiom(expr* e);

@@ -138,6 +138,7 @@ namespace seq {
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
+        seq_rewriter& get_rewriter() const { return m_rw; }
         live_states& live() const { return const_cast<live_states&>(m_live); }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
         vector<str_mem> const& memberships() const { return m_mems; }

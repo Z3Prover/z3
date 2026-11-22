@@ -28,6 +28,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_skolem.h"
+#include "ast/seq/seq_proof.h"
 #include "smt/seq_solver_facet.h"
 #include "smt/smt_context.h"
 #include "smt/smt_solver.h"
@@ -39,6 +40,91 @@ Author:
 #include <sstream>
 
 namespace {
+    static unsigned count_seq_proofs(ast_manager& m, proof* root, symbol const& rule) {
+        unsigned count = 0;
+        seq_util u(m);
+        ptr_vector<proof> todo;
+        obj_hashtable<proof> seen;
+        todo.push_back(root);
+        while (!todo.empty()) {
+            proof* pr = todo.back();
+            todo.pop_back();
+            if (seen.contains(pr))
+                continue;
+            seen.insert(pr);
+            ENSURE(m.is_proof(pr));
+            if (u.is_proof(pr) && pr->get_decl()->get_parameter(0).get_symbol() == rule)
+                ++count;
+            for (unsigned i = 0; i < m.get_num_parents(pr); ++i)
+                todo.push_back(m.get_parent(pr, i));
+        }
+        return count;
+    }
+
+    static void tst_seq_proof_constructor() {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        seq_util u(m);
+        expr_ref fact(m.mk_true(), m);
+        proof_ref leaf(u.mk_proof(symbol("test-leaf"), 0, nullptr, fact), m);
+        proof_ref_vector premises(m);
+        premises.push_back(leaf);
+        proof_ref step(u.mk_proof(symbol("test-step"), premises, fact), m);
+        ENSURE(m.is_proof(step) && u.is_proof(step));
+        ENSURE(m.get_fact(step) == fact && m.get_num_parents(step) == 1);
+        ENSURE(m.get_parent(step, 0) == leaf);
+        for (unsigned bad = 0; bad < 5; ++bad) {
+            parameter param(bad == 0 ? parameter(1) : parameter(symbol("test")));
+            sort* domain[] = { bad == 1 ? m.mk_bool_sort() : m.mk_proof_sort(),
+                               bad == 2 ? m.mk_proof_sort() : m.mk_bool_sort() };
+            bool rejected = false;
+            try {
+                func_decl* unexpected = m.mk_func_decl(u.get_family_id(), OP_SEQ_PROOF, 1, &param,
+                                                      bad == 3 ? 0 : 2, domain, bad == 4 ? m.mk_bool_sort() : nullptr);
+                (void)unexpected;
+            }
+            catch (z3_exception const&) {
+                rejected = true;
+            }
+            ENSURE(rejected);
+        }
+    }
+
+    static void tst_nseq_proof() {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        seq_util u(m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        solver_ref s = mk_smt_solver(m, p, symbol("QF_SLIA"));
+        expr_ref x(m.mk_const("proof-x", u.mk_string_sort()), m);
+        expr_ref y(m.mk_const("proof-y", u.mk_string_sort()), m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+        expr_ref b(u.str.mk_string(zstring("b")), m);
+        expr_ref xa(u.str.mk_concat(x, a), m);
+        expr_ref by(u.str.mk_concat(b, y), m);
+        expr_ref equation(m.mk_eq(xa, by), m);
+        arith_util arithmetic(m);
+        expr_ref length(u.str.mk_length(x), m);
+        expr_ref zero(arithmetic.mk_int(0), m);
+        expr_ref empty_length(m.mk_eq(length, zero), m);
+        s->push();
+        s->assert_expr(equation);
+        s->assert_expr(empty_length);
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        proof_ref retained(s->get_proof(), m);
+        ENSURE(retained && m.is_false(m.get_fact(retained)));
+        ENSURE(count_seq_proofs(m, retained, symbol("seq-conflict")) > 0);
+        ENSURE(count_seq_proofs(m, retained, symbol("eq-propagate")) > 0);
+        s->pop(1);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        ENSURE(count_seq_proofs(m, retained, symbol("seq-conflict")) > 0);
+        s->assert_expr(equation);
+        s->assert_expr(empty_length);
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+        ENSURE(count_seq_proofs(m, s->get_proof(), symbol("seq-conflict")) > 0);
+    }
+
     static void tst_stoi_reentrant_axioms() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -814,8 +900,8 @@ namespace {
 
     // Shared variable forced equal to two different constants.
     // Exercises Nielsen splitting and backtracking before reporting unsat.
-    static void tst_branch_then_unsat() {
-        ast_manager m;
+    static void tst_branch_then_unsat(bool track_proofs = false) {
+        ast_manager m(track_proofs ? PGM_ENABLED : PGM_DISABLED);
         reg_decl_plugins(m);
         seq_util u(m);
         sort* s = u.str.mk_string_sort();
@@ -827,6 +913,10 @@ namespace {
         arith_util au(m);
 
         seq::eq_tree tree(tr, m.limit());
+        seq::proof_tracker proofs(m);
+        proofs.set_context_facts([](expr_ref_vector&) {});
+        if (track_proofs)
+            tree.set_proof_tracker(&proofs);
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, au, tree.dep_mgr());
         stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
@@ -845,6 +935,14 @@ namespace {
         tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(12);
         ENSURE(tree.solve() == stx::search_result::unsat);
+        if (track_proofs) {
+            proof_ref retained(proofs.get_proof(), m);
+            ENSURE(retained);
+            ENSURE(count_seq_proofs(m, retained, symbol("eq-propagate")) > 0);
+            ENSURE(count_seq_proofs(m, retained, symbol("seq-search")) > 0);
+            ENSURE(tree.solve() == stx::search_result::unsat);
+            ENSURE(count_seq_proofs(m, retained, symbol("eq-propagate")) > 0);
+        }
     }
 
     static void tst_depth_cutoff() {
@@ -2262,6 +2360,12 @@ namespace {
         expr_ref rhs(u.str.mk_string(zstring("aaaab")), m);
         ENSURE(solve_eq(m, u, lhs, rhs, 1) == stx::search_result::sat);
     }
+
+void tst_seq_proof() {
+    tst_seq_proof_constructor();
+    tst_nseq_proof();
+    tst_branch_then_unsat(true);
+}
 
 void tst_seq_eq_facet() {
     tst_stoi_reentrant_axioms();

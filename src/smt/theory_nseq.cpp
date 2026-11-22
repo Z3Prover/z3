@@ -163,12 +163,30 @@ namespace smt {
         m_axioms(m),
         m_ubv_strings(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
+        m_proofs(m),
+        m_proof_context(m),
         m_root(m_tree.mk_root()),
         m_solver(m, m_autil, m_tree.dep_mgr()),
         m_model_pin(m)
     {
         m_ambient = alloc(seq::theory_nseq_ambient_context, *this);
         m_tree.set_ambient_context(m_ambient.get());
+        if (m.proofs_enabled()) {
+            m_tree.set_proof_tracker(&m_proofs);
+            m_proofs.set_context_facts([this](expr_ref_vector& facts) {
+                facts.append(m_proof_context);
+                for (auto const& a : m_assumptions) {
+                    if (a.lit != null_literal) {
+                        expr_ref atom(this->ctx.bool_var2expr(a.lit.var()), m);
+                        facts.push_back(a.lit.sign() ? m.mk_not(atom) : atom.get());
+                    }
+                    else {
+                        expr_ref eq(m.mk_eq(a.n1->get_expr(), a.n2->get_expr()), m);
+                        facts.push_back(a.is_diseq ? m.mk_not(eq) : eq.get());
+                    }
+                }
+            });
+        }
 
         m_tree.register_facet_bound<seq::eq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_eq_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());
@@ -825,9 +843,15 @@ namespace smt {
         return true;
     }
 
-    void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep) {
+    void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep, proof* pr) {
         vector<unsigned, false> idxs;
         m_tree.dep_mgr().linearize(dep, idxs);
+        // The state proof retains all input facts, not just a dependency
+        // projection. Keep their SMT premises when publishing its clause.
+        if (pr)
+            for (unsigned i = 0; i < m_assumptions.size(); ++i)
+                if (!idxs.contains(2 * i + 1))
+                    idxs.push_back(2 * i + 1);
         literal_vector clause;
         for (unsigned idx : idxs) {
             if ((idx & 1) == 0) {
@@ -850,9 +874,30 @@ namespace smt {
                 clause.push_back(~mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
             }
         }
+        if (pr)
+            for (expr* e : m_proof_context)
+                clause.push_back(~mk_literal(e));
         for (literal lit : clause)
             ctx.mark_as_relevant(lit);
-        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        if (pr) {
+            expr_ref_vector disjuncts(m), antecedents(m);
+            for (literal lit : clause) {
+                expr_ref atom(ctx.bool_var2expr(lit.var()), m);
+                disjuncts.push_back(lit.sign() ? m.mk_not(atom) : atom.get());
+                antecedents.push_back(lit.sign() ? atom.get() : m.mk_not(atom));
+            }
+            expr_ref input(mk_and(antecedents), m);
+            expr_ref fact(mk_or(disjuncts), m);
+            expr_ref bridge(m.mk_implies(input, m_proofs.get_fact()), m);
+            proof_ref_vector premises(m);
+            premises.push_back(m_seq.mk_proof(symbol("seq-input"), 0, nullptr, bridge));
+            premises.push_back(pr);
+            proof_ref lemma(m_seq.mk_proof(symbol("seq-conflict"), premises, fact), m);
+            ctx.mk_clause(clause.size(), clause.data(),
+                          ctx.mk_justification(justification_proof_wrapper(ctx, lemma)), CLS_TH_AXIOM);
+        }
+        else
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
         ++m_num_conflicts;
     }
 
@@ -1147,13 +1192,13 @@ namespace smt {
 
         flush_assigned_literals();
         seq::eq_tree::dep_tracker letter_dep = nullptr;
-        if (m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {
+        if (!m.proofs_enabled() && m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {
             ++m_num_letter_refuted;
             report_conflict(letter_dep);
             return FC_CONTINUE;
         }
         bool root_asked = false;
-        if (m_mem_leaf &&
+        if (!m.proofs_enabled() && m_mem_leaf &&
             m_ambient->fparams().m_seq_monadic_leaf &&
             m_ambient->fparams().m_seq_monadic_leaf_root) {
             seq::eq_tree::dep_tracker dep = nullptr;
@@ -1175,6 +1220,7 @@ namespace smt {
         m_tree.set_min_search_depth(m_lits_qhead);
         bool fixed_lengths = !conversions && check_fixed_lengths(false);
         stx::search_result res;
+        m_proof_context.reset();
         try {
             if (conversions || fixed_lengths)
                 m_tree.set_max_nodes(conversions || !m_fixed_length_guards.empty() ?
@@ -1289,8 +1335,8 @@ namespace smt {
 
         case stx::search_result::unsat: {
             seq::eq_tree::dep_tracker dep = m_root->conflict_dep();
-            if (dep) {
-                report_conflict(dep);
+            if (dep || m_proofs.get_proof()) {
+                report_conflict(dep, m_proofs.get_proof());
                 return FC_CONTINUE;
             }
             return FC_GIVEUP;

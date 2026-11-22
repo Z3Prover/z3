@@ -114,6 +114,8 @@ namespace seq {
         arith_util& get_arith_util() override { return a; }
         seq_util& get_seq_util() const { return u; }
 
+        void append_proof_facts(expr_ref_vector& facts) const override { facts.append(m_own); }
+
         // Add one branch-local arithmetic constraint. The first add at a
         // trail scope lazily opens a matching backend scope. `dep`, when
         // present, is forwarded so UNSAT cores can explain the conflict.
