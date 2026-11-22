@@ -1841,7 +1841,9 @@ unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
         return static_cast<unsigned>(digits(a)[0]);
     return string_hash(std::string_view(reinterpret_cast<char*>(digits(a)), sz * sizeof(digit_t)), 17);
 #else
-    return mpz_get_si(*a.m_ptr);
+    long v = mpz_get_si(*a.m_ptr);
+    unsigned u = static_cast<unsigned>(v);
+    return v < 0 ? 0u - u : u;
 #endif
 }
 
