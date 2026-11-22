@@ -33,34 +33,37 @@ Copyright (c) 2015 Microsoft Corporation
 #include <cstring>
 #include <sstream>
 
-static void check_nseq_arithmetic_normalization() {
-    for (char const* solver : {"seq", "nseq"}) {
+static void check_arithmetic_normalization() {
+    for (char const* solver : {"auto", "seq", "nseq"}) {
         for (bool proofs : {false, true}) {
-            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
-            reg_decl_plugins(m);
-            arith_util arith(m);
-            params_ref p;
-            p.set_sym("string_solver", symbol(solver));
-            p.set_bool("arith_lhs", false);
-            smt_params params;
-            params.updt_params(p);
-            asserted_formulas formulas(m, params, p);
-            sort* int_sort = arith.mk_int();
-            expr_ref x(m.mk_const("x", int_sort), m);
-            expr_ref y(m.mk_const("y", int_sort), m);
-            expr_ref z(m.mk_const("z", int_sort), m);
-            expr_ref sum(arith.mk_add(x, y), m);
-            expr_ref equality(m.mk_eq(sum, z), m);
-            formulas.assert_expr(equality);
-            VERIFY(formulas.get_num_formulas() == 1);
-            expr* lhs = nullptr, *rhs = nullptr;
-            VERIFY(m.is_eq(formulas.get_formula(0), lhs, rhs));
-            bool normalized = arith.is_zero(lhs) || arith.is_zero(rhs);
-            VERIFY(normalized == (params.m_string_solver == symbol("nseq")));
-            if (proofs) {
-                proof_checker checker(m);
-                expr_ref_vector side_conditions(m);
-                VERIFY(checker.check(formulas.get_formula_proof(0), side_conditions));
+            for (lbool arith_lhs : {l_undef, l_false, l_true}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                arith_util arith(m);
+                params_ref p;
+                p.set_sym("string_solver", symbol(solver));
+                if (arith_lhs != l_undef)
+                    p.set_bool("arith_lhs", arith_lhs == l_true);
+                smt_params params;
+                params.updt_params(p);
+                asserted_formulas formulas(m, params, p);
+                sort* int_sort = arith.mk_int();
+                expr_ref x(m.mk_const("x", int_sort), m);
+                expr_ref y(m.mk_const("y", int_sort), m);
+                expr_ref z(m.mk_const("z", int_sort), m);
+                expr_ref sum(arith.mk_add(x, y), m);
+                expr_ref equality(m.mk_eq(sum, z), m);
+                formulas.assert_expr(equality);
+                VERIFY(formulas.get_num_formulas() == 1);
+                expr* lhs = nullptr, *rhs = nullptr;
+                VERIFY(m.is_eq(formulas.get_formula(0), lhs, rhs));
+                bool normalized = arith.is_zero(lhs) || arith.is_zero(rhs);
+                VERIFY(normalized == (arith_lhs == l_true));
+                if (proofs) {
+                    proof_checker checker(m);
+                    expr_ref_vector side_conditions(m);
+                    VERIFY(checker.check(formulas.get_formula_proof(0), side_conditions));
+                }
             }
         }
     }
@@ -996,7 +999,7 @@ static void check_nseq_ground_arithmetic_replay() {
 // memory-layout/process-state sensitive, so even a *bounded-length*
 // version of this regression reproduces the open issue's hang here when
 // preceded by other tests in the shared test-z3 process (confirmed: it
-// passes in isolation, but hangs once check_nseq_arithmetic_normalization
+// passes in isolation, but hangs once check_arithmetic_normalization
 // and check_nseq_ground_arithmetic_replay run first), while a fresh
 // `z3 -in`/CLI process solves the real, fully-unconstrained regression
 // file reliably in a couple of seconds. The external z3test regression
@@ -2179,7 +2182,7 @@ static void check_inactive_nseq() {
 
 void tst_smt_context()
 {
-    check_nseq_arithmetic_normalization();
+    check_arithmetic_normalization();
     check_nseq_symbolic_ncontains();
     check_nseq_ground_arithmetic_replay();
     check_nseq_fixed_itos();
