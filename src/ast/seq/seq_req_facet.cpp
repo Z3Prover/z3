@@ -23,6 +23,14 @@ Author:
 
 namespace seq {
 
+    expr_ref str_req::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        expr_ref result(m.mk_eq(m_p, m_q), m);
+        if (!m_is_eq)
+            result = m.mk_not(result);
+        return result;
+    }
+
     void req_facet::set_status(unsigned idx, lbool status) {
         m_trail.push(vector_field_trail<str_req, lbool>(m_reqs, idx, &str_req::m_status));
         m_reqs[idx].m_status = status;
@@ -33,7 +41,11 @@ namespace seq {
         m_qhead = head;
     }
 
-    void req_facet::remove(unsigned idx) {
+    void req_facet::remove(unsigned idx, symbol rule) {
+        if (m_dm.proofs_enabled()) {
+            m_trail.push(vector_field_trail<str_req, proof_ref>(m_reqs, idx, &str_req::m_proof));
+            m_reqs[idx].m_proof = m_dm.mk_proof(rule, m.mk_true(), { m_reqs[idx].m_proof.get() });
+        }
         m_trail.push(vector_erase_trail<str_req>(m_reqs, idx));
         m_reqs.erase(m_reqs.begin() + idx);
         // Removing a resolved request below `m_qhead` shifts later entries
@@ -76,7 +88,7 @@ namespace seq {
             case l_true:
                 if (r.m_is_eq) {
                     // p = q confirmed: discharge.
-                    f.remove(head);
+                    f.remove(head, symbol("regex-bisimulation-equivalent"));
                     changed = true;
                     continue; // re-examine same index (now the next request)
                 }
@@ -88,7 +100,7 @@ namespace seq {
             case l_false:
                 if (!r.m_is_eq) {
                     // p != q confirmed: discharge.
-                    f.remove(head);
+                    f.remove(head, symbol("regex-bisimulation-distinct"));
                     changed = true;
                     continue;
                 }

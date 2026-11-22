@@ -20,6 +20,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/seq/seq_proof_manager.h"
 #include "ast/seq/seq_ambient_context.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
@@ -42,31 +43,43 @@ namespace seq {
         using dep_tracker_t = stx::search_tree<unsigned>::dep_tracker;
 
         ast_manager& m;
-        vector<std::pair<expr_ref, dep_tracker_t>> m_assumptions;
+        struct assumption {
+            expr_ref first;
+            dep_tracker_t second;
+            proof_ref m_proof;
+            assumption(ast_manager& m, expr* fact, dep_tracker_t dep, proof* pr) :
+                first(fact, m), second(dep), m_proof(pr, m) {}
+        };
+        vector<assumption> m_assumptions;
+        proof_manager* m_dm;
         bool m_model_completion_blocked = false;
 
-        void cache_assumption(expr* a, dep_tracker_t dep) {
-            m_assumptions.push_back({ expr_ref(a, m), dep });
+        void cache_assumption(expr* a, dep_tracker_t dep, proof* premise, symbol const& rule) {
+            proof_ref pr(m);
+            if (m.proofs_enabled())
+                pr = m_dm ? (premise ? m_dm->mk_proof(rule, a, {premise}) : m_dm->mk_proof(rule, a)) : m.mk_hypothesis(a);
+            m_assumptions.push_back(assumption(m, a, dep, pr));
             m_trail.push(push_back_vector(m_assumptions));
         }
 
     public:
-        assumption_facet(trail_stack& trail, ast_manager& m) :
-            facet_i(trail), m(m) {}
+        assumption_facet(trail_stack& trail, ast_manager& m, proof_manager* dm = nullptr) :
+            facet_i(trail), m(m), m_dm(dm) { if (dm) dm->set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
 
         // Return the cached dependency for `a`, or register and cache one.
-        dep_tracker_t add_assumption(expr* a, ambient_context_i<dep_tracker_t>& ac) {
-            for (auto const& [assumption, dep] : m_assumptions)
-                if (assumption == a)
-                    return dep;
+        dep_tracker_t add_assumption(expr* a, ambient_context_i<dep_tracker_t>& ac, proof* premise = nullptr,
+                                     symbol const& rule = symbol("seq-assume")) {
+            for (auto const& entry : m_assumptions)
+                if (entry.first == a)
+                    return entry.second;
             dep_tracker_t dep = ac.add_conditional_dep(a);
-            cache_assumption(a, dep);
+            cache_assumption(a, dep, premise, rule);
             return dep;
         }
 
-        vector<std::pair<expr_ref, dep_tracker_t>> const& assumptions() const { return m_assumptions; }
+        vector<assumption> const& assumptions() const { return m_assumptions; }
         bool model_completion_blocked() const { return m_model_completion_blocked; }
         void block_model_completion() {
             if (m_model_completion_blocked)
@@ -77,7 +90,7 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override {
-            assumption_facet* f = alloc(assumption_facet, trail, m);
+            assumption_facet* f = alloc(assumption_facet, trail, m, m_dm);
             f->m_assumptions.append(m_assumptions);
             f->m_model_completion_blocked = m_model_completion_blocked;
             return f;

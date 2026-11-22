@@ -285,6 +285,58 @@ namespace {
         }
     }
 
+    class proof_recorder : public tree_t::proof_tracker_i {
+        stx::facet_id m_id;
+    public:
+        unsigned depth = 0, branches = 0, conflicts = 0, resets = 0;
+        int conflict_total = -1;
+        explicit proof_recorder(stx::facet_id id) : m_id(id) {}
+        void reset() override { depth = branches = conflicts = 0; conflict_total = -1; ++resets; }
+        void begin(tree_t::node const&, char const* rule) override {
+            ++depth;
+            if (rule)
+                ++branches;
+        }
+        void propagate(tree_t::node const& n, char const*) override {
+            if (n.is_conflict()) {
+                ++conflicts;
+                conflict_total = n.facet_as<counter_facet>(m_id).total();
+            }
+        }
+        void end(tree_t::node const&, stx::search_result) override {
+            ENSURE(depth > 0);
+            --depth;
+        }
+    };
+
+    static void tst_proof_callbacks(bool split_conflict) {
+        counter_config cfg{ 3, { 1, 2 } };
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
+        proof_recorder recorder(id);
+        tree.set_proof_tracker(&recorder);
+        unsigned calls = 0;
+        if (split_conflict)
+            tree.add_split_plugin(alloc(conflict_split, id, nullptr, calls));
+        else {
+            tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+            tree.add_split_plugin(alloc(step_split, id, &cfg));
+        }
+        for (unsigned attempt = 0; attempt < 2; ++attempt) {
+            ENSURE(tree.solve() == stx::search_result::unsat);
+            ENSURE(recorder.depth == 0);
+            ENSURE(recorder.conflicts == (split_conflict ? 1 : 2));
+            ENSURE(recorder.branches == (split_conflict ? 0 : 2));
+            ENSURE(recorder.conflict_total == (split_conflict ? 1 : 2));
+            ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
+            ENSURE(tr.get_num_scopes() == 0);
+        }
+        ENSURE(recorder.resets >= 2);
+    }
+
 } // namespace
 
 void tst_stx_search_tree() {
@@ -297,5 +349,7 @@ void tst_stx_search_tree() {
     tst_split_conflict(false, false);
     tst_split_conflict(false, true);
     tst_split_conflict(true, true);
+    tst_proof_callbacks(false);
+    tst_proof_callbacks(true);
     std::cout << "stx_search_tree: all tests passed\n";
 }

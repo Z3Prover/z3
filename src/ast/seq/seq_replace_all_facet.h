@@ -27,15 +27,18 @@ Author:
 
 namespace seq {
 
+    // The proof follows the current result/input/replacement tokens through substitutions.
     struct str_replace_all {
         expr_ref_vector      m_result;
         expr_ref_vector      m_input;
         expr_ref_vector      m_repl;
         expr_ref             m_pattern; // non-empty string literal
         eq_tree::dep_tracker m_dep;
+        proof_ref            m_proof;
         bool                 m_active = true;
-        str_replace_all(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep) :
-            m_result(r), m_input(i), m_repl(t), m_pattern(p, r.get_manager()), m_dep(dep) {}
+        str_replace_all(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep, proof* pr = nullptr) :
+            m_result(r), m_input(i), m_repl(t), m_pattern(p, r.get_manager()), m_dep(dep), m_proof(pr, r.get_manager()) {}
+        expr_ref fact(seq_util& u) const;
         bool active() const { return m_active; }
     };
 
@@ -49,17 +52,21 @@ namespace seq {
 
     public:
         replace_all_facet(trail_stack& trail, ast_manager& m, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), m_dm(dm) {}
+            facet_i(trail), m(m), m_dm(dm) { dm.set_manager(m); }
 
-        void add(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep) {
-            m_ras.push_back(str_replace_all(r, i, p, t, dep));
+        eq_tree::dep_manager_t& dm() const { return m_dm; }
+
+        void add(expr_ref_vector const& r, expr_ref_vector const& i, expr* p, expr_ref_vector const& t, eq_tree::dep_tracker dep, proof* pr = nullptr, symbol rule = symbol("replace-all-input")) {
+            str_replace_all ra(r, i, p, t, dep, pr);
+            if (!pr && m_dm.proofs_enabled()) {
+                seq_util u(m);
+                ra.m_proof = m_dm.mk_proof(rule, ra.fact(u));
+            }
+            m_ras.push_back(ra);
             m_trail.push(push_back_trail<str_replace_all>(m_ras));
         }
 
-        void remove(unsigned idx) {
-            m_trail.push(vector_field_trail<str_replace_all, bool>(m_ras, idx, &str_replace_all::m_active));
-            m_ras[idx].m_active = false;
-        }
+        void remove(unsigned idx, symbol rule = symbol("replace-all-discharge"), proof* pr = nullptr);
 
         vector<str_replace_all> const& obligations() const { return m_ras; }
 

@@ -61,16 +61,18 @@ namespace seq {
         expr_ref_vector m_haystack;
         expr_ref_vector m_needle;
         eq_tree::dep_tracker m_dep;
+        proof_ref       m_proof;
         bool            m_active = true;
-        str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) :
-            m_haystack(h), m_needle(n), m_dep(dep) {}
+        str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_haystack(h), m_needle(n), m_dep(dep), m_proof(pr, h.get_manager()) {}
         bool active() const { return m_active; }
+        expr_ref fact(seq_util& u) const;
 
         // -- stx::constraint_i (unsat-cache identity) --
         // Identity is (haystack, needle) - directional, unlike
         // eq_facet::equation, so no canonical lhs/rhs swap is needed
         // (h not-contains n and n not-contains h are different facts).
-        // `clone()` intentionally drops `m_dep`/`m_active` - see
+        // `clone()` intentionally drops `m_dep`/`m_proof`/`m_active` - see
         // stx::constraint_i's class comment.
         uint64_t hash() const override;
         bool equals(stx::constraint_i const& other) const override;
@@ -96,24 +98,23 @@ namespace seq {
 
     public:
         ncontains_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), m_dm(dm) { m_dm.set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
 
         // Trailed add.
-        void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) {
-            m_ncs.push_back(str_ncontains(h, n, dep));
-            m_trail.push(push_back_trail<str_ncontains>(m_ncs));
-        }
+        void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr,
+                           proof* pr = nullptr, symbol const& rule = symbol("seq-ncontains-add"));
         // Convenience overload: splits haystack/needle into concat units
         // and delegates to the trailed vector form above.
-        void add_ncontains(expr* haystack, expr* needle, eq_tree::dep_tracker dep = nullptr) {
+        void add_ncontains(expr* haystack, expr* needle, eq_tree::dep_tracker dep = nullptr,
+                           proof* pr = nullptr, symbol const& rule = symbol("seq-ncontains-add")) {
             expr_ref_vector hts(m), nts(m);
             u.str.get_concat_units(haystack, hts);
             u.str.get_concat_units(needle, nts);
-            add_ncontains(hts, nts, dep);
+            add_ncontains(hts, nts, dep, pr, rule);
         }
 
         vector<str_ncontains> const& ncontains() const { return m_ncs; }
@@ -127,7 +128,7 @@ namespace seq {
         void rewind_qhead(unsigned idx);
 
         // Drop `idx`'s obligation by flipping `m_active`. Trailed.
-        void remove(unsigned idx);
+        void remove(unsigned idx, symbol const& rule = symbol("seq-ncontains-discharge"));
 
         // Replace `idx` with a fresh obligation over `new_haystack`.
         // Used when deterministic prefix-unrolling strips a leading run.
@@ -135,7 +136,8 @@ namespace seq {
 
         // Broadcast a substitution so haystack and needle stay in sync with
         // the shared variable pool. Joins `subst_dep` into the touched
-        // obligation's dependency.
+        // obligation's dependency. The exact new fact's proof is separately
+        // trailed even when `subst_dep` is null.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --

@@ -193,13 +193,28 @@ namespace stx {
      * Domain-agnostic plugin-based search tree.
      *
      */
-    template <typename dep_source_t>
+    template <typename dep_source_t, typename dependency_manager_t = scoped_dependency_manager<dep_source_t>>
     class search_tree {
     public:
-        using dep_manager_t = scoped_dependency_manager<dep_source_t>;
+        using dep_manager_t = dependency_manager_t;
         using dep_tracker   = typename dep_manager_t::dependency*;
 
         class node;
+
+        // Domain-owned proof state is separate from dependency cores. Callbacks
+        // see intermediate facts before the trail restores a branch's state.
+        class proof_tracker_i {
+        public:
+            virtual ~proof_tracker_i() = default;
+            virtual void reset() = 0;
+            virtual void begin(node const& n, char const* rule) = 0;
+            virtual void start_step(node const& n, char const* rule, bool branch) {}
+            virtual void finish_step(node const& n, char const* rule, bool committed) {
+                if (n.is_conflict()) propagate(n, rule);
+            }
+            virtual void propagate(node const& n, char const* rule) = 0;
+            virtual void end(node const& n, search_result result) = 0;
+        };
 
         // A pure value type describing one transformation: its rule name,
         // justification, progress flag, and iterative-deepening cost. With
@@ -508,6 +523,7 @@ namespace stx {
         struct dfs_frame {
             scoped_ptr<split_iterator_i>           m_iter;                // resumable remaining branches, if any
             edge                                   m_last_edge;
+            char const*                            m_split_rule = nullptr;
         };
 
         unsigned                              m_next_facet_id = 0;
@@ -537,6 +553,7 @@ namespace stx {
         // still tried.
         unsigned next_depth_bound(unsigned d) const { return d >= m_max_search_depth ? m_max_search_depth + 1 : std::min(2 * d, m_max_search_depth); }
         dep_manager_t                          m_dep_mgr;
+        proof_tracker_i*                       m_proof_tracker = nullptr;
         stats                                  m_stats;
 
         // --- unsat cache (watch-list based unsat-core memo) ---
@@ -713,7 +730,7 @@ namespace stx {
         // `m_unsat_cache_enabled`). Ineligible/trivial (empty) nodes never
         // hit.
         bool cache_lookup(node const& n) {
-            if (!m_unsat_cache_enabled || !cache_eligible(n))
+            if (!m_unsat_cache_enabled || m_proof_tracker || !cache_eligible(n))
                 return false;
             vector<constraint_i const*> cs = compute_constraints(n);
             if (cs.empty())
@@ -822,7 +839,7 @@ namespace stx {
         // try_rewatch() moves the watch to a literal that is genuinely
         // absent there, restoring the invariant for future checks.
         void cache_insert(node const& n) {
-            if (!m_unsat_cache_enabled || !cache_eligible(n))
+            if (!m_unsat_cache_enabled || m_proof_tracker || !cache_eligible(n))
                 return;
             vector<constraint_i const*> cs = compute_constraints(n);
             if (cs.empty())
@@ -978,7 +995,11 @@ namespace stx {
                 bool any_change = false;
                 for (auto* p : m_prop_plugins) {
                     m_stats.m_propagate_counts[p->name()]++;
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, p->name(), false);
                     simplify_result r = p->propagate(n);
+                    if (m_proof_tracker)
+                        m_proof_tracker->propagate(n, p->name());
                     if (r == simplify_result::conflict)
                         return r;
                     if (r != simplify_result::noop)
@@ -1003,12 +1024,18 @@ namespace stx {
                     bool has_more = false;
                     bool committed = false;
                     scoped_push guard(*this);
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, sp->name(), true);
                     auto it = sp->split(n, 0, out, has_more, committed);
-                    if (n.is_conflict())
+                    if (m_proof_tracker)
+                        m_proof_tracker->finish_step(n, sp->name(), committed);
+                    if (n.is_conflict()) {
                         return false;
+                    }
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
+                        frame.m_split_rule = sp->name();
                         return true;
                     }
                 }
@@ -1025,12 +1052,18 @@ namespace stx {
                     bool has_more = false;
                     bool committed = false;
                     scoped_push guard(*this);
+                    if (m_proof_tracker)
+                        m_proof_tracker->start_step(n, sp->name(), true);
                     auto it = sp->split(n, cost, out, has_more, committed);
-                    if (n.is_conflict())
+                    if (m_proof_tracker)
+                        m_proof_tracker->finish_step(n, sp->name(), committed);
+                    if (n.is_conflict()) {
                         return false;
+                    }
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
+                        frame.m_split_rule = sp->name();
                         return true;
                     }
                     if (has_more)
@@ -1042,9 +1075,15 @@ namespace stx {
             return try_completion();
         }
 
-        bool advance_iter(split_iterator_i& iter, edge& out) {
+        bool advance_iter(split_iterator_i& iter, edge& out, char const* rule) {
             scoped_push guard(*this);
-            if (iter.next(out)) {
+            m_root->clear_status();
+            if (m_proof_tracker)
+                m_proof_tracker->start_step(*m_root, rule, true);
+            bool committed = iter.next(out);
+            if (m_proof_tracker)
+                m_proof_tracker->finish_step(*m_root, rule, committed);
+            if (committed) {
                 guard.release();
                 return true;
             }
@@ -1063,6 +1102,8 @@ namespace stx {
             flet<unsigned> _scoped_raw_depth(m_raw_dfs_depth, m_raw_dfs_depth + 1);
 
             dfs_frame frame;
+            if (m_proof_tracker)
+                m_proof_tracker->begin(n, in_edge ? in_edge->rule_name() : nullptr);
 
             // --- dot trace: open this node's record, linked to the
             // current path via m_dot_stack, before any children recurse.
@@ -1138,7 +1179,7 @@ namespace stx {
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
-                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
+                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge, frame.m_split_rule);
                     }
                     if (result != search_result::sat) {
                         result = saw_depth_cutoff ? search_result::depth_cutoff
@@ -1157,6 +1198,8 @@ namespace stx {
                 }
             }
             dot_trace_close(dot_id, result, n);
+            if (m_proof_tracker)
+                m_proof_tracker->end(n, result);
             return result;
         }
 
@@ -1166,6 +1209,7 @@ namespace stx {
 
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
+        void set_proof_tracker(proof_tracker_i* tracker) { m_proof_tracker = tracker; }
         trail_stack& trail() { return m_trail; }
 
         // Set the (opaque, not-owned) ambient-context handle on the root
@@ -1344,6 +1388,13 @@ namespace stx {
         // leaf was found) rather than the live node.
         search_result solve() {
             SASSERT(m_root);
+            if (m_proof_tracker)
+                m_proof_tracker->reset();
+            bool completed = false;
+            on_scope_exit clear_incomplete_proof([&]() {
+                if (m_proof_tracker && !completed)
+                    m_proof_tracker->reset();
+            });
             m_stats.m_num_solve_calls++;
             m_unsat_cores.clear();
             m_watch_list.clear();
@@ -1373,6 +1424,8 @@ namespace stx {
                     m_dot_stack.clear();
                 }
                 bool root_pure = false; // unused by solve(); every call must supply a binding
+                if (m_proof_tracker)
+                    m_proof_tracker->reset();
                 res = dfs(0, nullptr, root_pure);
                 if (res == search_result::sat) { m_stats.m_num_sat++; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; }
@@ -1389,6 +1442,7 @@ namespace stx {
                 m_stats.m_num_unknown++;
             else if (res == search_result::depth_cutoff)
                 m_stats.m_num_depth_cutoff++;
+            completed = true;
             return res;
         }
 

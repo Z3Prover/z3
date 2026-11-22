@@ -395,6 +395,19 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     ast_manager& m = *m_manager;
     sort_ref rng(m);
     switch(k) {
+    case OP_SEQ_PROOF: {
+        if (num_parameters != 1 || !parameters[0].is_symbol())
+            m.raise_exception("seq.proof expects one rule symbol parameter");
+        if (arity == 0 || domain[arity - 1] != m.mk_bool_sort())
+            m.raise_exception("seq.proof expects a Boolean conclusion");
+        for (unsigned i = 0; i + 1 < arity; ++i)
+            if (domain[i] != m.mk_proof_sort())
+                m.raise_exception("seq.proof expects proof premises");
+        if (range && range != m.mk_proof_sort())
+            m.raise_exception("seq.proof produces a proof");
+        return m.mk_func_decl(symbol("seq.proof"), arity, domain, m.mk_proof_sort(),
+                              func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
     case OP_SEQ_EMPTY:
         match(*m_sigs[k], arity, domain, range, rng);
         if (rng == m_string) {
@@ -720,6 +733,15 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 
 app* seq_decl_plugin::mk_char(unsigned u) {
     return get_char_plugin().mk_char(u);
+}
+
+proof* seq_util::mk_proof(symbol const& rule, unsigned num_premises, proof* const* premises, expr* fact) {
+    ptr_buffer<expr> args;
+    for (unsigned i = 0; i < num_premises; ++i)
+        args.push_back(premises[i]);
+    args.push_back(fact);
+    parameter param(rule);
+    return m.mk_app(m_fid, OP_SEQ_PROOF, 1, &param, args.size(), args.data());
 }
 
 bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {

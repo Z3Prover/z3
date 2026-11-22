@@ -29,6 +29,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/seq/seq_proof_manager.h"
 #include "ast/seq/seq_ambient_context.h"
 #include "ast/seq/seq_assumption_facet.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -41,7 +42,7 @@ Author:
 namespace seq {
 
     // Dependency source leaf type for this search tree instantiation.
-    using eq_tree = stx::search_tree<unsigned>;
+    using eq_tree = stx::search_tree<unsigned, proof_manager>;
 
     // A flattened side of a word equation is represented directly as an
     // `expr_ref_vector`: a sequence of tokens, each either a length-1
@@ -132,16 +133,19 @@ namespace seq {
             expr_ref         m_var;
             expr_ref_vector  m_repl;
             eq_tree::dep_tracker m_dep;
-            subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep) :
-                m_var(var, m), m_repl(repl), m_dep(dep) {}
+            proof_ref        m_proof;
+            subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep, proof* pr) :
+                m_var(var, m), m_repl(repl), m_dep(dep), m_proof(pr, m) {}
         };
         struct equation : public stx::constraint_i {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
+            proof_ref            m_proof;
             bool                 m_active = true;
-            equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
-                m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+            equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+                m_lhs(lhs), m_rhs(rhs), m_dep(dep), m_proof(pr, lhs.get_manager()) {}
+            expr_ref fact(seq_util& u) const { return equation_fact(u, m_lhs, m_rhs); }
             bool active() const { return m_active; }
 
             // -- stx::constraint_i (unsat-cache identity) --
@@ -165,28 +169,52 @@ namespace seq {
 
     public:
         eq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) { dm.set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
 
         // Trailed equation insertion.
-        void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
-            m_eqs.push_back(equation(lhs, rhs, dep));
+        void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr,
+                          proof* premise = nullptr, symbol const& rule = symbol("seq-eq-add")) {
+            proof_ref pr(m);
+            if (m_dm.proofs_enabled()) {
+                expr_ref fact = equation_fact(u, lhs, rhs);
+                pr = premise ? m_dm.mk_proof(rule, fact, {premise}) : m_dm.mk_proof(rule, fact);
+            }
+            m_eqs.push_back(equation(lhs, rhs, dep, pr));
             m_trail.push(push_back_trail<equation>(m_eqs));
         }
         // Convenience overload that tokenizes lhs and rhs first.
-        void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
+        void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr, proof* premise = nullptr) {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(lhs, lts);
             u.str.get_concat_units(rhs, rts);
-            add_equation(lts, rts, dep);
+            proof_ref pr(premise, m);
+            if (m_dm.proofs_enabled() && !pr) {
+                expr_ref fact(m.mk_eq(lhs, rhs), m);
+                pr = m_dm.mk_proof(symbol("seq-eq-input"), fact);
+            }
+            add_equation(lts, rts, dep, pr, symbol("seq-eq-tokenize"));
         }
 
         void remove_equation_trailed(unsigned idx) {
+            if (m_dm.proofs_enabled()) {
+                expr_ref fact(m.mk_true(), m);
+                proof_ref pr(m_dm.mk_proof(symbol("seq-eq-discharge"), fact, {m_eqs[idx].m_proof}), m);
+                m_trail.push(vector_field_trail<equation, proof_ref>(m_eqs, idx, &equation::m_proof));
+                m_eqs[idx].m_proof = pr;
+            }
             m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
             m_eqs[idx].m_active = false;
+        }
+        void update_proof(unsigned idx, symbol const& rule, proof* reason = nullptr) {
+            if (!m_dm.proofs_enabled()) return;
+            expr_ref fact = m_eqs[idx].fact(u);
+            proof_ref pr(m_dm.mk_proof(rule, fact, {m_eqs[idx].m_proof, reason}), m);
+            m_trail.push(vector_field_trail<equation, proof_ref>(m_eqs, idx, &equation::m_proof));
+            m_eqs[idx].m_proof = pr;
         }
 
         vector<equation> const& equations() const { return m_eqs; }
@@ -221,7 +249,8 @@ namespace seq {
         bool simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
     };
 
-    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
+    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep,
+                         proof* premise = nullptr, symbol const& rule = symbol("seq-substitute"));
 
     // Deterministic propagation plugin wrapping eq_facet::simplify.
     class eq_propagation : public eq_tree::propagation_plugin_i {
@@ -357,9 +386,11 @@ namespace seq {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
+            proof_ref            m_proof;
             bool                 m_active = true;
-            disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
-                m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+            disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+                m_lhs(lhs), m_rhs(rhs), m_dep(dep), m_proof(pr, lhs.get_manager()) {}
+            expr_ref fact(seq_util& u) const { return equation_fact(u, m_lhs, m_rhs, false); }
             bool active() const { return m_active; }
 
             // -- stx::constraint_i (unsat-cache identity) --
@@ -380,14 +411,20 @@ namespace seq {
 
     public:
         deq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) { dm.set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
         // Trailed disequation insertion.
-        void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
-            m_diseqs.push_back(disequation(lhs, rhs, dep));
+        void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr,
+                            proof* premise = nullptr, symbol const& rule = symbol("seq-deq-add")) {
+            proof_ref pr(m);
+            if (m_dm.proofs_enabled()) {
+                expr_ref fact = equation_fact(u, lhs, rhs, false);
+                pr = premise ? m_dm.mk_proof(rule, fact, {premise}) : m_dm.mk_proof(rule, fact);
+            }
+            m_diseqs.push_back(disequation(lhs, rhs, dep, pr));
             m_trail.push(push_back_trail<disequation>(m_diseqs));
         }
 
@@ -398,8 +435,21 @@ namespace seq {
 
         // Trailed removal of the disequation at `idx`.
         void remove_disequation_trailed(unsigned idx) {
+            if (m_dm.proofs_enabled()) {
+                expr_ref fact(m.mk_true(), m);
+                proof_ref pr(m_dm.mk_proof(symbol("seq-deq-discharge"), fact, {m_diseqs[idx].m_proof}), m);
+                m_trail.push(vector_field_trail<disequation, proof_ref>(m_diseqs, idx, &disequation::m_proof));
+                m_diseqs[idx].m_proof = pr;
+            }
             m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, idx, &disequation::m_active));
             m_diseqs[idx].m_active = false;
+        }
+        void update_proof(unsigned idx, symbol const& rule, proof* reason = nullptr) {
+            if (!m_dm.proofs_enabled()) return;
+            expr_ref fact = m_diseqs[idx].fact(u);
+            proof_ref pr(m_dm.mk_proof(rule, fact, {m_diseqs[idx].m_proof, reason}), m);
+            m_trail.push(vector_field_trail<disequation, proof_ref>(m_diseqs, idx, &disequation::m_proof));
+            m_diseqs[idx].m_proof = pr;
         }
 
         // -- stx::facet_i --

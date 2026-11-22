@@ -29,6 +29,7 @@ namespace seq {
 
     sub_solver::sub_solver(ast_manager& m, arith_util&, eq_tree::dep_manager_t& core_dep_mgr) :
         m(m), m_assump_lits(m), m_core_dep_mgr(core_dep_mgr) {
+        core_dep_mgr.set_manager(m);
         params_ref p;
         // This backend only handles arithmetic; keep string theories out.
         p.set_sym("string_solver", symbol("none"));
@@ -114,23 +115,27 @@ namespace seq {
 
     // -- solver_facet --
 
-    bool solver_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep) {
+    bool solver_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep, proof* premise, symbol const& rule) {
         expr_ref c(c0, m); // keep fresh terms alive until m_own retains them
-        for (expr* e : m_own)
-            if (e == c.get())
+        for (auto const& e : m_own)
+            if (e.m_fact == c.get())
                 return false;
         if (m_trail.get_num_scopes() != m_pushed_at_scope) {
             unsigned cur_scope = m_trail.get_num_scopes();
             m_trail.push(scope_trail(m_solver, m_pushed_at_scope));
             m_pushed_at_scope = cur_scope;
         }
-        m_trail.push(push_back_ref_trail(m_own));
-        m_own.push_back(c);
+        proof_ref pr(m);
+        if (m.proofs_enabled())
+            pr = m_dm ? (premise ? m_dm->mk_proof(rule, c, {premise}) : m_dm->mk_proof(rule, c)) : m.mk_hypothesis(c);
+        m_own.push_back(constraint(m, c, dep, pr));
+        m_trail.push(push_back_vector(m_own));
         m_solver.assert_expr(c, dep);
         return true;
     }
 
-    bool solver_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep) {
+    bool solver_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                             eq_tree::dep_tracker dep, proof* premise) {
         // Raw char tokens contribute no sequence length; only unit(...)
         // tokens count as length 1.
         auto tok_len = [&](expr* t) -> expr* {
@@ -148,14 +153,24 @@ namespace seq {
         for (expr* t : rhs)
             if (expr* len = tok_len(t))
                 rsum = a.mk_add(rsum, len);
-        bool changed = add_constraint(m.mk_eq(lsum, rsum), dep);
+        bool changed = add_constraint(m.mk_eq(lsum, rsum), dep, premise, symbol("seq-length-equality"));
         // len(v) >= 0 is unconditional.
         for (expr* t : lhs)
-            if (!u.str.is_unit(t) && u.is_seq(t->get_sort()))
-                changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
+            if (!u.str.is_unit(t) && u.is_seq(t->get_sort())) {
+                expr_ref len(u.str.mk_length(t), m), zero(a.mk_int(0), m);
+                expr_ref nonnegative(a.mk_ge(len, zero), m);
+                proof_ref pr(m);
+                if (m.proofs_enabled()) pr = u.mk_proof(symbol("seq-length-nonnegative"), 0, nullptr, nonnegative);
+                changed = add_constraint(nonnegative, nullptr, pr, symbol("seq-length-nonnegative")) || changed;
+            }
         for (expr* t : rhs)
-            if (!u.str.is_unit(t) && u.is_seq(t->get_sort()))
-                changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
+            if (!u.str.is_unit(t) && u.is_seq(t->get_sort())) {
+                expr_ref len(u.str.mk_length(t), m), zero(a.mk_int(0), m);
+                expr_ref nonnegative(a.mk_ge(len, zero), m);
+                proof_ref pr(m);
+                if (m.proofs_enabled()) pr = u.mk_proof(symbol("seq-length-nonnegative"), 0, nullptr, nonnegative);
+                changed = add_constraint(nonnegative, nullptr, pr, symbol("seq-length-nonnegative")) || changed;
+            }
         return changed;
     }
 
@@ -238,8 +253,8 @@ namespace seq {
 
     std::ostream& solver_facet::display(std::ostream& out) const {
         out << "solver_facet: " << m_own.size() << " own constraint(s)\n";
-        for (expr* c : m_own)
-            out << "  " << mk_pp(c, m) << "\n";
+        for (auto const& c : m_own)
+            out << "  " << mk_pp(c.m_fact, m) << "\n";
         return out;
     }
 
@@ -254,7 +269,7 @@ namespace seq {
         for (auto const& eq : ef.equations()) {
             if (!eq.active())
                 continue;
-            changed = sf.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep) || changed;
+            changed = sf.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep, eq.m_proof) || changed;
         }
         if (sf.has_conflict()) {
             n.set_conflict(stx::br_plugin_base, sf.conflict_dep());

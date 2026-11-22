@@ -41,7 +41,7 @@ Author:
 
 namespace seq {
 
-    // One pending regex (dis)equality request: `is_eq` records whether
+    // One pending regex (dis)equality request with its own derivation: `is_eq` records whether
     // `p = q` (true) or `p != q` (false) was asserted; `m_status` is the
     // bisimulation verdict reached so far for the underlying language
     // question "are p and q language-equivalent?" - `l_undef` until
@@ -52,9 +52,11 @@ namespace seq {
         expr_ref             m_q;
         bool                 m_is_eq;
         eq_tree::dep_tracker m_dep;
+        proof_ref            m_proof;
         lbool                m_status = l_undef;
-        str_req(ast_manager& m, expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr) :
-            m_p(p, m), m_q(q, m), m_is_eq(is_eq), m_dep(dep) {}
+        str_req(ast_manager& m, expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_p(p, m), m_q(q, m), m_is_eq(is_eq), m_dep(dep), m_proof(pr, m) {}
+        expr_ref fact(seq_util& u) const;
     };
 
     /**
@@ -72,14 +74,17 @@ namespace seq {
 
     public:
         req_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), m_dm(dm) { dm.set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
         // Trailed add.
-        void add_req(expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr) {
-            m_reqs.push_back(str_req(m, p, q, is_eq, dep));
+        void add_req(expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr, symbol rule = symbol("regex-equality-input")) {
+            str_req r(m, p, q, is_eq, dep, pr);
+            if (!pr && m_dm.proofs_enabled())
+                r.m_proof = m_dm.mk_proof(rule, r.fact(u));
+            m_reqs.push_back(r);
             m_trail.push(push_back_trail<str_req>(m_reqs));
         }
 
@@ -96,7 +101,7 @@ namespace seq {
         // Drop request `idx` entirely (discharged/proved, or refuted -
         // in the refuted case the caller has already registered the
         // conflict before calling this). Trailed.
-        void remove(unsigned idx);
+        void remove(unsigned idx, symbol rule = symbol("regex-equality-discharge"));
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

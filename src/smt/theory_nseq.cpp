@@ -163,12 +163,30 @@ namespace smt {
         m_axioms(m),
         m_ubv_strings(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
+        m_proofs(m, m_tree.dep_mgr()),
+        m_proof_context(m),
         m_root(m_tree.mk_root()),
         m_solver(m, m_autil, m_tree.dep_mgr()),
         m_model_pin(m)
     {
         m_ambient = alloc(seq::theory_nseq_ambient_context, *this);
         m_tree.set_ambient_context(m_ambient.get());
+        if (m.proofs_enabled()) {
+            m_tree.set_proof_tracker(&m_proofs);
+            m_proofs.set_context_facts([this](expr_ref_vector& facts) {
+                facts.append(m_proof_context);
+                for (auto const& a : m_assumptions) {
+                    if (a.lit != null_literal) {
+                        expr_ref atom(this->ctx.bool_var2expr(a.lit.var()), m);
+                        facts.push_back(a.lit.sign() ? m.mk_not(atom) : atom.get());
+                    }
+                    else {
+                        expr_ref eq(m.mk_eq(a.n1->get_expr(), a.n2->get_expr()), m);
+                        facts.push_back(a.is_diseq ? m.mk_not(eq) : eq.get());
+                    }
+                }
+            });
+        }
 
         m_tree.register_facet_bound<seq::eq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_eq_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());
@@ -177,7 +195,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter, *m_ambient);
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::replace_all_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_replace_all_id(id); }, m, m_tree.dep_mgr());
-        m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
+        m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m, &m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::stoi_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_stoi_id(id); }, m, m_seq, m_autil);
@@ -345,6 +363,20 @@ namespace smt {
         return out;
     }
 
+    proof_ref theory_nseq::mk_facet_proof(expr* input, expr* fact, char const* rule) {
+        proof_ref result(m);
+        if (!m.proofs_enabled())
+            return result;
+        proof_ref_vector premises(m);
+        if (input)
+            premises.push_back(m.mk_hypothesis(input));
+        for (auto const& s : m_ambient->eq_facet(*m_root).substitutions())
+            if (s.m_proof && !premises.contains(s.m_proof))
+                premises.push_back(s.m_proof);
+        result = m_seq.mk_proof(symbol(rule), premises, fact);
+        return result;
+    }
+
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         // Equalities can invalidate a witness without a Boolean assignment notification.
         m_pending_assumptions.reset();
@@ -355,12 +387,23 @@ namespace smt {
         unsigned idx = mk_dep(assumption(n1, n2));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
         if (m_seq.is_re(e1)) {
-            m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref fact(m.mk_eq(e1, e2), m);
+                pr = mk_facet_proof(fact, fact, "seq-regex-input");
+            }
+            m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep, pr);
         }
         if (m_seq.is_seq(e1)) {
             expr_ref_vector lhs = tokenize(dep, e1);
             expr_ref_vector rhs = tokenize(dep, e2);
-            m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref input(m.mk_eq(e1, e2), m);
+                expr_ref fact = seq::equation_fact(m_seq, lhs, rhs);
+                pr = mk_facet_proof(input, fact, "seq-eq-tokenize");
+            }
+            m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
             enforce_length_coherence(e1, e2);
         }
     }
@@ -374,7 +417,12 @@ namespace smt {
         unsigned idx = mk_dep(assumption(n1, n2, true));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
         if (m_seq.is_re(e1)) {
-            m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref fact(m.mk_not(m.mk_eq(e1, e2)), m);
+                pr = mk_facet_proof(fact, fact, "seq-regex-input");
+            }
+            m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep, pr);
         }
         if (m_seq.is_seq(e1)) {
             expr* other = nullptr;
@@ -386,20 +434,35 @@ namespace smt {
                 expr_ref len(m_seq.str.mk_length(other), m);
                 expr_ref zero(m_autil.mk_int(0), m);
                 expr_ref positive_length(m_autil.mk_gt(len, zero), m);
-                m_ambient->solver_facet(*m_root).add_constraint(positive_length, dep);
+                proof_ref pr(m);
+                expr_ref input(m);
+                if (m.proofs_enabled()) {
+                    input = m.mk_not(m.mk_eq(e1, e2));
+                    pr = mk_facet_proof(input, positive_length, "seq-deq-nonempty");
+                }
+                m_ambient->solver_facet(*m_root).add_constraint(positive_length, dep, pr);
                 if (m_seq.is_string(other->get_sort())) {
                     // Exclude empty string witnesses without adding outer arithmetic decisions.
                     expr_ref full_char(m_seq.re.mk_full_char(m_seq.re.mk_re(other->get_sort())), m);
                     expr_ref nonempty(m_seq.re.mk_plus(full_char), m);
                     expr_ref_vector tokens = tokenize(dep, other);
-                    m_ambient->mem_facet(*m_root).add(
-                        seq::str_mem(m, tokens, seq::view::membership(nonempty, m), dep));
+                    seq::str_mem obligation(m, tokens, seq::view::membership(nonempty, m), dep);
+                    if (m.proofs_enabled())
+                        pr = mk_facet_proof(input, obligation.fact(m_seq), "seq-deq-nonempty-language");
+                    obligation.m_proof = pr;
+                    m_ambient->mem_facet(*m_root).add(obligation);
                 }
                 return;
             }
             expr_ref_vector lhs = tokenize(dep, e1);
             expr_ref_vector rhs = tokenize(dep, e2);
-            m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref input(m.mk_not(m.mk_eq(e1, e2)), m);
+                expr_ref fact = seq::equation_fact(m_seq, lhs, rhs, false);
+                pr = mk_facet_proof(input, fact, "seq-deq-tokenize");
+            }
+            m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep, pr);
         }
     }
 
@@ -411,6 +474,17 @@ namespace smt {
         expr* e = ctx.bool_var2expr(v);
         literal lit(v, !is_true);
         expr* e1 = nullptr, *e2 = nullptr;
+        expr_ref assigned(m);
+        if (m.proofs_enabled())
+            assigned = is_true ? e : m.mk_not(e);
+        auto equation_proof = [&](expr_ref_vector const& lhs, expr_ref_vector const& rhs, char const* rule) {
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref fact = seq::equation_fact(m_seq, lhs, rhs);
+                pr = mk_facet_proof(assigned, fact, rule);
+            }
+            return pr;
+        };
 
         // Any unrelated assignment invalidates the pending SAT snapshot.
         if (!any_of(m_pending_assumptions, [&](literal l) { return l.var() == v; }))
@@ -424,7 +498,12 @@ namespace smt {
             seq::view mv = seq::view::membership(re, m);
             expr_ref_vector ts = tokenize(dep, e1);
             // str_mem keeps the complemented regex alive.
-            m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
+            seq::str_mem obligation(m, ts, mv, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled())
+                pr = mk_facet_proof(assigned, obligation.fact(m_seq), is_true ? "seq-mem-tokenize" : "seq-mem-complement");
+            obligation.m_proof = pr;
+            m_ambient->mem_facet(*m_root).add(obligation);
             return;
         }
 
@@ -438,7 +517,8 @@ namespace smt {
                 expr_ref_vector lhs = tokenize(dep, e2);
                 expr_ref_vector rhs = tokenize(dep, e1);
                 rhs.push_back(f); // fresh existential
-                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                proof_ref pr = equation_proof(lhs, rhs, "seq-prefix-witness");
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
                 if (ctx.has_quantifiers()) {
                     // E-matching must see the existential decomposition, not just the private facet.
                     expr_ref concat(m_seq.str.mk_concat(e1, f), m);
@@ -461,7 +541,8 @@ namespace smt {
                 expr_ref_vector rhs(m);
                 rhs.push_back(f); // fresh existential
                 rhs.append(tokenize(dep, e1));
-                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                proof_ref pr = equation_proof(lhs, rhs, "seq-suffix-witness");
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
                 if (ctx.has_quantifiers()) {
                     expr_ref concat(m_seq.str.mk_concat(f, e1), m);
                     propagate_eq(lit, e2, concat);
@@ -509,7 +590,8 @@ namespace smt {
                 rhs.push_back(x);
                 rhs.append(tokenize(dep, e2));
                 rhs.push_back(y);
-                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                proof_ref pr = equation_proof(lhs, rhs, "seq-contains-witness");
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
                 if (ctx.has_quantifiers()) {
                     // Quantified concatenations use the right-associated form.
                     expr_ref suffix(m_seq.str.mk_concat(e2, y), m);
@@ -519,7 +601,16 @@ namespace smt {
             }
             else {
                 // not contains(e1,e2) is tracked by ncontains_facet.
-                m_ambient->ncontains_facet(*m_root).add_ncontains(tokenize(dep, e1), tokenize(dep, e2), dep);
+                expr_ref_vector haystack = tokenize(dep, e1);
+                expr_ref_vector needle = tokenize(dep, e2);
+                proof_ref pr(m);
+                if (m.proofs_enabled()) {
+                    expr_ref h(m_seq.str.mk_concat(haystack, e1->get_sort()), m);
+                    expr_ref n(m_seq.str.mk_concat(needle, e2->get_sort()), m);
+                    expr_ref fact(m.mk_not(m_seq.str.mk_contains(h, n)), m);
+                    pr = mk_facet_proof(assigned, fact, "seq-ncontains-tokenize");
+                }
+                m_ambient->ncontains_facet(*m_root).add_ncontains(haystack, needle, dep, pr);
             }
             return;
         }
@@ -532,7 +623,14 @@ namespace smt {
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr_ref_vector lhs = tokenize(dep, is_true ? e1 : e2);
             expr_ref_vector rhs = tokenize(dep, is_true ? e2 : e1);
-            m_ambient->lex_facet(*m_root).add_lex(lhs, rhs, is_true ? strict : !strict, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref l(m_seq.str.mk_concat(lhs, e1->get_sort()), m);
+                expr_ref r(m_seq.str.mk_concat(rhs, e2->get_sort()), m);
+                expr_ref fact((is_true ? strict : !strict) ? m_seq.str.mk_lex_lt(l, r) : m_seq.str.mk_lex_le(l, r), m);
+                pr = mk_facet_proof(assigned, fact, "seq-lex-input");
+            }
+            m_ambient->lex_facet(*m_root).add_lex(lhs, rhs, is_true ? strict : !strict, dep, pr);
             return;
         }
 
@@ -546,7 +644,8 @@ namespace smt {
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr_ref_vector lhs = tokenize(dep, e1);
                 expr_ref_vector rhs = tokenize(dep, e2);
-                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+                proof_ref pr = equation_proof(lhs, rhs, "seq-skolem-equality");
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
                 propagate_eq(lit, e1, e2);
             }
             return;
@@ -573,7 +672,13 @@ namespace smt {
         expr* pow_base = nullptr, *k = nullptr;
         if (m_seq.str.is_power(n, pow_base, k)) {
             expr* k0 = m_autil.is_numeral(k) ? k : m.mk_ite(m_autil.mk_ge(k, m_autil.mk_int(0)), k, m_autil.mk_int(0));
-            m_ambient->power_facet(*m_root).add_power(n, pow_base, k0);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref power(m_seq.str.mk_power(pow_base, k0), m);
+                expr_ref fact(m.mk_eq(n, power), m);
+                pr = mk_facet_proof(nullptr, fact, "seq-power-definition");
+            }
+            m_ambient->power_facet(*m_root).add_power(n, pow_base, k0, nullptr, pr);
         }
         if (m_seq.str.is_length(n)      ||
             m_seq.str.is_index(n)       ||
@@ -598,7 +703,16 @@ namespace smt {
             expr_ref_vector result = tokenize(dep, n);
             expr_ref_vector input = tokenize(dep, ra_in);
             expr_ref_vector repl = tokenize(dep, ra_repl);
-            m_ambient->replace_all_facet(*m_root).add(result, input, ra_pat, repl, dep);
+            proof_ref pr(m);
+            if (m.proofs_enabled()) {
+                expr_ref r(m_seq.str.mk_concat(result, n->get_sort()), m);
+                expr_ref i(m_seq.str.mk_concat(input, ra_in->get_sort()), m);
+                expr_ref t(m_seq.str.mk_concat(repl, ra_repl->get_sort()), m);
+                expr_ref replacement(m.mk_app(m_seq.get_family_id(), OP_SEQ_REPLACE_ALL, i, ra_pat, t), m);
+                expr_ref fact(m.mk_eq(r, replacement), m);
+                pr = mk_facet_proof(nullptr, fact, "seq-replace-all-definition");
+            }
+            m_ambient->replace_all_facet(*m_root).add(result, input, ra_pat, repl, dep, pr);
             // Untokenized: the root substitution would make the axiom conditional.
             expr_ref_vector units(m);
             m_seq.str.get_concat_units(ra_repl, units);
@@ -771,7 +885,8 @@ namespace smt {
             expr_ref e(lit.sign() ? m.mk_not(atom) : atom, m);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            sf.add_constraint(e, dep);
+            proof_ref pr(m.proofs_enabled() ? m.mk_hypothesis(e) : nullptr, m);
+            sf.add_constraint(e, dep, pr, symbol("seq-arith-input"));
         }
     }
 
@@ -825,9 +940,15 @@ namespace smt {
         return true;
     }
 
-    void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep) {
+    void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep, proof* pr) {
         vector<unsigned, false> idxs;
         m_tree.dep_mgr().linearize(dep, idxs);
+        // The state proof retains all input facts, not just a dependency
+        // projection. Keep their SMT premises when publishing its clause.
+        if (pr)
+            for (unsigned i = 0; i < m_assumptions.size(); ++i)
+                if (!idxs.contains(2 * i + 1))
+                    idxs.push_back(2 * i + 1);
         literal_vector clause;
         for (unsigned idx : idxs) {
             if ((idx & 1) == 0) {
@@ -850,9 +971,32 @@ namespace smt {
                 clause.push_back(~mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
             }
         }
+        if (pr)
+            for (expr* e : m_proof_context)
+                clause.push_back(~mk_literal(e));
         for (literal lit : clause)
             ctx.mark_as_relevant(lit);
-        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        if (pr) {
+            expr_ref_vector disjuncts(m), antecedents(m);
+            for (literal lit : clause) {
+                expr_ref atom(ctx.bool_var2expr(lit.var()), m);
+                disjuncts.push_back(lit.sign() ? m.mk_not(atom) : atom.get());
+                antecedents.push_back(lit.sign() ? atom.get() : m.mk_not(atom));
+            }
+            expr_ref input(mk_and(antecedents), m);
+            expr_ref fact(mk_or(disjuncts), m);
+            expr_ref bridge(m.mk_implies(input, m_proofs.get_fact()), m);
+            proof_ref_vector inputs(m);
+            m_proofs.append_input_proofs(inputs);
+            proof_ref_vector premises(m);
+            premises.push_back(m_seq.mk_proof(symbol("seq-input"), inputs, bridge));
+            premises.push_back(pr);
+            proof_ref lemma(m_seq.mk_proof(symbol("seq-conflict"), premises, fact), m);
+            ctx.mk_clause(clause.size(), clause.data(),
+                          ctx.mk_justification(justification_proof_wrapper(ctx, lemma)), CLS_TH_AXIOM);
+        }
+        else
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
         ++m_num_conflicts;
     }
 
@@ -1147,13 +1291,13 @@ namespace smt {
 
         flush_assigned_literals();
         seq::eq_tree::dep_tracker letter_dep = nullptr;
-        if (m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {
+        if (!m.proofs_enabled() && m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {
             ++m_num_letter_refuted;
             report_conflict(letter_dep);
             return FC_CONTINUE;
         }
         bool root_asked = false;
-        if (m_mem_leaf &&
+        if (!m.proofs_enabled() && m_mem_leaf &&
             m_ambient->fparams().m_seq_monadic_leaf &&
             m_ambient->fparams().m_seq_monadic_leaf_root) {
             seq::eq_tree::dep_tracker dep = nullptr;
@@ -1175,6 +1319,7 @@ namespace smt {
         m_tree.set_min_search_depth(m_lits_qhead);
         bool fixed_lengths = !conversions && check_fixed_lengths(false);
         stx::search_result res;
+        m_proof_context.reset();
         try {
             if (conversions || fixed_lengths)
                 m_tree.set_max_nodes(conversions || !m_fixed_length_guards.empty() ?
@@ -1289,8 +1434,8 @@ namespace smt {
 
         case stx::search_result::unsat: {
             seq::eq_tree::dep_tracker dep = m_root->conflict_dep();
-            if (dep) {
-                report_conflict(dep);
+            if (dep || m_proofs.get_proof()) {
+                report_conflict(dep, m_proofs.get_proof());
                 return FC_CONTINUE;
             }
             return FC_GIVEUP;

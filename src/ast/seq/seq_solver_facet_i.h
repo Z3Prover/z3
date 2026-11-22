@@ -38,16 +38,24 @@ namespace seq {
         ~solver_facet_i() override = default;
 
         virtual arith_util& get_arith_util() = 0;
+        virtual proof_manager* get_proof_manager() const { return nullptr; }
+
+        // Exact branch-owned constraints, including inherited constraints
+        // still live on the DFS trail. Do not expose backend assumption literals.
+        virtual void append_proof_facts(expr_ref_vector& facts) const = 0;
+        virtual void append_proofs(proof_ref_vector& proofs) const = 0;
 
         // Record one more length (or other arithmetic) constraint owned
         // by the current branch. `dep` (if non-null) is the dependency
         // justifying `c`. Returns true iff `c` was newly recorded.
-        virtual bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr) = 0;
+        virtual bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr, proof* premise = nullptr,
+                                    symbol const& rule = symbol("seq-arith-add")) = 0;
 
         // Generate `len(lhs) = len(rhs)` from an eq_facet equation and
         // record it via add_constraint, tagged with `dep`. Returns true
         // iff at least one new constraint was recorded.
-        virtual bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) = 0;
+        virtual bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                           eq_tree::dep_tracker dep = nullptr, proof* premise = nullptr) = 0;
 
         virtual bool has_conflict() const = 0;
 

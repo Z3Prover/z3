@@ -62,6 +62,7 @@ namespace seq {
     public:
         sub_solver(ast_manager& m, arith_util& a, eq_tree::dep_manager_t& core_dep_mgr);
         ~sub_solver() override;
+        proof_manager* get_proof_manager() const override { return &m_core_dep_mgr; }
 
         void assert_expr(expr* e, eq_tree::dep_tracker dep = nullptr) override;
         void push() override;
@@ -79,11 +80,21 @@ namespace seq {
      * is entered and popped when it is left.
      */
     class solver_facet : public solver_facet_i {
+    public:
+        struct constraint {
+            expr_ref m_fact;
+            eq_tree::dep_tracker m_dep;
+            proof_ref m_proof;
+            constraint(ast_manager& m, expr* fact, eq_tree::dep_tracker dep, proof* pr) :
+                m_fact(fact, m), m_dep(dep), m_proof(pr, m) {}
+        };
+    private:
         ast_manager&      m;
         arith_util        a;
         seq_util&         u;
         sub_solver_i&     m_solver;
-        expr_ref_vector   m_own;       // constraints added at this node only
+        vector<constraint> m_own;
+        proof_manager*    m_dm;
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         model_ref         m_model;                       // arithmetic model captured by clone() at a sat leaf
 
@@ -98,32 +109,35 @@ namespace seq {
             void undo() override { m_solver.pop(1); m_pushed_at_scope = m_old_value; }
         };
 
-        // Undo object for expr_ref_vector::push_back().
-        class push_back_ref_trail : public ::trail {
-            expr_ref_vector& m_vec;
-        public:
-            explicit push_back_ref_trail(expr_ref_vector& v) : m_vec(v) {}
-            void undo() override { m_vec.pop_back(); }
-        };
-
     public:
         solver_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
-            solver_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
+            solver_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_dm(solver.get_proof_manager()) {}
 
         ast_manager& get_manager() const { return m; }
         arith_util& get_arith_util() override { return a; }
+        proof_manager* get_proof_manager() const override { return m_dm; }
         seq_util& get_seq_util() const { return u; }
+
+        vector<constraint> const& constraints() const { return m_own; }
+        void append_proof_facts(expr_ref_vector& facts) const override {
+            for (auto const& c : m_own) facts.push_back(c.m_fact);
+        }
+        void append_proofs(proof_ref_vector& proofs) const override {
+            for (auto const& c : m_own) if (c.m_proof) proofs.push_back(c.m_proof);
+        }
 
         // Add one branch-local arithmetic constraint. The first add at a
         // trail scope lazily opens a matching backend scope. `dep`, when
         // present, is forwarded so UNSAT cores can explain the conflict.
         // Returns false if the constraint was already recorded.
-        bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr) override;
+        bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr, proof* premise = nullptr,
+                            symbol const& rule = symbol("seq-arith-add")) override;
 
         // Add `len(lhs) = len(rhs)` and `len(v) >= 0` facts for any
         // sequence variables encountered. Returns true iff something new
         // was recorded.
-        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) override;
+        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                   eq_tree::dep_tracker dep = nullptr, proof* premise = nullptr) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

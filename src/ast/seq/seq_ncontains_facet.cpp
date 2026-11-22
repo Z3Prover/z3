@@ -25,6 +25,24 @@ Author:
 
 namespace seq {
 
+    expr_ref str_ncontains::fact(seq_util& u) const {
+        ast_manager& m = u.get_manager();
+        sort* s = !m_haystack.empty() ? m_haystack[0]->get_sort() :
+                  !m_needle.empty() ? m_needle[0]->get_sort() : u.mk_string_sort();
+        expr_ref haystack(u.str.mk_concat(m_haystack, s), m);
+        expr_ref needle(u.str.mk_concat(m_needle, s), m);
+        return expr_ref(m.mk_not(u.str.mk_contains(haystack, needle)), m);
+    }
+
+    void ncontains_facet::add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n,
+                                        eq_tree::dep_tracker dep, proof* pr, symbol const& rule) {
+        str_ncontains nc(h, n, dep, pr);
+        if (m_dm.proofs_enabled() && !nc.m_proof)
+            nc.m_proof = m_dm.mk_proof(rule, nc.fact(u));
+        m_ncs.push_back(nc);
+        m_trail.push(push_back_trail<str_ncontains>(m_ncs));
+    }
+
     void ncontains_facet::advance_qhead(unsigned head) {
         m_trail.push(value_trail<unsigned>(m_qhead));
         m_qhead = head;
@@ -35,18 +53,22 @@ namespace seq {
             advance_qhead(idx);
     }
 
-    void ncontains_facet::remove(unsigned idx) {
+    void ncontains_facet::remove(unsigned idx, symbol const& rule) {
+        if (m_dm.proofs_enabled() && m_ncs[idx].active())
+            m_dm.mk_proof(rule, m.mk_true(), { m_ncs[idx].m_proof.get() });
         m_trail.push(vector_field_trail<str_ncontains, bool>(m_ncs, idx, &str_ncontains::m_active));
         m_ncs[idx].m_active = false;
     }
 
     void ncontains_facet::replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack) {
-        expr_ref_vector needle(m_ncs[idx].m_needle);
-        eq_tree::dep_tracker dep = m_ncs[idx].m_dep;
-        m_trail.push(vector_field_trail<str_ncontains, bool>(m_ncs, idx, &str_ncontains::m_active));
-        m_ncs[idx].m_active = false;
-        m_ncs.push_back(str_ncontains(new_haystack, needle, dep));
-        m_trail.push(push_back_trail<str_ncontains>(m_ncs));
+        auto const& old = m_ncs[idx];
+        str_ncontains replacement(new_haystack, old.m_needle, old.m_dep);
+        if (m_dm.proofs_enabled())
+            replacement.m_proof = m_dm.mk_proof(symbol("seq-ncontains-tail"), replacement.fact(u),
+                                               { old.m_proof.get() });
+        remove(idx, symbol("seq-ncontains-tail"));
+        add_ncontains(replacement.m_haystack, replacement.m_needle, replacement.m_dep,
+                      replacement.m_proof.get(), symbol("seq-ncontains-tail"));
     }
 
     void ncontains_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
@@ -56,6 +78,12 @@ namespace seq {
             bool touched_h = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
             bool touched_n = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
             if (touched_h || touched_n) {
+                if (m_dm.proofs_enabled()) {
+                    proof_ref pr(m_dm.mk_proof(symbol("seq-ncontains-substitute"), m_ncs[i].fact(u),
+                                              { m_ncs[i].m_proof.get(), m_dm.substitution_proof() }), m);
+                    m_trail.push(vector_field_trail<str_ncontains, proof_ref>(m_ncs, i, &str_ncontains::m_proof));
+                    m_ncs[i].m_proof = pr;
+                }
                 if (subst_dep) {
                     m_trail.push(vector_field_trail<str_ncontains, eq_tree::dep_tracker>(m_ncs, i, &str_ncontains::m_dep));
                     m_ncs[i].m_dep = m_dm.mk_join(m_ncs[i].m_dep, subst_dep);
@@ -281,7 +309,7 @@ namespace seq {
             // Both sides must be unit words: opaque needle tokens may be empty,
             // so token counts alone do not bound the possible starting positions.
             if (has_window && first_undef_pos > max_pos && unit_haystack && unit_needle) {
-                f.remove(head);
+                f.remove(head, symbol("seq-ncontains-unit-mismatch"));
                 changed = true;
                 ++head;
                 continue;
@@ -314,6 +342,13 @@ namespace seq {
                 expr_ref tail(u.re.mk_concat(needle, all), m);
                 expr_ref containing(u.re.mk_concat(all, tail), m);
                 expr_ref avoiding(u.re.mk_complement(containing), m);
+                auto add_avoiding = [&](expr_ref_vector const& tokens) {
+                    str_mem derived(m, tokens, view::membership(avoiding, m), nc.m_dep);
+                    if (f.dm().proofs_enabled())
+                        derived.m_proof = f.dm().mk_proof(symbol("seq-ncontains-exclusion"), derived.fact(u),
+                                                        { nc.m_proof.get() });
+                    ac.mem_facet_ref().add(derived, symbol("seq-ncontains-exclusion"));
+                };
                 if (n_size == 1) {
                     // A single element cannot straddle concatenation boundaries.
                     expr* forbidden = to_app(nc.m_needle[0])->get_arg(0);
@@ -322,19 +357,19 @@ namespace seq {
                         if (u.str.is_unit(token, character)) {
                             if (!m.are_distinct(character, forbidden)) {
                                 expr_ref different(m.mk_not(m.mk_eq(character, forbidden)), m);
-                                ac.add_assumption(different, nc.m_dep);
+                                ac.add_assumption(different, nc.m_dep, nc.m_proof.get(), symbol("seq-ncontains-character-mismatch"));
                             }
                         }
                         else {
                             expr_ref_vector term(m);
                             term.push_back(token);
-                            ac.mem_facet_ref().add(str_mem(m, term, view::membership(avoiding, m), nc.m_dep));
+                            add_avoiding(term);
                         }
                     }
                 }
                 else
-                    ac.mem_facet_ref().add(str_mem(m, nc.m_haystack, view::membership(avoiding, m), nc.m_dep));
-                f.remove(head);
+                    add_avoiding(nc.m_haystack);
+                f.remove(head, symbol("seq-ncontains-exclusion"));
                 changed = true;
                 ++head;
                 continue;
@@ -359,9 +394,9 @@ namespace seq {
                         n.set_conflict(stx::br_plugin_base, f.dm().mk_join(nc.m_dep, false_dep));
                         return stx::simplify_result::conflict;
                     }
-                    ac.add_assumption(clause, nc.m_dep);
+                    ac.add_assumption(clause, nc.m_dep, nc.m_proof.get(), symbol("seq-ncontains-alignment-mismatch"));
                 }
-                f.remove(head);
+                f.remove(head, symbol("seq-ncontains-alignment-mismatch"));
                 changed = true;
                 ++head;
                 continue;
@@ -397,8 +432,8 @@ namespace seq {
             eq_tree::dep_tracker wdep = nc.m_dep;
             if (tokens_in_word_star(u, ac.mem_facet_ref(), f.dm(), nc.m_needle, w, wdep) &&
                 tokens_in_word_star(u, ac.mem_facet_ref(), f.dm(), nc.m_haystack, w, wdep)) {
-                ac.add_assumption(gate, wdep);
-                f.remove(head);
+                ac.add_assumption(gate, wdep, nc.m_proof.get(), symbol("seq-ncontains-word-star-length"));
+                f.remove(head, symbol("seq-ncontains-word-star-length"));
                 changed = true;
                 ++head;
                 continue;
@@ -407,7 +442,7 @@ namespace seq {
             if (sf.implies(gate) == l_true) {
                 // len(h) < len(n): n cannot possibly occur in h - the
                 // obligation is vacuously satisfied.
-                f.remove(head);
+                f.remove(head, symbol("seq-ncontains-length"));
                 changed = true;
                 ++head;
                 continue;
@@ -435,11 +470,16 @@ namespace seq {
         for (auto const* tokens : { &nc.m_haystack, &nc.m_needle })
             for (expr* token : *tokens)
                 if (!u.str.is_unit(token))
-                    sf.add_constraint(a.mk_ge(u.str.mk_length(token), zero));
-        auto dep = ac.assumption_facet_ref().add_assumption(condition, ac.context());
-        sf.add_constraint(condition, dep);
+                    sf.add_constraint(a.mk_ge(u.str.mk_length(token), zero), nullptr,
+                                      nc.m_proof.get(), symbol("seq-ncontains-token-length"));
+        proof_ref choice(m);
+        if (f.dm().proofs_enabled())
+            choice = f.dm().mk_proof(symbol("seq-ncontains-length-split"), condition);
+        auto dep = ac.assumption_facet_ref().add_assumption(condition, ac.context(), choice.get(),
+                                                        symbol("seq-ncontains-length-split"));
+        sf.add_constraint(condition, dep, choice.get(), symbol("seq-ncontains-length-split"));
         if (shorter)
-            f.remove(idx);
+            f.remove(idx, symbol("seq-ncontains-length-split"));
         out = eq_tree::edge(shorter ? "ncontains len<" : "ncontains len>=", dep, true, 0);
     }
 

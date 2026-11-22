@@ -34,12 +34,13 @@ Author:
 
 namespace seq {
 
-    // One pending power obligation `m_e = m_s ^ m_n`.
+    // One pending power obligation `m_e = m_s ^ m_n`, with its own derivation.
     struct str_power {
         expr_ref             m_e;
         expr_ref             m_s;
         expr_ref             m_n;
         eq_tree::dep_tracker  m_dep;
+        proof_ref            m_proof;
         // Set once this obligation's length axioms have
         // been asserted into `solver_facet`.
         bool                 m_axiomatized = false;
@@ -53,8 +54,9 @@ namespace seq {
         // resumptions. Consumers must skip inactive entries.
         bool                 m_active = true;
 
-        str_power(ast_manager& m, expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) :
-            m_e(e, m), m_s(s, m), m_n(n, m), m_dep(dep) {}
+        str_power(ast_manager& m, expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr) :
+            m_e(e, m), m_s(s, m), m_n(n, m), m_dep(dep), m_proof(pr, m) {}
+        expr_ref fact(seq_util& u) const;
         bool active() const { return m_active; }
     };
 
@@ -72,7 +74,7 @@ namespace seq {
 
     public:
         power_facet(trail_stack& trail, ast_manager& m, seq_util& u, arith_util& a, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), a(a), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), a(a), m_dm(dm) { dm.set_manager(m); }
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
@@ -83,20 +85,23 @@ namespace seq {
         void set_max_unfold(unsigned k) { m_max_unfold = k; }
 
         // Trailed and idempotent: obligations are keyed by the power term.
-        void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
+        void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr, symbol rule = symbol("power-input")) {
             unsigned idx;
             if (find_power(e, idx))
                 return;
-            m_pows.push_back(str_power(m, e, s, n, dep));
+            str_power p(m, e, s, n, dep, pr);
+            if (!pr && m_dm.proofs_enabled())
+                p.m_proof = m_dm.mk_proof(rule, p.fact(u));
+            m_pows.push_back(p);
             m_trail.push(push_back_trail<str_power>(m_pows));
         }
         // Register `e` if it is a `seq.power` term (`e = s^n`); no-op
         // otherwise. Convenience wrapper for callers scanning terms.
-        bool add_power_if(expr* e, eq_tree::dep_tracker dep = nullptr) {
+        bool add_power_if(expr* e, eq_tree::dep_tracker dep = nullptr, proof* pr = nullptr, symbol rule = symbol("power-token-definition")) {
             expr* s = nullptr, *n = nullptr;
             if (!u.str.is_power(e, s, n))
                 return false;
-            add_power(e, s, n, dep);
+            add_power(e, s, n, dep, pr, rule);
             return true;
         }
 
@@ -118,7 +123,7 @@ namespace seq {
         }
 
         // Drop `idx`'s obligation by flipping `m_active`. Trailed.
-        void remove(unsigned idx);
+        void remove(unsigned idx, symbol rule = symbol("power-discharge"), proof* pr = nullptr);
 
         // Set one of `str_power`'s flags. Trailed.
         void mark(unsigned idx, bool str_power::* flag);

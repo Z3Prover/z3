@@ -261,9 +261,10 @@ namespace seq {
 
         // Constraint for the sub-solver that the SMT core must adopt as well
         // (branch decisions on exponents, forced character equalities).
-        void add_assumption(expr* c, dep_tracker_t dep) const {
-            solver_facet_ref().add_constraint(c, dep);
-            assumption_facet_ref().add_assumption(c, m_ac);
+        void add_assumption(expr* c, dep_tracker_t dep, proof* premise = nullptr,
+                            symbol const& rule = symbol("seq-assume")) const {
+            solver_facet_ref().add_constraint(c, dep, premise, rule);
+            assumption_facet_ref().add_assumption(c, m_ac, premise, rule);
         }
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }

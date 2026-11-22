@@ -113,6 +113,7 @@ enum seq_op_kind {
     _OP_REGEXP_FULL_CHAR,
     _OP_RE_IS_NULLABLE,
     _OP_SEQ_SKOLEM,
+    OP_SEQ_PROOF,
     LAST_SEQ_OP
 };
 
@@ -229,6 +230,11 @@ class seq_util {
 public:
 
     ast_manager& get_manager() const { return m; }
+    proof* mk_proof(symbol const& rule, unsigned num_premises, proof* const* premises, expr* fact);
+    proof* mk_proof(symbol const& rule, proof_ref_vector const& premises, expr* fact) {
+        return mk_proof(rule, premises.size(), premises.data(), fact);
+    }
+    bool is_proof(expr const* e) const { return is_app_of(e, m_fid, OP_SEQ_PROOF); }
     char_decl_plugin &get_char_plugin() const {
         return ch;
     }
