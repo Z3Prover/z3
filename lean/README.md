@@ -136,6 +136,39 @@ Parsing and SMT-to-Lean statement translation remain trusted frontend components
 See [the exporter documentation](../examples/python/README) for the exact scope
 and trust boundary.
 
+## Sequence and regex semantics (Z3SeqProofs)
+
+The `Z3SeqProofs` library is a separate, growing Lean development providing
+the semantic backing for c3mv's sequence/regex engine (`src/ast/rewriter/
+seq_derive.*`, `src/ast/seq/seq_mem_facet.*`, `src/ast/rewriter/
+seq_range_predicate.*`): an `EffectiveBooleanAlgebra` (EBA) typeclass, a
+closed regex type `RE` with reference language semantics, Brzozowski
+derivatives (`null`/`derivative`) proved sound and complete against that
+semantics, a concrete EBA instance matching `seq::range_predicate`'s actual
+representation, symbolic derivatives as transition-terms and their linear
+form (matching `seq_derive.h`'s ITE-tree representation and
+`light_ant_derivative_cofactors`'s split/merge behavior), and views
+(matching `seq_view_witness.cpp`/`mem_monadic_split`). It is derived
+locally rather than vendoring the external EREQ/Lean formalization it is
+modeled on, specifically so it can grow incrementally (further sequence
+operators, and eventually bisimulation-based regex equivalence) without a
+cross-repository dependency, and so it never needs to carry EREQ's
+`Existential`/quantifier constructor, which c3mv has no quantified-regex
+counterpart for.
+
+This library is **not yet wired into the proof-certificate exporter**
+above: `theory_nseq` now builds a real proof DAG for its search derivations
+(`OP_SEQ_PROOF` via `seq_util::mk_proof`, landed in #11816 - a
+`proof_tracker_i` callback hooked into the search engine itself, with
+fact-level derivations named per rule across essentially every facet, e.g.
+`"seq-mem-derivative"` and `"seq-mem-nullable"` for the two conflict kinds
+this library's `Derivatives.lean` models). But `examples/python/
+proof_to_lean.py` does not yet recognize a `Seq` fragment or generate
+certificates that invoke `Z3SeqProofs`'s theorems against that DAG. That
+extension is tracked as follow-up work; `OP_SEQ_PROOF`'s actual rule names
+and premise structure (not this library's own naming guesses) are now the
+right starting point for designing it.
+
 ## Audit preprocessing
 
 The opt-in harness distinguishes real preprocessing from a pass skipped in
