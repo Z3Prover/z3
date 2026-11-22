@@ -19,6 +19,38 @@ Abstract:
     exact range-predicate algebra, while other element sorts fall back
     to a candidate basis over the values mentioned by the derivatives.
 
+    This solver rests on two distinct ideas, both reflected directly below:
+
+      - A VIEW constrains a sequence value by the derivative-automaton
+        STATE a prefix of it reaches, instead of by an explicit regex:
+        View(r,s) holds for a word w iff deriving r by w lands exactly on
+        state s (and s is not the empty language). Splitting a membership
+        `t in r` this way means: for each state s reachable from r, t's
+        own split-variable must satisfy View(r,s), and whatever remains
+        of t must be in s - without ever materializing an explicit regex
+        for the view itself. The DFS-over-views machinery below
+        (atom/frame/m_stack, prepare, advance_pos, push_frame, run_search,
+        group_nonempty, product_nonempty) implements exactly this: each
+        variable occurrence is constrained by one view, and when the same
+        variable occurs more than once its accumulated views are
+        intersected (group_nonempty) - a synchronous product that decides
+        joint feasibility across all occurrences at once.
+
+      - Separately, a conjunction of regexes `t in R1 & ... & Rk` can be
+        decomposed by splitting the intersection itself, which views
+        alone do not make cheap. The section below marked "decomposition
+        of intersections of regexes" handles this via a
+        relaxation-and-refinement loop: decide a relaxation that keeps
+        only some conjuncts (using the view search above), then add back
+        whichever dropped conjunct the candidate model violates,
+        repeating up to split_rounds times.
+
+      See decide()/decide_split() for how the two are composed: the view
+      search always runs first (cheaply, then at full budget as the
+      final fallback), and intersection decomposition is only an
+      optional escalation in between, off by default
+      (split_rounds() == 0).
+
 Author:
 
     Nikolaj Bjorner / Margus Veanes 2026
@@ -169,14 +201,7 @@ private:
     // signature of the variable's view group
     typedef std::vector<seq::view::sig> group_sig;
     struct group_sig_hash {
-        size_t operator()(group_sig const& s) const {
-            uint64_t h = 1469598103934665603ull;
-            for (auto const& p : s) {
-                h = (h ^ p.state) * 1099511628211ull;
-                h = (h ^ p.target) * 1099511628211ull;
-            }
-            return static_cast<size_t>(h);
-        }
+        size_t operator()(group_sig const& s) const { return static_cast<size_t>(seq::hash_sig_vector(s)); }
     };
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
@@ -280,7 +305,8 @@ private:
     lbool decide_policy(membership_vec const& memberships, unsigned budget, bool sticky);
 
     // ---- decomposition of intersections of regexes -------------------------------------
-    // For `t in R1 & ... & Rk`, the split solver starts from a relaxation
+    // See the module comment above for how this relates to the view-based search. For
+    // `t in R1 & ... & Rk`, the split solver starts from a relaxation
     // that keeps only some conjuncts and grows it on demand. Dropping
     // conjuncts only enlarges the language, so an unsatisfiable
     // relaxation refutes the original, and a model accepted by every
