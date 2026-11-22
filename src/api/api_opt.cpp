@@ -165,6 +165,11 @@ extern "C" {
                 expr_ref_vector asms(mk_c(c)->m());
                 asms.append(num_assumptions, to_exprs(num_assumptions, assumptions));
                 r = to_optimize_ptr(o)->optimize(asms);
+                if (r == l_undef &&
+                    mk_c(c)->m().limit().is_canceled()) {
+                    char const* reason = mk_c(c)->m().limit().get_cancel_msg();
+                    to_optimize_ptr(o)->set_reason_unknown(reason);
+                }
             }
             catch (z3_exception& ex) {
                 if (mk_c(c)->m().inc()) {

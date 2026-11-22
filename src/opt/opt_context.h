@@ -244,7 +244,7 @@ namespace opt {
         void get_labels(svector<symbol> & r) override;
         void get_unsat_core(expr_ref_vector & r) override;
         std::string reason_unknown() const override;
-        void set_reason_unknown(char const* msg) override { m_unknown = msg; }        
+        void set_reason_unknown(char const* msg) override;
 
         void display_assignment(std::ostream& out) override;
         bool is_pareto() override { return m_pareto.get() != nullptr; }

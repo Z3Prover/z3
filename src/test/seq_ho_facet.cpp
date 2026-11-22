@@ -72,6 +72,18 @@ static void tst_unfolded_obligations() {
     ENSURE(facet.propagate());
     ENSURE(facet.is_satisfied());
     ENSURE(!facet.propagate());
+
+    expr_ref empty_map(seq.str.mk_map(function, seq.str.mk_empty(sequence_sort)), m);
+    seq::ho_facet structural_facet(
+        trail, m, seq, rewriter,
+        [&](expr* lhs, expr* rhs, expr* premise) {
+            ENSURE(!premise);
+            return true;
+        },
+        [](expr*, expr*&){ return false; });
+    structural_facet.add_term(empty_map);
+    ENSURE(structural_facet.propagate());
+    ENSURE(structural_facet.is_satisfied());
 }
 
 void tst_seq_ho_facet() {

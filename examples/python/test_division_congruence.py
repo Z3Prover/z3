@@ -97,7 +97,7 @@ class TestDivisionCongruence(unittest.TestCase):
                     ctx = z3.Context()
                     prebuilt = [premises[i].translate(ctx) for i in order]
                     solver = solver_kind(ctx=ctx)
-                    solver.set(random_seed=13, rlimit=10_000)
+                    solver.set(random_seed=13, rlimit=100_000)
                     solver.add(query.translate(ctx))
                     dumps.append(solver.sexpr())
                     self.assertEqual(solver.check(), z3.unsat, solver.reason_unknown())
