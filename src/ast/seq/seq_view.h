@@ -41,6 +41,8 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/lbool.h"
 #include "util/vector.h"
+#include <cstdint>
+#include <vector>
 
 namespace seq {
 
@@ -87,6 +89,18 @@ namespace seq {
 
     inline bool operator==(view::sig const& a, view::sig const& b) {
         return a.state == b.state && a.target == b.target;
+    }
+
+    // Shared FNV-1a hash for a sorted/deduplicated list of signatures, used to memoize
+    // per-variable results keyed by "this variable's accumulated view group" (see
+    // seq_monadic's group_nonempty and seq_view_witness's product-feasibility cache).
+    inline uint64_t hash_sig_vector(std::vector<view::sig> const& s) {
+        uint64_t h = 1469598103934665603ull;
+        for (auto const& p : s) {
+            h = (h ^ p.state) * 1099511628211ull;
+            h = (h ^ p.target) * 1099511628211ull;
+        }
+        return h;
     }
 
     using view_vector = vector<view>;
