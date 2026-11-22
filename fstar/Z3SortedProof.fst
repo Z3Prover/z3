@@ -3329,10 +3329,11 @@ let array_lemma_node (s:S.checked_schema) (node:U.proof_node) : bool =
 
 let check_node_cached_array (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =
-  match check_node_cached s assertions node with
-  | Some (fact, pending) ->
-    Some (fact, (if array_lemma_node s node then 0 else pending))
-  | None -> None
+  let conclusion = proposition node.conclusion in
+  if not (boolean_expression s conclusion) then None
+  else if array_lemma_node s node then
+    Some ({ U.conclusion = node.conclusion; hypotheses = U.premise_hypotheses node.premises }, 0)
+  else check_node_cached s assertions node
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =

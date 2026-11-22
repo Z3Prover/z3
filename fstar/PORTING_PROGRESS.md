@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-22T06:34:53-08:00**.
+Updated: **2026-11-22T07:37:11-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -170,6 +170,31 @@ are not cohort totals and do not establish parity or burn-down. Hashes, logs,
 and build provenance are retained under
 `files\conditional-current-source-control-04e`.
 
+### Sorted array-kernel control (not a native CLI or cohort result)
+
+The same 11 hash-verified frozen documents were checked directly with
+`Z3SortedProof.check_document_array`. Source HEAD is `0484078c4`;
+`Z3SortedProof.fst` SHA-256 is
+`663e1b1c832c20771fc62309fb62c286e03b81e0d4a24581d960807baa02ef9c`;
+the rebuilt checker SHA-256 is
+`1ef727da50c13150257ff7a7116d38d3c3de9d0b143fd08055670d19fe10c383`.
+The array route accepted 4/11 (proofs 10, 20, 37, 49) and returned PARTIAL
+on 7/11, with 151 aggregate PENDING; the matched ordinary sorted-core
+control accepted 1/11 and had 832 PENDING. Legacy accepted 11/11. This is a
+fixed-proof kernel experiment, not a native CLI/corpus measurement; the
+array route has no per-rule diagnostics, so its per-rule PENDING is N/M.
+The same standard diagnostics show no pending `arith/farkas` obligations in
+these controls, including the selected QF_LIA cases; they do not evidence a
+Farkas-producer defect.
+
+Single-pass array-route time was 93.40s total versus 21.787s for Legacy on
+these same documents; the array route was slower on 8/11. The guarded fast
+path for supported array lemmas preserved all outcomes and changed the
+one-pass total from 94.47s to 93.40s (1.1%, not a conclusive performance
+gain). Per-proof verdicts, timings, and hashes are retained under
+`files\conditional-current-sorted-replay-02`; no parity or performance claim
+is made.
+
 ## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
@@ -177,6 +202,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 22 07:37 | Replay the same 11 frozen proofs through the sorted array-kernel route; measure the array-lemma fast path | Array kernel 4/11 ACCEPT, 151 PENDING vs ordinary sorted core 1/11, 832 PENDING; Legacy 11/11. One-pass total 93.40s vs Legacy 21.787s, slower on 8/11. Fast-path delta is 1.1%, not conclusive; kernel route is not native CLI or cohort evidence. |
 | Nov 22 06:34 | Repeat the retained Definition-mode checker on both pinned cohorts; diagnose every PARTIAL | Same outcomes and per-rule PENDING as the prior capture: sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 30,907 PENDING. Diagnostics: 77/77 and 126/126, zero errors/mismatches. Latest aggregate case times 2,013.1s / 1,739.6s; no matched-proof burn-down inferred. |
 | Nov 22 02:56 | Rerun the retained PR-head checker on pinned sample inputs with `--definition-array-replay`; diagnose all PARTIALs | 142/225 ACCEPT, 42 PARTIAL, 21 UNKNOWN, 20 TIMEOUT; versus Definition-only, 32 PARTIAL→ACCEPT and 3 PARTIAL→TIMEOUT with no ACCEPT regressions. 344 observed PENDING; combined mode is slower (0.779s vs 0.579s median). Input-matched only, not frozen-proof burn-down or Legacy parity. |
 | Nov 21 23:04 | Complete current-source matched 11-input sample control | Independent checker 3/11 ACCEPT, 8/11 PARTIAL (811 PENDING); Legacy 11/11 ACCEPT. `apply-def` PENDING=0; single-pass medians 6.038s vs 0.573s. Fixed control only, no cohort burn-down; parity not met. |
@@ -186,7 +212,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 18:21 | Add bounded Boolean search to sorted rewrite; measure pinned cohorts | Sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 28,404 PENDING. Relative to the retained Definition capture, +27/+4 ACCEPT and -2,071/-3,097 PENDING by saved totals; extended PENDING differs by 15 from the older dashboard. Proof hashes are absent, so not matched-proof burn-down. |
 | Nov 21 13:31 | Run current Definition+Array checker on both pinned SMT-LIB cohorts | Sample 139/225 ACCEPT and 471 PENDING; extended 77/285 ACCEPT and 29,457 PENDING. Relative to the prior Definition capture: sample +56 ACCEPT, extended +3; proofs are not hash-matched, so no burn-down or Legacy-parity claim. |
 | Nov 21 08:26 | Pair current-source SMT-LIB sample timing controls | Sorted accepted 1/11 vs Legacy 11/11; summed medians 89.838s vs 18.253s (4.92x slower), sorted slower on 10/11. |
-| Nov 21 07:49 | Replay fixed QF_LIA ring proofs on current source | Proof 52 fell 48→30 PENDING, clearing 18 `rewrite` obligations; both proofs remained PARTIAL. Sorted accepted 0/2 vs Legacy 2/2. |
 
 ## Validation and cadence
 
@@ -200,6 +225,10 @@ finite-field work remains paused. Current-source paired Legacy controls are
 now measured on the 11-input fixed control above, where the independent checker
 still trails Legacy; broader cohort parity remains unestablished. Do not treat
 these cohort observations as matched-proof burn-down or Legacy parity.
+The array-kernel fast path passed strict F* verification, the focused
+`Z3SortedProofTests.fst` regressions, and the isolated native build. An optional
+profile-instrumented build stopped with `Missing extracted rule datatype`, so
+no profiler conclusions are available.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The separate parity/performance schedule has been updated to prioritize
