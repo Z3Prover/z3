@@ -241,7 +241,14 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        setup_seq();
+        // Respect smt.string_solver like setup_QF_S() does, instead of always
+        // registering the legacy theory_seq: nseq is equally applicable here
+        // (the sequence theory is generic in its element sort), and silently
+        // falling back to seq would defeat smt.string_solver=nseq/auto.
+        if (m_params.m_string_solver == "nseq" || m_params.m_string_solver == "auto")
+            setup_nseq();
+        else
+            setup_seq();
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
