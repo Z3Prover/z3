@@ -223,24 +223,60 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
 
-        // Split plugins are owned by m_tree. Regex-membership splitting
-        // is tried before word-equation splitting.
+        // Split plugins are owned by m_tree. extend_node() dispatches them
+        // by iterative deepening on `cost` (try cost 0 across every
+        // registered plugin, then cost 1, ...; see split_plugin_i's class
+        // comment in stx_search_tree.h for the full contract). Within one
+        // cost level, registration order below is the tie-break - and in
+        // practice it is often the *only* thing that matters, since most
+        // plugins below never consult their own `cost` argument and simply
+        // offer a split whenever one is structurally available (only
+        // mem_leaf_split and the cost-sorted power family actually vary
+        // their answer with `cost`). So, informally, this list is read
+        // top-to-bottom as a priority order, grouped by concern:
+
+        // -- Power/exponent splitting --
         m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
+
+        // -- Regex-membership splitting (tried before word-equation
+        // splitting below). Cheapest/most-conclusive first, narrowest
+        // structural special case before the general fallback:
+        //   1. mem_parikh_split: cheap length/Parikh refutation-only gate,
+        //      never branches.
+        //   2. mem_leaf_split: optional (off by default, smt.nseq.monadic_leaf),
+        //      heavier whole-conjunction decision - tries to settle or
+        //      witness *every* active plain membership in one shot via its
+        //      own seq::monadic instance, which (3)/(4) below also build on
+        //      but drive one membership/one character at a time instead.
+        //   3. mem_char_split: cheap, narrow structural case - a known
+        //      literal prefix followed by exactly one symbolic character.
+        //   4. mem_monadic_split: general fallback, decomposes any one
+        //      remaining non-single-variable membership.
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
         m_tree.add_split_plugin(m_mem_leaf);
         m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
+
+        // -- More power/exponent splitting --
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_trichotomy, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel, m, m_seq, m_autil));
+
+        // -- Word-equation splitting (interleaved with more power/regex
+        // splitting below, since those can themselves spawn new word
+        // equations that this family should then get a chance to simplify
+        // before the next heavier regex split is tried) --
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
+
+        // -- Other facets: replace_all / ncontains / lex / model
+        // completion / disequality splitting --
         m_tree.add_split_plugin(alloc(seq::replace_all_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::ncontains_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::lex_split, m, m_seq));

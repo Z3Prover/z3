@@ -1137,6 +1137,22 @@ namespace seq {
         m_path_stack.pop_back();
     }
 
+    // The apply_ite family is the classical BDD "apply with path pruning"
+    // operation. Algebraically it is just Shannon expansion on c:
+    //     op(ite(c, t, e), r) = ite(c, op(t, r), op(e, r))
+    // but naively building both branches would reintroduce conditions this
+    // path already decided and construct branches that can never be taken.
+    // `push(c, sign)`/`pop()` consult and extend the path accumulated so far
+    // (m_path/m_intervals - see their own comments): l_true means the path
+    // already implies this branch, so only that branch's `apply_op` is
+    // computed and no ite node is built at all; l_false means the path
+    // already excludes it, so it is skipped outright; l_undef means neither
+    // is known yet, so the path is extended for the recursive `apply_op`
+    // call and popped back afterwards. The three overloads below only
+    // differ in how many ITE operands are being merged at once (one, or two
+    // sharing the same condition c - the "same-condition merge" overload -
+    // or zero/one for a unary op).
+
     // Binary apply_ite: hoist ite(c, t, e) op r with path pruning
     expr_ref derive::apply_ite(expr* c, expr* t, expr* e, expr* r, std::function<expr_ref(expr*, expr*)> apply_op) {
         expr_ref then_br(m), else_br(m);
@@ -1194,8 +1210,15 @@ namespace seq {
         return expr_ref(nullptr, m);
     }
 
-    // Common ITE dispatch for binary ops (union/inter).
-    // Returns nullptr if neither a nor b is ITE.
+    // Common ITE dispatch for binary ops (union/inter): this is where
+    // mk_union/mk_inter/mk_xor actually apply Shannon expansion (see the
+    // apply_ite family's comment above) to get at an argument hidden under
+    // an ite. If both a and b are themselves ITEs, the one with the
+    // structurally smaller condition (predicate_algebra::less) is hoisted
+    // first, so repeatedly hoisting through nested ITEs converges on one
+    // canonical nesting order instead of depending on argument order.
+    // Returns nullptr if neither a nor b is ITE; the caller (mk_core) then
+    // falls back to its own, non-ITE construction of the operator.
     expr_ref derive::hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op) {
         expr *c1, *t1, *e1, *c2, *t2, *e2;
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && predicate_algebra::less(c2, c1))
