@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-21T23:04:33-08:00**.
+Updated: **2026-11-22T02:56:55-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -38,25 +38,25 @@ diagnostic error/mismatch counts apply only to those replays. ACCEPT,
 solver-UNKNOWN, and TIMEOUT cases have no proof diagnostic; their outcome
 counts above are explicit and are not treated as zero-PENDING evidence.
 
-| Rule | fstar-build, last known | smtlib-sample, current | smtlib-extended, current |
-| --- | ---: | ---: | ---: |
-| `arith/bound` | N/M | 0 | 11 |
-| `arith/farkas` | 3 | 0 | 0 |
-| `arith/lp-integer-lattice` | N/M | 0 | 0 |
-| `arith/lp-gomory` | N/M | 0 | 0 |
-| `arith/lp-monomial-interval` | 1 | 0 | 26 |
-| `arith/lp-monomial-substitute` | N/M | 0 | 0 |
-| `assumed:nlsat` | 139 | 0 | 102 |
-| `apply-def` | 0 | 0 | 0 |
-| `def-axiom` | 0 | 3 | 89 |
-| `der` | 0 | 6 | 0 |
-| `intro-def` | 0 | 162 | 103 |
-| `nnf-neg` | 10 | 0 | 0 |
-| `nnf-pos` | 0 | 0 | 0 |
-| `quant-intro` | 23 | 42 | 81 |
-| `rewrite` | 8 | 124 | 24,342 |
-| `sk` | 10 | 0 | 0 |
-| `th-lemma` | 236 | 3,499 | 6,153 |
+| Rule | fstar-build, last known | smtlib-sample, Definition | smtlib-extended, Definition | smtlib-sample, Definition+Array |
+| --- | ---: | ---: | ---: | ---: |
+| `arith/bound` | N/M | 0 | 11 | 0 |
+| `arith/farkas` | 3 | 0 | 0 | 0 |
+| `arith/lp-integer-lattice` | N/M | 0 | 0 | 0 |
+| `arith/lp-gomory` | N/M | 0 | 0 | 0 |
+| `arith/lp-monomial-interval` | 1 | 0 | 26 | 0 |
+| `arith/lp-monomial-substitute` | N/M | 0 | 0 | 0 |
+| `assumed:nlsat` | 139 | 0 | 102 | 0 |
+| `apply-def` | 0 | 0 | 0 | 0 |
+| `def-axiom` | 0 | 3 | 89 | 1 |
+| `der` | 0 | 6 | 0 | 6 |
+| `intro-def` | 0 | 162 | 103 | 113 |
+| `nnf-neg` | 10 | 0 | 0 | 0 |
+| `nnf-pos` | 0 | 0 | 0 | 0 |
+| `quant-intro` | 23 | 42 | 81 | 26 |
+| `rewrite` | 8 | 124 | 24,342 | 58 |
+| `sk` | 10 | 0 | 0 | 0 |
+| `th-lemma` | 236 | 3,499 | 6,153 | 140 |
 
 Correction recorded 2026-11-21 22:19 Pacific: the extended diagnostics aggregate
 to 11 `arith/bound` and 0 `arith/farkas`; the earlier table duplicated the
@@ -71,6 +71,32 @@ and extended
 `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
 Current checker, manifest, per-case results, and diagnostic logs are retained
 under `files\current-ite-intro-cohorts-01`.
+
+## Current PR-head sample: Definition+Array route
+
+The same retained checker executable SHA-256
+`b082bd428205357e7830445b624dee744679be80345f77fc26f0feaf74092c78`
+was rerun with `--definition-array-replay` over the same 225 input paths and
+manifest SHA-256
+`72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`.
+The run verified all input hashes. It produced 142 ACCEPT, 42 PARTIAL, 21
+solver UNKNOWN, and 20 TIMEOUT, with no REJECT, SAT, ERROR, CRASH,
+PROTOCOL_ERROR, or NOT_RUN cases. All 42 PARTIAL cases had matching
+diagnostics with zero errors and replay mismatches; their weighted PENDING
+total is 344: 140 `th-lemma`, 113 `intro-def`, 58 `rewrite`, 26
+`quant-intro`, 6 `der`, and 1 `def-axiom`. Other outcomes have no proof
+diagnostic and are not counted as zero-PENDING.
+
+Path-matched outcomes versus Definition-only were 110 ACCEPT→ACCEPT, 42
+PARTIAL→PARTIAL, 32 PARTIAL→ACCEPT, 3 PARTIAL→TIMEOUT, 21
+UNKNOWN→UNKNOWN, and 17 TIMEOUT→TIMEOUT. Thus no prior ACCEPT regressed, but
+three PARTIAL cases timed out. Aggregate case wall time / median was
+2,250.4s / 0.779s, versus 2,016.1s / 0.579s for Definition-only; the combined
+route was slower. This is an input-matched route comparison, **not**
+matched-proof burn-down (proof-document hashes were not retained) or Legacy
+parity. The matched 11-proof Legacy control above remains 3/11 ACCEPT versus
+Legacy 11/11. Results and diagnostics are retained under
+`files\current-ite-array-prhead-01`.
 
 The retained pre-patch Definition capture recorded 83/225 sample ACCEPT and
 74/285 extended ACCEPT, with 5,907 sample PENDING. Its extended PENDING is
@@ -112,6 +138,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 22 02:56 | Rerun the retained PR-head checker on pinned sample inputs with `--definition-array-replay`; diagnose all PARTIALs | 142/225 ACCEPT, 42 PARTIAL, 21 UNKNOWN, 20 TIMEOUT; versus Definition-only, 32 PARTIAL→ACCEPT and 3 PARTIAL→TIMEOUT with no ACCEPT regressions. 344 observed PENDING; combined mode is slower (0.779s vs 0.579s median). Input-matched only, not frozen-proof burn-down or Legacy parity. |
 | Nov 21 23:04 | Complete current-source matched 11-input sample control | Independent checker 3/11 ACCEPT, 8/11 PARTIAL (811 PENDING); Legacy 11/11 ACCEPT. `apply-def` PENDING=0; single-pass medians 6.038s vs 0.573s. Fixed control only, no cohort burn-down; parity not met. |
 | Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
 | Nov 21 21:56 | Rebuild current-source ITE `DefinitionIntroduction` path; rerun pinned cohorts serially | Sample unchanged at 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT, with one TIMEOUT→PARTIAL and 30,907 PENDING. No matched-proof burn-down or causal claim: the prior run used eight workers. |
@@ -121,7 +148,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 08:26 | Pair current-source SMT-LIB sample timing controls | Sorted accepted 1/11 vs Legacy 11/11; summed medians 89.838s vs 18.253s (4.92x slower), sorted slower on 10/11. |
 | Nov 21 07:49 | Replay fixed QF_LIA ring proofs on current source | Proof 52 fell 48→30 PENDING, clearing 18 `rewrite` obligations; both proofs remained PARTIAL. Sorted accepted 0/2 vs Legacy 2/2. |
 | Nov 21 05:17 | Complete retained Definition-mode SMT-LIB capture | Sample 83/225 ACCEPT, 5,907 PENDING; extended 74/285 ACCEPT; saved PENDING 31,501 vs older dashboard 31,516 (unresolved). Proof hashes absent; not matched-proof burn-down. |
-| Nov 21 03:34 | Rebuild paired control at PR HEAD | Legacy accepted 2/2 vs sorted 1/2; sorted was 6.32x and 8.25x slower on the two proofs. |
 
 ## Validation and cadence
 
