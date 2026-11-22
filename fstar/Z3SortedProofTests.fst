@@ -286,6 +286,46 @@ let ite_definition_intro_checked ()
                | Some (_, pending) -> pending == 0
                | None -> false)
 
+let ite_definition_intro_name = real_const "ite-definition-name"
+let conditional_apply_definition_axiom = bool_and [
+  bool_or [R.mk_not_expr ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_name ite_definition_intro_then];
+  bool_or [ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_name ite_definition_intro_else]]
+
+let conditional_apply_definition_node : U.proof_node = {
+  U.kind = U.ApplyDefinition;
+  conclusion = U.Equal ite_definition_intro_choice ite_definition_intro_name;
+  premises = [{ U.conclusion = U.Holds conditional_apply_definition_axiom; hypotheses = [] }];
+}
+
+let conditional_apply_definition_wrong_branch : U.proof_node = {
+  conditional_apply_definition_node with
+  U.conclusion = U.Equal ite_definition_intro_choice ite_definition_intro_else;
+}
+
+let sorted_conditional_apply_definition_checked ()
+  : Lemma (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+             ite_definition_intro_name /\
+           (match K.check_node_cached schema [] conditional_apply_definition_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false) /\
+           not (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                  ite_definition_intro_else) /\
+           (match K.check_node_cached schema [] conditional_apply_definition_wrong_branch with
+            | Some (_, pending) -> pending > 0
+            | None -> false)) =
+  assert_norm (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                 ite_definition_intro_name);
+  assert_norm (match K.check_node_cached schema [] conditional_apply_definition_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false);
+  assert_norm (not (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                      ite_definition_intro_else));
+  assert_norm (match K.check_node_cached schema [] conditional_apply_definition_wrong_branch with
+               | Some (_, pending) -> pending > 0
+               | None -> false)
+
 let sorted_integer_rewrite_node : U.proof_node = {
   U.kind = U.RewriteRule;
   conclusion = U.Equal integer_x_plus_one integer_one_plus_x;

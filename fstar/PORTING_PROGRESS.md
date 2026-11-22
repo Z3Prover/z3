@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-22T08:36:24-08:00**.
+Updated: **2026-11-22T09:39:04-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -211,22 +211,31 @@ is made.
 The proved `Z3IndependentChecker.check_definition_array_diagnosed` route was
 replayed on the same 11 frozen documents from
 `files\conditional-current-source-control-04e`; all proof hashes were
-reverified. Source HEAD is `b4eb129ab`, F* 2026.10.25, OCaml 5.3.0, and Z3
-5.4.2 (build hash `0484078c420054c34598f245bf1d92c3ba2136fe`). Strict F*
-verification covered the 219-module dependency closure of
-`Z3IndependentNative.fst`; the linked checker SHA-256 is
-`8f124f903fd5fdb2ccb074eb1d5520b4f28d5160de353702fdf97614c1337eb4`.
+reverified. Source HEAD is `5e066be358246dd889c86b0f41d8ba7fad32f9f9` plus
+F* source diff SHA-256
+`5e6b199a448799eaa39cd3d1de9760250f0a0bdb73f7728145bb20a111ce5780`;
+toolchain: F* 2026.10.25, OCaml 5.3.0, and Z3 5.4.2 (build hash
+`0484078c420054c34598f245bf1d92c3ba2136fe`). Strict F* verification passed
+for the 220-module checker/test dependency closure, including the corrected
+conditional `ApplyDefinition` controls. The focused
+`test_independent_array_document.ml` regression now passes. Re-extracted
+`Z3IndependentChecker.ml` SHA-256 is
+`c24727b5ff2dcdaf3b137a65d3b573d7df075d4ff51009cd18db05b2d232f6cd`; the
+matched-replay helper SHA-256 is
+`e6ed29be5f1de048bab4d8423433a380b685d3a32feaff1b5594c494ee48917d`.
 
-The route accepted 7/11 and returned PARTIAL on 4/11 (123 PENDING: 93
-`intro-def`, 20 `rewrite`, 1 `def-axiom`, 9 `quantifier-intro`; `apply-def`
-and `arith/farkas` were 0). Legacy accepted 11/11. The route took 213.781s
-versus the retained same-document Legacy total of 21.787s, slower on all 11
-(about 9.81x aggregate); these are single-pass timings, not stable estimates.
-The focused `test_independent_array_document.ml` failed at its `diagnose_array`
-consistency assertion, so this route is not promoted. This is a fixed-proof
+The route again accepted 7/11 and returned PARTIAL on 4/11 (123 PENDING:
+93 `intro-def`, 20 `rewrite`, 1 `def-axiom`, 9 `quantifier-intro`;
+`apply-def` and `arith/farkas` were 0). Legacy accepted 11/11. The new
+single-pass replay took 272.614s versus the retained same-document Legacy
+total of 21.787s (about 12.51x, slower on all 11); the earlier single pass
+was 213.781s, so these timings do not establish a stable performance delta.
+The diagnostic fix changes reporting, not acceptance or PENDING burn-down;
+the route remains behind Legacy and is not promoted. This is a fixed-proof
 route experiment, not a native CLI/cohort result or burn-down, and gives no
-evidence of a Farkas-producer defect. Per-proof results are retained under
-`files\definition-array-matched-current-20261122.tsv`.
+evidence of a Farkas-producer defect. Updated per-proof results are retained
+under `files\definition-array-lazy-diagnostics-20261122.tsv`; the prior
+diagnostic breakdown remains in the matched capture above.
 
 ## Last 10 updates (measurements and corrections)
 
@@ -235,6 +244,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 22 09:39 | Fix certified array diagnostics, add valid/wrong-branch `ApplyDefinition` controls, and replay the matched 11 | Strict 220-module F* closure and focused native array test pass. Same 7/11 ACCEPT and 123 PENDING; Legacy 11/11. 272.614s vs 21.787s Legacy (12.51x, slower on all 11); one-pass timing only. Diagnostic fix, no burn-down or Farkas gap. |
 | Nov 22 08:36 | Pair current-source Definition+Array route against Legacy on the same 11 frozen proofs | Independent route 7/11 ACCEPT, 123 PENDING; Legacy 11/11. 213.781s vs retained Legacy 21.787s, slower on all 11. Focused array diagnostic test failed; route not promoted. No Farkas gap or cohort burn-down inferred. |
 | Nov 22 07:48 | Replay the actual sorted epsilon path and the sorted array kernel on the same 11 frozen proofs | Epsilon: 1/11 ACCEPT, 831 PENDING, 94.14s vs Legacy 11/11 and 21.787s (9/11 slower). Array kernel: 4/11 ACCEPT, 151 PENDING, but 93.40s and not a native CLI route. No parity or Farkas-producer defect established. |
 | Nov 22 07:37 | Replay the same 11 frozen proofs through the sorted array-kernel route; measure the array-lemma fast path | Array kernel 4/11 ACCEPT, 151 PENDING vs ordinary sorted core 1/11, 832 PENDING; Legacy 11/11. One-pass total 93.40s vs Legacy 21.787s, slower on 8/11. Fast-path delta is 1.1%, not conclusive; kernel route is not native CLI or cohort evidence. |
@@ -244,7 +254,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
 | Nov 21 21:56 | Rebuild current-source ITE `DefinitionIntroduction` path; rerun pinned cohorts serially | Sample unchanged at 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT, with one TIMEOUT→PARTIAL and 30,907 PENDING. No matched-proof burn-down or causal claim: the prior run used eight workers. |
 | Nov 21 18:59 | Pair trace-06 QF_LIA ring proof with Legacy | On identical capture, trace checker PENDING 46 vs Legacy 18; both leave 18 lattice obligations, while the trace checker has 28 additional definition/rewrite obligations. Legacy accepts all 252 serialized Farkas entries; producer records 33 Farkas hints, 1 bound, and 0 pending `th-lemma`. The earlier 15-unsupported capture differs, so no producer-version delta is inferred; trace build is not latest PR HEAD. |
-| Nov 21 18:21 | Add bounded Boolean search to sorted rewrite; measure pinned cohorts | Sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 28,404 PENDING. Relative to the retained Definition capture, +27/+4 ACCEPT and -2,071/-3,097 PENDING by saved totals; extended PENDING differs by 15 from the older dashboard. Proof hashes are absent, so not matched-proof burn-down. |
 
 ## Validation and cadence
 
@@ -262,6 +271,9 @@ The array-kernel fast path passed strict F* verification, the focused
 `Z3SortedProofTests.fst` regressions, and the isolated native build. An optional
 profile-instrumented build stopped with `Missing extracted rule datatype`, so
 no profiler conclusions are available.
+The 2026-11-22 diagnostic-wrapper change also passed strict verification for
+the 220-module checker/test closure, the corrected conditional
+`ApplyDefinition` controls, and the focused native array-document regression.
 
 The six-hour smtlib-sample/smtlib-extended measurement schedule remains active.
 The separate parity/performance schedule has been updated to prioritize

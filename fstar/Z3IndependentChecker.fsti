@@ -158,19 +158,7 @@ val check_array_diagnosed (schema:S.schema) (doc:P.document)
                      else diagnose schema doc)}
 val diagnose_array (schema:S.schema) (doc:P.document)
   : result:P.document_diagnostic{
-      SP.diagnostic_result result ==
-        (match check schema doc with
-         | Root.RootPending _ ->
-           (match Array.selected schema doc with
-            | Some augmented -> SP.check_document_epsilon schema augmented
-            | None ->
-              (match ArrayDefinition.selected schema doc with
-               | Some augmented -> SP.check_document schema augmented
-               | None ->
-                 (match ArrayGround.selected schema doc with
-                  | Some augmented -> SP.check_document_epsilon schema augmented
-                  | None -> SP.check_document_epsilon schema doc)))
-         | _ -> SP.check_document_epsilon schema doc)}
+      result == snd (check_array_diagnosed schema doc)}
 
 val definition_augmented (schema:S.schema) (doc:P.document)
   : result:option P.document{

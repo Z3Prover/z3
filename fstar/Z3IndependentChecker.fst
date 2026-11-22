@@ -145,30 +145,12 @@ let check_array (schema:S.schema) (doc:P.document) : Root.root_verdict =
 
 let check_array_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
-  let base, diagnostic = check_diagnosed schema doc in
-  let verdict =
-    match base with
-    | Root.RootPending _ ->
-      if Some? (Array.selected schema doc) ||
-         Some? (ArrayDefinition.selected schema doc) ||
-         (Definition.has_definition doc.P.entries && Some? (ArrayGround.selected schema doc))
-      then Root.RootCertified else base
-    | _ -> base in
-  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+  let verdict = check_array schema doc in
+  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 []
+            else diagnose schema doc)
 
 let diagnose_array (schema:S.schema) (doc:P.document) : P.document_diagnostic =
-  match check schema doc with
-  | Root.RootPending _ ->
-    (match Array.selected schema doc with
-     | Some augmented -> diagnose schema augmented
-     | None ->
-       (match ArrayDefinition.selected schema doc with
-        | Some augmented -> snd (SP.check_document_diagnosed schema augmented)
-        | None ->
-          (match ArrayGround.selected schema doc with
-           | Some augmented -> diagnose schema augmented
-           | None -> diagnose schema doc)))
-  | _ -> diagnose schema doc
+  snd (check_array_diagnosed schema doc)
 
 let check_root_document_cached (schema:S.schema) (doc:P.document)
   : result:Root.root_verdict{result == Root.check_root_document schema doc} =
@@ -310,14 +292,9 @@ let check_definition_array (schema:S.schema) (doc:P.document) : Root.root_verdic
 
 let check_definition_array_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
-  let core, diagnostic = check_diagnosed schema doc in
-  let base = check_definition_from schema doc core in
-  let verdict =
-    match base with
-    | Root.RootPending _ ->
-      if check_array_from schema doc core = Root.RootCertified then Root.RootCertified else base
-    | _ -> base in
-  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+  let verdict = check_definition_array schema doc in
+  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 []
+            else diagnose schema doc)
 
 let diagnose_definition (schema:S.schema) (doc:P.document) : P.document_diagnostic =
   match check schema doc with
