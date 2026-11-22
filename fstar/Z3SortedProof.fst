@@ -18,6 +18,8 @@ module B = Z3BoundedBoolEquiv
 module TN = Z3TheoryNormalizeSyntax
 module Q = Z3SortedQuantifier
 module N = Z3BooleanNormalForm
+module BR = Z3BooleanRewriteSyntax
+module SB = Z3SortedBooleanRewrite
 module E = Z3SortedSkolem
 module SK = Z3SkolemSyntax
 module NR = Z3NnfReplay
@@ -2108,13 +2110,14 @@ let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
        (bounds_equation LA.real_s a && RB.check a b || bounds_equation LA.real_s b && RB.check b a)))
    | U.Holds _ -> false)
 
-(* Reuse the sorted-safe rewrite kernel for premise-free Int/Boolean leaves. *)
+(* Reuse sorted-safe rewrites and Legacy's bounded Boolean search. *)
 let sorted_rewrite (node:U.proof_node) : bool =
   node.kind = U.RewriteRule && Nil? node.premises &&
   (match node.conclusion with
    | U.Equal a b | U.Observational a b ->
      D.scoped [] a && D.scoped [] b &&
-     (NR.rewrite_ok a b || NR.conditional_rewrite_ok a b)
+     (NR.rewrite_ok a b || NR.conditional_rewrite_ok a b ||
+      (get_sort a = bool_sort && get_sort b = bool_sort && BR.boolean_search a b))
    | U.Holds _ -> false)
 
 let int_bounds_rewrite (node:U.proof_node) : bool =
@@ -3491,7 +3494,11 @@ let lemma_sorted_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
     else
       (match NR.conditional_rewrite_evidence 64 a b with
        | Some cert -> NR.lemma_conditional_rewrite_at s bc eq other 64 a b cert
-       | None -> FStar.Pervasives.false_elim ());
+       | None ->
+         if BR.boolean_search a b then (
+           SB.lemma_search s bc eq other [] rho a b;
+           NR.lemma_same_truth s bc eq other [] rho a b)
+         else FStar.Pervasives.false_elim ());
     NR.lemma_same_at s bc eq other [] rho a b;
     assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
     V.lemma_sort_eq (get_sort b) (get_sort a);

@@ -10,6 +10,7 @@ module U = Z3UnifiedProofSyntax
 module P = Z3DocumentSyntax
 module R = Z3ClauseSyntax
 module BR = Z3BooleanRewriteSyntax
+module NR = Z3NnfReplay
 module ZA = Z3SortedArray
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
@@ -138,7 +139,54 @@ let bool_const (name:string) : expr = App {
 let bool_or (args:list expr) : expr =
   App (BR.connective_decl BR.Disjunction args) args
 
+let bool_and (args:list expr) : expr =
+  App (BR.connective_decl BR.Conjunction args) args
+
+let boolean_search_p = bool_const "boolean-search-p"
+let boolean_search_common = bool_and [
+  bool_const "boolean-search-a"; bool_const "boolean-search-b";
+  bool_const "boolean-search-c"; bool_const "boolean-search-d";
+  bool_const "boolean-search-e"; bool_const "boolean-search-f";
+  bool_const "boolean-search-g"; bool_const "boolean-search-h";
+  bool_const "boolean-search-i"; bool_const "boolean-search-j";
+  bool_const "boolean-search-k"; bool_const "boolean-search-l";
+  bool_const "boolean-search-m"]
+let boolean_search_lhs =
+  bool_or [
+    bool_and [boolean_search_p; boolean_search_common];
+    bool_and [R.mk_not_expr boolean_search_p; boolean_search_common]]
+let boolean_search_wrap (e:expr) : expr =
+  bool_and [
+    bool_const "boolean-search-outer-a";
+    bool_and [
+      bool_const "boolean-search-outer-b";
+      bool_and [bool_const "boolean-search-outer-c"; e]]]
+let boolean_search_wrapped_lhs = boolean_search_wrap boolean_search_lhs
+let boolean_search_wrapped_rhs = boolean_search_wrap boolean_search_common
+let boolean_search_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal boolean_search_wrapped_lhs boolean_search_wrapped_rhs;
+  premises = [];
+}
+
 let real_ite (c t e:expr) : expr = App (T.ite_decl LA.real_s) [c; t; e]
+
+let sorted_boolean_search_rewrite_checked ()
+  : Lemma (BR.boolean_search boolean_search_wrapped_lhs boolean_search_wrapped_rhs /\
+           not (NR.rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs) /\
+           not (NR.conditional_rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs) /\
+           K.sorted_rewrite boolean_search_node /\
+           (match K.check_node_cached schema [] boolean_search_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false)) =
+  assert_norm (BR.boolean_search boolean_search_wrapped_lhs boolean_search_wrapped_rhs);
+  assert_norm (not (NR.rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs));
+  assert_norm (not (NR.conditional_rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs));
+  assert_norm (K.sorted_rewrite boolean_search_node);
+  assert_norm (match K.check_node_cached schema [] boolean_search_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false);
+  K.lemma_sorted_rewrite schema booleans equality model boolean_search_node
 
 let ite_complement_merge_p = bool_const "ite-complement-p"
 let ite_complement_merge_q = bool_const "ite-complement-q"
