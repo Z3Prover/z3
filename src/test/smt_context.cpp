@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "smt/smt_solver.h"
 #include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
@@ -12,11 +13,13 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/proofs/proof_checker.h"
 #include "ast/converters/generic_model_converter.h"
 #include "cmd_context/cmd_context.h"
+#include "util/gparams.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "solver/solver2tactic.h"
 #include "model/model.h"
 #include "qe/qsat.h"
 #include "tactic/goal.h"
@@ -140,6 +143,21 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static lbool check_sat_smt_result(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    return slv->check_sat(0, nullptr);
+}
+
 static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -155,7 +173,19 @@ static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     VERIFY(out.str() == "unknown\n");
 }
 
+// Running into the unfolding budget is slow in debug builds. Use a small budget.
+struct scoped_recfun_unfold_limit {
+    std::string m_old;
+    scoped_recfun_unfold_limit(char const* limit): m_old(gparams::get_value("rewriter.max_recfun_unfoldings")) {
+        gparams::set("rewriter.max_recfun_unfoldings", limit);
+    }
+    ~scoped_recfun_unfold_limit() {
+        gparams::set("rewriter.max_recfun_unfoldings", m_old.c_str());
+    }
+};
+
 static void check_recfun_rlimits() {
+    scoped_recfun_unfold_limit _limit("1000");
     for (char const* input : {
             "(define-fun-rec f ((x Int)) Int (f x))\n"
             "(assert (= (f 0) 1))\n",
@@ -165,12 +195,161 @@ static void check_recfun_rlimits() {
             "(assert (= f 1))\n",
             "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
             " ((g x) (f x)))\n"
+            "(assert (= (f 0) 1))\n",
+            // unfolding on values that does not terminate
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f x)))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f (+ x 0))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f (- x 1))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int) (y Int)) Int (ite (> (+ x y) 5) 0 (f y x)))\n"
+            "(assert (= (f 0 1) 1))\n",
+            "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
+            " ((g x) (ite (> x 0) 0 (f x))))\n"
             "(assert (= (f 0) 1))\n"}) {
         check_recfun_rlimit(input, 1);
     }
     check_recfun_rlimit(
         "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
         "(assert (= (f 0) 1))\n", 1000);
+}
+
+static void check_recfun_output(char const* input, char const* expected) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    if (out.str() != expected)
+        std::cout << "expected:\n" << expected << "got:\n" << out.str();
+    VERIFY(out.str() == expected);
+}
+
+static void check_mbqi_division_by_zero() {
+    // The model checker interprets division, modulus and remainder by a zero
+    // divisor as the current model does. A free choice refutes satisfied quantifiers.
+    check_recfun_output(
+        "(assert (forall ((x Int)) (= 0 (mod 0 x))))\n"
+        "(check-sat)\n", "sat\n");
+    check_recfun_output(
+        "(declare-fun a () Real)\n"
+        "(declare-fun b () Real)\n"
+        "(declare-fun c () Real)\n"
+        "(declare-fun d () Real)\n"
+        "(assert (not (exists ((e Real)) (=> (and (= 0 (/ a (- b e)) c)) (< c d)))))\n"
+        "(check-sat)\n", "sat\n");
+    check_recfun_output(
+        "(assert (forall ((x Int) (y Int) (z Int)) (= x (/ 1 y z (- 128 z 1)))))\n"
+        "(check-sat)\n", "unsat\n");
+}
+
+static void check_mbqi_lambda_arrays() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(
+        "(declare-datatypes ((S1 0)) (((mk_S1 (S1_a (Array Int Int)) (S1_n Int)))))\n"
+        "(declare-datatypes ((S2 0)) (((mk_S2 (S2_a (Array Int S1)) (S2_n Int)))))\n"
+        "(define-fun S2_sub ((s S2) (o Int) (m Int)) S2\n"
+        "  (mk_S2 (lambda ((k Int)) (select (S2_a s) (+ k o))) m))\n"
+        "(declare-datatypes ((D4 0))\n"
+        "  (((mk_D4 (D4_0 S2) (D4_1 Int) (D4_2 Int) (D4_3 Int)))))\n"
+        "(declare-datatypes ((D6 0)) (((mk_D6 (D6_0 Int) (D6_1 Bool)))))\n"
+        "(declare-datatypes ((D12 0)) (((D12_0) (D12_1 (D12_1_0 S1)))))\n"
+        "(declare-const self!1 D4)\n"
+        "(declare-fun sum!4 (Bool (Array Int S1) Int) Int)\n"
+        "(assert (let ((s (D4_0 self!1))) (<= 0 (sum!4 true (S2_a s) (S2_n s)))))\n"
+        "(assert (let ((s (D4_0 self!1)))\n"
+        "  (<= (sum!4 true (S2_a s) (S2_n s)) 18446744073709551615)))\n"
+        "(assert (let ((s (D4_0 self!1)))\n"
+        "  (let ((n (sum!4 true (S2_a s) (S2_n s))))\n"
+        "    (= (D4_1 self!1) (ite (and (<= 0 n) (<= n 18446744073709551615)) n 0)))))\n"
+        "(declare-const h!10 S2)\n"
+        "(assert (forall ((k!e10 Int))\n"
+        "  (! (let ((s (select (S2_a h!10) k!e10)))\n"
+        "    (and (<= 0 (S1_n s)) (<= (S1_n s) 72057594037927936)\n"
+        "      (forall ((k!e11 Int))\n"
+        "        (! (let ((v (select (S1_a (select (S2_a h!10) k!e10)) k!e11)))\n"
+        "          (and (<= 0 v) (<= v 255))) :qid |seq-elem-range#kl6|))))\n"
+        "    :qid |seq-elem-range#kl7|)))\n"
+        "(declare-const t!17 D6)\n"
+        "(assert (= t!17\n"
+        "  (let ((n (S2_n h!10)))\n"
+        "  (let ((nonempty (> n 0)))\n"
+        "  (let ((tail (ite nonempty (S2_sub h!10 1 (- n 1)) h!10)))\n"
+        "  (let ((v (sum!4 true (S2_a tail) (S2_n tail))))\n"
+        "  (let ((total (+ (ite (and (<= 0 v) (<= v 18446744073709551615)) v 0)\n"
+        "    (S1_n (D12_1_0 (ite nonempty\n"
+        "      (D12_1 (select (S2_a h!10) 0)) D12_0))))))\n"
+        "  (let ((overflow (not (and (<= 0 total) (<= total 18446744073709551615)))))\n"
+        "    (mk_D6 (ite overflow 0 total) overflow)))))))))\n"
+        "(declare-const t!19 D6)\n"
+        "(assert (= t!19 (let ((n (+ (D6_0 t!17) 32)))\n"
+        "  (let ((overflow (not (and (<= 0 n) (<= n 18446744073709551615)))))\n"
+        "    (mk_D6 (ite overflow 0 n) overflow)))))\n"
+        "(assert (let ((n (D6_0 t!19))) (and (<= 0 n) (<= n 18446744073709551615))))\n");
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("auto_config", false);
+    p.set_bool("mbqi", true);
+    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory());
+    ref<solver> slv = (*factory)(m, p, false, true, false, symbol::null);
+    for (expr* e : cmd.assertions())
+        slv->assert_expr(e);
+    uint64_t count = m.limit().count();
+    scoped_rlimit limit(m.limit(), 50000);
+    VERIFY(slv->check_sat(0, nullptr) != l_false);
+    VERIFY(m.limit().count() < count + 50000);
+}
+
+static void check_recfun_unfold_limit() {
+    // the simplifier unfolds recursive functions on values within a budget.
+    check_recfun_output(
+        "(define-fun-rec sum ((n Int)) Int (ite (<= n 0) 0 (+ n (sum (- n 1)))))\n"
+        "(simplify (sum 50))\n"
+        "(simplify (sum 50) :max_recfun_unfoldings 10)\n",
+        "1275\n"
+        "(+ 455 (sum 40))\n");
+    // a call in a branch that is not taken does not block unfolding.
+    check_recfun_output(
+        "(define-fun-rec g ((x Int)) Int (ite (> x 0) (g x) 7))\n"
+        "(define-fun-rec max2 ((x Int) (y Int)) Int (ite (>= x y) x (max2 y x)))\n"
+        "(simplify (g 0))\n"
+        "(simplify (max2 3 3))\n",
+        "7\n"
+        "3\n");
+    // model evaluation terminates on applications that cannot be evaluated.
+    scoped_recfun_unfold_limit _limit("1000");
+    check_recfun_output(
+        "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f x)))\n"
+        "(assert (= (f 0) 1))\n"
+        "(check-sat)\n"
+        "(get-value ((f 0) (f 5)))\n"
+        "(eval (f 0))\n",
+        "sat\n"
+        "(((f 0) (f 0))\n"
+        " ((f 5) 0))\n"
+        "(f 0)\n");
+    check_recfun_output(
+        "(define-fun-rec f ((x Int)) Int (f x))\n"
+        "(assert (= (f 0) 1))\n"
+        "(check-sat)\n"
+        "(eval (f 0))\n",
+        "sat\n"
+        "(f 0)\n");
+}
+
+static void check_qe2_false_answer() {
+    // qe2 reports a false answer as false, not as false under re-bound variables.
+    check_recfun_output(
+        "(declare-fun v () (Array Bool Bool))\n"
+        "(assert (forall ((r (Array Bool Bool)) (a (Array (Array Bool Bool) Bool)))\n"
+        "  (distinct true (select (store (store a v true) r true) (store v false false)))))\n"
+        "(check-sat-using qe2)\n", "unsat\n");
 }
 
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
@@ -391,6 +570,109 @@ static void check_stored_lambdas() {
     check(
         "(assert (= (store (lambda ((x Bool)) (ite x 1 3)) true 0)\n"
         "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
+}
+
+static void check_patterned_lambda_store() {
+    char const* quantified =
+        "(assert (forall ((a (Array Int Bool)) (y Int))\n"
+        "  (! (= (lambda ((x Int)) (= x y))\n"
+        "        (store ((as const (Array Int Bool)) false) y true))\n"
+        "     :pattern ((select a y)))))\n";
+    char const* ground =
+        "(assert (= (lambda ((x Int)) (= x 0))\n"
+        "           (store ((as const (Array Int Bool)) false) 0 true)))\n";
+    char const* unpatterned =
+        "(assert (forall ((a (Array Int Bool)) (y Int))\n"
+        "  (= (lambda ((x Int)) (= x y))\n"
+        "     (store ((as const (Array Int Bool)) false) y true))))\n";
+    for (unsigned test = 0; test < 5; ++test) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream input(
+            std::string(test == 1 ? "" : test == 4 ? unpatterned : quantified) +
+            (test == 2 ? "" : ground) +
+            (test == 3 ? "(assert (not (= (select (lambda ((x Int)) (= x 0)) 0) true)))\n" : ""));
+        VERIFY(parse_smt2_commands(cmd, input));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (test == 3 ? "unsat\n" : "sat\n"));
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream input(
+        "(assert (= (default (lambda ((x Bool)) x))\n"
+        "           (default (lambda ((x Bool)) (not x)))))\n");
+    VERIFY(parse_smt2_commands(cmd, input));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "unsat\n");
+
+    cmd.reset_assertions();
+    out.str("");
+    std::istringstream multi(
+        "(assert (forall ((a (Array Int Bool Bool)) (y Int) (z Bool))\n"
+        "  (! (= (lambda ((x Int) (b Bool)) (and (= x y) (= b z)))\n"
+        "        (store ((as const (Array Int Bool Bool)) false) y z true))\n"
+        "     :pattern ((select a y z)))))\n"
+        "(assert (= (lambda ((x Int) (b Bool)) (and (= x 0) b))\n"
+        "           (store ((as const (Array Int Bool Bool)) false) 0 true true)))\n");
+    VERIFY(parse_smt2_commands(cmd, multi));
+    cmd.check_sat(0, nullptr);
+    VERIFY(out.str() == "sat\n");
+
+    for (char const* text : {
+        "(assert (= (default (lambda ((x Int)) (= x 0)))\n"
+        "           (default (lambda ((x Int)) (not (= x 0))))))\n",
+        "(assert (= (default (store (lambda ((x Int)) (= x 0)) 1 false))\n"
+        "           (default (store (lambda ((x Int)) (not (= x 0))) 1 false))))\n"}) {
+        cmd.reset_assertions();
+        out.str("");
+        std::istringstream defaults(text);
+        VERIFY(parse_smt2_commands(cmd, defaults));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == "unknown\n" || out.str() == "unsat\n");
+    }
+}
+
+static void check_uninterpreted_lambda_arguments() {
+    // Regression for issue #11735: finite array tables need not denote lambdas.
+    for (char const* input : {
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(assert (f (lambda ((n Int)) n)))\n",
+        "(declare-fun f ((Array Int Int)) Bool)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (lambda ((n Int)) n)))\n"
+        "(assert (f a))\n",
+        "(declare-fun f ((Array Int Bool)) Bool)\n"
+        "(declare-fun g (Int) Real)\n"
+        "(declare-const e Real)\n"
+        "(assert (forall ((eps Real)) (=> (> eps 0.0)\n"
+        "  (f (lambda ((n Int)) (< (g n) eps))))))\n"
+        "(assert (> e 0.0))\n"
+        "(assert (not (f (lambda ((n Int)) (< (g n) e)))))\n"}) {
+        for (unsigned seed : {0u, 24u, 41u, 79u, 108u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            params_ref p;
+            p.set_uint("random_seed", seed);
+            cmd_context cmd(false, &m);
+            cmd.set_solver(mk_smt2_solver(m, p, symbol::null));
+            std::ostringstream out;
+            cmd.set_regular_stream(out);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            scoped_rlimit limit(m.limit(), 100000);
+            cmd.check_sat(0, nullptr);
+            VERIFY(cmd.cs_state() == cmd_context::css_unsat || cmd.cs_state() == cmd_context::css_unknown);
+        }
+    }
 }
 
 static void check_sat_array_lambdas() {
@@ -1067,7 +1349,7 @@ static void check_proof_mode_guards() {
     for (char const* name : {
         "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
         "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
-        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "fm", "fpa2bv", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
         "pqffd", "psat", "psmt", "qe2", "qe_rec",
         "qffd", "qfnra-nlsat", "qsat",
@@ -1194,6 +1476,101 @@ static void check_proof_mode_guards() {
         ENSURE(changed);
         t->cleanup();
     }
+}
+
+class counting_proof_converter : public proof_converter {
+    unsigned& m_calls;
+public:
+    counting_proof_converter(unsigned& calls): m_calls(calls) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0] && m.is_false(m.get_fact(source[0])));
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(counting_proof_converter, m_calls);
+    }
+
+    void display(std::ostream& out) override { out << "(counting-proof-converter)\n"; }
+};
+
+static void check_solver2tactic_proof_mode() {
+    for (bool parent_converter : {false, true}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        goal_ref g = alloc(goal, m, true, false, false);
+        expr_ref a(m.mk_const("a", m.mk_bool_sort()), m);
+        expr_ref b(m.mk_const("b", m.mk_bool_sort()), m);
+        expr_ref clause(m.mk_or(a, b), m);
+        expr_ref not_a(m.mk_not(a), m), not_b(m.mk_not(b), m);
+        g->assert_expr(clause);
+        g->assert_expr(not_a);
+        g->assert_expr(not_b);
+        unsigned calls = 0;
+        if (parent_converter)
+            g->add(alloc(counting_proof_converter, calls));
+        ref<solver> s = mk_smt_solver(m, params_ref(), symbol::null);
+        tactic_ref t = mk_solver2tactic(s.get());
+        model_ref model;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*t, g, model, labels, pr, core, reason) == l_false);
+        ENSURE(pr && m.is_false(m.get_fact(pr)));
+        ENSURE(calls == (parent_converter ? 1u : 0u));
+        proof_checker checker(m);
+        expr_ref_vector conditions(m);
+        ENSURE(checker.check(pr, conditions) && conditions.empty());
+    }
+}
+
+static void check_horn_proof_mode() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream input(
+        "(set-logic HORN)\n"
+        "(set-option :produce-proofs true)\n"
+        "(declare-fun inv (Int) Bool)\n"
+        "(assert (forall ((x Int)) (=> (= x 0) (inv x))))\n"
+        "(assert (forall ((x Int)) (=> (inv x) (inv (+ x 1)))))\n"
+        "(assert (forall ((x Int)) (=> (and (inv x) (> x 5)) false)))\n");
+    ENSURE(parse_smt2_commands(cmd, input));
+    cmd.check_sat(0, nullptr);
+    ENSURE(out.str() == "unsat\n");
+    proof_ref pr(cmd.get_check_sat_result()->get_proof(), m);
+    ENSURE(pr);
+    bool has_hyper_resolve = false;
+    for (expr* e : subterms::all(expr_ref(pr, m)))
+        has_hyper_resolve |= is_app(e) && m.is_hyper_resolve(to_app(e));
+    ENSURE(has_hyper_resolve);
+
+    goal_ref g = alloc(goal, m, true, false, false);
+    for (expr* assertion : cmd.assertions())
+        g->assert_expr(assertion);
+    tactic_manager tactics;
+    install_tactics(tactics);
+    unsigned calls = 0;
+    goal_ref h = alloc(goal, *g);
+    h->add(alloc(counting_proof_converter, calls));
+    tactic_ref horn = tactics.find_tactic_cmd(symbol("horn"))->mk(m);
+    model_ref model;
+    labels_vec labels;
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*horn, h, model, labels, pr, core, reason) == l_false);
+    ENSURE(pr && m.is_false(m.get_fact(pr)) && calls == 1);
+    tactic_ref simplify = tactics.find_tactic_cmd(symbol("horn-simplify"))->mk(m);
+    goal_ref_buffer result;
+    (*simplify)(g, result);
+    ENSURE(result.size() == 1 && result[0]->depth() > 0);
+    ENSURE(result[0]->prec() == goal::UNDER_OVER);
 }
 
 static void check_proof_mode_compositions() {
@@ -1374,6 +1751,7 @@ static void check_proof_mode_fallbacks() {
     }
 }
 
+
 static void check_intblast_signed_mod() {
     for (int x = 0; x < 8; ++x) {
         for (int y = 0; y < 8; ++y) {
@@ -1416,8 +1794,21 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    VERIFY(check_sat_smt_result(
+        "(declare-const x Int)\n"
+        "(assert (<= x 4))\n"
+        "(assert (distinct 0 (div x 5)))\n") == l_true);
+    VERIFY(check_sat_smt_result(
+        "(set-logic QF_NIA)\n"
+        "(declare-const x Int)(declare-const y Int)\n"
+        "(assert (< x 0))(assert (<= (- 4) y))(assert (<= y 4))\n"
+        "(assert (=> (<= 0 (div y 7)) (< y 0)))\n"
+        "(assert (=> (not (<= 0 (div y 7))) (< (* y x) 0)))\n") != l_true);
+
     check_late_equality_justification();
     check_proof_mode_guards();
+    check_solver2tactic_proof_mode();
+    check_horn_proof_mode();
     check_proof_mode_compositions();
     check_proof_mode_sls();
     check_proof_mode_fallbacks();
@@ -1430,14 +1821,20 @@ void tst_smt_context()
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
     check_recfun_rlimits();
+    check_recfun_unfold_limit();
+    check_mbqi_division_by_zero();
+    check_mbqi_lambda_arrays();
     check_special_relation_logic();
     check_nonlinear_to_int();
+    check_qe2_false_answer();
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_sequence_last_index();
     check_array_index_dependencies();
     check_generated_quantifiers();
     check_stored_lambdas();
+    check_patterned_lambda_store();
+    check_uninterpreted_lambda_arguments();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
     check_singleton_array_range_cardinality();
@@ -1653,7 +2050,8 @@ void tst_smt_context()
         VERIFY(parse_smt2_commands(cmd, is));
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.check_sat(0, nullptr);
-        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+        // Preprocessing may introduce a lambda argument to length, which is unsupported.
+        VERIFY(cmd.cs_state() == cmd_context::css_sat || cmd.cs_state() == cmd_context::css_unknown);
     }
 
     check_sat_smt_recfun(

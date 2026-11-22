@@ -1333,6 +1333,11 @@ namespace qe {
                 in->inc_depth();
                 if (m_mode == qsat_qe) {
                     fml = ::mk_and(m_answer);
+                    // A false conjunct decides the answer. Re-binding variables around it
+                    // would hide it from the goal as (forall (...) (and ... false)).
+                    for (expr* a : m_answer)
+                        if (m.is_false(a))
+                            fml = m.mk_false();
                     for (unsigned i = m_vars.size(); i-- > 1;) {
                         app_ref_vector vars(m);
                         for (app* v : m_vars[i]) {

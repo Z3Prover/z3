@@ -436,9 +436,8 @@ namespace smt {
         return true;
     }
 
-    bool theory_array::has_large_domain(app *array_term, rational& sz) {
-        SASSERT(is_array_sort(array_term));
-        sort *s = array_term->get_sort();
+    bool theory_array::has_large_domain(sort *s, rational& sz) {
+        SASSERT(is_array_sort(s));
         unsigned dim = get_dimension(s);
         parameter const *params = s->get_info()->get_parameters();
         sz = rational(1);

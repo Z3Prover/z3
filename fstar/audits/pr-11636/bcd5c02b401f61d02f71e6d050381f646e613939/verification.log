@@ -1,0 +1,8 @@
+F* 2026.09.27; Z3 4.13.3
+fresh cache, timeout 120, z3rlimit 10
+--- stdout
+Verified module: OptIteBoundPR11636
+All verification conditions discharged successfully
+--- stderr
+--- exit
+exit 0

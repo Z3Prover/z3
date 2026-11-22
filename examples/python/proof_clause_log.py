@@ -30,10 +30,31 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
-    linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
-    map_parameters,
+    expand_polynomial, integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
+    linear_combination_refutes, numeral_value, polynomial_refutation, RECOGNIZER_KINDS, SET_OPERATORS,
+    enumeration_constructors, map_parameters, require_subset,
 )
+
+
+class TrimmedAwayError(ProofExportError):
+    """A trimmed log lacks clauses the replay needs; the untrimmed log may have them (_Replay._nonlinear_lemma)."""
+
+
+class TrimmedLog(str):
+    """The text of a trimmed clause log (trim_clause_log), with the log it was cut from as `untrimmed`.
+
+    Z3's trimmer keeps what the empty clause depends on and takes a lemma
+    of the nonlinear solver for an axiom, while the replay derives the
+    logged clause from the lemma and the unit clauses that make the
+    lemma's other literals false: the trimmed log need not have those, and
+    build_certificate then replays the untrimmed one.
+    """
+
+    def __new__(cls, text, untrimmed):
+        log = super().__new__(cls, text)
+        log.untrimmed = untrimmed
+        return log
+
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 # The sort a log term's arguments take, for their numerals: an arithmetic
@@ -42,6 +63,28 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+# Z3's own functions for a division by zero (of /, of div, and of mod and
+# rem), and the operators whose application to a zero numeral is one (see
+# _Terms.divides_by_zero).
+_DIVISION_BY_ZERO_HEADS = ("/0", "div0", "mod0")
+_DIVISION_HEADS = ("/", "div", "mod", "rem")
+_ZERO = re.compile(r"^0+(\.0+)?$")
+# Z3's set operators by the name the log prints: z3py's constructor and the
+# number of sets it takes (proof_certificate.SET_OPERATORS).
+_SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
+    (SET_OPERATORS[z3.Z3_OP_SET_UNION], z3.SetUnion), (SET_OPERATORS[z3.Z3_OP_SET_INTERSECT], z3.SetIntersect),
+    (SET_OPERATORS[z3.Z3_OP_SET_DIFFERENCE], z3.SetDifference),
+    (SET_OPERATORS[z3.Z3_OP_SET_COMPLEMENT], z3.SetComplement))}
+# The hints of Z3's nonlinear solver: nla carries the literals of a lemma and
+# a polynomial refutation over the solver's columns, nla-unsupported the
+# literals alone or nothing. The literals are read (_Terms.hint): the lemma
+# they deny is the logged clause before it lost the literals false at the
+# base level. The refutation is not: the lemma, or the logged clause, is
+# certified when a polynomial refutation of its literals is found again
+# (_Replay._nonlinear_lemma, polynomial_facts), and not otherwise.
+_NONLINEAR_HINTS = ("nla", "nla-unsupported")
+# The th-lemma of a clause whose literals have a polynomial refutation.
+_POLYNOMIAL_HINT = "nla"
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -55,6 +98,21 @@ _RLIMIT = 200000
 # Up to this many assertion conjuncts, an assumed clause is checked against all
 # of them; above it, only against those sharing a symbol (_candidate_sources).
 _SEARCH_ALL_SOURCES = 64
+# An and with more sources at and below it than this (the and itself, its
+# conjuncts, and those of the ands nested in it, the nested ands counted
+# too: 4,097 leaf conjuncts when the ands are binary) is never handed to a
+# solver whole, in an equivalence or
+# implication check or as a tracked assertion: asserting a deeply nested
+# and costs Z3 time and memory that the resource limit of the check does
+# not bound (one check of the 41,822 nested binary ands of QF_IDL
+# PO4-10-PO4 took 24 s and 10 GB inside Z3_solver_assert; the cause,
+# presumably the rewriter flattening the ands a level at a time, was not
+# traced).
+# Such an and is tied to a clause through its leaf conjuncts instead
+# (_implying_leaves). The limit is far above what a check is known to
+# decide (QF_IDL FISCHER6-4-ninc's assertion of 3,993 sources is the
+# largest seen), so that certificates tied to an and keep their shape.
+_CHECKED_CONJUNCTS = 8192
 # Limits of every z3 run below unless the caller passes its own: seconds (-T)
 # and megabytes (-memory). Z3 stops itself at either; a run that outlives its
 # time limit by _LIMIT_GRACE seconds anyway is killed.
@@ -244,7 +302,10 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
     Trimming only shortens the replay. When the trimmer reports an error (it
     rejects an inference it cannot derive by unit propagation) or writes a
     dependency graph the replay cannot use, the untrimmed log is returned
-    with a warning, and the replay checks every step of it instead. timeout
+    with a warning, and the replay checks every step of it instead. A
+    trimmed log is returned as a TrimmedLog, which keeps the untrimmed text
+    for the replay that needs a clause the trimmer dropped
+    (build_certificate). timeout
     (seconds) and memory (megabytes) bound the trimmer, by default
     _TIME_LIMIT and _MEMORY_LIMIT; it stopping at the time limit raises
     subprocess.TimeoutExpired, at the memory limit ProofExportError.
@@ -264,7 +325,7 @@ def trim_clause_log(z3_executable, text, timeout=None, memory=None):
         if run.stderr.strip():
             warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
         try:
-            return _dependency_core(run.stdout)
+            return TrimmedLog(_dependency_core(run.stdout), text)
         except ProofExportError as error:
             warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
                           % error, RuntimeWarning)
@@ -275,6 +336,11 @@ def _symbol(token):
     if token.startswith("|") and token.endswith("|") and len(token) >= 2:
         return token[1:-1]
     return token
+
+
+def _text(sexpr):
+    """A parsed log term as the log writes it, for error messages."""
+    return sexpr if isinstance(sexpr, str) else "(%s)" % " ".join(_text(part) for part in sexpr)
 
 
 def _number(sexpr):
@@ -338,6 +404,8 @@ class _Terms:
         # numeral read with the wrong sort is coerced by z3py into a to_real
         # term or fails to build, which no input atom matches.
         self.integer = self.real = False
+        # Names of the definitions that divide by zero (divides_by_zero).
+        self.zero_divisions = set()
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
@@ -398,6 +466,10 @@ class _Terms:
         if isinstance(sexpr, str):
             if sexpr in self.defined:
                 return self.defined[sexpr]
+            if sexpr in self.zero_divisions:
+                # Not reached from _Replay.run, which leaves out or rejects a
+                # clause over such a definition before it builds a literal.
+                raise ProofExportError("the clause log uses a term over a division by zero: %s" % sexpr)
             if sexpr == "true":
                 return z3.BoolVal(True, self.context)
             if sexpr == "false":
@@ -418,6 +490,11 @@ class _Terms:
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
         head = sexpr[0]
+        if head in ("forall", "exists", "lambda"):
+            # Z3's rewriter expands an equality between stores over constant
+            # arrays whose index sort may be finite into a quantified
+            # formula, (forall ((x I)) (= (ite (= x i) w v) v)).
+            raise ProofExportError("quantifiers are not supported in the clause log: %s" % head)
         if head == ["_", "array-ext", "0"] and len(sexpr) == 3:
             # The array solver's Skolem function for extensionality: an index
             # where two distinct arrays differ (z3py's Ext).
@@ -428,8 +505,7 @@ class _Terms:
         if (isinstance(head, list) and len(head) == 3 and head[:2] == ["as", "const"] and len(sexpr) == 2
                 and isinstance(head[2], list) and len(head[2]) == 3 and head[2][0] == "Array"):
             # A constant array ((as const (Array I E)) v), z3py's K, of an
-            # array sort of the input (the exporter admits Int and Real indices
-            # only).
+            # array sort of the input (the exporter rejects array indices).
             sort = self.array_sorts.get(_sort_text(head[2]))
             element = head[2][2]  # a sort name, or an array sort of nested arrays
             value = self.build(sexpr[1], {"Int": True, "Real": False}.get(element) if isinstance(element, str)
@@ -476,6 +552,22 @@ class _Terms:
                 return self.recognizers[_symbol(head[2])](self.build(sexpr[1]))
             except z3.Z3Exception:
                 raise ProofExportError("ill-sorted recognizer application in the clause log") from None
+        if (isinstance(head, list) and len(head) == 3 and head[0] == "as" and isinstance(head[1], str)
+                and head[1] in _SET_HEADS):
+            # A set operator printed with its sort, ((as union (Array I Bool))
+            # a b), as Z3 prints union: the application below, of that sort.
+            # Z3 qualifies only its own functions, so the head names the
+            # operator even when the input declares a function of that name
+            # (over other sorts; Z3 rejects one with the operator's own).
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+            try:
+                result = self._apply(head[1], len(arguments), arguments)
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted application of %s in the clause log" % head[1]) from None
+            sort = self.array_sorts.get(_sort_text(head[2]))
+            if sort is None or not sort.eq(result.sort()):
+                raise ProofExportError("set operator of another sort in the clause log: %s" % head[1])
+            return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -494,7 +586,11 @@ class _Terms:
             raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
         try:
             return function(*arguments) if function is not None else self._apply(head, count, arguments)
-        except z3.Z3Exception:
+        except (z3.Z3Exception, AttributeError):
+            # z3py raises AttributeError when it casts an array to an
+            # arithmetic sort: a function of the input named like a set
+            # operator, (declare-fun intersection (Int Int) Int), takes the
+            # bare name, so Z3's (intersection a b) of two sets is not built.
             raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
 
     def _apply(self, head, count, arguments):
@@ -530,6 +626,25 @@ class _Terms:
             return z3.Select(arguments[0], arguments[1])
         if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
             return z3.Store(arguments[0], arguments[1], arguments[2])
+        if head in _SET_HEADS and count == _SET_HEADS[head][1] and all(
+                is_array_sort(argument.sort()) for argument in arguments):
+            # A set operator of the input, logged as it is written when Z3
+            # stops rewriting (the assertions after one that simplifies to
+            # false); otherwise the log holds the map its rewriter makes of
+            # it. The exporter's map_parameters admits the result or rejects
+            # it (sets of one index sort).
+            result = _SET_HEADS[head][0](*arguments)
+            map_parameters(result)
+            return result
+        if (head == "subset" and count == 2 and is_array_sort(arguments[0].sort())
+                and arguments[0].sort().range().kind() == z3.Z3_BOOL_SORT
+                and arguments[1].sort().eq(arguments[0].sort())):
+            # Logged as written in the assertions after one that simplifies
+            # to false, like the set operators; otherwise the log holds the
+            # rewriter's (= (setminus a b) empty) over maps.
+            result = z3.IsSubset(arguments[0], arguments[1])
+            require_subset(result)
+            return result
         if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
             # The array solver's default value of an array, the value it
             # takes at all but finitely many indices (constant arrays).
@@ -572,9 +687,70 @@ class _Terms:
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
         raise ProofExportError("unsupported operator in the clause log: %s" % head)
 
+    def divides_by_zero(self, sexpr):
+        """Whether a log term, literal, or hint mentions a division by zero.
+
+        That is an application of one of Z3's functions for a division by
+        zero (/0, div0, mod0), a /, div, mod, or rem by a zero numeral, or a
+        definition or hint over one. No assertion has such a term (the
+        fragment check rejects a zero divisor and Z3's functions; a function
+        the input declares under one of their names, with another signature,
+        is not meant: _applies_input_function), so it is the arithmetic
+        solver's own: for a div, mod, or rem whose divisor is not a numeral
+        when the solver meets it, it states (= (div t d) (div0 t d)),
+        (= (mod t 0) (mod0 t 0)), and the rem axioms of (rem t 0). A divisor
+        the input writes as a constant expression, (- 3) or (+ 1 2), is not
+        a numeral in the assertions Z3 logs unsimplified, those after an
+        assertion that folds to false.
+        """
+        pending, hints = [sexpr], set()
+        while pending:
+            part = pending.pop()
+            if isinstance(part, str):
+                if part in self.zero_divisions:
+                    return True
+                if part in self.hints and part not in hints:
+                    hints.add(part)
+                    pending.append(self.hints[part])
+            elif part:
+                head = part[0]
+                if isinstance(head, str) and len(part) == 3:
+                    if head in _DIVISION_HEADS and isinstance(part[2], str) and _ZERO.match(part[2]):
+                        return True
+                    if head in _DIVISION_BY_ZERO_HEADS and not self._applies_input_function(part):
+                        return True
+                pending.extend(part)
+        return False
+
+    def _applies_input_function(self, sexpr):
+        """Whether (f s t), f named like one of Z3's functions for a division by zero, applies a function of the input.
+
+        The input can declare a binary function under such a name over other
+        argument sorts, (declare-fun div0 (U U) U) or (Int U) Int (Z3 rejects
+        the declaration over two arithmetic sorts, those of its own), and the
+        log prints both by the bare name: the sorts of the arguments tell
+        them apart. Arguments that do not build decide nothing: the walk of
+        divides_by_zero goes on into them, and building the term then
+        reports what is wrong with it.
+        """
+        function = self.functions.get(sexpr[0])
+        if function is None or function.arity() != 2:
+            return False
+        try:
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+        except ProofExportError:
+            return True
+        return all(argument.sort().eq(function.domain(index)) for index, argument in enumerate(arguments))
+
     def define(self, name, sort, sexpr):
-        if name in self.defined or name in self.hints:
+        if name in self.defined or name in self.hints or name in self.zero_divisions:
             raise ProofExportError("duplicate definition in the clause log: %s" % name)
+        if sort != "Proof" and self.divides_by_zero(sexpr):
+            # Not built: the certificate has no term for a division by zero.
+            # The replay leaves out the solver's clauses over the name and
+            # rejects an assumed one (_Replay.run); build rejects the name.
+            self.zero_divisions.add(name)
+            return
         # Definitions stay referenced for the whole replay, so their identifiers are stable.
         if sort == "Proof":
             self.hints[name] = sexpr
@@ -588,13 +764,27 @@ class _Terms:
         """Return (name, [(coefficient, literal)]) for a theory hint or None for rup."""
         if sexpr == "rup":
             return None
-        if isinstance(sexpr, str):
+        if isinstance(sexpr, str) and sexpr not in _NONLINEAR_HINTS:
             if sexpr not in self.hints:
                 raise ProofExportError("undefined proof hint in the clause log: %s" % sexpr)
             sexpr = self.hints[sexpr]
+        if sexpr in _NONLINEAR_HINTS:
+            return sexpr, []  # logged by its name alone when it lists no literal
         if not sexpr or not isinstance(sexpr[0], str):
             raise ProofExportError("malformed proof hint in the clause log")
         name, arguments = sexpr[0], sexpr[1:]
+        if name in _NONLINEAR_HINTS:
+            # The nonlinear solver's lemma: coefficient-literal pairs, then
+            # nla's polynomial refutation, a symbol that is not read. The
+            # literals are those the lemma denies, of which the logged
+            # clause may have lost the ones false at the base level
+            # (_Replay.infer); when they are not read either (a term the
+            # replay does not build), the logged clause stands for the lemma.
+            try:
+                return name, [(_number(arguments[index]), self.build(arguments[index + 1]))
+                              for index in range(0, len(arguments) - 1, 2)]
+            except ProofExportError:
+                return name, []
         if name in _COEFFICIENT_HINTS:
             if len(arguments) % 2:
                 raise ProofExportError("%s hint needs coefficient-literal pairs" % name)
@@ -659,6 +849,44 @@ def _store_axiom(literal):
 def _is_set_combinator(expr):
     """Whether expr applies a map or one of Z3's set operators (proof_certificate.map_parameters)."""
     return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
+
+
+def _default_map_axiom(literal):
+    """Whether literal states the default value of a map, (= (default (map f a b)) (f (default a) (default b))).
+
+    Any equality or disequality with the default value of a map on one
+    side counts, and so does that value as a literal of its own (a set's
+    is a formula), except the default-value axiom of a store over that map,
+    (= (default (store m i v)) (default m)), which holds of every array.
+    The reconstructor's test (proof_to_lean._default_map_axiom) reads the
+    equalities only: it rejects an array th-lemma with any other literal
+    (_check_th_lemma), so a bare default value never reaches it.
+    """
+    atom = _strip(literal)[0]
+    if z3.is_default(atom):
+        return _is_set_combinator(atom.arg(0))
+    if not z3.is_eq(atom):
+        return False
+    sides = atom.children()
+    for side, other in (sides, reversed(sides)):
+        if z3.is_default(side) and _is_set_combinator(side.arg(0)):
+            if not (z3.is_default(other) and z3.is_store(other.arg(0)) and other.arg(0).arg(0).eq(side.arg(0))):
+                return True
+    return False
+
+
+def _names_default(expr):
+    """Whether a default value (default a) occurs in expr (one traversal of the DAG, as _symbols)."""
+    seen, pending = set(), [expr]
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if z3.is_default(node):
+            return True
+        pending.extend(node.children())
+    return False
 
 
 def _same_equality(left, right):
@@ -762,7 +990,13 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
     arith axioms relate to their operands, abs, a read of an array, and an
-    array's default value.
+    array's default value. So is a product of two or more nonconstant
+    factors, the term as it is written: Z3's simplex solver has one
+    variable for it, and its linear lemmas never use what a product is of
+    ((* x y) and (* y x) are two atoms here; Z3's rewriter orders the
+    factors before the solver sees them). The input has such products over
+    Int only (proof_certificate._require_linear_arithmetic); the log may
+    state one over Real, of to_real terms, in a step Lean checks.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -796,7 +1030,10 @@ def _linear(expr, terms=None, scale=Fraction(1)):
             elif variable is None:
                 variable = child
             else:
-                raise ProofExportError("nonlinear multiplication is not supported")
+                # A second nonconstant factor: the product is an atom, its
+                # numeral factors included.
+                terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
+                return terms, Fraction(0)
         terms, constant = _linear(variable, terms, scale * factor)
     elif kind == z3.Z3_OP_DIV:
         divisor = constant_value(expr.arg(1))
@@ -931,6 +1168,58 @@ def check_linear_hint(name, pairs):
     return False
 
 
+def polynomial_facts(literals):
+    """The facts that hold when every literal of a clause over Int atoms is false, as polynomials, or None.
+
+    Each is (equality, polynomial) for 0 <= polynomial or polynomial = 0
+    (proof_certificate.polynomial_refutation), a strict bound tightened and
+    the products multiplied out over the atoms of the linear forms that are
+    no products (_linear). A clause with a literal that is no bound or
+    equality over Int terms (a disequality's complement is an equality; an
+    equality's is not a fact of this kind) has none.
+    """
+    products, pending, facts = {}, [_strip(literal)[0] for literal in literals], []
+    if any(atom.num_args() != 2 or not z3.is_int(atom.arg(0)) for atom in pending):
+        return None
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() not in products:
+            products[expr.get_id()] = expr if expr.decl().kind() == z3.Z3_OP_MUL else None
+            pending.extend(expr.children())
+
+    def factors(atom):
+        product = products.get(atom)
+        return None if product is None else [_linear(child) for child in product.children()]
+
+    try:
+        for literal in literals:
+            relation, terms, constant = _constraint(_complement(literal))  # sum(terms) + constant <= 0, or = 0
+            polynomial = expand_polynomial(terms, constant, factors)
+            facts.append((relation == "=", {monomial: -value for monomial, value in polynomial.items()}))
+    except ProofExportError:
+        return None
+    return facts
+
+
+def _same_constraint(first, second):
+    """Whether two literals state one linear constraint: an equality either way round, a bound and its tightening."""
+    if first.get_id() == second.get_id():
+        return True
+    if z3.is_not(first) and z3.is_not(second):
+        first, second = first.arg(0), second.arg(0)
+    try:
+        relation, terms, constant = _constraint(first)
+        other, other_terms, other_constant = _constraint(second)
+    except ProofExportError:
+        return False
+    if relation != other:
+        return False
+    if terms == other_terms and constant == other_constant:
+        return True
+    return (relation == "=" and constant == -other_constant
+            and terms == {atom: -value for atom, value in other_terms.items()})
+
+
 def check_arith_hint(pairs):
     """Shape-check the arithmetic solver's axiom hints: every literal is a linear arithmetic atom.
 
@@ -966,6 +1255,91 @@ def _parameter_names(decl):
                     for parameter in decl.params())
 
 
+_WORD = 2 ** 64 - 1
+
+
+def _mix(value):
+    """A permutation of the 64-bit integers that scatters consecutive ones (the splitmix64 finalizer)."""
+    value = (value + 0x9E3779B97F4A7C15) & _WORD
+    value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & _WORD
+    value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & _WORD
+    return value ^ (value >> 31)
+
+
+class _KeySets:
+    """Sets of keys named by integers: two sets are equal exactly when their names are.
+
+    The operands of a flattened and or or. A set is a search tree over its
+    keys in which every key's priority (_mix, a permutation, so no two
+    keys tie) is above those of the keys below it; the keys determine that
+    tree, and its nodes are interned, so equal sets built in any order are
+    one node and a set that extends another shares all but a path of it.
+    The union of a set of n keys with one more key adds about log n nodes.
+    As sorted tuples, the sets of a conjunction nested n levels deep held
+    n * n / 2 keys in all: 8.7e8 for the 41,822 levels of QF_IDL
+    PO4-10-PO4, about 7 GB.
+    """
+
+    def __init__(self):
+        self.ids = {}        # (lower keys, key, higher keys) -> name
+        self.nodes = [None]  # name -> (lower keys, key, higher keys); 0 names the empty set
+
+    def _node(self, lower, key, higher):
+        node = (lower, key, higher)
+        name = self.ids.get(node)
+        if name is None:
+            name = self.ids[node] = len(self.nodes)
+            self.nodes.append(node)
+        return name
+
+    def single(self, key):
+        return self._node(0, key, 0)
+
+    def only(self, name):
+        """The key of a set of one key, None for any other set."""
+        lower, key, higher = self.nodes[name]
+        return None if lower or higher else key
+
+    def _split(self, name, key):
+        """The sets of the keys of a set below key and above key."""
+        if not name:
+            return 0, 0
+        lower, root, higher = self.nodes[name]
+        if key == root:
+            return lower, higher
+        if key < root:
+            below, above = self._split(lower, key)
+            return below, self._node(above, root, higher)
+        below, above = self._split(higher, key)
+        return self._node(lower, root, below), above
+
+    def union(self, first, second):
+        """The name of the union of two sets; the depth of the recursion is that of the trees, about log n."""
+        if not first or first == second:
+            return second
+        if not second:
+            return first
+        if _mix(self.nodes[first][1]) < _mix(self.nodes[second][1]):
+            first, second = second, first
+        lower, root, higher = self.nodes[first]
+        below, above = self._split(second, root)
+        return self._node(self.union(lower, below), root, self.union(higher, above))
+
+    def keys(self, name):
+        """The keys of a set in increasing order."""
+        keys, pending = [], [(name, False)]
+        while pending:
+            name, expanded = pending.pop()
+            if not name:
+                continue
+            lower, key, higher = self.nodes[name]
+            if expanded:
+                keys.append(key)
+            else:
+                pending.extend(((higher, False), (name, True), (lower, False)))
+        return keys
+
+
 class _Normalizer:
     """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
 
@@ -975,7 +1349,11 @@ class _Normalizer:
     hashing, and sorting the forms is linear in the formula read as a DAG.
     With the forms nested, a parent's form repeated every child's form and
     the children were sorted by `repr`, which cost two minutes on the
-    13,000-node circuit of a QF_IDL bounded model checking input.
+    13,000-node circuit of a QF_IDL bounded model checking input. The form
+    of an and or an or is its tag and the name of the set of its operands'
+    keys (`sets`), nested ands and ors flattened into one set: an and and
+    the and it nests share most of that set, so a conjunction nested n
+    levels deep is keyed in about n log n steps (_KeySets).
     """
 
     def __init__(self):
@@ -984,6 +1362,7 @@ class _Normalizer:
         self.traces = {}  # identifier of a failed error -> its traceback where it was first caught
         self.ids = {}  # canonical form -> key
         self.forms = []  # key -> canonical form
+        self.sets = _KeySets()  # the operand sets of the and and or forms
 
     def key(self, expr):
         return self._key(expr, True)
@@ -1056,7 +1435,7 @@ class _Normalizer:
                 tag = "and"
             else:
                 tag = "or"
-            parts = set()
+            parts = 0  # the empty set
             identity = ("true",) if tag == "and" else ("false",)
             absorbing = ("false",) if tag == "and" else ("true",)
             for child in expr.children():
@@ -1066,15 +1445,14 @@ class _Normalizer:
                     return absorbing
                 if child_form == identity:
                     continue
-                if child_form[0] == tag:
-                    parts.update(child_form[1])
-                else:
-                    parts.add(child_key)
+                parts = self.sets.union(parts, child_form[1] if child_form[0] == tag
+                                        else self.sets.single(child_key))
             if not parts:
                 return identity
-            if len(parts) == 1:
-                return self.forms[next(iter(parts))]
-            return (tag, tuple(sorted(parts)))
+            only = self.sets.only(parts)
+            if only is not None:
+                return self.forms[only]
+            return (tag, parts)
         if kind == z3.Z3_OP_IMPLIES:
             return self.forms[self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
         if kind == z3.Z3_OP_TRUE:
@@ -1126,18 +1504,28 @@ class _Normalizer:
         return ("not", ("le", negated)) if polarity else ("le", negated)
 
 
-def _conjuncts(expr, path=()):
-    """Yield (formula, and-elim path) for every conjunct reachable through nested ands.
+def _conjuncts(expr):
+    """Yield (formula, parent) for every conjunct reachable through nested ands.
 
     Depth first, parents before their conjuncts, without recursion: a
     QF_IDL model checking input (FISCHER6-4-ninc) nests a thousand ands.
+    parent is the position, in the order yielded, of the and the conjunct
+    is an operand of, and None for expr itself: the and-elim path of a
+    conjunct is read off the parents above it (_derive_assumption), so all
+    of them take memory linear in the number of conjuncts. Written out as
+    one tuple of steps per conjunct the paths are quadratic in the nesting
+    depth: QF_IDL PO4-10-PO4, one assertion that nests 41,822 binary ands,
+    held 1.75e9 steps (about 14 GB), and its replay grew to 17 GB before
+    it read the first line of the log.
     """
-    pending = [(expr, path)]
+    pending = [(expr, None)]
+    position = 0
     while pending:
-        expr, path = pending.pop()
-        yield expr, path
+        expr, parent = pending.pop()
+        yield expr, parent
         if expr.decl().kind() == z3.Z3_OP_AND:
-            pending.extend((child, path + (child,)) for child in reversed(expr.children()))
+            pending.extend((child, position) for child in reversed(expr.children()))
+        position += 1
 
 
 def _refute_conjuncts(expr, refuted):
@@ -1184,6 +1572,11 @@ def _symbols(expr):
     return symbols
 
 
+def _symbol_signature(symbols):
+    """A hash of a set of symbols that the union with another set updates a symbol at a time (_index_sources)."""
+    return sum(_mix(symbol) for symbol in symbols) & _WORD
+
+
 class _Replay:
     def __init__(self, source, fragment, assertions, context, timeout=None):
         self.source, self.fragment, self.context = source, fragment, context
@@ -1194,11 +1587,29 @@ class _Replay:
         self.assertion_nodes = [self.dag.expression(expr) for expr in self.assertions]
         self.normalizer = _Normalizer()
         self.assertions_by_id = {expr.get_id(): expr for expr in self.assertions}
-        self.assumption_sources = [(assertion, conjunct, path) for assertion in self.assertions
-                                   for conjunct, path in _conjuncts(assertion)]
+        # (assertion, conjunct, position in this list), an and before its
+        # conjuncts; source_parents[position] is the position of the and the
+        # conjunct is an operand of, None for an assertion itself.
+        # source_roots[position] is the position of its assertion, and
+        # source_leaves[position] whether the conjunct is not an and.
+        self.assumption_sources, self.source_parents, self.source_roots, self.source_leaves = [], [], [], []
+        for assertion in self.assertions:
+            base = len(self.assumption_sources)
+            for conjunct, parent in _conjuncts(assertion):
+                self.assumption_sources.append((assertion, conjunct, len(self.assumption_sources)))
+                self.source_parents.append(None if parent is None else base + parent)
+                self.source_roots.append(base)
+                self.source_leaves.append(conjunct.decl().kind() != z3.Z3_OP_AND)
+        self.source_sizes = [1] * len(self.assumption_sources)  # the sources at and below each (_CHECKED_CONJUNCTS)
+        for position in reversed(range(len(self.assumption_sources))):
+            if self.source_parents[position] is not None:
+                self.source_sizes[self.source_parents[position]] += self.source_sizes[position]
+        self.largest_source = max(self.source_sizes, default=0)  # an assertion's: no source is larger than its root
+        self.and_elim_nodes = {}  # position of a source below an and -> the and-elim node deriving it
+        self.leaf_solver = None   # (solver over every leaf conjunct, tracking literal id -> (literal, source))
         self.assumptions_by_key = None
         self.sources_by_symbol = None  # declaration id (None: no symbol) -> source positions
-        self.symbol_signatures = None  # conjunct AST id -> hash of its symbol set, with the index
+        self.symbol_signatures = None  # source position -> hash of its symbol set, with the index
         self.clauses = {}        # entry id -> (proof node, literal expressions)
         self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
         self.literal_keys = {}   # AST id -> (literal kept alive, key)
@@ -1210,6 +1621,9 @@ class _Replay:
         self.root = None
         self.logged_clauses = {}
         self.trimmed = False
+        self.uncertified = {}    # proof node of an axiom nothing certifies -> why (_require_certified)
+        self.nonlinear = False   # whether the nonlinear solver left a lemma in the log (_nonlinear_lemma)
+        self.default_maps = set()  # those of them that state the default value of a map
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
         self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
@@ -1339,6 +1753,9 @@ class _Replay:
         or conjunct (by canonical key, then by a bounded solver check) bridged
         with a rewrite, or an implying formula or conjunct bridged with a cnf
         theory lemma, for assertions that preprocessing split into clauses.
+        Once an and is not decided (its check is cut off, or it is above
+        _CHECKED_CONJUNCTS), leaf conjuncts that imply the clause together
+        (_implying_leaves), bridged with a cnf theory lemma too.
         Tautological clauses need no source and become def-axiom nodes.
         """
         formula = self.clause_formula(literals)
@@ -1354,8 +1771,14 @@ class _Replay:
                 self.assumptions_by_key.setdefault(self.normalizer.key(source[1]), source)
         source = self.assumptions_by_key.get(target)
         if source is not None:
-            assertion, conjunct, path = source
-            return self._derive_assumption(assertion, path, conjunct, formula)
+            assertion, conjunct, position = source
+            return self._derive_assumption(assertion, position, conjunct, formula)
+        # A clause Z3 assumed on its nonlinear solver's word (nlsat) is no
+        # assertion's: when its literals have a polynomial refutation it is a
+        # theorem about the products, an nla th-lemma as in infer.
+        lemma = self._polynomial_lemma(literals)
+        if lemma is not None:
+            return lemma
         candidates = self._candidate_sources(formula)
         # A conjunct a model shows consistent with the clause's negation does
         # not imply the clause, nor does any conjunct below it: such
@@ -1363,22 +1786,37 @@ class _Replay:
         # chosen and the order of the checks, and only drops checks that
         # could not succeed.
         refuted = set()
-        for assertion, conjunct, path in self._equivalence_candidates(formula, candidates):
+        for assertion, conjunct, position in self._equivalence_candidates(formula, candidates):
             result, solver = self._check(conjunct == formula)
             if result == z3.unsat:
-                return self._derive_assumption(assertion, path, conjunct, formula)
+                return self._derive_assumption(assertion, position, conjunct, formula)
             if result == z3.sat and z3.is_false(solver.model().eval(formula, model_completion=True)):
                 # The conjunct holds and the clause does not: no implication either.
                 _refute_conjuncts(conjunct, refuted)
-        for assertion, conjunct, path in candidates:
+        undecided = False
+        for assertion, conjunct, position in candidates:
             if conjunct.get_id() in refuted:
                 continue
-            result, _ = self._check(z3.Implies(conjunct, formula))
+            if self.source_sizes[position] > _CHECKED_CONJUNCTS:
+                result = z3.unknown  # too large to hand to a solver, see _CHECKED_CONJUNCTS
+            else:
+                result, _ = self._check(z3.Implies(conjunct, formula))
             if result == z3.unsat:
-                source = self._derive_assumption(assertion, path, conjunct, conjunct)
+                source = self._derive_assumption(assertion, position, conjunct, conjunct)
                 return self._cnf_lemma([(source, conjunct)], literals)
             if result == z3.sat:
                 _refute_conjuncts(conjunct, refuted)
+            elif not undecided and not self.source_leaves[position]:
+                # An and too large to decide within the limit, and so, most
+                # likely, is every and below it down to a small one: a
+                # conjunction nested n levels deep cost up to n cut-off
+                # checks per clause. An unsat core over the leaf conjuncts
+                # settles the clause in a few checks, and with a lemma
+                # over the leaves that imply it rather than over an and.
+                undecided = True
+                sources = self._implying_leaves(formula, candidates)
+                if sources is not None:
+                    return self._cnf_lemma(sources, literals)
         # Preprocessing may combine several assertions, for example into the
         # empty clause, or simplify an ite inside one assertion under a unit
         # asserted by another.
@@ -1394,38 +1832,82 @@ class _Replay:
         an uninterpreted symbol (an interpolant over no shared symbol is true
         or false), so the per-source solver checks skip the other conjuncts;
         a source or clause without symbols is always a candidate. The order
-        of the sources is kept. Nothing is trusted by skipping: a clause no
-        candidate ties to an assertion goes to the unsat-core fallback. A
-        few sources are all searched: indexing them traverses every
-        assertion, which costs more than the checks it saves.
+        of the sources is kept, an and before its conjuncts. Nothing is
+        trusted by skipping: a clause no candidate ties to an assertion goes
+        to the unsat-core fallback. A few sources are all searched: indexing
+        them traverses every assertion, which costs more than the checks it
+        saves.
         """
         if len(self.assumption_sources) <= _SEARCH_ALL_SOURCES:
             return self.assumption_sources
         if self.sources_by_symbol is None:
-            self.sources_by_symbol = {}
-            self.symbol_signatures = {}
-            # Sources list an and before its conjuncts, so in reverse an and
-            # takes the union of its conjuncts' sets instead of a traversal.
-            # The sets are dropped once the index is built; a hash of each
-            # stays for _equivalence_candidates.
-            symbols_of = {}
-            for position in reversed(range(len(self.assumption_sources))):
-                conjunct = self.assumption_sources[position][1]
-                if conjunct.decl().kind() == z3.Z3_OP_AND:
-                    symbols = set().union(*(symbols_of[child.get_id()] for child in conjunct.children()))
-                else:
-                    symbols = _symbols(conjunct)
-                symbols_of[conjunct.get_id()] = symbols
-                self.symbol_signatures[conjunct.get_id()] = hash(frozenset(symbols))
-                for symbol in symbols or (None,):
-                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+            self._index_sources()
         symbols = _symbols(formula)
         if not symbols:
             return self.assumption_sources
         positions = set(self.sources_by_symbol.get(None, ()))
         for symbol in symbols:
-            positions.update(self.sources_by_symbol.get(symbol, ()))
+            for position in self.sources_by_symbol.get(symbol, ()):
+                # A leaf over the symbol, and every and above it up to one
+                # already taken. Of the ands no solver is given
+                # (_CHECKED_CONJUNCTS) only the assertion stands for all:
+                # the search does the same at each, and listing every
+                # level above every leaf is the depth per clause.
+                while position is not None and position not in positions:
+                    positions.add(position)
+                    position = self.source_parents[position]
+                    if position is not None and self.source_sizes[position] > _CHECKED_CONJUNCTS:
+                        positions.add(self.source_roots[position])
+                        break
         return [self.assumption_sources[position] for position in sorted(positions)]
+
+    def _index_sources(self):
+        """Index the sources by symbol for _candidate_sources and _equivalence_candidates.
+
+        sources_by_symbol lists, per symbol, the leaf conjuncts (not ands)
+        over it, and under None the sources without symbols, ands included.
+        An and shares a symbol with a clause exactly when a leaf below it
+        does, so the ands are found from the leaves (source_parents) and
+        are not listed: an and nested n levels deep is over the symbols of
+        all n levels, and listing every and under each of its symbols took
+        memory quadratic in the depth, as did the set of symbols kept for
+        every and while the index was built (on QF_IDL PO4-10-PO4, 41,822
+        levels, the replay peaked at 3.7 GB with them and at 0.5 GB
+        without). symbol_signatures gives each conjunct a
+        hash of its symbol set (_symbol_signature). Sources list an and
+        before its conjuncts, so in reverse every conjunct is read before
+        the and above it, which takes over the largest symbol set among its
+        conjuncts and adds the others' symbols to it: no set is copied, and
+        a symbol moves to a larger set about log n times.
+        """
+        self.sources_by_symbol = {}
+        self.symbol_signatures = [0] * len(self.assumption_sources)
+        gathered = {}  # position of an and -> [symbols of its conjuncts read so far, their signature]
+        for position in reversed(range(len(self.assumption_sources))):
+            if not self.source_leaves[position]:
+                symbols, signature = gathered.pop(position, (set(), 0))
+                if not symbols:
+                    self.sources_by_symbol.setdefault(None, []).append(position)
+            else:
+                symbols = _symbols(self.assumption_sources[position][1])
+                signature = _symbol_signature(symbols)
+                for symbol in symbols or (None,):
+                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+            self.symbol_signatures[position] = signature
+            parent = self.source_parents[position]
+            if parent is None:
+                continue
+            above = gathered.get(parent)
+            if above is None:
+                gathered[parent] = [symbols, signature]
+                continue
+            if len(above[0]) < len(symbols):
+                symbols, above[0] = above[0], symbols
+                signature, above[1] = above[1], signature
+            for symbol in symbols:
+                if symbol not in above[0]:
+                    above[0].add(symbol)
+                    above[1] = (above[1] + _mix(symbol)) & _WORD
 
     def _equivalence_candidates(self, formula, candidates):
         """Return the candidates worth a solver check for equivalence with formula.
@@ -1443,24 +1925,118 @@ class _Replay:
         formula also implies it, so the implication pass of assume still
         ties a skipped one (through a cnf lemma rather than a rewrite);
         nothing is trusted by skipping. Symbol sets are compared by hash
-        (_candidate_sources); a collision costs one check. A few sources are
-        not indexed and are all checked.
+        (_symbol_signature); a collision costs one check. A few sources are
+        not indexed and are all checked. An and above _CHECKED_CONJUNCTS
+        is not checked either; the implication pass ties it by its leaves.
         """
         if self.symbol_signatures is None:
             return candidates
         symbols = _symbols(formula)
-        signature = hash(frozenset(symbols))
+        signature = _symbol_signature(symbols)
         if symbols:
             positions = set(self.sources_by_symbol.get(next(iter(symbols)), ()))
             for symbol in symbols:
                 positions.intersection_update(self.sources_by_symbol.get(symbol, ()))
-            covering = {self.assumption_sources[position][1].get_id() for position in positions}
+            covering = positions  # of leaves: the index lists no and under a symbol
         else:
             covering = None  # every source covers no symbols
         return [source for source in candidates
-                if self.symbol_signatures[source[1].get_id()] == signature
-                or (source[1].decl().kind() != z3.Z3_OP_AND
-                    and (covering is None or source[1].get_id() in covering))]
+                if (self.symbol_signatures[source[2]] == signature
+                    and self.source_sizes[source[2]] <= _CHECKED_CONJUNCTS)
+                or (self.source_leaves[source[2]] and (covering is None or source[2] in covering))]
+
+    def _implying_leaves(self, formula, candidates):
+        """Return (proof node, formula) sources from leaf conjuncts (not ands) that imply formula together, or None.
+
+        An unsat core of the candidates' leaves with the negated formula
+        or, when those do not imply it, of all leaves: a clause Z3
+        simplified under a unit conjunct shares no symbol with that unit.
+        None when no core is found (the leaves do not imply the formula,
+        or a check is cut off): the search then goes on as before. Lean
+        proves the lemma over the sources returned (_leaf_sources), or the
+        certificate fails.
+        """
+        leaves = {}
+        for source in candidates:
+            if self.source_leaves[source[2]]:
+                leaves.setdefault(source[1].get_id(), source)
+        core = self._leaf_core(formula, list(leaves.values()))
+        if core is None and len(candidates) < len(self.assumption_sources):
+            core = self._all_leaves_core(formula)[1]
+        return None if core is None else self._leaf_sources(formula, core)
+
+    def _leaf_sources(self, formula, core):
+        """The (proof node, formula) sources for a core of leaves implying formula, after shrinking it.
+
+        Z3's cores are not minimal: the core is checked again on its own
+        for as long as that leaves a smaller one. Each leaf of the core is
+        and-eliminated from its assertion, unless the core is a large part
+        of the assertions it draws on (more than a quarter of their
+        sources): then those assertions are the sources, as they imply
+        what their leaves do, and the lemma has one premise each instead
+        of one per leaf (the empty clause of a chain of implications needs
+        every conjunct).
+        """
+        while len(core) > 1:
+            smaller = self._leaf_core(formula, core)
+            if smaller is None or len(smaller) >= len(core):
+                break
+            core = smaller
+        roots = sorted({self.source_roots[position] for _, _, position in core})
+        if 4 * len(core) > sum(self.source_sizes[root] for root in roots):
+            assertions = dict.fromkeys(self.assumption_sources[root][1] for root in roots)
+            return [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
+                    for assertion in assertions]
+        return [(self._derive_assumption(assertion, position, conjunct, conjunct), conjunct)
+                for assertion, conjunct, position in core]
+
+    def _leaf_core(self, formula, leaves):
+        """The sources among leaves in an unsat core of them and the negated formula, None without one."""
+        if not leaves:
+            return None
+        self._check_deadline()
+        solver = z3.Solver(ctx=self.context)
+        solver.set("rlimit", _RLIMIT)
+        tracking = [z3.FreshBool("cnf_source", self.context) for _ in leaves]
+        for literal, source in zip(tracking, leaves):
+            solver.assert_and_track(source[1], literal)
+        solver.add(z3.Not(formula))
+        if solver.check() != z3.unsat:
+            return None
+        core = {literal.get_id() for literal in solver.unsat_core()}
+        return [source for literal, source in zip(tracking, leaves) if literal.get_id() in core]
+
+    def _all_leaves_core(self, formula):
+        """The result of checking the negated formula with every leaf conjunct, and the sources in its unsat core.
+
+        One solver holds the leaves for the whole replay, each tracked;
+        a formula is checked between a push and a pop.
+        """
+        self._check_deadline()
+        if self.leaf_solver is None:
+            leaves = {}
+            for source in self.assumption_sources:
+                if self.source_leaves[source[2]]:
+                    leaves.setdefault(source[1].get_id(), source)
+            solver = z3.Solver(ctx=self.context)
+            solver.set("rlimit", _RLIMIT)
+            tracked = {}
+            for source in leaves.values():
+                literal = z3.FreshBool("cnf_source", self.context)
+                solver.assert_and_track(source[1], literal)
+                tracked[literal.get_id()] = (literal, source)
+            self.leaf_solver = solver, tracked
+        solver, tracked = self.leaf_solver
+        solver.push()
+        try:
+            solver.add(z3.Not(formula))
+            result = solver.check()
+            if result != z3.unsat:
+                return result, None
+            core = {literal.get_id() for literal in solver.unsat_core()}
+        finally:
+            solver.pop()
+        return result, [source for ident, (_, source) in tracked.items() if ident in core]
 
     def _implying_assertions(self, formula):
         """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.
@@ -1471,6 +2047,13 @@ class _Replay:
         assertions = list(dict.fromkeys(self.assertions, None))
         if not assertions:
             return None
+        if self.largest_source > _CHECKED_CONJUNCTS:
+            # An assertion too large to hand to a solver whole: a core of the leaves instead.
+            result, core = self._all_leaves_core(formula)
+            if result == z3.unknown:
+                raise ProofExportError("resource limit reached while tying an assumed clause to the assertions: %s"
+                                       % formula)
+            return self._leaf_sources(formula, core) if result == z3.unsat else None
         self._check_deadline()
         solver = z3.Solver(ctx=self.context)
         solver.set("rlimit", _RLIMIT)
@@ -1519,10 +2102,24 @@ class _Replay:
         solver.add(z3.Not(claim))
         return solver.check(), solver
 
-    def _derive_assumption(self, assertion, path, conjunct, formula):
-        node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
-        for step in path:
-            node = self.dag.node(self.and_elim, [node, self.dag.expression(step)])
+    def _derive_assumption(self, assertion, position, conjunct, formula):
+        # One and-elim step per and above the conjunct (source_parents),
+        # each made once: a conjunct starts from the nearest source above it
+        # that an earlier one reached, so tying every conjunct of a deeply
+        # nested assertion makes one step per conjunct, not one per level
+        # each. The nodes and their order are those of walking each path
+        # from the assertion.
+        steps = []
+        while self.source_parents[position] is not None and position not in self.and_elim_nodes:
+            steps.append(position)
+            position = self.source_parents[position]
+        if self.source_parents[position] is None:
+            node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
+        else:
+            node = self.and_elim_nodes[position]
+        for position in reversed(steps):
+            node = self.and_elim_nodes[position] = self.dag.node(
+                self.and_elim, [node, self.dag.expression(self.assumption_sources[position][1])])
         if conjunct.get_id() != formula.get_id():
             equivalence = self.dag.node(self.rewrite, [self.dag.expression(conjunct == formula)])
             node = self.dag.node(self.mp, [node, equivalence, self.dag.expression(formula)])
@@ -1544,12 +2141,17 @@ class _Replay:
         original assertions, never taken from the hint. A bare smt hint
         claims the logged clause is a theory tautology, and so does a
         datatype hint (an enumeration's case split or constructor clash).
+        An nla or nla-unsupported hint marks a lemma of the nonlinear
+        solver, certified by a polynomial refutation found again or not at
+        all (_nonlinear_lemma).
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """
         if hint is None:
             return self.rup(literals, dependencies)
         name, pairs = hint
+        if name in _NONLINEAR_HINTS:
+            return self._nonlinear_lemma(name, pairs, literals)
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
             if name == "alldiff" and not _distinct_gate(lemma_literals):
@@ -1569,12 +2171,13 @@ class _Replay:
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
-            if name == "array" and any(z3.is_default(side) and _is_set_combinator(side.arg(0))
-                                       for _, literal in pairs for side in _strip(literal)[0].children()):
-                # (= (default (map f a b)) (f (default a) (default b))) holds
-                # only for arrays constant at all but finitely many indices,
-                # which Lean's _default cannot assume of a map's arguments.
-                raise ProofExportError("the default value of a map is not certified")
+            # (= (default (map f a b)) (f (default a) (default b))) holds
+            # only for arrays constant at all but finitely many indices,
+            # which Lean's _default cannot assume of a map's arguments. The
+            # array solver states the axiom for every map it meets, whether
+            # or not a conflict comes to rest on it, so the axiom is judged
+            # only once the refutation is known to use it (_require_certified).
+            default_map = name == "array" and any(_default_map_axiom(literal) for _, literal in pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":
@@ -1598,8 +2201,15 @@ class _Replay:
                 equality = pairs[0][1]
                 lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
                                   else [equality])
+            if default_map:
+                # The hint lists the equality the axiom propagates, like the
+                # axioms above; the node stands for the logged clause as it is.
+                lemma_literals = list(literals)
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+            if default_map:
+                self.uncertified[lemma] = "the default value of a map is not certified"
+                self.default_maps.add(lemma)
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
@@ -1607,6 +2217,79 @@ class _Replay:
             return self.rup(literals, None if dependencies is None else dependencies + [entry])
         finally:
             self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+
+    def _polynomial_lemma(self, literals):
+        """An nla th-lemma node for a clause whose literals have a polynomial refutation, or None.
+
+        The clause is then a theorem about the products of its Int terms:
+        the reconstructor finds the refutation again and Lean proves the
+        clause from the products of the bounds it denies.
+        """
+        facts = polynomial_facts(literals)
+        if facts is None:
+            return None
+        self._check_deadline()
+        if polynomial_refutation(facts) is None:
+            return None
+        self.nonlinear = True
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [_POLYNOMIAL_HINT])
+        return self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+
+    def _nonlinear_lemma(self, name, pairs, literals):
+        """Justify a clause the nonlinear solver (nla_core) inferred: hint nla or nla-unsupported.
+
+        The lemma is the logged clause, or the clause of the complements of
+        the hint's literals, of which the logged one may have lost those
+        false at the base level; it is then derived from the lemma by unit
+        propagation over the whole clause database. When the literals of
+        either have a polynomial refutation (products of two of the facts
+        they deny and a linear combination, the evidence Z3 itself looks
+        for; it is found again, the hint's is not read) the lemma is an nla
+        th-lemma (_polynomial_lemma). Otherwise Lean has no proof of it: the
+        node stands for the logged clause, a refutation that uses it is
+        rejected (_require_certified), and one that does not leaves it out
+        of the certificate.
+        """
+        self.nonlinear = True
+        candidates = [list(literals)]
+        if pairs and all(z3.is_bool(literal) for _, literal in pairs):
+            # A literal the lemma rests on twice (an equality, as its two
+            # bounds) is listed twice, and one may be written another way
+            # than in the logged clause ((= x 1) for (= 1 x)): the logged
+            # literal is kept, for the unit propagation.
+            complements = {}
+            for _, literal in pairs:
+                complement = _complement(literal)
+                complement = next((logged for logged in literals if _same_constraint(logged, complement)),
+                                  complement)
+                complements[complement.get_id()] = complement
+            candidates.append(list(complements.values()))
+        for lemma_literals in candidates:
+            lemma = self._polynomial_lemma(lemma_literals)
+            if lemma is None:
+                continue
+            if {self.literal_key(literal) for literal in lemma_literals} == {
+                    self.literal_key(literal) for literal in literals}:
+                return lemma, lemma_literals
+            entry = self.add_clause(lemma, lemma_literals)
+            try:
+                return self.rup(literals)
+            except ProofExportError as error:
+                # Z3's trimmer takes the logged clause for an axiom, so a
+                # trimmed log need not keep the unit clauses that make the
+                # other literals false; the untrimmed log has them
+                # (build_certificate replays it).
+                if self.trimmed:
+                    raise TrimmedAwayError(
+                        "the trimmed log lacks the unit clauses under a lemma of the nonlinear solver "
+                        "(the untrimmed log has them): %s" % error) from None
+            finally:
+                self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [name])
+        lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(literals))])
+        self.uncertified[lemma] = ("the refutation uses a lemma of the nonlinear solver, "
+                                   "which is not certified: %s" % name)
+        return lemma, list(literals)
 
     def rup(self, literals, dependencies=None):
         """Derive a clause by unit propagation, as hypotheses, resolutions, and a lemma."""
@@ -1704,6 +2387,34 @@ class _Replay:
         conclusion = self.clause_formula(remaining)
         return self.dag.node(declaration, [clause_node] + units + [self.dag.expression(conclusion)])
 
+    def _require_certified(self):
+        """Reject a refutation that rests on an axiom nothing certifies (self.uncertified).
+
+        One logged on the way but left unused (an untrimmed log keeps every
+        clause the solver derived) is left out of the certificate instead
+        (see run).
+
+        The default-map axiom is certified when no assertion names a default
+        value: the default values are then the array solver's own terms, and
+        the reconstructor reads them all at one index that no store of the
+        certificate writes (proof_to_lean's _generic_defaults), where the
+        axiom holds of every map. An input that names one keeps Lean's
+        _default, of which the axiom is not a theorem.
+        """
+        if not self.uncertified:
+            return
+        named = any(_names_default(assertion) for assertion in self.assertions)
+        used, pending = set(), [self.root]
+        while pending:
+            node = pending.pop()
+            if node not in used:
+                used.add(node)
+                pending.extend(self.dag.nodes[node]["arguments"])
+        rejected = {node for node in used.intersection(self.uncertified)
+                    if named or node not in self.default_maps}
+        if rejected:
+            raise ProofExportError(self.uncertified[min(rejected)])
+
     # -- driver ----------------------------------------------------------
 
     def run(self, text):
@@ -1774,7 +2485,22 @@ class _Replay:
                     and isinstance(part[1], str) and _symbol(part[1]) in phantoms
                     for part in command[1:]):
                 continue  # a clause over a phantom literal is never tied to an assertion
+            elif head in ("infer", "del") and any(terms.divides_by_zero(part) for part in command[1:]):
+                # A clause the arithmetic solver states about a division by
+                # zero (_Terms.divides_by_zero): the certificate has no term
+                # for one, and the clause is left out. Like a clause over a
+                # phantom literal, that only removes support for later
+                # steps: an inference that needs it is not derivable by unit
+                # propagation and rejects the log (in a trimmed log, a
+                # clause that depends on it does, as a forward dependency).
+                continue
             elif head == "assume":
+                for part in command[1:]:
+                    if terms.divides_by_zero(part):
+                        # No assertion has such a term, so no assertion
+                        # gives the clause.
+                        raise ProofExportError("the clause log assumes a clause over a division by zero: %s"
+                                               % _text(part))
                 literals = [terms.build(part) for part in command[1:]]
                 node = self.assume(literals)
                 for literal in literals:
@@ -1807,19 +2533,39 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
+        self._require_certified()
         # A trimmed log keeps only the nodes the refutation uses; so does an
-        # untrimmed one whose unused clauses mention default values over an
-        # index sort the certificate cannot carry (the gates of the default
-        # values the array solver introduces for maps over any index sort).
-        # If the refutation uses one, the reconstructor rejects it.
+        # untrimmed one with an unused axiom nothing certifies, or whose
+        # unused clauses mention default values over an index sort the
+        # certificate cannot carry (the gates of the default values the array
+        # solver introduces for maps over any index sort). If the refutation
+        # uses one of the latter, the reconstructor rejects it. So does one
+        # with lemmas of the nonlinear solver: the clauses it leaves unused
+        # (assumed on nlsat's word, or tied to the assertions by a cnf
+        # lemma) need not have a proof Lean finds.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed or terms.uncertified_defaults)
+                                    compact=(self.trimmed or terms.uncertified_defaults or bool(self.uncertified)
+                                             or self.nonlinear))
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):
     """Rebuild a clause log as an unverified z3-native-proof-dag bundle.
 
     timeout (seconds, default _TIME_LIMIT) bounds the replay's wall-clock
-    time; exceeding it raises ProofExportError.
+    time; exceeding it raises ProofExportError. When text is a TrimmedLog
+    without the unit clauses a lemma of the nonlinear solver rests on
+    (TrimmedAwayError), the log it was cut from is replayed instead, with a
+    warning and within the same time; a trimmed log given as a plain string
+    raises the error.
     """
-    return _Replay(source, fragment, assertions, context, timeout).run(text)
+    replay = _Replay(source, fragment, assertions, context, timeout)
+    try:
+        return replay.run(text)
+    except TrimmedAwayError as error:
+        untrimmed = getattr(text, "untrimmed", None)
+        if untrimmed is None:
+            raise
+        warnings.warn("replaying the untrimmed log: %s" % error, RuntimeWarning)
+        second = _Replay(source, fragment, assertions, context, timeout)
+        second.deadline = replay.deadline
+        return second.run(untrimmed)

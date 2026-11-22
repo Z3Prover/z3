@@ -1,5 +1,47 @@
 RELEASE NOTES
 
+Version 5.4.2
+==============
+
+- Revert general quantifier-polarity handling during SMT internalization
+  introduced in 5.4.0. Handle both polarities specifically for generated
+  universal quantifiers from array/lambda equality rewrites, using fresh
+  Skolem witnesses for their negative occurrences. Distinguish quantifiers
+  with different Skolem IDs during hash-consing.
+  https://github.com/Z3Prover/z3/pull/11638, https://github.com/Z3Prover/z3/pull/11644
+- Preserve the equality-propagation justification when merging a newly
+  internalized equality atom with true.
+  https://github.com/Z3Prover/z3/pull/11658
+- Store theory variable IDs as full-width integers instead of signed
+  24-bit fields, preventing truncation and crashes at 8,388,608 variables.
+  https://github.com/Z3Prover/z3/pull/11655
+- Handle canceled or unsuccessful model searches in Spacer's global
+  subsumption without dereferencing a missing model.
+  https://github.com/Z3Prover/z3/pull/11635
+- Restore tactic, probe, and simplifier registration in CMake static
+  builds through a generated source file, with explicit build dependencies
+  for Windows and other parallel builds.
+  https://github.com/Z3Prover/z3/pull/11660
+- Extend Lean proof reconstruction for integer difference logic and
+  linear Real arithmetic, including the plan-21, DTP, and tta_startup
+  benchmark examples. Keep ITEs folded in EUF and array lemmas to reduce
+  reconstruction cost.
+  https://github.com/Z3Prover/z3/pull/11661
+- Address narrowing-conversion, signedness, and ignored-result build
+  warnings in solver code, examples, and tests.
+  https://github.com/Z3Prover/z3/pull/11666
+
+Version 5.4.1
+==============
+
+- Extend F*/Pulse typed proof replay with guarded integer and Real
+  product-equality clauses.
+  https://github.com/Z3Prover/z3/pull/11629
+- Make native checker regression expectations independent of proof-search
+  choices and generated Skolem numbering, while retaining checks for
+  pending proof obligations.
+  https://github.com/Z3Prover/z3/commit/16291f1c56342c84698e4d6d6042cd8fb339070d
+
 Version 5.4.0
 ==============
 
@@ -69,10 +111,12 @@ Version 5.4.0
   used only by pointwise non-array consumers.
   https://github.com/Z3Prover/z3/pull/11463
 - Respect quantifier polarity during SMT internalization, including
-  existential and negative universal occurrences. Re-bind residual and
-  projected variables in quantifier-elimination results instead of
-  exposing fresh free constants.
-  https://github.com/Z3Prover/z3/pull/11562, https://github.com/Z3Prover/z3/pull/11559
+  existential and negative universal occurrences (reverted in 5.4.2;
+  see the generated-quantifier replacement above).
+  https://github.com/Z3Prover/z3/pull/11562
+- Re-bind residual and projected variables in quantifier-elimination
+  results instead of exposing fresh free constants.
+  https://github.com/Z3Prover/z3/pull/11559
 - Skip `eq2bv` when recursive definitions are registered. Guard oversized
   cardinality thresholds in `lia2card` instead of converting them to
   out-of-range cardinality parameters.

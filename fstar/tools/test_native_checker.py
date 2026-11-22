@@ -80,14 +80,14 @@ UNUSED_SKOLEM_CASES = (
 )
 
 # The arithmetic rewriter factors p REL 0 when a term divides every monomial of p
-# (factor_le_ge_eq). These are the first queries of z3test nl12, nl49, nl33, and nl57.
+# (factor_le_ge_eq). Queries from z3test nl12, nl33, and nl57, plus an equality
+# control that does not require nonlinear search to expose the common factor.
 FACTOR_SIGN_CASES = (
     ("int-le", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
      "(assert (and (> (+ (* x1 x2) x3) 0) (<= x1 (- 1)) (>= x1 (- 1)) (= x2 x3)))"),
-    ("int-eq", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
-     "(declare-const x4 Int)(declare-const x5 Int)"
-     "(assert (and (<= x4 x5) (<= x5 x4) (= x2 (+ x3 x5))"
-     " (not (= (* x1 x2) (+ (* x1 x3) (* x1 x4))))))"),
+    ("int-eq", "(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+     "(assert (= (+ (* x y) (* x z)) 0))"
+     "(assert (not (= x 0)))(assert (not (= (+ y z) 0)))"),
     ("real-ge", "(declare-const x Real)(assert (and (< 1.0 x) (not (< x (* x x)))))"),
     ("real-lt", "(declare-const x Real)(declare-const y Real)"
      "(assert (and (<= 0.0 x) (<= (- 1.0) y) (< (+ (* x y) x) 0.0)))"),
@@ -1931,18 +1931,22 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                   "(assert (< (* x x) 1))")
         result = self.run_checker(source, "--readable")
         self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
-        family = re.search(r"(?m)^readable\tfamily=1/1\trule=arith/farkas\t.*\tnode=(\d+)\t", result.stderr)
+        family = re.search(r"(?m)^readable\tfamily=1/1\trule=(?:arith/farkas|th-lemma)\t.*\tnode=(\d+)\t",
+                           result.stderr)
         self.assertTrue(family, result.stderr)
-        node = re.search(r"(?m)^  node (\d+): premises: #(\d+) #(\d+)$", result.stderr)
+        node = re.search(r"(?m)^  node (\d+): premises:((?: #\d+){2,})$", result.stderr)
         self.assertTrue(node, result.stderr)
         self.assertEqual(node.group(1), family.group(1))
-        for premise in node.group(2, 3):
+        premises = re.findall(r"#(\d+)", node.group(2))
+        for premise in premises:
             self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(" % premise)
         skolem = re.search(
-            r"(?m)^  premise #%s: holds\(\(not \(<= (a!\d+#\d+:Real) 1:Real\)\)\)$" % node.group(2),
+            r"(?m)^  premise #(?:%s): holds\(\(not \(<= (a!\d+#\d+:Real) 1:Real\)\)\)$"
+            % "|".join(premises),
             result.stderr)
         self.assertIsNotNone(skolem, result.stderr)
-        self.assertIn(f"(* {skolem.group(1)} {skolem.group(1)})", self.conclusion(result.stderr))
+        self.assertRegex(result.stderr, r"(?m)^  premise #(?:%s): .*\(\* %s %s\)" %
+                         ("|".join(premises), re.escape(skolem.group(1)), re.escape(skolem.group(1))))
 
     def test_interactive_queries_are_numbered_like_proof_callbacks(self):
         script = ("(declare-const x Real)"

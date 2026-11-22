@@ -6721,7 +6721,9 @@ extern "C" {
 
     /**
        \brief Return a tactic that applies \c t1 to a given goal and \c t2
-       to every subgoal produced by \c t1.
+       to the subgoals produced by \c t1. By default, the tactic stops at the
+       first subgoal decided satisfiable. See #Z3_tactic_apply_ex for retaining
+       all satisfiable and undecided subgoals when applying a tactic.
 
        def_API('Z3_tactic_and_then', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
@@ -6776,7 +6778,9 @@ extern "C" {
 
     /**
        \brief Return a tactic that keeps applying \c t until the goal is not modified anymore or the maximum
-       number of iterations \c max is reached.
+       number of iterations \c max is reached. By default, the tactic stops at the first subgoal decided
+       satisfiable. See #Z3_tactic_apply_ex for retaining all satisfiable and
+       undecided subgoals when applying a tactic.
 
        def_API('Z3_tactic_repeat', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(UINT)))
     */
@@ -7075,6 +7079,12 @@ extern "C" {
 
     /**
        \brief Apply tactic \c t to the goal \c g using the parameter set \c p.
+
+       Set the Boolean application parameter \c keep_sat_subgoals to true to retain
+       all satisfiable and undecided subgoals instead of stopping at the first
+       satisfiable subgoal. The default is false. This setting applies only to
+       this invocation and does not affect solvers or the input goal. It is not
+       a tactic parameter and cannot be supplied to #Z3_tactic_using_params.
 
        \sa Z3_tactic_apply
 

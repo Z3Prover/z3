@@ -262,6 +262,7 @@ namespace euf {
             m_subst_ids.reset();
             eqs.reset();
             filter_unsafe_vars();
+            collect_num_occs();
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
@@ -280,6 +281,7 @@ namespace euf {
             m_subst_ids.reset();
             eqs.reset();
             filter_unsafe_vars();
+            collect_num_occs();
             solve_context_eqs context_solve(*this);
             context_solve.collect_nested_equalities(eqs);
             extract_dep_graph(eqs);
@@ -381,6 +383,11 @@ namespace euf {
         r.insert("ite_solver", CPK_BOOL, "use if-then-else solver.", "true");
         r.insert("context_solve", CPK_BOOL, "solve equalities under disjunctions.", "false");
         r.insert("eliminate_mod", CPK_BOOL, "eliminate modulus from equations", "true");
+        // the keys of the tactic module this simplifier reads (updt_params, extract_eqs)
+        r.insert("solve_eqs.max_occs", CPK_UINT, "maximum number of occurrences for considering a variable for gaussian eliminations.", "4294967295", "tactic");
+        r.insert("solve_eqs.context_solve", CPK_BOOL, "solve equalities within disjunctions.", "true", "tactic");
+        r.insert("solve_eqs.theory_solver", CPK_BOOL, "use theory solvers.", "true", "tactic");
+        r.insert("solve_eqs.ite_solver", CPK_BOOL, "use if-then-else solvers.", "true", "tactic");
     }
 
     void solve_eqs::collect_statistics(statistics& st) const {

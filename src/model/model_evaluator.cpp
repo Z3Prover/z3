@@ -394,6 +394,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool get_macro(func_decl * f, expr * & def, quantifier * & , proof * &) {
         func_interp * fi = m_model.get_func_interp(f);
         def = nullptr;
+        // Recursive functions are unfolded by reduce_app subject to a budget.
+        // Reaching this point means that the application is to be left alone.
+        if (fi && m_rec_rw.is_defined(f))
+            return false;
         if (fi) {
             if (fi->is_partial()) {
                 if (m_model_completion) {
@@ -508,9 +512,13 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
 
+            // the interpretation of a recursive function is its definition.
+            bool is_rec = m_rec_rw.is_defined(f);
+            if (is_rec && !m_rec_rw.inc_unfold(f, num, args))
+                return BR_FAILED;
             var_subst vs(m, false);
             result = vs(fi->get_interp(), num, args);
-            if (!is_ground(result.get()) && recfun::util(m).is_defined(f))
+            if (!is_ground(result.get()) && is_rec)
                 return BR_DONE;
             return BR_REWRITE_FULL;
         }
@@ -792,6 +800,7 @@ struct model_evaluator::imp : public rewriter_tpl<mev::evaluator_cfg> {
         rewriter_tpl<mev::evaluator_cfg>::reset();
         m_cfg.reset();
         m_cfg.m_def_cache.reset();
+        m_cfg.m_rec_rw.reset();
     }
 };
 
@@ -853,6 +862,7 @@ void model_evaluator::reset(model_core &model, params_ref const& p) {
 
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE(model_evaluator, tout << mk_ismt2_pp(t, m()) << "\n";);
+    m_imp->cfg().m_rec_rw.reset_unfolds();
     m_imp->operator()(t, result);
     m_imp->expand_stores(result);
     TRACE(model_evaluator, tout << "eval: " << mk_ismt2_pp(t, m()) << " --> " << result << "\n";);

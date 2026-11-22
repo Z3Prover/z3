@@ -88,8 +88,12 @@ namespace nla {
         catch (...) {
 
         }
+        if (c().reslim().is_canceled())
+            return;
         if (!productive) {
             m_solver.saturate();
+            if (c().reslim().is_canceled())
+                return;
             TRACE(grobner, m_solver.display(tout));
 
             if (m_delay_base > 0)
@@ -97,15 +101,22 @@ namespace nla {
 
             try {
                 productive = is_conflicting()
+                    || c().reslim().is_canceled()
                     || propagate_quotients()
+                    || c().reslim().is_canceled()
                     || propagate_gcd_test()
+                    || c().reslim().is_canceled()
                     || propagate_eqs()
+                    || c().reslim().is_canceled()
                     || propagate_factorization()
+                    || c().reslim().is_canceled()
                     || propagate_linear_equations();
             }
             catch (...) {
 
             }
+            if (c().reslim().is_canceled())
+                return;
         }
 
         if (c().params().arith_nl_grobner_adaptive())
@@ -150,6 +161,8 @@ namespace nla {
 
     bool grobner::is_conflicting() {
         for (auto eq : m_solver.equations()) {
+            if (c().reslim().is_canceled())
+                return false;
             if (is_conflicting(*eq)) {
                 lp_settings().stats().m_grobner_conflicts++;
                 TRACE(grobner, m_solver.display(tout));
@@ -719,6 +732,8 @@ namespace nla {
                 TRACE(grobner, m_solver.display(tout << "horner conflict ", e) << "\n");
                 return true;
             }
+            if (c().reslim().is_canceled())
+                return false;
             if (c().params().arith_nl_grobner_perfect_squares() && add_perfect_square_conflict(e)) {
                 TRACE(grobner, m_solver.display(tout << "perfect-square conflict ", e) << "\n");
                 return true;

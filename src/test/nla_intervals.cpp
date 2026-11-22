@@ -20,8 +20,10 @@ Revision History:
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/lar_solver.h"
+#include "math/lp/nex_creator.h"
 #include "util/rational.h"
 #include "util/rlimit.h"
+#include "util/z3_exception.h"
 #include <iostream>
 
 namespace nla {
@@ -275,6 +277,40 @@ void test_fetch_normalized_term_column() {
     std::cout << "  non-existent term not found: " << (!found_missing ? "PASS" : "FAIL") << "\n";
 }
 
+void test_interval_resource_limit() {
+    for (unsigned budget : {0u, 10u, 1000u}) {
+        reslimit rl;
+        params_ref p;
+        lp::lar_solver s;
+        core solver(s, p, rl);
+        intervals in(&solver, rl);
+        nex_creator creator;
+        nex_creator::sum_factory sum(creator);
+        for (unsigned i = 0; i < 32; ++i)
+            sum += creator.mk_scalar(rational(1));
+        nex* e = sum.mk();
+        scoped_rlimit scoped(rl, budget == 0 ? 1000 : budget);
+        if (budget == 0)
+            rl.cancel();
+        scoped_dep_interval result(in.get_dep_intervals());
+        std::function<void(const lp::explanation&)> on_conflict = [](const lp::explanation&) {
+            VERIFY(false);
+        };
+        bool canceled = false;
+        try {
+            VERIFY(in.interval_of_expr<dep_intervals::without_deps>(e, 1, result, on_conflict));
+        }
+        catch (const z3_exception& ex) {
+            canceled = true;
+            VERIFY(std::string(ex.what()) == rl.get_cancel_msg());
+        }
+        VERIFY(canceled == (budget != 1000));
+        VERIFY(rl.is_canceled() == canceled);
+        if (!canceled)
+            VERIFY(rational(in.get_dep_intervals().lower(result)) == rational(32));
+    }
+}
+
 void test_nla_intervals() {
     test_nla_intervals_basic();
     test_nla_intervals_negative();
@@ -283,6 +319,7 @@ void test_nla_intervals() {
     test_nla_intervals_mixed_signs();
     test_nla_intervals_fractional();
     test_fetch_normalized_term_column();
+    test_interval_resource_limit();
 }
 
 } // namespace nla

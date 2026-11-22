@@ -7,10 +7,13 @@ output; these tests prove selection and wiring, not an end-to-end build.
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
+from unittest import mock
 
 import checker_scope
 
@@ -121,6 +124,123 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
         self.assertEqual(len(entries), 90)
         self.assertTrue(set(KERNEL) <= set(entries))
+
+
+class IndependentWorkflowSelectionTests(unittest.TestCase):
+    def select(self, extra=()):
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-build.yml").read_text()
+        script = workflow.split(
+            'manifest = json.loads(Path("fstar/tools/checker_modules.json").read_text())\n', 1)[1]
+        script = textwrap.dedent(script.split("          checker_scope.write_report(", 1)[0])
+        dependencies = ["Z3IndependentModel.fsti", "Z3IndependentModel.fst",
+                        "Z3IndependentNative.fsti", "Z3IndependentNative.fst"]
+        namespace = {
+            "checker_scope": checker_scope,
+            "manifest": {"modules": ["Z3List.fst"], "cherry_modules": [],
+                         "tests": dependencies + ["Z3IndependentTests.fst"]},
+            "closure": {"Z3List.fst", *dependencies, *extra},
+            "roots": ["Z3IndependentNative.fst"],
+        }
+        exec(script, namespace)
+        return namespace, ["Z3List.fst", *dependencies]
+
+    def test_registered_independent_dependencies_are_verified_without_unrelated_tests(self):
+        selection, expected = self.select()
+        self.assertEqual(selection["modules"], expected)
+        self.assertEqual(selection["tests"], [])
+        self.assertEqual(selection["manifest"]["tests"], ["Z3IndependentTests.fst"])
+
+    def test_unregistered_independent_dependencies_are_still_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "Z3IndependentUnregistered.fst"):
+            self.select(["Z3IndependentUnregistered.fst"])
+
+    def test_verification_uses_fstars_dependency_rules_without_relaxing_checks(self):
+        selection, modules = self.select()
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-build.yml").read_text()
+        script = workflow.split("roots, modules, tests)\n", 1)[1]
+        script = textwrap.dedent(script.split(
+            '          subprocess.run([\n'
+            '              sys.executable, "fstar/tools/build_independent_checker.py"', 1)[0])
+        runner = mock.Mock()
+        dependencies = "cache/Z3IndependentNative.fst.checked: cache/Z3IndependentModel.fsti.checked\n"
+        with tempfile.TemporaryDirectory() as directory:
+            exec(script, {**selection, "subprocess": runner, "fstar": "fstar",
+                          "cache": "cache", "z3": "z3", "version": "5.4.1",
+                          "Path": Path, "shlex": shlex, "dependencies": dependencies,
+                          "os": mock.Mock(environ={"REPORT_DIR": directory})})
+            makefile = Path(directory) / "verify-independent.mk"
+            runner.run.assert_called_once_with(
+                ["make", "--no-builtin-rules", "-f", str(makefile), "verify-independent"],
+                cwd="fstar", check=True)
+            script = makefile.read_text()
+            self.assertTrue(script.startswith(dependencies))
+            targets = script.split("\nverify-independent: ", 1)[1].splitlines()[0].split()
+            self.assertEqual(targets, [str(Path("cache") / (module + ".checked")) for module in modules])
+            self.assertIn("--warn_error @1..999", script)
+            self.assertIn(' "$<"', script)
+            self.assertNotIn("--expose_interfaces", script)
+
+
+@unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "needs a POSIX shell")
+class FullWorkflowTests(unittest.TestCase):
+    def run_backend(self, backend, fail_command=""):
+        workflow = (ROOT.parent / ".github/workflows/pulse-checker-full.yml").read_text()
+        step = workflow.split(
+            "      - name: Build Z3, verify every registered module and test,", 1)[1]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1]
+                                 .split("\n      - name:", 1)[0])
+        stubs = """
+opam() { :; }
+record() {
+  printf '%s\\n' "$*" >> "$COMMAND_LOG"
+  [[ "$1" != "$FAIL_COMMAND" ]] || return 7
+}
+pwsh() { record pwsh "$@"; }
+cmake() { record "cmake:$1" "$@"; }
+python3() { record python3 "$@"; }
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "commands"
+            environment = dict(
+                os.environ, RUNNER_TEMP=directory, REPORT_DIR=directory,
+                CHECKER_BACKEND=backend, OPAM_SWITCH="test",
+                FSTAR_VERSION="stable", CHERRY_FSTAR_VERSION="cherry",
+                COMMAND_LOG=str(log), FAIL_COMMAND=fail_command)
+            result = subprocess.run(
+                ["bash", "-c", stubs + script], env=environment,
+                capture_output=True, text=True, timeout=30)
+            metadata = json.loads((Path(directory) / "build.json").read_text())
+            return result, log.read_text().splitlines(), metadata
+
+    def test_each_backend_runs_its_complete_suite_and_records_its_toolchain(self):
+        for backend in ("ocaml", "cherry"):
+            with self.subTest(backend=backend):
+                result, commands, metadata = self.run_backend(backend)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((metadata["mode"], metadata["backend"], metadata["exit_code"]),
+                                 ("full", backend, 0))
+                if backend == "ocaml":
+                    self.assertEqual(len(commands), 1)
+                    self.assertIn("-RunTests", commands[0])
+                    self.assertNotIn("-BuildCherry", commands[0])
+                    self.assertEqual(metadata["fstar_version"], "stable")
+                else:
+                    self.assertEqual([line.split()[0] for line in commands],
+                                     ["cmake:-S", "cmake:--build", "cmake:--install", "python3"])
+                    self.assertIn("--run-tests", commands[-1])
+                    self.assertIn("scope-cherry.json", commands[-1])
+                    self.assertEqual(metadata["fstar_version"], "cherry")
+
+    def test_failures_are_reported_and_do_not_run_later_build_stages(self):
+        for backend, failure in (
+                ("ocaml", "pwsh"), ("cherry", "python3"),
+                ("cherry", "cmake:-S"), ("cherry", "cmake:--build"),
+                ("cherry", "cmake:--install")):
+            with self.subTest(backend=backend, failure=failure):
+                result, commands, metadata = self.run_backend(backend, failure)
+                self.assertEqual(result.returncode, 7)
+                self.assertEqual(metadata["exit_code"], 7)
+                self.assertEqual(commands[-1].split()[0], failure)
 
 
 @unittest.skipUnless(os.name == "posix" and PWSH and shutil.which("git"),

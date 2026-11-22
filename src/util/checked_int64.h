@@ -56,7 +56,7 @@ public:
     bool is_minus_one() const { return m_value == -1; }
     bool is_nonneg() const { return m_value >= 0; }
     bool is_nonpos() const { return m_value <= 0; }
-    bool is_even() const { return 0 == (m_value ^ 0x1); }
+    bool is_even() const { return 0 == (m_value & 0x1); }
     
     static checked_int64 zero() { return ci(0); }
     static checked_int64 one() { return ci(1); }
@@ -144,7 +144,7 @@ public:
             uint64_t x = static_cast<uint64_t>(m_value);
             uint64_t y = static_cast<uint64_t>(other.m_value);
             int64_t r = static_cast<int64_t>(x - y);
-            if (m_value > 0 && other.m_value < 0 && r <= 0) 
+            if (m_value >= 0 && other.m_value < 0 && r <= 0) 
                 throw overflow_exception();
             if (m_value < 0 && other.m_value > 0 && r >= 0) 
                 throw overflow_exception();
@@ -170,14 +170,11 @@ public:
                 uint64_t x = m_value < 0 ? -m_value : m_value;
                 uint64_t y = other.m_value < 0 ? -other.m_value : other.m_value;
                 uint64_t r = x * y;
-                if ((y != 0 && r / y != x) || r > INT64_MAX)
+                // a negative product may be INT64_MIN, whose magnitude is INT64_MAX + 1
+                bool neg_result = (m_value < 0) != (other.m_value < 0);
+                if ((y != 0 && r / y != x) || r > static_cast<uint64_t>(INT64_MAX) + (neg_result ? 1 : 0))
                     throw overflow_exception();
-                int64_t old_value = m_value;
-                m_value = r;
-                if (old_value < 0 && other.m_value > 0)
-                    m_value = -m_value;
-                else if (old_value > 0 && other.m_value < 0)
-                    m_value = -m_value;
+                m_value = static_cast<int64_t>(neg_result ? 0 - r : r);
             }
         }
         else {
@@ -189,6 +186,12 @@ public:
     checked_int64& operator/=(checked_int64 const& other) {
         if (CHECK && other.m_value == 0)
             throw overflow_exception();
+        if (other.m_value == -1 && m_value == INT64_MIN) {
+            // the quotient 2^63 is not representable; unchecked, it wraps to INT64_MIN
+            if (CHECK)
+                throw overflow_exception();
+            return *this;
+        }
         m_value /= other.m_value;
         return *this;
     }
@@ -196,6 +199,11 @@ public:
     checked_int64& operator%=(checked_int64 const& other) {
         if (CHECK && other.m_value == 0)
             throw overflow_exception();
+        if (other.m_value == -1) {
+            // INT64_MIN % -1 is undefined behavior in C++
+            m_value = 0;
+            return *this;
+        }
         m_value %= other.m_value;
         return *this;
     }
@@ -349,31 +357,40 @@ inline bool divides(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b
 
 template <bool CHECK>
 inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
-    checked_int64<CHECK> _a = abs(a);
-    checked_int64<CHECK> _b = abs(b);
-    if (_a == 0) 
-        return _b;
+    // mod is Euclidean (0 <= r < |_b|), so the arguments need not be made
+    // non-negative first: abs(INT64_MIN) would overflow even when the gcd fits.
+    checked_int64<CHECK> _a = a;
+    checked_int64<CHECK> _b = b;
     while (_b != 0) {
         checked_int64<CHECK> r = mod(_a, _b);
         _a = _b;
         _b = r;
     }
-    return _a;
+    return abs(_a);
 }
 
-// Compute the extended GCD such that ax + by = gcd(a,b)
+// Compute the extended GCD such that ax + by = gcd(a,b) and gcd(a,b) >= 0.
 template <bool CHECK>
 inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b,
     checked_int64<CHECK>& x, checked_int64<CHECK>& y) {
     checked_int64<CHECK> _a = a;
     checked_int64<CHECK> _b = b;
     x = 0;
-    y = 0;
+    y = 1;
     checked_int64<CHECK> lastx = 1;
     checked_int64<CHECK> lasty = 0;
     while (_b != 0) {
-        checked_int64<CHECK> q = div(_a, _b);
         checked_int64<CHECK> r = mod(_a, _b);
+        if (r == 0) {
+            // _b is the gcd up to sign and a * x + b * y == _b. Stop before
+            // computing q and the next coefficients (+-b/gcd, +-a/gcd), which
+            // are not needed and may overflow.
+            _a = _b;
+            lastx = x;
+            lasty = y;
+            break;
+        }
+        checked_int64<CHECK> q = div(_a, _b);
         _a = _b;
         _b = r;
         checked_int64<CHECK> temp = x;
@@ -383,5 +400,13 @@ inline checked_int64<CHECK> gcd(checked_int64<CHECK> const& a, checked_int64<CHE
         y = lasty - q * y;
         lasty = temp;
     }
+    // a * lastx + b * lasty == _a; make the gcd non-negative
+    if (_a < 0) {
+        _a.neg();
+        lastx.neg();
+        lasty.neg();
+    }
+    x = lastx;
+    y = lasty;
     return _a;
 }

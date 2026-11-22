@@ -69,6 +69,9 @@ struct is_non_fp_qfnra_predicate {
 
 class is_fp_qfnra_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_fp_qfnra_probe); }
+    char const* name() const override { return "is-fp-qfnra"; }
+    bool has_syntax() const override { return false; } // not registered
     result operator()(goal const & g) override {
         return !test<is_non_fp_qfnra_predicate>(g);
     }
@@ -145,6 +148,8 @@ struct is_non_qffp_predicate {
 
 class is_qffp_probe : public probe {
 public:
+    probe * clone() override { return alloc(is_qffp_probe); }
+    char const* name() const override { return "is-qffp"; }
     result operator()(goal const & g) override {
         return !test<is_non_qffp_predicate>(g);
     }

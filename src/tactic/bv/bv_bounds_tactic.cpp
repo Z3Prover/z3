@@ -91,9 +91,13 @@ namespace {
 }
 
 tactic * mk_bv_bounds_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m, p), p));
+    tactic * t = alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m, p), p);
+    t->set_display_name("propagate-bv-bounds");
+    return clean(t);
 }
 
 tactic* mk_dom_bv_bounds_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(dependent_expr_state_tactic, m, p, mk_bv_bounds_simplifier);
+    tactic * t = alloc(dependent_expr_state_tactic, m, p, mk_bv_bounds_simplifier);
+    t->set_display_name("propagate-bv-bounds2");
+    return t;
 }

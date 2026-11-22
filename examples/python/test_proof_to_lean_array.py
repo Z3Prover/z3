@@ -15,6 +15,7 @@
 # toolchain.
 ############################################
 import copy
+import dataclasses
 from pathlib import Path
 import random
 import re
@@ -33,6 +34,7 @@ import proof_clause_log
 import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import _STANDARD_AXIOMS, _hints, _z3_available
+from test_proof_to_lean_uflia import _NEGATED_ZERO_ACCEPTED
 
 _DECLARATIONS = """(declare-sort Index 0)
 (declare-sort Element 0)
@@ -738,6 +740,40 @@ NUMERAL_EXPRESSION_INPUTS = {
 (assert (not (= b (store a 2 w))))
 (check-sat)
 """,
+    # A read at the negation of zero: Lean's grind takes the Int literal -0
+    # for a numeral other than 0 and the kernel rejects its proof, so the
+    # index is rendered as 0 - 0 (proof_to_lean._negation).
+    "read_at_a_negated_zero": """(declare-fun a () (Array Int Int))
+(assert (= (select a (- 0)) 1))
+(assert (= (select a 0) 2))
+(check-sat)
+""",
+    # The same at indices Lean's simplifier evaluates to -0 on its own: the
+    # negation of a remainder by 1, and a quotient by a negative numeral,
+    # which it rewrites to the negation of the quotient by 5
+    # (proof_to_lean._negative_quotient).
+    "read_at_a_negated_remainder_by_one": """(declare-fun a () (Array Int Int))
+(declare-fun x () Int)
+(assert (= (select a (- (mod x 1))) 1))
+(assert (= (select a 0) 2))
+(check-sat)
+""",
+    "read_at_a_zero_quotient_by_a_negative": """(declare-fun a () (Array Int Int))
+(assert (= (select a (div 2 (- 5))) 1))
+(assert (= (select a 0) 2))
+(check-sat)
+""",
+    # A read and a store at the floor of a fraction, which Z3's rewriter
+    # evaluates: the index needs the floor's value as an Int
+    # (proof_to_lean._floor_shift_facts).
+    "read_at_the_floor_of_a_fraction": """(declare-fun a () (Array Int Int))
+(assert (not (= (select a (to_int 0.5)) (select a 0))))
+(check-sat)
+""",
+    "store_at_the_floor_of_a_fraction": """(declare-fun a () (Array Int Int))
+(assert (not (= (select (store a (to_int 1.5) 7) 1) 7)))
+(check-sat)
+""",
 }
 # Functions into arrays: one family per Lean array type (_m.arrs_funs,
 # _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
@@ -1249,7 +1285,466 @@ SET_COMBINATOR_INPUTS = {
                 ((as const (Array Int Bool)) true))))
 (check-sat)
 """,
+    # A set inside another, stated as an empty difference (what Z3's rewriter
+    # makes of subset) or as a full implication map, with a member that
+    # refutes it by reads. The array solver states the default value of
+    # every map it meets, (= (default (map f a b)) (f (default a) (default
+    # b))), which nothing certifies; these refutations do not use it, and
+    # their logs are too short to be trimmed.
+    "setminus_empty_with_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (= (setminus a b) ((as const (Array Int Bool)) false)))
+(assert (select a 1))
+(assert (not (select b 1)))
+(check-sat)
+""",
+    "implication_full_with_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
+(assert (select a x))
+(assert (not (select b x)))
+(check-sat)
+""",
+    # Refuted by default values alone: that of a store over a map is the
+    # map's (the default-store axiom, true of every array), and the map's is
+    # the constant array's it equals; the default-map axiom is logged, unused.
+    "default_of_store_over_map": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= ((_ map and) a b) ((as const (Array Int Bool)) false)))
+(assert (= (store ((_ map and) a b) i true) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # Once an assertion simplifies to false Z3 logs the others as they are
+    # written, set operators included (elsewhere the log holds the maps its
+    # rewriter makes of them); union is printed with its sort.
+    "set_operators_after_false": """(declare-fun s0 () (Array Int Bool))
+(declare-fun s1 () (Array Int Bool))
+(declare-fun s2 () (Array Int Bool))
+(declare-fun s3 () (Array Int Bool))
+(assert (select ((as const (Array Int Bool)) false) 0))
+(assert (= s3 (union s0 (complement s1))))
+(assert (= (intersection s0 s1) (setminus s2 s0)))
+(check-sat)
+""",
+    "set_operators_after_false_over_a_sort": """(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun b () (Array Index Bool))
+(declare-fun i () Index)
+(assert (not (= (select a i) (select a i))))
+(assert (select (setminus (union a b) (intersection a (complement b))) i))
+(check-sat)
+""",
+    # The input may declare a function named like a set operator (over other
+    # sorts): the log names the function (union x x) and Z3's own union with
+    # its sort, ((as union (Array Int Bool)) a b).
+    "set_union_beside_a_function_named_union": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () Int)
+(declare-fun union (Int Int) Int)
+(assert (select ((as const (Array Int Bool)) false) 0))
+(assert (= (union x x) 0))
+(assert (= c (union a b)))
+(check-sat)
+""",
+    # Sets Z3's rewriter compares member by member (array_rewriter::
+    # mk_map_core simplifies a map of connectives as the connective over the
+    # members): the certificate holds the sets before and after, equal as
+    # functions of their members but by no identity of a single map. Each
+    # failed in Lean (grind, in the rewrite or cnf lemma) before
+    # proof_to_lean._pointwise_map_facts. A difference of a set with itself
+    # and an intersection with a complement are both empty.
+    "sets_equal_member_by_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (not (= (setminus a a) (intersection b (complement b)))))
+(check-sat)
+""",
+    # The same over an uninterpreted index sort and over Real indices.
+    "sets_equal_member_by_member_over_a_sort": """(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun b () (Array Index Bool))
+(assert (not (= (setminus a a) (intersection b (complement b)))))
+(check-sat)
+""",
+    # An empty set equated with the full one: the members differ at every
+    # index, so at one (the equality is decided false).
+    "sets_differ_at_every_member": """(declare-fun a () (Array Int Bool))
+(assert (= ((_ map and) a (complement a)) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    "sets_differ_at_every_member_over_real": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(assert (= (union a (complement a)) (setminus b b)))
+(check-sat)
+""",
+    # The right side simplifies to the empty set through two levels: not b
+    # and (b and not a).
+    "set_equated_with_an_empty_intersection": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (= a (intersection (complement b) (setminus b a))))
+(assert (select a 0))
+(check-sat)
+""",
+    # Nested maps of and are flattened, sorted, and stripped of the repeated set.
+    "set_nested_intersections_flattened": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(assert (= c ((_ map and) ((_ map and) a b) a)))
+(assert (select c 0))
+(assert (not (select b 0)))
+(check-sat)
+""",
+    # A difference of stores at one index is the store of the difference;
+    # the difference of the sets below is the rewriter's map of and and not,
+    # no term of the certificate. A store is read member by member too: the
+    # stored value at its index, the set's member elsewhere.
+    "set_difference_of_stores_at_one_index": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (setminus (store a i false) (store b i true)) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # A constant array of a Boolean value that is not true or false is a leaf.
+    "set_difference_of_a_constant_set_with_itself": """(declare-fun a () (Array Int Bool))
+(declare-fun p () Bool)
+(assert (not (= (setminus ((as const (Array Int Bool)) p) ((as const (Array Int Bool)) p)) (setminus a a))))
+(check-sat)
+""",
+    # The second assertion simplifies to false, so the first is logged as
+    # written and tied to a clause the solver assumes about a member of b at
+    # i, with no read of the equality's sides: a cnf lemma, which needs the
+    # sides' members at the indices it reads.
+    "members_of_equal_sets": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union a b) (complement a)))
+(assert (select (setminus (setminus b c) (union a b)) i))
+(check-sat)
+""",
+    # The same read at a remainder, below stores at another: the indices
+    # are written with Lean's % into the facts.
+    "members_of_equal_sets_at_a_remainder": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union a b) (complement a)))
+(assert (select (setminus (setminus (store b (mod i 3) false) c) (union a (store b (mod i 3) false))) (mod i 2)))
+(check-sat)
+""",
 }
+
+
+def _nested_maps(function, depth, *others):
+    """depth nested maps of function, each over the one below (the set a at the bottom) and others."""
+    term = "a"
+    for _ in range(depth):
+        term = "(%s %s)" % (function, " ".join((term,) + others))
+    return term
+
+
+# Sixteen nested maps of xor, and of ite: a map of xor writes the member
+# formula of each argument twice and a map of ite that of its condition, so
+# the formula of the nest doubles per level. The pointwise comparison counts
+# what it writes, and a step first tries without its facts; neither read
+# needs one (every second level of the first nest is a or (xor a b)). With
+# the maps counted as a tree the certificate of the first was 10.8 MB and
+# Lean ran out of heartbeats on an auxiliary theorem; with small auxiliary
+# theorems and the facts in the step's only attempt, grind ran out of them
+# in the cnf lemma over the eleven equalities of the nest's levels.
+SET_COMBINATOR_INPUTS.update({
+    "set_read_of_nested_xor_maps": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select %s i))
+(assert (not (select a i)))
+(assert (= c (setminus a a)))
+(check-sat)
+""" % _nested_maps("(_ map xor)", 16, "b"),
+    "set_read_of_nested_ite_maps": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun d () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select %s i))
+(assert (not (select (union %s %s) i)))
+(assert (= d (setminus a a)))
+(check-sat)
+""" % ((_nested_maps("(_ map (ite (Bool Bool Bool) Bool))", 16, "b", "c"),) * 3),
+})
+# Reads through stores into a map or set operator where the rewriter does
+# not skip the stores (the read's index or a stored one is no value). Z3's
+# rewriter simplifies the map below member by member and pulls stores out of
+# maps, so the certificate compares the read with members of the sets and has
+# no read term of the map below the stores. Each failed in Lean (grind, in a
+# rewrite or cnf lemma) before proof_to_lean._read_levels gave such a read
+# every store level and the read of the map (random_set_instance seeds 1083,
+# 1088, 1398; only stores at a value index other than the read's reached the
+# map before, read_through_store_to_map).
+SET_COMBINATOR_INPUTS.update({
+    # (setminus s s) is empty, so is its store of false: the read is false.
+    "set_read_at_a_variable_through_a_store_to_a_map": """(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select (store (setminus s s) 1 false) i))
+(check-sat)
+""",
+    # Two stores, the upper at a variable.
+    "set_read_through_two_stores_to_a_map": """(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (select (store (store (setminus s s) 1 false) j false) i))
+(check-sat)
+""",
+    # The second assertion simplifies to false, so the first is logged as
+    # written; the rewriter reads the difference at 0 as the member of t and
+    # that of (store (complement s) j false), the complement of the store,
+    # which is read below a store at j (seed 1398).
+    "set_read_of_a_store_pulled_out_of_a_difference": """(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun j () Int)
+(assert (select (setminus t (store s j true)) 0))
+(assert (not (select ((as const (Array Int Bool)) true) 1)))
+(check-sat)
+""",
+    # The same with a store in each set of the difference (seed 1088).
+    "set_read_of_a_difference_of_stores": """(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select (setminus (store s 1 true) (store t i true)) 0))
+(assert (select t i))
+(assert (= s ((as const (Array Int Bool)) false)))
+(check-sat)
+""",
+    # A read of an ite over such stores: the read is pushed into the
+    # branches, each a store over a map.
+    "set_read_of_an_ite_of_stores_over_maps": """(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun p () Bool)
+(assert (select (ite p (store (complement s) j false) (store (setminus s s) j false)) i))
+(assert (select s i))
+(check-sat)
+""",
+    # A read of a stored row that is such a store.
+    "set_read_of_a_stored_row_over_a_map": """(declare-fun r () (Array Int (Array Int Bool)))
+(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(assert (select (select (store r k (store (setminus s s) j false)) k) i))
+(check-sat)
+""",
+})
+
+
+def _stores_over_complements(levels, reads):
+    """reads reads, at i0, i1, ..., of levels stores of false at j0, j1, ..., each over the complement of the one below.
+
+    The set s is at the bottom, and every read's index is asserted equal to
+    the top store's, so every read is false and their disjunction refuted.
+    """
+    lines, term = ["(declare-fun s () (Array Int Bool))"], "s"
+    for level in range(levels):
+        lines.append("(declare-fun j%d () Int)" % level)
+        term = "(store (complement %s) j%d false)" % (term, level)
+    lines.extend("(declare-fun i%d () Int)" % read for read in range(reads))
+    lines.append("(assert (or %s))" % " ".join("(select %s i%d)" % (term, read) for read in range(reads)))
+    lines.extend("(assert (= i%d j%d))" % (read, levels - 1) for read in range(reads))
+    return "\n".join(lines + ["(check-sat)"]) + "\n"
+
+
+# Seven reads of three stores alternating with complements. The rewrite of
+# the disjunction needs none of the facts of the reads through the stores
+# into the complements (the pointwise facts prove it, 0.5 s in Lean), and
+# each such store is a case split on its index for grind: with those facts
+# in every attempt of the step, the attempt made first, without the
+# pointwise facts, did not fail but ran out of the heartbeats after 55 s
+# (which first does not catch; with five reads the step took 6.6 s). So
+# they are stated in attempts of their own, after the others
+# (proof_to_lean._grind_lemma).
+SET_COMBINATOR_INPUTS["set_reads_through_stores_alternating_with_complements"] = _stores_over_complements(3, 7)
+# A set equated with a store, and the maps of another assertion read at the
+# stored index: Z3 evaluates the member of the set there ((= (store s j
+# false) t) makes (select t j) false) and logs a clause over the members
+# alone, which the replay ties to the two assertions by a cnf lemma. The
+# lemma reaches the store and no map, so it had no fact for the members of
+# the equality's sides (proof_to_lean._pointwise_map_facts stated them only
+# next to a map) and failed in Lean (random_set_instance seed 1486).
+SET_COMBINATOR_INPUTS.update({
+    "member_of_a_set_equated_with_a_store": """(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun u () (Array Int Bool))
+(declare-fun j () Int)
+(assert (= (store s j false) t))
+(assert (not (select ((_ map xor) ((_ map and) t u) ((_ map =>) t s)) j)))
+(assert (select s j))
+(check-sat)
+""",
+    "member_of_a_set_equated_with_a_store_on_the_right": """(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun u () (Array Int Bool))
+(declare-fun j () Int)
+(assert (= t (store s j false)))
+(assert (not (select ((_ map xor) ((_ map and) t u) ((_ map =>) t s)) j)))
+(assert (select s j))
+(check-sat)
+""",
+    # Two such equalities, the second store over the first's set.
+    "members_of_sets_equated_with_stores": """(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun u () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= (store s j false) t))
+(assert (= u (store t i true)))
+(assert (not (select ((_ map xor) ((_ map and) t u) ((_ map =>) u s)) j)))
+(assert (select s j))
+(assert (not (= i j)))
+(check-sat)
+""",
+})
+# Refuted through the default value of a map: no member is named, so the
+# array solver compares default values, and that of a map is its function
+# of the arrays' (the default-map axiom, (= (default (map f a b)) (f
+# (default a) (default b)))). That is not a theorem of Lean's _default (an
+# array need not be constant at all but finitely many indices), and each of
+# these was rejected ("the default value of a map is not certified"). None
+# names a default value, so the default values are the array solver's own
+# terms, and Lean reads them all at one index that no store of the
+# certificate writes (proof_to_lean._generic_defaults), where the axiom
+# holds of every map.
+_SETS = """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+"""
+_FULL, _EMPTY = "((as const (Array Int Bool)) true)", "((as const (Array Int Bool)) false)"
+GENERIC_DEFAULT_INPUTS = {
+    # The full set inside the empty one, as a full implication map
+    # (test_default_values_of_maps_are_rejected's input until iteration 122).
+    "implication_full_of_constants": _SETS + """(assert (= ((_ map =>) a b) %s))
+(assert (= a %s))
+(assert (= b %s))
+(check-sat)
+""" % (_FULL, _FULL, _EMPTY),
+    # The same behind four clauses that take no part: a log of 4 KB or more
+    # is trimmed, and the trimmer's core lists the axiom.
+    "implication_full_of_constants_trimmed": (
+        "".join("(declare-fun y%d () Int)\n" % k for k in range(4)) + "(declare-fun c () (Array Int Bool))\n" + _SETS
+        + "(assert (= ((_ map =>) a b) %s))\n(assert (= a %s))\n(assert (= b %s))\n" % (_FULL, _FULL, _EMPTY)
+        + "".join("(assert (or (select c y%d) (> y%d %d) (select a y%d)))\n" % (k, k, k, k) for k in range(4))
+        + "(check-sat)\n"),
+    "union_with_full_is_empty": _SETS + """(assert (= (union a b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # A store under the map: its default value is the array's, since the
+    # index read is not the stored one (_generic_i_ne_K).
+    "store_under_union_default": _SETS + """(declare-fun i () Int)
+(assert (= (union (store a i false) b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Three stores, at two variables and a numeral: the index is none of them.
+    "stores_under_union_default": _SETS + """(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= (union (store (store (store a i false) j false) 3 false) b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # A store over the map.
+    "store_over_intersection_default": _SETS + """(declare-fun i () Int)
+(assert (= (store (intersection a b) i true) %s))
+(assert (= b %s))
+(check-sat)
+""" % (_FULL, _EMPTY),
+    # Over Real indices (_generic_r, off the stored indices by _rat_unbounded).
+    "real_stores_under_union_default": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(declare-fun x () Real)
+(assert (= (union (store (store a x false) 0.5 false) b) ((as const (Array Real Bool)) false)))
+(assert (= a ((as const (Array Real Bool)) true)))
+(check-sat)
+""",
+    # Both index sorts in one refutation, an index of each.
+    "defaults_over_two_index_sorts": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun d () (Array Int Bool))
+(declare-fun x () Real)
+(declare-fun i () Int)
+(assert (or (= (union (store a x false) b) ((as const (Array Real Bool)) false))
+            (= (union (store c i false) d) ((as const (Array Int Bool)) false))))
+(assert (= a ((as const (Array Real Bool)) true)))
+(assert (= c ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # A Real-indexed array next to sets over Int. The solver takes no
+    # default value over Real, but the rewrites that reach the store into r
+    # next to a constant array state that store's default value
+    # (_constant_array_comparisons), so Real has its index as well.
+    "real_array_next_to_set_defaults": _SETS + """(declare-fun r () (Array Real Int))
+(declare-fun x () Real)
+(declare-fun i () Int)
+(assert (or (> (select (store r x 1) x) 1) (= (union (store a i false) b) %s)))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Maps of other functions, over Int elements: +, <=, ite (the axiom's ite
+    # of the default values is unfolded to meet the map's), and an
+    # uninterpreted function over a store.
+    "sum_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(assert (= ((_ map (+ (Int Int) Int)) a b) ((as const (Array Int Int)) 3)))
+(assert (= a ((as const (Array Int Int)) 1)))
+(assert (= b ((as const (Array Int Int)) 1)))
+(check-sat)
+""",
+    "comparison_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(assert (= ((_ map (<= (Int Int) Bool)) a b) ((as const (Array Int Bool)) true)))
+(assert (= a ((as const (Array Int Int)) 2)))
+(assert (= b ((as const (Array Int Int)) 1)))
+(check-sat)
+""",
+    "ite_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(declare-fun c () (Array Int Bool))
+(assert (= ((_ map (ite (Bool Int Int) Int)) c a b) ((as const (Array Int Int)) 3)))
+(assert (= a ((as const (Array Int Int)) 1)))
+(assert (= b ((as const (Array Int Int)) 2)))
+(check-sat)
+""",
+    "function_map_default": """(declare-fun f (Int) Int)
+(declare-fun a () (Array Int Int))
+(declare-fun i () Int)
+(assert (= ((_ map f) (store a i 1)) ((as const (Array Int Int)) 5)))
+(assert (= a ((as const (Array Int Int)) 7)))
+(assert (not (= (f 7) 5)))
+(check-sat)
+""",
+    # A row of nested arrays under the map.
+    "row_under_union_default": """(declare-fun a () (Array Int (Array Int Bool)))
+(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union (select a i) s) %s))
+(assert (= (select a i) %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Next to arrays of an enumeration, whose default values get no case
+    # facts at a generic index (proof_to_lean._read_cases).
+    "enumeration_arrays_next_to_set_defaults": """(declare-datatypes ((Color 0)) ((red green blue)))
+(declare-fun e () (Array Int Color))
+""" + _SETS + """(declare-fun i () Int)
+(assert (or (= (store e i green) ((as const (Array Int Color)) blue))
+            (= (union (store a i false) b) %s)))
+(assert (= e ((as const (Array Int Color)) red)))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+}
+SET_COMBINATOR_INPUTS.update(GENERIC_DEFAULT_INPUTS)
 # Maps of other functions ((_ map f) a ...): uninterpreted functions and
 # predicates of up to three arguments, the Boolean connective xor, = and
 # distinct, Int and Real +, -, and comparisons, and ite, over elements of
@@ -1486,7 +1981,7 @@ MAP_FUNCTION_INPUTS = {
     # A read through a store at another numeral reaches a map: the rewriter
     # skips the store and evaluates the read of the map with no read term of
     # it in the certificate, so the map's read fact goes with the store's
-    # (_skipped_to_map; random sweep seeds 110, 137, 172).
+    # (_read_levels; random sweep seeds 110, 137, 172).
     "read_through_store_to_map": """(declare-fun a () (Array Int Int))
 (assert (= (select (store ((_ map (- (Int) Int)) a) 1 2) 0) 2))
 (assert (= (select a 0) 2))
@@ -1548,6 +2043,45 @@ MAP_FUNCTION_INPUTS = {
 (assert (and q (= c ((_ map (+ (Int Int) Int)) a b))))
 (assert (and r (= c ((_ map (- (Int Int) Int)) a b)) (= c d)))
 (assert (not (= (select b 0) 0)))
+(check-sat)
+""",
+    # The Int negation map over a stored 0 and over the constant array of 0:
+    # the map identities apply the function to the value, where grind would
+    # beta-reduce a negation to the literal -0 (the kernel rejects what it
+    # builds on that), so the function is the difference from zero
+    # (proof_to_lean._INT_MAP_NEGATION).
+    "negation_map_of_a_stored_zero": """(declare-fun a () (Array Int Int))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (> (select ((_ map (- (Int) Int)) (store a i 0)) j) 0))
+(assert (= i j))
+(check-sat)
+""",
+    "negation_map_of_a_constant_zero": """(declare-fun a () (Array Int Int))
+(declare-fun j () Int)
+(assert (= a ((_ map (- (Int) Int)) ((as const (Array Int Int)) 0))))
+(assert (> (select a j) 0))
+(check-sat)
+""",
+    # Two levels of stores of 0 over negation maps, read at two variables
+    # (the iteration 123 review's shape, there with four levels).
+    "negation_maps_under_stores_of_zero": """(declare-fun s () (Array Int Int))
+(declare-fun j0 () Int)
+(declare-fun j1 () Int)
+(declare-fun i0 () Int)
+(declare-fun i1 () Int)
+(assert (or (> (select (store ((_ map (- (Int) Int)) (store ((_ map (- (Int) Int)) s) j0 0)) j1 0) i0) 0)
+            (> (select (store ((_ map (- (Int) Int)) (store ((_ map (- (Int) Int)) s) j0 0)) j1 0) i1) 0)))
+(assert (= i0 j1))
+(assert (= i1 j1))
+(check-sat)
+""",
+    # Rat has no such defect: the Real negation map keeps its form.
+    "real_negation_map_of_a_stored_zero": """(declare-fun a () (Array Int Real))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (> (select ((_ map (- (Real) Real)) (store a i 0.0)) j) 0.0))
+(assert (= i j))
 (check-sat)
 """,
 }
@@ -1946,19 +2480,27 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira",
               "real_read_of_an_array_equated_to_a_constant": "qf_uflra",
               "int_read_of_a_store_at_real_indices": "qf_uflira",
-              "read_stored_back_at_a_fraction_of_one": "qf_uflira", "fraction_sums_as_indices": "qf_uflra"}
+              "read_stored_back_at_a_fraction_of_one": "qf_uflira", "fraction_sums_as_indices": "qf_uflra",
+              "read_at_the_floor_of_a_fraction": "qf_uflira", "store_at_the_floor_of_a_fraction": "qf_uflira"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
 # explicitly rather than guessed from the source text.
 _SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersection": "qf_uf",
                              "map_equal_sets": "qf_uf", "union_of_variable_sets": "qf_uf",
-                             "union_commutes": "qf_uf", "real_intersection": "qf_uflra"}
+                             "union_commutes": "qf_uf", "real_intersection": "qf_uflra",
+                             "set_operators_after_false_over_a_sort": "qf_uf",
+                             "sets_equal_member_by_member_over_a_sort": "qf_uf",
+                             "sets_differ_at_every_member_over_real": "qf_uflra",
+                             "real_stores_under_union_default": "qf_uflra",
+                             "defaults_over_two_index_sorts": "qf_uflira",
+                             "real_array_next_to_set_defaults": "qf_uflira"}
 _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 # Maps of other functions are over Int indices and elements (qf_uflia) except these.
 _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_distinct": "qf_uf",
                            "equality_map_commutes": "qf_uf", "map_mixed_sorts": "qf_uflira",
-                           "map_real_subtraction": "qf_uflira", "map_strict_comparisons": "qf_uflra"}
+                           "map_real_subtraction": "qf_uflira", "map_strict_comparisons": "qf_uflra",
+                           "real_negation_map_of_a_stored_zero": "qf_uflira"}
 _FRAGMENTS.update((name, _MAP_FUNCTION_FRAGMENTS.get(name, "qf_uflia")) for name in MAP_FUNCTION_INPUTS)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   + list(NUMERAL_EXPRESSION_INPUTS) if name not in _FRAGMENTS)
@@ -1999,10 +2541,9 @@ class TestArrayValidation(unittest.TestCase):
         context = z3.Context()
         rejected = {
             # Bool elements and Bool indices are supported (BOOL_ELEMENT_INPUTS,
-            # BOOL_INDEX_INPUTS), but not constant arrays or default values
-            # over Bool indices (a finite index sort).
-            "(assert (not (select ((as const (Array Bool Bool)) true) false)))":
-                "constant arrays are supported over Int and Real indices only",
+            # BOOL_INDEX_INPUTS), and constant arrays over Bool indices
+            # (test_proof_to_lean_const_sort.py), but not default values
+            # over them (a finite index sort).
             "(declare-fun a () (Array Bool Int))(assert (> (default a) 0))":
                 "default values are supported over Int and Real indices only",
             # Arrays of several indices, also inside a nested array.
@@ -2011,10 +2552,10 @@ class TestArrayValidation(unittest.TestCase):
             "(declare-fun a () (Array Int (Array Int Int Int)))(assert (not (= a a)))":
                 "only arrays over uninterpreted sorts",
             # Nested arrays are supported (NESTED_ARRAY_INPUTS), but not
-            # constant arrays over array indices (no unboundedness proof)
-            # nor default values that are arrays.
+            # constant arrays over array indices (a model's is constant on
+            # the embedded indices only) nor default values that are arrays.
             "(assert (not (select ((as const (Array (Array Int Int) Bool)) true) ((as const (Array Int Int)) 0))))":
-                "constant arrays are supported over Int and Real indices only",
+                "constant arrays indexed by arrays are not supported",
             "(declare-fun a () (Array Int (Array Int Int)))(assert (= (select (default a) 0) 1))":
                 "unsupported array operator: default",
             # Nor connectives over sets indexed by arrays (the embedding of
@@ -2027,10 +2568,6 @@ class TestArrayValidation(unittest.TestCase):
             "(assert (not (select t x)))": "maps and set operators over arrays indexed by arrays",
             "(declare-fun g (Int) Int)(declare-fun a () (Array (Array Int Int) Int))(declare-fun x () (Array Int Int))"
             "(assert (= (select ((_ map g) a) x) 1))": "maps and set operators over arrays indexed by arrays",
-            # Constant arrays over a possibly finite index sort.
-            "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
-            "(assert (not (= (select ((as const (Array I I)) e) i) e)))":
-                "constant arrays are supported over Int and Real indices only",
             # Maps are supported over connectives, equality, distinct, linear
             # arithmetic, comparisons, ite, and uninterpreted functions of up
             # to three elements (SET_COMBINATOR_INPUTS, MAP_FUNCTION_INPUTS);
@@ -2355,8 +2892,9 @@ class TestArrayValidation(unittest.TestCase):
 
         def uninterpreted_indices(index):
             # Default values need an infinite index type: over Element
-            # indices (a sort that may be finite) the declarations are
-            # rejected, not proved.
+            # indices (a sort that may be finite) the default declaration
+            # is rejected, not proved, and so is a store into such an array
+            # at an index of the original sort.
             def tamper(certificate):
                 array = "(Array %s Element)" % index
                 for d in certificate["declarations"]:
@@ -2390,10 +2928,8 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("z3test_2549", const_of_real, "invalid constant array declaration")
         self._rejects("z3test_2549", renamed_const, "invalid constant array declaration")
         self._rejects("z3test_2549", default_into_real, "invalid default declaration")
-        self._rejects("element_constants", uninterpreted_indices("Int"),
-                      "invalid (constant array|default) declaration")
-        self._rejects("real_index_elements", uninterpreted_indices("Real"),
-                      "invalid (constant array|default) declaration")
+        self._rejects("element_constants", uninterpreted_indices("Int"), "invalid (store|default) declaration")
+        self._rejects("real_index_elements", uninterpreted_indices("Real"), "invalid (store|default) declaration")
         self._rejects("real_index_2549", default_into_real, "invalid default declaration")
         self._rejects("real_index_read", const_value_of_int, "invalid constant array declaration")
         # Real indices relabelled to Int (or the element sort changed) consistently.
@@ -2544,7 +3080,8 @@ class TestArrayValidation(unittest.TestCase):
             next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_EXT)["range"] = "Int"
 
         def const_over_bool(certificate):
-            # The read at true (a Bool-indexed array constant) relabelled a constant array.
+            # The read at true (a Bool-indexed array constant) relabelled a
+            # constant array, which is one of a value, not a constant.
             array = next(d for d in certificate["declarations"]
                          if d["kind"] == z3.Z3_OP_UNINTERPRETED and d["range"] == "(Array Bool Int)")
             array.update(kind=z3.Z3_OP_CONST_ARRAY, name="const", domain=["Int"])
@@ -2566,7 +3103,7 @@ class TestArrayValidation(unittest.TestCase):
             self.fail("no unit resolution over a double negation")
 
         self._rejects("bool_index_extensionality", witness_into_int, "invalid array-ext declaration")
-        self._rejects("bool_index_read_other", const_over_bool, "invalid constant array declaration")
+        self._rejects("bool_index_read_other", const_over_bool, "wrong number of arguments at node")
         self._rejects("bool_index_negated_stores", double_negation_concluded_negated,
                       "incorrect unit-resolution conclusion")
 
@@ -2617,7 +3154,10 @@ class TestArrayValidation(unittest.TestCase):
                      "(Array Int (Array Int Int) )", "(Array Int )(Array Int Int)"):
             with self.subTest(name=name):
                 self.assertIsNone(components(name))
-        self.assertEqual(proof_to_lean._array_family("(Array (Array Int Int) (Array Bool U))"), "arrs_aiiabu")
+        # The family name of a Lean array type; the graph says which sorts have a type of their own (none here).
+        graph = proof_to_lean._validate_graph(ARRAY_INPUTS["read_own_write"], self.certificates["read_own_write"])
+        self.assertEqual(graph.index_sorts, ())
+        self.assertEqual(proof_to_lean._array_family(graph, "(Array (Array Int Int) (Array Bool U))"), "arrs_aiiabu")
         # A tampered name nested past the cap is no sort name (not a RecursionError).
         deep = "Int"
         for _ in range(2000):
@@ -2701,6 +3241,120 @@ class TestArrayValidation(unittest.TestCase):
         facts = levels("read_of_store_over_constant")
         self.assertIn("_select_const", [fact for _, fact in facts])
 
+    def test_reads_through_stores_reach_maps(self):
+        """A read through stores into a map gets every store level and the read of the map, at any index."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        member = r"\(_select \(\(term_\d+ [^)]*\)\) \(_vars %d\)\)"
+        empty = r"\(And %s \(Not %s\)\) := rfl\n" % (member, member)
+        # (select (store (setminus s s) 1 false) i): the store is not
+        # skipped at i, and the read of the difference below it is stated.
+        text = text_of("set_read_at_a_variable_through_a_store_to_a_map")
+        self.assertRegex(text, r"have _s(\d+) := _store_apply [^\n]* \(\(\(1 : Int\)\)\) \(False\) "
+                               r"\(_vars 0\)\n *have _sm\1 : _select [^\n]* \(_vars 0\) = " + empty % (0, 0))
+        # Two stores, the upper at j: both levels, then the difference.
+        text = text_of("set_read_through_two_stores_to_a_map")
+        self.assertRegex(text, r"have _s(\d+) := _store_apply [^\n]* \(_vars 0\) \(False\) \(_vars 1\)\n"
+                               r" *have _s\1_1 := _store_apply [^\n]* \(\(\(1 : Int\)\)\) \(False\) \(_vars 1\)\n"
+                               r" *have _sm\1 : _select [^\n]* \(_vars 1\) = " + empty % (1, 1))
+        # The rewriter's store of a complement, read at 0 below j.
+        self.assertRegex(text_of("set_read_of_a_store_pulled_out_of_a_difference"),
+                         r"have _s(\d+) := _store_apply [^\n]* \(_vars 0\) \(False\) \(\(\(0 : Int\)\)\)\n"
+                         r" *have _sm\1 : _select [^\n]* \(\(\(0 : Int\)\)\) = \(Not \(_select [^\n]*\)\) := rfl\n")
+        # The branches of an ite and a stored row: the map below each.
+        text = text_of("set_read_of_an_ite_of_stores_over_maps")
+        self.assertRegex(text, r"have _si(\d+)_0 := _store_apply [^\n]*\n *have _sim\1_0 : _select [^\n]* := rfl\n"
+                               r" *have _si\1_1 := _store_apply [^\n]*\n *have _sim\1_1 : _select [^\n]* := rfl\n")
+        self.assertRegex(text_of("set_read_of_a_stored_row_over_a_map"),
+                         r"have _n(\d+)_0 := _store_apply [^\n]*\n *have _nm\1_0 : _select [^\n]* = " + empty % (2, 2))
+        # A store at another numeral was skipped to the map before too.
+        self.assertRegex(text_of("set_read_through_store_to_map"), r"have _sm\d+ : ")
+        # A read goes through at most _MAP_STORE_LEVELS stores the rewriter
+        # does not skip (one fact per level and read is quadratic in a long
+        # chain); below more of them it keeps the levels the rewriter skips
+        # and the one where the skip stops, and the map only below a store
+        # it skips.
+        self.assertEqual(proof_to_lean._MAP_STORE_LEVELS, 8)
+        with mock.patch.object(proof_to_lean, "_MAP_STORE_LEVELS", 1):
+            self.assertNotRegex(text_of("set_read_through_two_stores_to_a_map"), r"have _s\d+_1 := |have _sm\d+ : ")
+            for name in ("set_read_at_a_variable_through_a_store_to_a_map", "set_read_through_store_to_map"):
+                with self.subTest(name=name):
+                    self.assertRegex(text_of(name), r"have _sm\d+ : ")
+        # Stores over a plain array or set reach no map.
+        for name in ("bool_store_chain", "set_read_through_numeral_stores", "read_through_numeral_stores"):
+            with self.subTest(name=name):
+                self.assertNotRegex(text_of(name), r"have _(sm|sim|nm)\d+")
+
+    def test_reads_through_unskipped_stores_are_stated_last(self):
+        """The facts of reads through stores the rewriter does not skip are in attempts after all the others."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        def attempts(text):
+            """The proof attempts of each theorem by name: the alternatives of its first, or its one body."""
+            steps = {}
+            for block in text.split("\n\n"):
+                name = re.search(r"^(?:private )?theorem (\S+)", block, re.MULTILINE)
+                if name is None or ":= by\n" not in block:
+                    continue
+                body = block.split(":= by\n", 1)[1]
+                # Tactics before the first (an unfold outside opaque atoms)
+                # go with every attempt.
+                opening, first, alternatives = ("\n" + body).partition("\n  first\n    | (")
+                if first:
+                    opening = [line[2:] for line in opening.split("\n")[1:]]
+                    steps[name.group(1)] = ["\n".join(opening + [alternative[:-1].replace("\n       ", "\n")])
+                                            for alternative in alternatives.split("\n    | (")]
+                else:
+                    steps[name.group(1)] = ["\n".join(line[2:] for line in body.split("\n"))]
+            return steps
+
+        through = re.compile(r"have _(sm|sim|nm)\d+")
+        for name, grown in (("set_read_at_a_variable_through_a_store_to_a_map", 1),
+                            ("set_read_through_two_stores_to_a_map", 1),
+                            ("set_read_of_a_store_pulled_out_of_a_difference", 1),
+                            ("set_read_of_a_difference_of_stores", 3),
+                            ("set_read_of_an_ite_of_stores_over_maps", 4),
+                            ("set_read_of_a_stored_row_over_a_map", 1),
+                            ("set_reads_through_stores_alternating_with_complements", 2),
+                            # Stores the rewriter skips, and no stores over maps: nothing to add.
+                            ("set_read_through_store_to_map", 0), ("read_through_store_to_map", 0),
+                            ("bool_store_chain", 0), ("set_read_of_nested_xor_maps", 0)):
+            with self.subTest(name=name):
+                steps = attempts(text_of(name))
+                # Without such reads (no store of theirs to go through) the
+                # text has the attempts there were before them, and with
+                # them every step keeps those, in order, before its own.
+                with mock.patch.object(proof_to_lean, "_MAP_STORE_LEVELS", 0):
+                    before = attempts(text_of(name))
+                self.assertEqual(list(steps), list(before))
+                added = {step: steps[step][len(before[step]):] for step in steps
+                         if steps[step] != before[step]}
+                self.assertEqual(len(added), grown)
+                for step, alternatives in added.items():
+                    self.assertEqual(steps[step][:len(before[step])], before[step])
+                    self.assertFalse(any(through.search(alternative) for alternative in before[step]), step)
+                    # The attempts added state every fact (the pointwise
+                    # ones too): one per proof body, not one per attempt.
+                    self.assertLessEqual(len(alternatives), max(1, len(before[step]) // 2))
+                    for alternative in alternatives:
+                        self.assertRegex(alternative, through)
+                        self.assertEqual("have _pw" in alternative,
+                                         any("have _pw" in other for other in before[step]))
+        # The limit is on the stores of all the levels the facts of one read
+        # walk, not on one run of stores: below the second store that is not
+        # skipped, the third gets its own fact and the complement below it
+        # none.
+        name = "set_reads_through_stores_alternating_with_complements"
+        levels = r"have _sm(\d+) : [^\n]*:= rfl\n *have _sm\1_1 := _store_apply [^\n]*\n *have _sm\1_2 : [^\n]*:= rfl\n"
+        third = r" *have _sm\1_3 := _store_apply [^\n]*\n"
+        self.assertRegex(text_of(name), levels + third + r" *have _sm\1_4 : [^\n]*:= rfl\n")
+        with mock.patch.object(proof_to_lean, "_MAP_STORE_LEVELS", 2):
+            limited = text_of(name)
+        self.assertRegex(limited, levels + third)
+        self.assertNotRegex(limited, r"have _sm\d+_4 ")
+
     def test_tampered_bool_element_arrays_are_rejected(self):
         def relabelled(source, target):
             def mutate(certificate):
@@ -2771,17 +3425,406 @@ class TestArrayValidation(unittest.TestCase):
             self.assertEqual(_declarations(self.certificates[name], z3.Z3_OP_ARRAY_DEFAULT), [])
 
     def test_default_values_of_maps_are_rejected(self):
-        """The default-map axiom holds only for arrays constant almost everywhere, which Lean cannot assume."""
-        source = """(declare-fun a () (Array Int Bool))
+        """The default-map axiom is not a theorem of the default values an input names."""
+        # No member is named, so the refutation compares default values:
+        # that of the map is (=> (default a) (default b)), false, by the
+        # axiom. The last assertion names a default value (and says nothing
+        # of it): the default values are then the input's, Lean's _default,
+        # which is that of an array constant at all but finitely many
+        # indices only, and the axiom holds of no other.
+        named = "(declare-fun d () (Array Int Bool))\n(assert (or (default d) (not (default d))))\n(check-sat)\n"
+        source = ARRAY_INPUTS["implication_full_of_constants"].replace("(check-sat)\n", named)
+        # The same behind four clauses that take no part: a log of 4 KB or
+        # more is trimmed, and the trimmer's core lists the axiom.
+        padded = ARRAY_INPUTS["implication_full_of_constants_trimmed"].replace("(check-sat)\n", named)
+        check = proof_clause_log._Replay._require_certified
+        for name, text, trimmed in (("untrimmed", source, False), ("trimmed", padded, True)):
+            with self.subTest(name=name):
+                seen = []
+
+                def recorded(replay):
+                    seen.append(replay.trimmed)
+                    check(replay)
+
+                with mock.patch.object(proof_clause_log._Replay, "_require_certified", recorded):
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                                "^the default value of a map is not certified$"):
+                        _export(text)
+                self.assertEqual(seen, [trimmed])
+                # The reconstructor rejects the axiom on its own: Lean has no theorem for it.
+                with mock.patch.object(proof_clause_log._Replay, "_require_certified", lambda self: None):
+                    certificate = _export(text)
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                            "the default value of a map is not certified at node"):
+                    proof_to_lean.reconstruct(text, certificate)
+        # A default value named in a term of the input, not a formula.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "^the default value of a map is not certified$"):
+            _export(ARRAY_INPUTS["sum_map_default"].replace(
+                "(check-sat)\n", "(declare-fun n () Int)\n(assert (> (+ n (default a)) n))\n(check-sat)\n"))
+
+    def test_default_values_are_read_at_a_generic_index(self):
+        """A refutation through the default-map axiom reads the solver's default values at an index no store writes."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        definition = re.compile(r"(?:noncomputable )?def ((?:term|formula)_\d+) ")
+        for name in GENERIC_DEFAULT_INPUTS:
+            with self.subTest(name=name):
+                text = text_of(name)
+                lines = text.split("\n")
+                self.assertIn("def _default {I E : Type} (g : I) (a : I -> E) : E := a g", lines)
+                # Lean's own _default (the value at all but finitely many
+                # indices) is not defined next to it.
+                self.assertNotIn("_default_spec", text)
+                self.assertNotIn("_cases_default_", text)
+                for word in ("sorry", "axiom "):
+                    self.assertNotIn(word, text)
+                # The index is a definition over the definitions before it,
+                # and those that mention it or a default value come after.
+                chosen = [position for position, line in enumerate(lines)
+                          if line.startswith("noncomputable def _generic_")]
+                self.assertTrue(chosen)
+                defined = {match.group(1): position for position, line in enumerate(lines)
+                           for match in [definition.match(line)] if match}
+                late = [position for position in defined.values()
+                        if "_generic_" in lines[position] or "_default " in lines[position]]
+                self.assertTrue(late)
+                self.assertGreater(min(late), max(chosen))
+                self.assertFalse([line for line in lines[:min(chosen)] if "_generic_" in line and line[:2] != "--"])
+                # The theorem's hypotheses are the assertions, each defined
+                # before the index: none depends on it.
+                theorem = lines.index(next(line for line in lines if line.startswith("theorem unsat ")))
+                hypotheses = re.findall(r"^    \(_h\d+ : \((formula_\d+) ", "\n".join(lines[theorem:]), re.M)
+                self.assertEqual(len(hypotheses), len(self.certificates[name]["assertions"]))
+                for hypothesis in hypotheses:
+                    self.assertLess(defined[hypothesis], min(chosen))
+                # The axiom is a fact by rfl, like a read of the map.
+                self.assertRegex(text, r"have _d\d+ : _default \(_generic_[ir] _atoms _vars(?: _ivars)? _m\) "
+                                       r"\(\(term_\d+ [^)]*\)\) = .* := rfl")
+        union = text_of("store_under_union_default")
+        self.assertIn("-- The array solver's default values (the input names none) are the arrays' values at one "
+                      "index that no store writes: _generic_i over Int.", union)
+        # The index is chosen off the one stored index, and the default
+        # value of the store takes the proof that it is not that one.
+        stored = re.search(r"noncomputable def _generic_i .* : Int :=\n"
+                           r"  Classical.choose \(_int_unbounded \(\[\(term_(\d+) _atoms _vars _m\)\] : List Int\)\)",
+                           union)
+        self.assertIsNotNone(stored, union)
+        index = stored.group(1)
+        self.assertIn("private theorem _generic_i_ne_%s " % index, union)
+        self.assertRegex(union, r"have _d\d+ := _default_store \(_generic_i _atoms _vars _m\) .* "
+                                r"\(_generic_i_ne_%s _atoms _vars _m\)\n" % index)
+        self.assertRegex(union, r"have _d\d+ : _default \(_generic_i _atoms _vars _m\) \(\(term_\d+ _atoms _vars _m\)\)"
+                                r" = \(Or \(_default \(_generic_i _atoms _vars _m\) ")
+        # Three stored indices: the third is a member of the list by two tails.
+        three = text_of("stores_under_union_default")
+        self.assertEqual(len(re.findall(r"private theorem _generic_i_ne_\d+ ", three)), 3)
+        self.assertIn("(List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))", three)
+        # No store: the list is empty.
+        self.assertIn("Classical.choose (_int_unbounded ([] : List Int))", text_of("union_with_full_is_empty"))
+        real = text_of("real_stores_under_union_default")
+        self.assertIn("noncomputable def _generic_r ", real)
+        self.assertIn("Classical.choose (_rat_unbounded ([", real)
+        self.assertNotIn("_generic_i", real)
+        both = text_of("defaults_over_two_index_sorts")
+        self.assertIn("_generic_i over Int, _generic_r over Real.", both)
+        # An index sort that no default term is taken over has its index
+        # too: a rewrite that compares arrays states the default value of a
+        # store over it.
+        name = "real_array_next_to_set_defaults"
+        self.assertEqual({declaration["domain"][0] for declaration in _declarations(
+            self.certificates[name], z3.Z3_OP_ARRAY_DEFAULT)}, {"(Array Int Bool)"})
+        self.assertRegex(text_of(name), r"have _ds\d+ := _default_store \(_generic_r _atoms _vars _ivars _m\) .* "
+                                        r"\(_generic_r_ne_\d+ _atoms _vars _ivars _m\)\n")
+        self.assertRegex(text_of("sum_map_default"),
+                         r" = \(\(_default \(_generic_i _atoms _vars _m\) \(\(term_\d+ _atoms _vars _m\)\)\) \+ ")
+        # A refutation that does not use the axiom keeps Lean's _default,
+        # whether the log states the axiom (the first) or not.
+        for name in ("default_of_store_over_map", "full_is_not_empty", "z3test_2549"):
+            with self.subTest(name=name):
+                text = text_of(name)
+                self.assertNotIn("_generic_", text)
+                self.assertIn("private theorem _default_spec ", text)
+        # The conditions, on the graph: the axiom in the proof, no default
+        # value in an assertion, none in an index stored at.
+        name = "function_map_default"
+        graph = proof_to_lean._validate_graph(ARRAY_INPUTS[name], self.certificates[name])
+        mentions = proof_to_lean._generic_defaults(graph)
+        stores = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_STORE]
+        defaults = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ARRAY_DEFAULT]
+        self.assertTrue(stores and defaults)
+        self.assertEqual(graph.generic, {"Int": tuple(sorted({graph.arguments(node)[1] for node in stores}))})
+        self.assertLessEqual(set(defaults), mentions)
+        self.assertFalse(mentions.intersection(graph.assertions))
+        formula = next(node for node in sorted(mentions) if graph.decl(node).range == "Bool")
+        named = dataclasses.replace(graph, assertions=graph.assertions + (formula,), generic={})
+        proof_to_lean._generic_defaults(named)
+        self.assertEqual(named.generic, {})
+        nodes = list(graph.nodes)
+        nodes[stores[0]] = dataclasses.replace(nodes[stores[0]], arguments=(
+            graph.arguments(stores[0])[0], defaults[0], graph.arguments(stores[0])[2]))
+        stored = dataclasses.replace(graph, nodes=tuple(nodes), generic={})
+        proof_to_lean._generic_defaults(stored)
+        self.assertEqual(stored.generic, {})
+        plain = proof_to_lean._validate_graph(ARRAY_INPUTS["z3test_2549"], self.certificates["z3test_2549"])
+        self.assertTrue(proof_to_lean._generic_defaults(plain))
+        self.assertEqual(plain.generic, {})
+
+    def test_unused_default_values_of_maps_are_left_out(self):
+        """The array solver states the default-map axiom for every map; only a refutation using it is rejected."""
+        def axioms(source):
+            """The certificate, and how many logged hints state the default value of a map."""
+            found, original = [], proof_clause_log._default_map_axiom
+            with mock.patch.object(proof_clause_log, "_default_map_axiom",
+                                   lambda literal: found.append(original(literal)) or found[-1]):
+                certificate = _export(source)
+            return certificate, sum(found)
+
+        for name in ("setminus_empty_with_member", "implication_full_with_member"):
+            with self.subTest(name=name):
+                certificate, stated = axioms(ARRAY_INPUTS[name])
+                self.assertGreater(stated, 0)
+                # Refuted by reads: no default value reaches the certificate.
+                self.assertEqual(_declarations(certificate, z3.Z3_OP_ARRAY_DEFAULT), [])
+                proof_to_lean.reconstruct(ARRAY_INPUTS[name], certificate)
+        # The default value of a store over a map is the map's whatever the
+        # map: that axiom is certified (_default_store) and kept.
+        certificate, stated = axioms(ARRAY_INPUTS["default_of_store_over_map"])
+        self.assertGreater(stated, 0)
+        self.assertEqual(len(_declarations(certificate, z3.Z3_OP_ARRAY_DEFAULT)), 1)
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["default_of_store_over_map"], certificate)
+        self.assertRegex(text, r"have _d\d+ := _default_store ")
+        context = z3.Context()
+        a, b = z3.Consts("a b", z3.ArraySort(z3.IntSort(context), z3.BoolSort(context)))
+        union, i = z3.SetUnion(a, b), z3.Int("i", context)
+        default = z3.Default(union)
+        for literal, expected in (
+                (default == z3.Or(z3.Default(a), z3.Default(b)), True),
+                (z3.Or(z3.Default(a), z3.Default(b)) == default, True),
+                (z3.Not(default == z3.Default(a)), True),
+                (default, True),
+                (z3.Default(z3.Store(union, i, True)) == default, False),
+                (default == z3.Default(z3.Store(union, i, True)), False),
+                (default == z3.Default(z3.Store(a, i, True)), True),
+                (z3.Default(z3.Store(a, i, True)) == z3.Default(a), False),
+                (z3.Select(union, i) == z3.Or(z3.Select(a, i), z3.Select(b, i)), False),
+                (z3.Select(union, i), False)):
+            with self.subTest(literal=literal):
+                self.assertEqual(proof_clause_log._default_map_axiom(literal), expected)
+
+    def test_sets_are_compared_member_by_member(self):
+        """A rewrite or cnf lemma over sets gets the equalities and differences their members decide."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        # Two empty sets: one auxiliary theorem over the members as
+        # propositions, proved by grind alone, and the equality from it.
+        text = text_of("sets_equal_member_by_member")
+        self.assertRegex(text, r"private theorem rewrite_\d+_pw0 \(_p0 _p1 : Prop\) :\n"
+                               r"    \(Iff \(And _p1 \(Not _p1\)\) \(And _p0 \(Not _p0\)\)\) := by grind\n")
+        self.assertRegex(text, r"have _pw\d+ : \(\(term_\d+ [^)]*\)\) = \(\(term_\d+ [^)]*\)\) := "
+                               r"funext \(fun _i => propext \(rewrite_\d+_pw0 \(_select \(\(term_\d+ [^)]*\)\) _i\) "
+                               r"\(_select \(\(term_\d+ [^)]*\)\) _i\)\)\)")
+        self.assertNotIn("have _pwn", text)
+        self.assertRegex(text_of("sets_equal_member_by_member_over_a_sort"), r"have _pw\d+ : ")
+        # An empty set against the full one: they differ at an index, 0.
+        text = text_of("sets_differ_at_every_member")
+        self.assertRegex(text, r"private theorem rewrite_\d+_pw0 \(_p0 : Prop\) :\n"
+                               r"    Not \(Iff \(And _p0 \(Not _p0\)\) True\) := by grind\n")
+        self.assertRegex(text, r"have _pwn\d+ : .* = .* -> False := fun _h => Nonempty.elim "
+                               r"\(Nonempty.intro \(0 : Int\)\) \(fun _i => \(rewrite_\d+_pw0 [^\n]*\) "
+                               r"\(Iff.of_eq \(congrFun _h _i\)\)\)")
+        self.assertRegex(text_of("sets_differ_at_every_member_over_real"),
+                         r"have _pwn\d+ : .* -> False := fun _h => Nonempty.elim \(Nonempty.intro \(0 : Rat\)\)")
+        # A store: the stored value where the member's index is the stored
+        # one, as _store unfolds; the index equality is a leaf.
+        text = text_of("set_difference_of_stores_at_one_index")
+        self.assertRegex(text, r"\(@ite Prop _p\d \(Classical.propDecidable _\) False _p\d\)")
+        self.assertRegex(text, r"propext \(rewrite_\d+_pw\d+ \(_i = \(_vars 0\)\) ")
+        # A constant array of an atom: the atom itself, at every index.
+        self.assertRegex(text_of("set_difference_of_a_constant_set_with_itself"),
+                         r"propext \(rewrite_\d+_pw0 \(_select [^\n]* _i\) \(_atoms 0\)\)\)")
+        # A cnf lemma: the sides of its equality at the index it reads, by
+        # congruence; grind takes it from there.
+        text = text_of("members_of_equal_sets")
+        self.assertRegex(text, r"have _pwr\d+_\d+ : .* = .* -> "
+                               r"\(Iff \(Or \(_select \(\(term_\d+ [^)]*\)\) \(_vars 0\)\) "
+                               r"\(_select [^\n]* \(_vars 0\)\)\) \(Not \(_select [^\n]* \(_vars 0\)\)\)\) := "
+                               r"fun _h => Iff.of_eq \(congrFun _h \(_vars 0\)\)")
+        self.assertRegex(text_of("members_of_equal_sets_at_a_remainder"),
+                         r"have _pwr\d+_\d+ : [^\n]* := fun _h => Iff.of_eq "
+                         r"\(congrFun _h \(\(\(_vars 0\) % \(\(\(2 : Int\)\)\)\)\)\)")
+        for name in ("set_equated_with_an_empty_intersection", "set_nested_intersections_flattened"):
+            with self.subTest(name=name):
+                self.assertRegex(text_of(name), r"have _pw\d+ : ")
+        # The tables only choose the facts: a term over more sets than
+        # _POINTWISE_LEAVES, or of more maps than _POINTWISE_SIZE (the
+        # intersection with a complement, two), is a set of its own, and a
+        # step over more sets than _POINTWISE_SETS gets none.
+        for limit, value in (("_POINTWISE_LEAVES", 0), ("_POINTWISE_SIZE", 1), ("_POINTWISE_SETS", 2)):
+            with self.subTest(limit=limit), mock.patch.object(proof_to_lean, limit, value):
+                self.assertNotIn("_pw", text_of("sets_equal_member_by_member"))
+                if limit != "_POINTWISE_SIZE":  # a union and a complement: one map each
+                    self.assertNotIn("_pw", text_of("members_of_equal_sets"))
+        # The maps are counted as the member formula writes them: five
+        # nested maps of xor write 31 (1, 3, 7, 15, 31), a sixth would make
+        # 63, over _POINTWISE_SIZE, and is a set of its own, the leaf of the
+        # next five. So no comparison is of more than twice the limit, the
+        # largest here of 31 maps against one; counted as a tree, sixteen
+        # levels were under the limit and wrote megabytes.
+        self.assertEqual(proof_to_lean._POINTWISE_SIZE, 48)
+        for name, largest in (("set_read_of_nested_xor_maps", 32), ("set_read_of_nested_ite_maps", None)):
+            with self.subTest(name=name):
+                text = text_of(name)
+                self.assertLess(len(text), 200000)
+                statements = re.findall(r"private theorem \w+_pw\d+([^\n]*:\n[^\n]*) := by grind\n", text)
+                written = max(statement.count("(Or (And ") for statement in statements)
+                self.assertLessEqual(written, 2 * proof_to_lean._POINTWISE_SIZE)
+                if largest is not None:
+                    self.assertEqual(written, largest)
+                # An auxiliary theorem is stated once: the steps that compare
+                # the same two member formulas share it.
+                self.assertEqual(len(set(statements)), len(statements))
+                uses = re.findall(r"have _pw\d+ : [^\n]* propext \(\w+_pw\d+ ", text)
+                self.assertGreater(len(uses), len(statements))
+                # A step tries without its pointwise facts first, then
+                # repeats its attempts with them.
+                steps = [step for step in text.split("\n\n") if "have _pw" in step]
+                self.assertTrue(steps)
+                for step in steps:
+                    stated = ["have _pw" in attempt for attempt in step.split("\n    | (")[1:]]
+                    self.assertEqual(stated, sorted(stated), step)
+                    self.assertEqual(stated.count(True), stated.count(False), step)
+        # Two sets of one member formula (a difference and the intersection
+        # with the complement) are equal by rfl at each index: no theorem.
+        text = text_of("setminus_as_intersection")
+        self.assertRegex(text, r"have _pw\d+ : \(\(term_\d+ [^)]*\)\) = \(\(term_\d+ [^)]*\)\) := "
+                               r"funext \(fun _i => rfl\)\n")
+        self.assertNotRegex(text, r"theorem \w+_pw\d+")
+        # No map or set operator, no fact: stores alone are left to the store identities.
+        for name in ("set_read_through_numeral_stores_to_own_index", "set_insert_elsewhere"):
+            with self.subTest(name=name):
+                self.assertNotIn("_pw", text_of(name))
+        # Except in a cnf lemma that reaches a store of a set: the members
+        # of the sides of its equalities at the indices it reads, and no
+        # other pointwise fact. Here the store's member at its own index
+        # against the set's; the maps of the input are in other lemmas.
+        set_member = r"\(_select \(\(term_\d+ [^)]*\)\) \(_vars 0\)\)"
+        store_member = (r"\(@ite Prop \(\(_vars 0\) = \(_vars 0\)\) \(Classical.propDecidable _\) False "
+                        r"\(_select [^\n]* \(_vars 0\)\)\)")
+        for name, sides in (("member_of_a_set_equated_with_a_store", store_member + " " + set_member),
+                            ("member_of_a_set_equated_with_a_store_on_the_right", set_member + " " + store_member),
+                            ("members_of_sets_equated_with_stores", store_member + " " + set_member)):
+            with self.subTest(name=name):
+                steps = [step for step in text_of(name).split("\n\n") if "have _pwr" in step]
+                self.assertEqual(len(steps), 1)
+                self.assertIn("theorem th_lemma_", steps[0])
+                self.assertNotIn("_map", steps[0])
+                self.assertNotRegex(steps[0], r"have _pwn?\d+ : |theorem \w+_pw\d+")
+                self.assertRegex(steps[0], r"have _pwr\d+_\d+ : \(\(term_\d+ [^)]*\)\) = \(\(term_\d+ [^)]*\)\) -> "
+                                           r"\(Iff " + sides + r"\) := "
+                                           r"fun _h => Iff.of_eq \(congrFun _h \(_vars 0\)\)\n")
+                # The limit on a step's sets holds for these facts too.
+                with mock.patch.object(proof_to_lean, "_POINTWISE_SETS", 0):
+                    self.assertNotIn("_pw", text_of(name))
+        # Truth tables: bit r is the value in the row whose bit k is leaf k's.
+        expanded, essential = proof_to_lean._expanded_table, proof_to_lean._essential_table
+        self.assertEqual(expanded(0b10, ("a",), ("a", "b")), 0b1010)
+        self.assertEqual(expanded(0b10, ("b",), ("a", "b")), 0b1100)
+        self.assertEqual(expanded(0b1000, ("a", "c"), ("a", "b", "c")), 0b10100000)
+        self.assertEqual(expanded(1, (), ("a",)), 0b11)
+        self.assertEqual(essential(("a", "b"), 0b1010), (("a",), 0b10))
+        self.assertEqual(essential(("a", "b"), 0b1100), (("b",), 0b10))
+        self.assertEqual(essential(("a", "b"), 0b1000), (("a", "b"), 0b1000))
+        self.assertEqual(essential(("a", "b"), 0b1111), ((), 1))
+        self.assertEqual(essential(("a", "b"), 0), ((), 0))
+        functions = proof_to_lean._POINTWISE_FUNCTIONS
+        a, b, c, full = 0b10101010, 0b11001100, 0b11110000, 0b11111111
+        self.assertEqual(functions["setminus"](full, a, b), 0b00100010)
+        self.assertEqual(functions["=>"](full, a, b), 0b11011101)
+        self.assertEqual(functions["ite"](full, c, a, b), 0b10101100)
+        self.assertEqual(functions["="](full, a, b), functions["not"](full, functions["xor"](full, a, b)))
+        self.assertEqual(functions["distinct"](full, a, b), functions["xor"](full, a, b))
+
+    def test_the_replay_reads_set_operators(self):
+        """Z3 logs the assertions after one that simplifies to false as written; the replay builds their sets."""
+        executable = proof_certificate.default_z3_executable()
+        for name, heads in (("set_operators_after_false", ("((as union (Array Int Bool)) ", "(complement ",
+                                                           "(intersection ", "(setminus ")),
+                            ("set_operators_after_false_over_a_sort", ("((as union (Array Index Bool)) ",
+                                                                       "(complement ", "(intersection ",
+                                                                       "(setminus "))):
+            with self.subTest(name=name):
+                log = proof_clause_log.run_clause_log(executable, ARRAY_INPUTS[name].replace("(check-sat)", ""), 60)
+                for head in heads:
+                    self.assertIn(head, log)
+                self.assertNotIn("(_ map ", log)
+                self.assertEqual({d["kind"] for d in self.certificates[name]["declarations"]}
+                                 & set(proof_certificate.SET_OPERATORS), set(proof_certificate.SET_OPERATORS))
+        context = z3.Context()
+        assertions, _ = proof_certificate.parse_assertions("""(declare-fun a () (Array Int Bool))
 (declare-fun b () (Array Int Bool))
-(declare-fun x () Int)
-(assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
-(assert (select a x))
-(assert (not (select b x)))
+(declare-fun e () (Array Int Int))
+(declare-fun r () (Array Real Bool))
+(assert (select a 0))
+(assert (select b (select e 0)))
+(assert (select r 0.0))
 (check-sat)
-"""
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "the default value of a map is not certified"):
-            _export(source)
+""", context, integer=True)
+        terms = proof_clause_log._Terms(context, assertions)
+        sets = ["Array", "Int", "Bool"]
+        for sexpr, kind in ((["complement", "a"], z3.Z3_OP_SET_COMPLEMENT),
+                            (["intersection", "a", "b"], z3.Z3_OP_SET_INTERSECT),
+                            (["setminus", "a", ["complement", "b"]], z3.Z3_OP_SET_DIFFERENCE),
+                            (["union", "a", "b"], z3.Z3_OP_SET_UNION),
+                            ([["as", "union", sets], "a", "b"], z3.Z3_OP_SET_UNION),
+                            ([["as", "complement", ["Array", "Real", "Bool"]], "r"], z3.Z3_OP_SET_COMPLEMENT)):
+            with self.subTest(sexpr=sexpr):
+                built = terms.build(sexpr)
+                self.assertEqual(built.decl().kind(), kind)
+                self.assertEqual(proof_certificate.map_parameters(built), ())
+        for sexpr, message in (
+                ([["as", "union", ["Array", "Real", "Bool"]], "a", "b"], "set operator of another sort"),
+                ([["as", "union", ["Array", "Int", "Int"]], "a", "b"], "set operator of another sort"),
+                ([["as", "union", ["Array", "Int", ["Seq", "Int"]]], "a", "b"], "unsupported sort"),
+                ([["as", "frobnicate", sets], "a", "b"], "unsupported application head"),
+                ([["as", "union", sets, sets], "a", "b"], "unsupported application head"),
+                (["union", "a"], "unsupported operator in the clause log: union"),
+                (["complement", "a", "b"], "unsupported operator in the clause log: complement"),
+                (["setminus", "a", "0"], "unsupported operator in the clause log: setminus"),
+                (["union", "a", "r"], "ill-sorted application of union|unsupported map or set operator"),
+                (["complement", "e"], "ill-sorted application of complement|unsupported set operator over")):
+            with self.subTest(sexpr=sexpr):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    terms.build(sexpr)
+        # A function of the input named like a set operator takes the bare
+        # name, as for every head; (as union SORT) is Z3's own union (it
+        # qualifies no function of the input), so the two are told apart.
+        name = "set_union_beside_a_function_named_union"
+        log = proof_clause_log.run_clause_log(executable, ARRAY_INPUTS[name].replace("(check-sat)", ""), 60)
+        self.assertIn("(union x x)", log)
+        self.assertIn("((as union (Array Int Bool)) a b)", log)
+        self.assertEqual(len(_declarations(self.certificates[name], z3.Z3_OP_SET_UNION)), 1)
+        self.assertEqual([(d["name"], d["domain"]) for d in _declarations(self.certificates[name],
+                                                                          z3.Z3_OP_UNINTERPRETED)
+                          if d["domain"]], [("union", ["Int", "Int"])])
+        assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS[name], context, integer=True)
+        terms = proof_clause_log._Terms(context, assertions)
+        self.assertEqual(terms.build([["as", "union", sets], "a", "b"]).decl().kind(), z3.Z3_OP_SET_UNION)
+        self.assertEqual(terms.build(["union", "x", "x"]).decl().kind(), z3.Z3_OP_UNINTERPRETED)
+        for sexpr, message in ((["union", "a", "b"], "ill-sorted application of union"),
+                               ([["as", "union", sets], "x", "x"], "unsupported operator in the clause log: union"),
+                               ([["as", "union", sets], "a"], "unsupported operator in the clause log: union")):
+            with self.subTest(sexpr=sexpr):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    terms.build(sexpr)
+        # Z3 prints the other three operators bare, so beside a function of
+        # that name the log is ambiguous and the input is rejected (z3py
+        # raises AttributeError for the function applied to sets).
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "^ill-sorted application of intersection in the clause log$"):
+            _export(ARRAY_INPUTS[name].replace("union", "intersection"))
 
     def test_tampered_set_combinators_are_rejected(self):
         def parameter(value):
@@ -2820,6 +3863,46 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("union_member", relabelled(z3.Z3_OP_SET_INTERSECT, z3.Z3_OP_SET_UNION, "union"),
                       "certificate assertions do not match the original input")
 
+    def test_negation_maps_are_differences_from_zero(self):
+        """The Int negation map applies 0 - v, in its lambda and in its read facts; the Real one keeps -v.
+
+        The identities of a map of a store or a constant array apply the
+        function to the stored value; at 0 a negation would beta-reduce to
+        the Int literal -0 in grind.
+        """
+        function = "(fun (_v0 : Int) => (((0 : Int)) - _v0))"
+        zero = r"\(\(0 : Int\)\)"
+        store = r"have _ms\d+ := _map1_store %s " % re.escape(function)
+        for name, identity in (("negation_map_of_a_stored_zero", store),
+                               ("negation_map_of_a_constant_zero",
+                                r"have _mk\d+ : .* = @_const_array Int Int \(%s - \(%s\)\) := rfl" % (zero, zero)),
+                               ("negation_maps_under_stores_of_zero", store),
+                               ("map_negation", r"have _m\d+ : _select .* = \(%s - \(_select .*\)\) := rfl" % zero)):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                self.assertIn("(_map1 %s (term_" % function, text)
+                self.assertRegex(text, identity)
+                self.assertNotIn("(-_v0)", text)
+                self.assertNotIn("(-((0 : Int)))", text)
+        name = "real_negation_map_of_a_stored_zero"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertIn("(_map1 (fun (_v0 : Rat) => (-_v0)) (term_", text)
+        self.assertRegex(text, r"have _ms\d+ := _map1_store \(fun \(_v0 : Rat\) => \(-_v0\)\) ")
+        # The index (- 0) of a read is a term, rendered by _negation, as is
+        # the negation of a remainder.
+        for name in ("read_at_a_negated_zero", "read_at_a_negated_remainder_by_one"):
+            text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+            self.assertRegex(text, r": Int := \(\(\(0 : Int\)\) - \(term_\d+ _atoms _vars _m\)\)")
+            self.assertNotRegex(text, r": Int := \(-")
+        # A quotient by a negative numeral is the difference the theorem
+        # after its definition equates with Lean's quotient.
+        name = "read_at_a_zero_quotient_by_a_negative"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertRegex(text, r"def (term_\d+) .* : Int := \(%s - \((\(term_\d+ _atoms _vars _m\)) / "
+                               r"\(%s - (\(term_\d+ _atoms _vars _m\))\)\)\)\n"
+                               r"theorem \1_quotient .* : \(\1 _atoms _vars _m\) = \(\2 / \3\) := _div_neg _ _\n" % (
+                                   zero, zero))
+
     def test_map_function_encoding(self):
         """Maps of other functions are _map1/_map2/_map3 of a lambda; a mapped function is a symbol of the input."""
         certificate = self.certificates["mapped_function_congruence"]
@@ -2842,7 +3925,9 @@ class TestArrayValidation(unittest.TestCase):
                                  r"\(_v2 : Int\) => \(@ite Int _v0 \(Classical.propDecidable _\) _v1 _v2\)\)")
         nested = proof_to_lean.reconstruct(ARRAY_INPUTS["nested_function_maps"],
                                            self.certificates["nested_function_maps"])
-        self.assertRegex(nested, r"have _m\d+_\d+ : _select .* = \(-\(_select ")
+        # The Int negation is the difference from zero (see
+        # test_negation_maps_are_differences_from_zero).
+        self.assertRegex(nested, r"have _m\d+_\d+ : _select .* = \(\(\(0 : Int\)\) - \(_select ")
         for each in (text, addition, sort, predicate, choice, nested):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
@@ -2998,6 +4083,22 @@ class TestArrayValidation(unittest.TestCase):
                 text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
                 found = {match.groups() for match in map(fact.match, text.split("\n")) if match}
                 self.assertEqual(found, set(facts), text)
+
+    def test_a_store_at_a_floor_states_its_final_tactic_once(self):
+        # The store-identity alternative ends in the step's final tactic
+        # under all_goals, for the goals its simp leaves; with cast facts
+        # that tactic is under all_goals already (proof_to_lean._grind_lemma).
+        simp = r"\n +try \(set_option linter\.unusedSimpArgs false in simp only \[.*\] at \*\)\n +all_goals "
+        name = "store_at_the_floor_of_a_fraction"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertIn("try (generalize Rat.floor", text)
+        self.assertRegex(text, simp + r"\(first \| omega \| grind")
+        self.assertNotIn("all_goals all_goals", text)
+        # Without cast facts the alternative adds it.
+        name = "int_index_arithmetic"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertNotIn("push_cast at *", text)
+        self.assertRegex(text, simp + r"first \| omega \| grind")
 
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
@@ -3572,6 +4673,110 @@ def random_chain_comparison_instance(seed):
 CHAIN_COMPARISON_SEEDS = (13, 14)
 
 
+def random_set_instance(seed):
+    """Random constraints over four sets of integers, or None if sat.
+
+    Two to five assertions: equalities and disequalities between set terms
+    (unions, intersections, differences, complements, maps of =>, xor, and
+    and, inserts and removals, the empty and the full set), a set term
+    equated with a set or with the empty or full set, and members read at
+    0, 1, i, or j.
+    """
+    rng = random.Random(seed)
+    sets = ["s%d" % k for k in range(4)]
+    indices = ["i", "j", "0", "1"]
+    lines = ["(declare-fun i () Int)", "(declare-fun j () Int)"]
+    lines += ["(declare-fun %s () (Array Int Bool))" % name for name in sets]
+
+    def term(depth):
+        choice = rng.randrange(12 if depth else 3)
+        if choice < 3:
+            return rng.choice(sets)
+        if choice == 3:
+            return "(union %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 4:
+            return "(intersection %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 5:
+            return "(setminus %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 6:
+            return "(complement %s)" % term(depth - 1)
+        if choice == 7:
+            return "(store %s %s %s)" % (term(depth - 1), rng.choice(indices), rng.choice(("true", "false")))
+        if choice == 8:
+            return "((as const (Array Int Bool)) %s)" % rng.choice(("true", "false"))
+        if choice == 9:
+            return "((_ map =>) %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 10:
+            return "((_ map xor) %s %s)" % (term(depth - 1), term(depth - 1))
+        return "((_ map and) %s %s)" % (term(depth - 1), term(depth - 1))
+
+    def constant():
+        return "((as const (Array Int Bool)) %s)" % rng.choice(("true", "false"))
+
+    for _ in range(rng.randrange(2, 6)):
+        kind = rng.randrange(6)
+        if kind == 0:
+            lines.append("(assert (= %s %s))" % (rng.choice(sets), term(2)))
+        elif kind == 1:
+            lines.append("(assert (= %s %s))" % (term(2), constant()))
+        elif kind == 2:
+            lines.append("(assert (select %s %s))" % (term(2), rng.choice(indices)))
+        elif kind == 3:
+            lines.append("(assert (not (select %s %s)))" % (term(2), rng.choice(indices)))
+        elif kind == 4:
+            lines.append("(assert (= %s %s))" % (term(1), term(1)))
+        else:
+            lines.append("(assert (not (= %s %s)))" % (term(1), term(1)))
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 10000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Pinned unsatisfiable seeds of random_set_instance, all rejected by the
+# exporter on iteration 120's macOS build before these changes. 43 and 80:
+# an assertion simplifies to false, so the log holds the others' set
+# operators as written, (complement s2) and ((as union (Array Int Bool))
+# ...), which the replay did not build. 156 and 266: the log states the
+# default value of a map that the refutation does not use, which the replay
+# rejected on sight. Of the 142 unsat seeds of seeds 1-400, 81 exported
+# before (67 verified) and 114 after (97 verified, 30 of the 33 new ones);
+# the other 28 rest on the default-map axiom and stay rejected, and the 17
+# Lean failures are array equalities the rewriter decides by map identities.
+SET_SEEDS = (43, 80, 156, 266)
+# Pinned unsatisfiable seeds of random_set_instance that exported but failed
+# in Lean (grind) on iteration 121's macOS build before the pointwise facts
+# (proof_to_lean._pointwise_map_facts). 64: an equality between an empty and
+# the full set decided false in a rewrite. 83: maps over stores. 94: a set
+# equated with an intersection that simplifies to the empty set. 957: a cnf
+# lemma from an equality of sets to a member read at 0. Of the 304 unsat
+# seeds of 1-1000 that export (the other 64 rest on the default-map axiom
+# and stay rejected), 261 verified before and all verify after.
+POINTWISE_SET_SEEDS = (64, 83, 94, 957)
+# Pinned unsatisfiable seeds of random_set_instance that the exporter
+# rejected on iteration 122's macOS build ("the default value of a map is
+# not certified") before the default values were read at a generic index
+# (proof_to_lean._generic_defaults). 67: a rewrite ties a logged equality to
+# an assertion that is false of the default values alone (a set equal to a
+# store into its complement), which takes the default-map facts of
+# _constant_array_comparisons. 289: three stored indices. 657: the largest
+# of seeds 1-1000. 1035: a fresh seed. The 64 such seeds of 1-1000 and the
+# 40 of 1001-1600 all verify.
+GENERIC_DEFAULT_SEEDS = (67, 289, 657, 1035)
+# Pinned unsatisfiable seeds of random_set_instance that exported but failed
+# in Lean (grind) on iteration 123's macOS build, the only four of the 630
+# unsat seeds of 1-1600 that did. 1083: a read at i through a store at 1 into
+# an empty difference, in a rewrite. 1088 and 1398: a read below the store
+# that the rewriter pulls out of a complement, in a cnf lemma. These three
+# had no read fact of the map below the store (proof_to_lean._read_levels).
+# 1486: a cnf lemma over the members of a set equated with a store, which
+# reaches no map (proof_to_lean._pointwise_map_facts).
+STORE_OVER_MAP_SEEDS = (1083, 1088, 1398, 1486)
+
+
 def array_chain_instance(depth=6, use="value"):
     """The modular chains of test_proof_to_lean_lia.modular_chains_instance, compared through an array.
 
@@ -3732,6 +4937,49 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(seed=seed):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_pinned_random_set_instances_verify(self):
+        sources = []
+        for seed in SET_SEEDS + POINTWISE_SET_SEEDS + GENERIC_DEFAULT_SEEDS + STORE_OVER_MAP_SEEDS:
+            source = random_set_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            sources.append((seed, source, _export(source)))
+        lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
+        for seed, source, certificate in sources:
+            with self.subTest(seed=seed):
+                self.assertEqual(certificate["fragment"], "qf_uflia")
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+                # The route of the other seeds (member reads or default
+                # values) is Z3's choice and is not pinned: either verifies.
+                if seed in GENERIC_DEFAULT_SEEDS:
+                    self.assertIn("_generic_i", text)
+
+    def test_the_generic_index_is_proved_off_the_stored_indices(self):
+        """Lean checks that the index the default values are read at is none of the stored ones.
+
+        The index of store_under_union_default is chosen off the list of
+        the one stored index. Chosen off the empty list instead (any index),
+        the proof that it is not the stored one no longer checks, and Lean
+        rejects the file there: the default value of a store is not taken
+        on trust.
+        """
+        source = ARRAY_INPUTS["store_under_union_default"]
+        text = proof_to_lean.reconstruct(source, _export(source))
+        chosen = re.compile(r"\(\[\(term_\d+ _atoms _vars _m\)\] : List Int\)")
+        self.assertEqual(len(chosen.findall(text)), 3)  # the definition, its specification's statement and proof
+        lean_test_support.check(self, source, text=text)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "any.lean"
+            output.write_text(chosen.sub("([] : List Int)", text))
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        lines = text.split("\n")
+        proof = next(position for position, line in enumerate(lines)
+                     if line.startswith("private theorem _generic_i_ne_")) + 2  # one-based, the proof's line
+        errors = [line for line in (result.stdout + result.stderr).split("\n") if "error:" in line]
+        self.assertTrue(errors, result.stdout)
+        self.assertTrue(all(":%d:" % proof in error for error in errors), errors)
 
     def test_nested_ite_chains_through_arrays_verify(self):
         """Chains of eight modular steps stored into an array, as its index, and over Real verify folded.
@@ -3996,8 +5244,61 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 for error in errors:
                     self.assertIn("`grind` failed", error)
 
+    def test_negated_zero_literals_fail_in_the_kernel(self):
+        """With negations rendered as -t and -v, the kernel rejects the proofs grind builds over the literal -0.
+
+        The defect of the pinned toolchain's grind that
+        proof_to_lean._negation, _negative_quotient, and _INT_MAP_NEGATION
+        work around (see test_proof_to_lean_uflia for terms under
+        applications): here at a read's index and where a map identity
+        applies the negation to a stored or constant 0.
+        """
+        def negation(graph, node, rendered):
+            return "(-%s)" % rendered
+
+        for name in ("read_at_a_negated_zero", "read_at_a_negated_remainder_by_one",
+                     "read_at_a_zero_quotient_by_a_negative", "negation_map_of_a_stored_zero",
+                     "negation_map_of_a_constant_zero", "negation_maps_under_stores_of_zero"):
+            source = ARRAY_INPUTS[name]
+            with mock.patch.object(proof_to_lean, "_negation", negation), \
+                    mock.patch.object(proof_to_lean, "_negative_quotient", lambda graph, node: False), \
+                    mock.patch.object(proof_to_lean, "_INT_MAP_NEGATION", "(-%s)"):
+                text = proof_to_lean.reconstruct(source, _export(source))
+            self.assertNotIn("((0 : Int)) - ", text)
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "negated.lean"
+                output.write_text(text)
+                result = lean_test_support.run_check_lean(output)
+                self.assertNotEqual(result.returncode, 0, _NEGATED_ZERO_ACCEPTED)
+                self.assertIn("(kernel) application type mismatch", result.stdout + result.stderr)
+
     def test_map_facts_are_needed(self):
-        """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps."""
+        """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps.
+
+        Each kind of fact is dropped alone, the pointwise facts
+        (proof_to_lean._pointwise_map_facts) left in place: an euf lemma
+        gets none of those, and union_commutes needs the commutativity of
+        its map in one. The rewriter's identities of a single map of
+        connectives (the six inputs of rewriter below) are what the
+        pointwise facts prove as well in a rewrite, and all a rewrite has
+        beyond the pointwise limits. Those inputs are reconstructed over the
+        limit on a step's sets (_POINTWISE_SETS), so without pointwise
+        facts: Lean accepts that text, by the identities alone, and rejects
+        it without them. The four inputs after need the pointwise facts
+        themselves, and the last four the read of the map below stores the
+        rewriter does not skip (in a rewrite, below an ite's branches, and
+        below a stored row) and the members of a set equated with a store.
+        """
+        def check(text):
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "facts.lean"
+                output.write_text(text)
+                result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                        capture_output=True)
+            return result.returncode, result.stdout + result.stderr
+
+        rewriter = {"complement_twice", "intersection_idempotent", "map_of_stores", "setminus_named",
+                    "map_of_store_and_constant", "map_of_constants"}
         for name, fact in (("z3test_t8", r"have _m\d+_\d+ : "), ("read_of_map_over_constants", r"have _m\d+_\d+ := "),
                            ("union_commutes", r"have _mc\d+ := "), ("complement_twice", r"have _mn\d+ := "),
                            ("intersection_idempotent", r"have _mi\d+ := "), ("map_of_stores", r"have _ms\d+ := "),
@@ -4009,21 +5310,28 @@ class TestArrayLeanIntegration(unittest.TestCase):
                            ("function_map_of_stores", r"have _ms\d+ := "),
                            ("nested_function_maps", r"have _m\d+_\d+ : "),
                            ("read_through_store_to_map", r"have _sm\d+ : "),
-                           ("set_read_through_store_to_map", r"have _sm\d+ : ")):
+                           ("set_read_through_store_to_map", r"have _sm\d+ : "),
+                           ("sets_equal_member_by_member", r"have _pw\d+ : "),
+                           ("sets_differ_at_every_member", r"have _pwn\d+ : "),
+                           ("set_difference_of_stores_at_one_index", r"have _pw\d+ : "),
+                           ("members_of_equal_sets", r"have _pwr\d+_\d+ : "),
+                           ("set_read_at_a_variable_through_a_store_to_a_map", r"have _sm\d+ : "),
+                           ("set_read_of_an_ite_of_stores_over_maps", r"have _sim\d+_\d+ : "),
+                           ("set_read_of_a_stored_row_over_a_map", r"have _nm\d+_\d+ : "),
+                           ("member_of_a_set_equated_with_a_store", r"have _pwr\d+_\d+ : ")):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
-                text = proof_to_lean.reconstruct(source, _export(source))
+                sets = 0 if name in rewriter else proof_to_lean._POINTWISE_SETS
+                with mock.patch.object(proof_to_lean, "_POINTWISE_SETS", sets):
+                    text = proof_to_lean.reconstruct(source, _export(source))
                 pattern = re.compile(r"^\s*" + fact)
-                lines = text.split("\n")
-                self.assertTrue(any(map(pattern.match, lines)), text)
-                stripped = _without_facts(text, pattern.match)
-                with tempfile.TemporaryDirectory() as directory:
-                    output = Path(directory) / "stripped.lean"
-                    output.write_text(stripped)
-                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
-                                            capture_output=True)
-                report = result.stdout + result.stderr
-                self.assertNotEqual(result.returncode, 0, report)
+                self.assertTrue(any(map(pattern.match, text.split("\n"))), text)
+                if name in rewriter:
+                    self.assertNotIn("_pw", text)
+                    code, report = check(text)
+                    self.assertEqual(code, 0, report)
+                code, report = check(_without_facts(text, pattern.match))
+                self.assertNotEqual(code, 0, report)
                 errors = [line for line in report.split("\n") if "error:" in line]
                 self.assertTrue(errors, report)
                 for error in errors:

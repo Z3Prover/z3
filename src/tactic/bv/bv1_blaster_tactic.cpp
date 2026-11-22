@@ -44,6 +44,8 @@ class is_qfbv_eq_probe : public probe {
     };
 
 public:
+    probe * clone() override { return alloc(is_qfbv_eq_probe); }
+    char const* name() const override { return "is-qfbv-eq"; }
     result operator()(goal const& g) override {
         bv_util util(g.m());
         expr_fast_mark1 visited;
@@ -62,4 +64,3 @@ public:
 probe* mk_is_qfbv_eq_probe() {
     return alloc(is_qfbv_eq_probe);
 }
-

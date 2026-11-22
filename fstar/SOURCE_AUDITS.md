@@ -67,9 +67,9 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 The [F* NFV PR audit workflow](../.github/workflows/fstar-nfv-audit.md)
 audits selected obligations when source-changing PRs are opened or updated.
 It publishes proof sources, a report, verification logs, and a hash manifest
-under `fstar/audits/pr-<number>/<audited-head-sha>/` on same-repository PR
-branches, with a revision-specific comment. Fork PRs receive the comment
-and downloadable run artifacts instead; artifacts expire after 30 days.
+as downloadable run artifacts, with a revision-specific PR comment linking
+the evidence. Neither same-repository nor fork PR branches are modified;
+artifacts expire after 30 days.
 The verifier uses pinned F* and its independent released Z3 backend, not a
 solver built from the PR. Only the trusted base is checked out, and PR
 source is treated as data. These are advisory, scoped semantic audits:

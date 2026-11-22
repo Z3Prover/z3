@@ -755,9 +755,6 @@ class theory_lra::imp {
     bool has_int() const { return lp().has_int_var(); }
     
     lpvar register_theory_var_in_lar_solver(theory_var v) {
-        lpvar lpv = lp().external_to_local(v);
-        if (lpv != lp::null_lpvar)
-            return lpv;
         return lp().add_var(v, is_int(v));
     }
         
@@ -1649,15 +1646,14 @@ public:
         return v != null_theory_var && lp().external_is_used(v);
     }
 
-    void ensure_column(enode* n) {
-        ensure_column(n->get_th_var(get_id()));
+    lpvar ensure_column(enode* n) {
+        return ensure_column(n->get_th_var(get_id()));
     }
 
-    void ensure_column(theory_var v) {
-        if (v != null_theory_var && a.is_complex(get_enode(v)->get_expr()))
-            return;
-        if (!lp().external_is_used(v) && v != null_theory_var) 
-            register_theory_var_in_lar_solver(v);
+    lpvar ensure_column(theory_var v) {
+        if (v == null_theory_var || a.is_complex(get_enode(v)->get_expr()))
+            return lp::null_lpvar;
+        return register_theory_var_in_lar_solver(v);
     }
 
     mutable vector<std::pair<lp::lpvar, rational>> m_todo_terms;
@@ -1698,8 +1694,7 @@ public:
                 !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr())) {
                 continue;
             }
-            ensure_column(v);
-            lp::lpvar vj = lp().external_to_local(v);
+            lp::lpvar vj = ensure_column(v);
             SASSERT(vj != lp::null_lpvar);
             theory_var other = m_model_eqs.insert_if_not_there(v);
             if (other == v) {
@@ -1750,8 +1745,7 @@ public:
             if (!th.is_relevant_and_shared(n1) &&
                 !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr()))
                 continue;
-            ensure_column(v);
-            if (!is_registered_var(v))
+            if (ensure_column(v) == lp::null_lpvar)
                 continue;            
             theory_var other = m_model_eqs.insert_if_not_there(v);
             if (other == v) 
@@ -4620,7 +4614,9 @@ public:
         vi = get_lpvar(v);
         u_dependency* dep = nullptr;
         bool dual = upper && m_nla;
-        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true, dual ? &dep : nullptr);
+        // Integer repair may replace the LP optimum with a stale feasible value.
+        // For linear real objectives, retain the hint and let opt_solver validate integrality.
+        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ m_nla || is_int(v), dual ? &dep : nullptr);
         bool is_global;
         if (dual && st == lp::lp_status::OPTIMAL && !m.limit().is_canceled() && bound_premises(dep, is_global)) {
             // The exact reduced costs prove this upper bound. Dropping a

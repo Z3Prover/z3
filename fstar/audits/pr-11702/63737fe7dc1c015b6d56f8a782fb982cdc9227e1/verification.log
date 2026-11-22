@@ -1,0 +1,11 @@
+command: rm -rf cache out; mkdir cache out
+timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out CardinalityRefactor.fst
+echo "exit=$?"
+
+stdout:
+Verified module: CardinalityRefactor
+All verification conditions discharged successfully
+exit=0
+
+stderr:
+::warning file=dummy,line=0,endLine=0::(152) * Warning 152:%0A  - Not a valid include directory: fstar%0A
