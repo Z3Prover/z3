@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-23T14:52:30-08:00**.
+Updated: **2026-11-23T15:18:50-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -310,6 +310,34 @@ under `files\conditional-current-source-control-04e`; the current replay
 harness SHA-256 is
 `7169e20add7053fd80e6548ed21256a80bac46bc167996b1f4e5c565502dfa6c`.
 
+## Matched current-source SortedProof/Legacy replay on fixed 11
+
+The same 11 frozen sample proof documents were hash-verified against
+`files\conditional-current-sorted-replay-02\proof-hashes.tsv` (ordered
+proof-set SHA-256
+`176f8a87df57df9b3ba18914101ad3d5b9085cc350d4419c15c91117b297e22b`).
+The current `Z3SortedProof.check_document` checker (SHA-256
+`8cdf3a91a32002bf7f1c9cb27b45fb9796469437e0ff02826b0c0273bea2b978`) and
+Legacy `Z3ProofDocument` were replayed in seven alternating paired runs per
+document. Replay harness SHA-256 is
+`7169e20add7053fd80e6548ed21256a80bac46bc167996b1f4e5c565502dfa6c`.
+SortedProof ACCEPTed 2/11 (proofs 49 and 69), with 9 PARTIAL and 807
+PENDING; Legacy ACCEPTed 11/11. The harness breakdown is 113 `intro-def`,
+11 `rewrite`, and 683 `other`; the `other` bucket has no rule-level
+attribution and must not be interpreted as a particular proof rule.
+
+Against the previously recorded direct sorted-core control on this identical
+fixed set (1/11 ACCEPT, 832 PENDING), this replay is +1 ACCEPT and -25
+PENDING. This is fixed-set burn-down only; the checker snapshots differ, so
+the full delta is not attributed to the binary-distinct change. Summed
+per-document seven-run medians are 91.047s current versus 35.109s Legacy
+(2.59x slower); the median document is 5.981s versus 0.578s (10.35x slower).
+The candidate therefore remains materially behind Legacy. The generic
+`other` bucket provides no Farkas-certificate provenance and establishes no
+producer defect. Per-proof hashes, timings, and output are retained under
+`files\sample-sorted-legacy-fixed-11-20261123\replay.log`; this is not cohort
+data.
+
 ## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
@@ -317,6 +345,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 23 15:18 | Replay the same 11 frozen sample proofs through current `Z3SortedProof.check_document` and Legacy with seven alternating paired runs | Hashes verified; 2/11 versus 11/11 ACCEPT, current 807 PENDING versus prior same-set sorted-core 832, a 25-obligation fixed-set reduction (not attributed solely to distinct). Current is still 2.59x slower by summed per-proof medians; no cohort or Farkas-producer claim. |
 | Nov 23 14:50 | Add sound binary-only `distinct` semantics and recognize its NNF expansion before arithmetic normalization; replay the same frozen proof 69 | `rewrite` PENDING 1→0 and PARTIAL→ACCEPT on the 18,135-node document; Legacy remains ACCEPT. Seven-run paired medians: 6.010s current vs 0.568s Legacy (10.59x slower), so this is a coverage gain, not a speedup. Strict 167-module checker closure and focused NNF controls pass; cohorts not rerun. |
 | Nov 23 08:31 | Admit closed `asserted`/`mp` binder entries only as exact document equalities; replay a structurally reversed single-premise `symm` | On the same 11 frozen current-source Definition+Array proofs, acceptance stays 7/11 and PENDING drops 108→99, entirely removing proof 90's 9 `quant-intro` obligations (5 remain: 4 `intro-def`, 1 `def-axiom`). Aggregate/median are 181.549s / 11.138s versus 211.323s / 11.218s in the immediately prior run and 181.047s / 11.053s in the earlier matched run; one-pass timings are variable, so no performance claim. Legacy remains 11/11. Strict 219-module independent closure and isolated positive/negative replay tests pass; the full test suite is still blocked by unrelated finite-field/root-document test failures. No cohort run or parity. |
 | Nov 23 05:17 | Rerun both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker and all input hashes. Sample reproduces 83/225 ACCEPT and 5,907 PENDING. Extended returns 74/285 ACCEPT and 31,500 PENDING; one prior UNKNOWN returns PARTIAL with 111 observed obligations, so the 31,389→31,500 change is not burn-down. Zero diagnostic errors/mismatches; current-source production build now verifies, but this run remains fallback evidence. |
@@ -326,7 +355,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 22 17:15 | Repeat the retained Definition-mode checker on both pinned cohorts and diagnose every PARTIAL | Outcomes and per-rule PENDING reproduce: sample 110/225 ACCEPT, 3,836; extended 78/285 ACCEPT, 30,907. Diagnostics 77/77 and 126/126, zero errors/mismatches. QF_LIA sample: 19 ACCEPT, 5 UNKNOWN, 1 TIMEOUT, no PARTIAL. Timings 2,075.3s / 0.686s and 1,776.5s / 0.636s, slower than the prior repeat; repeatability only, no improvement, Farkas evidence, or matched-proof burn-down. |
 | Nov 22 09:39 | Fix certified array diagnostics, add valid/wrong-branch `ApplyDefinition` controls, and replay the matched 11 | Strict 220-module F* closure and focused native array test pass. Same 7/11 ACCEPT and 123 PENDING; Legacy 11/11. 272.614s vs 21.787s Legacy (12.51x, slower on all 11); one-pass timing only. Diagnostic fix, no burn-down or Farkas gap. |
 | Nov 22 08:36 | Pair current-source Definition+Array route against Legacy on the same 11 frozen proofs | Independent route 7/11 ACCEPT, 123 PENDING; Legacy 11/11. 213.781s vs retained Legacy 21.787s, slower on all 11. Focused array diagnostic test failed; route not promoted. No Farkas gap or cohort burn-down inferred. |
-| Nov 22 07:48 | Replay the actual sorted epsilon path and the sorted array kernel on the same 11 frozen proofs | Epsilon: 1/11 ACCEPT, 831 PENDING, 94.14s vs Legacy 11/11 and 21.787s (9/11 slower). Array kernel: 4/11 ACCEPT, 151 PENDING, but 93.40s and not a native CLI route. No parity or Farkas-producer defect established. |
 
 ## Validation and cadence
 
