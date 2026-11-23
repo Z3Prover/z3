@@ -3976,6 +3976,20 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
 
+    expr_ref b_s(m());
+    if (!m_regular_rewrite && lift_str_from_to_re(b, b_s)) {
+       result = m_br.mk_eq_rw(a, b_s);
+       return BR_REWRITE_FULL;
+    }
+    expr* c = nullptr, *d = nullptr, *e = nullptr;
+    if (!m_regular_rewrite && re().is_concat(b, c, d) && re().is_to_re(c, e) && re().is_full_seq(d)) {
+        result = str().mk_prefix(e, a);
+        return BR_REWRITE1;
+    }
+    if (!m_regular_rewrite && re().is_concat(b, c, d) && re().is_to_re(d, e) && re().is_full_seq(c)) {
+        result = str().mk_suffix(e, a);
+        return BR_REWRITE1;
+    }
     expr* b1 = nullptr;
     expr* eps = nullptr;
     if (!m_regular_rewrite && (re().is_opt(b, b1) ||

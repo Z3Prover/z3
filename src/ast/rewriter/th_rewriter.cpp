@@ -174,11 +174,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (fid == null_family_id)
             return BR_FAILED;
         br_status st = BR_FAILED;
-        if (fid == m_b_rw.get_fid() || fid == m_a_rw.get_fid()) {
-            st = m_seq_rw.mk_regular_app(f, num, args, result);
-            if (st != BR_FAILED)
-                return st;
-        }
         if (fid == m_b_rw.get_fid()) {
             decl_kind k = f->get_decl_kind();
             if (k == OP_EQ) {

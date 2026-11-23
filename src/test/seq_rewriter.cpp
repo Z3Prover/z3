@@ -54,10 +54,12 @@ static void tst_regular_rewrites(bool proofs) {
     reg_decl_plugins(m);
     seq_util u(m);
     arith_util a(m);
-    th_rewriter rw(m);
     params_ref baseline_params;
     baseline_params.set_bool("seq_regular_rewrite", false);
     th_rewriter concrete(m, baseline_params);
+    params_ref regular_params;
+    regular_params.set_bool("seq_regular_rewrite", true);
+    th_rewriter rw(m, regular_params);
     expr_ref_vector pin(m);
     auto hold = [&](expr* e) { pin.push_back(e); return e; };
     auto text = [&](char const* s) { return hold(u.str.mk_string(zstring(s))); };
