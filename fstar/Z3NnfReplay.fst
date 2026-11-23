@@ -273,6 +273,7 @@ module LA = Z3LinearArithmeticAst
 module RW = Z3ArithmeticSyntax
 module LP = FStar.List.Tot.Properties
 module BRW = Z3BooleanRewriteSyntax
+module Distinct = Z3DistinctAst
 module AS = Z3ArraySyntax
 module CR = Z3ConditionalRewriteSyntax
 
@@ -855,6 +856,7 @@ let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
    normalized check of a regrouped leaf would also run the propositional
    checks; the executable result is the same. *)
 let rewrite_ok (lhs rhs:expr) : bool =
+  Distinct.binary_expansion_rewrite lhs rhs ||
   AR.equivalent lhs rhs ||
   (if ite_rewritten lhs rhs then true
    else if product_permuted lhs rhs then true
@@ -3321,7 +3323,34 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
                      (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
   : Lemma (requires rewrite_ok lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs)
           (ensures same_at s bc eq other scope rho lhs rhs) =
-  if AR.equivalent lhs rhs then (
+  if Distinct.binary_expansion_rewrite lhs rhs then (
+    if (match Distinct.distinct_parts lhs with
+        | Some [_; _] -> Distinct.apply_lemma_distinct lhs = Some rhs
+        | _ -> false) then
+      (match lhs with
+       | App f [a; b] ->
+         assert (Distinct.distinct_app f [a; b]);
+         assert (Distinct.apply_lemma_distinct lhs == Some rhs);
+         assert (rhs == R.mk_not_expr (R.mk_eq_expr a b));
+         T.lemma_distinct_binary_at s bc eq other scope rho f a b;
+         lemma_truth_not s bc eq other scope rho R.not_decl (R.mk_eq_expr a b);
+         assert (T.truth_at s bc eq other scope rho lhs ==
+                 T.truth_at s bc eq other scope rho rhs);
+         lemma_same_truth s bc eq other scope rho lhs rhs
+       | _ -> FStar.Pervasives.false_elim ())
+    else
+      (match rhs with
+       | App f [a; b] ->
+         assert (Distinct.distinct_app f [a; b]);
+         assert (Distinct.apply_lemma_distinct rhs == Some lhs);
+         assert (lhs == R.mk_not_expr (R.mk_eq_expr a b));
+         T.lemma_distinct_binary_at s bc eq other scope rho f a b;
+         lemma_truth_not s bc eq other scope rho R.not_decl (R.mk_eq_expr a b);
+         assert (T.truth_at s bc eq other scope rho lhs ==
+                 T.truth_at s bc eq other scope rho rhs);
+         lemma_same_truth s bc eq other scope rho lhs rhs
+       | _ -> FStar.Pervasives.false_elim ()))
+  else if AR.equivalent lhs rhs then (
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
   else if ite_rewritten lhs rhs then lemma_ite_rewritten_at s bc eq other scope rho lhs rhs

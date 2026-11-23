@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-23T08:31:02-08:00**.
+Updated: **2026-11-23T14:52:30-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -285,6 +285,31 @@ Detailed output is under
 evidence is added. Cohort outcome counts, diagnostic errors, timeout tails,
 and new fstar-build counts remain N/M.
 
+### Current-source binary-distinct replay on frozen proof 69
+
+The current source at HEAD `b9d75b48a` plus F* source diff SHA-256
+`348c04b19c72f033b9a16f0b248b4b5ecf256943bed89c4682980d4b8a21b50c`
+was strictly verified across the 167-module checker-only closure and linked
+with F* 2026.10.25, OCaml 5.3.0, and Z3 5.4.2 (build hash
+`b9d75b48a79669c2fe0c98244d8a3dd52a5aa51f`). The production checker SHA-256
+is `8cdf3a91a32002bf7f1c9cb27b45fb9796469437e0ff02826b0c0273bea2b978`.
+The 18,135-node frozen proof for
+`QF_UFLIA/mathsat/EufLaArithmetic/hard/hard18.smt2` was replayed unchanged
+(input SHA-256
+`d56cb93eb85e7e50aaa3a3831ee4d399c2f944e500a8b32a6913504c61fc59fb`,
+proof SHA-256
+`903e90305ea4afa3660b4d27fe3f5d0a39ce9d018f6604ad92dae3d337466289`).
+The prior candidate was PARTIAL with one pending `rewrite`; binary-only
+`distinct(a,b) = not (= a b)` replay now ACCEPTs with zero PENDING, matching
+Legacy's ACCEPT on that exact document. Across seven paired runs, median
+sorted-checker time was 6,010.433 ms versus 567.671 ms for Legacy (10.59x
+slower): this is a one-obligation coverage gain, not a performance gain or
+parity claim. Cohort tables above are unchanged and remain historical; no
+new fstar-build or SMT-LIB cohort measurement was run. Replay artifacts are
+under `files\conditional-current-source-control-04e`; the current replay
+harness SHA-256 is
+`7169e20add7053fd80e6548ed21256a80bac46bc167996b1f4e5c565502dfa6c`.
+
 ## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
@@ -292,6 +317,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 23 14:50 | Add sound binary-only `distinct` semantics and recognize its NNF expansion before arithmetic normalization; replay the same frozen proof 69 | `rewrite` PENDING 1→0 and PARTIAL→ACCEPT on the 18,135-node document; Legacy remains ACCEPT. Seven-run paired medians: 6.010s current vs 0.568s Legacy (10.59x slower), so this is a coverage gain, not a speedup. Strict 167-module checker closure and focused NNF controls pass; cohorts not rerun. |
 | Nov 23 08:31 | Admit closed `asserted`/`mp` binder entries only as exact document equalities; replay a structurally reversed single-premise `symm` | On the same 11 frozen current-source Definition+Array proofs, acceptance stays 7/11 and PENDING drops 108→99, entirely removing proof 90's 9 `quant-intro` obligations (5 remain: 4 `intro-def`, 1 `def-axiom`). Aggregate/median are 181.549s / 11.138s versus 211.323s / 11.218s in the immediately prior run and 181.047s / 11.053s in the earlier matched run; one-pass timings are variable, so no performance claim. Legacy remains 11/11. Strict 219-module independent closure and isolated positive/negative replay tests pass; the full test suite is still blocked by unrelated finite-field/root-document test failures. No cohort run or parity. |
 | Nov 23 05:17 | Rerun both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker and all input hashes. Sample reproduces 83/225 ACCEPT and 5,907 PENDING. Extended returns 74/285 ACCEPT and 31,500 PENDING; one prior UNKNOWN returns PARTIAL with 111 observed obligations, so the 31,389→31,500 change is not burn-down. Zero diagnostic errors/mismatches; current-source production build now verifies, but this run remains fallback evidence. |
 | Nov 22 22:04 | Repeat both pinned cohorts with the retained fallback checker (`6eb16f0b`) | Sample reproduces exactly: 83/225 ACCEPT and 5,907 PENDING. Extended has 74/285 ACCEPT and 31,389 observed PENDING; one prior PARTIAL became UNKNOWN, leaving 112 obligations undiagnosed, so the 112-count difference is not burn-down. Zero diagnostic errors/mismatches. Current-source build failed before producing a checker; no coverage claim for the scalar-context changes. |
@@ -301,7 +327,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 22 09:39 | Fix certified array diagnostics, add valid/wrong-branch `ApplyDefinition` controls, and replay the matched 11 | Strict 220-module F* closure and focused native array test pass. Same 7/11 ACCEPT and 123 PENDING; Legacy 11/11. 272.614s vs 21.787s Legacy (12.51x, slower on all 11); one-pass timing only. Diagnostic fix, no burn-down or Farkas gap. |
 | Nov 22 08:36 | Pair current-source Definition+Array route against Legacy on the same 11 frozen proofs | Independent route 7/11 ACCEPT, 123 PENDING; Legacy 11/11. 213.781s vs retained Legacy 21.787s, slower on all 11. Focused array diagnostic test failed; route not promoted. No Farkas gap or cohort burn-down inferred. |
 | Nov 22 07:48 | Replay the actual sorted epsilon path and the sorted array kernel on the same 11 frozen proofs | Epsilon: 1/11 ACCEPT, 831 PENDING, 94.14s vs Legacy 11/11 and 21.787s (9/11 slower). Array kernel: 4/11 ACCEPT, 151 PENDING, but 93.40s and not a native CLI route. No parity or Farkas-producer defect established. |
-| Nov 22 07:37 | Replay the same 11 frozen proofs through the sorted array-kernel route; measure the array-lemma fast path | Array kernel 4/11 ACCEPT, 151 PENDING vs ordinary sorted core 1/11, 832 PENDING; Legacy 11/11. One-pass total 93.40s vs Legacy 21.787s, slower on 8/11. Fast-path delta is 1.1%, not conclusive; kernel route is not native CLI or cohort evidence. |
 
 ## Validation and cadence
 

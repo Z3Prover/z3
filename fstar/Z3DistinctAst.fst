@@ -30,6 +30,15 @@ let distinct_declaration (f:func_decl) : bool =
 let distinct_app (f:func_decl) (args:list expr) : bool =
   distinct_declaration f && sorts_match args f.domain
 
+let rec lemma_sorts_match_length (args:list expr) (dom:list sort)
+  : Lemma (requires sorts_match args dom)
+          (ensures L.length args == L.length dom)
+          (decreases args) =
+  match args, dom with
+  | _ :: args', _ :: dom' -> lemma_sorts_match_length args' dom'
+  | [], [] -> ()
+  | _, _ -> FStar.Pervasives.false_elim ()
+
 let distinct_parts (e:expr) : option (list expr) =
   match e with
   | App f args -> if distinct_app f args then Some args else None
@@ -74,6 +83,14 @@ let apply_lemma_distinct (e:expr) : option expr =
 
 let expansion_rewrite (a b:expr) : bool =
   apply_lemma_distinct a = Some b || apply_lemma_distinct b = Some a
+
+let binary_expansion_rewrite (a b:expr) : bool =
+  (match distinct_parts a with
+   | Some [_; _] -> apply_lemma_distinct a = Some b
+   | _ -> false) ||
+  (match distinct_parts b with
+   | Some [_; _] -> apply_lemma_distinct b = Some a
+   | _ -> false)
 
 let negation (e:expr) : option expr =
   match e with

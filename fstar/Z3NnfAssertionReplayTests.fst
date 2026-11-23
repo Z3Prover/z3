@@ -1,15 +1,34 @@
 module Z3NnfAssertionReplayTests
 
 open Z3AstTheory
-module TR = Z3TypedRoot
-module U = Z3UnifiedProof
-module R = Z3ResolutionProofTheory
-module O = Z3ObservationalEquality
+module U = Z3UnifiedProofSyntax
+module R = Z3ClauseSyntax
+module O = Z3ObservationalSyntax
 module NR = Z3NnfReplay
+module Distinct = Z3DistinctAst
 
-let integer : sort = TR.int_s
+let integer : sort = SortApp IntSymbol []
 let p : expr = App { decl_name = "p"; domain = []; range = bool_sort; interp = None; int_params = [] } []
 let q : expr = App { decl_name = "q"; domain = []; range = bool_sort; interp = None; int_params = [] } []
+let distinct_x : expr = App { decl_name = "distinct-rewrite-x"; domain = []; range = integer; interp = None; int_params = [] } []
+let distinct_y : expr = App { decl_name = "distinct-rewrite-y"; domain = []; range = integer; interp = None; int_params = [] } []
+let distinct_z : expr = App { decl_name = "distinct-rewrite-z"; domain = []; range = integer; interp = None; int_params = [] } []
+let distinct_zero : expr = App {
+  decl_name = "integer"; domain = []; range = integer;
+  interp = Some Z3OperatorTags.op_num_rational; int_params = [0; 1]
+} []
+let distinct_binary = Distinct.mk_distinct_expr integer [distinct_x; distinct_zero]
+let distinct_binary_expanded = Distinct.expanded [distinct_x; distinct_zero]
+let distinct_ternary = Distinct.mk_distinct_expr integer [distinct_x; distinct_y; distinct_z]
+let distinct_ternary_expanded = Distinct.expanded [distinct_x; distinct_y; distinct_z]
+
+let binary_distinct_rewrite_is_exact ()
+  : Lemma (NR.rewrite_ok distinct_binary distinct_binary_expanded /\
+           not (NR.rewrite_ok distinct_binary (R.mk_eq_expr distinct_x distinct_zero)) /\
+           not (NR.rewrite_ok distinct_ternary distinct_ternary_expanded)) =
+  assert_norm (NR.rewrite_ok distinct_binary distinct_binary_expanded);
+  assert_norm (not (NR.rewrite_ok distinct_binary (R.mk_eq_expr distinct_x distinct_zero)));
+  assert_norm (not (NR.rewrite_ok distinct_ternary distinct_ternary_expanded))
 
 let oeq (a b:expr) : expr = O.mk_oeq_expr a b
 let forall_ (bs:list sort) (body:expr) : expr = Quantifier Forall_k bs bool_sort body
