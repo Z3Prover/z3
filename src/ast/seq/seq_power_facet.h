@@ -9,11 +9,47 @@ Abstract:
 
     Sequence power operator (`s^n`, `seq.power`) facet.
 
-    `power_facet` stores pending obligations `e = s^n`. Deterministic
-    propagation unfolds small known exponents and adds length-only
-    consequences for the remaining powers. `power_split` performs the bounded
-    case split for symbolic exponents by branching over `n <= 0`,
-    `n = 1..bound`, and a residual `n > bound` case.
+    `power_facet` stores pending obligations `e = s^n`, each with its own
+    dependency and (optionally) proof. `power_propagation` is the
+    deterministic pass: it unfolds powers whose exponent is already a
+    syntactic numeral (via substitution, capped at 1024 to keep the unfold
+    finite) and asserts length-only consequences once per remaining
+    obligation.
+
+    The rest of this file is a family of split plugins that extend
+    word-equation solving to equations whose sides may contain `seq.power`
+    tokens; each targets a different trigger shape, so normally at most one
+    applies to a given pair of leading tokens:
+      - `power_fixed_exp`     an exponent is not a numeral, but the ambient
+                              arithmetic theory already entails one value;
+                              a single committed branch unfolds it (unlike
+                              `power_propagation`, this is a model-derived
+                              fact, not a syntactic check).
+      - `power_split`         the bounded completeness driver for a power
+                              whose exponent is still unconstrained:
+                              `n <= 0`, `n = 1..bound`, and a residual
+                              `n > bound` case that stays pending.
+      - `power_trichotomy`    two different power bases lead both sides of
+                              an equation; splits on how their lengths and
+                              (for constant bases) periods can relate - see
+                              the class comment for its five branch forms.
+      - `power_split_elim`    a power faces a run of literal copies of its
+                              own base; splits on whether the exponent
+                              covers the whole run and cancels the prefix.
+      - `power_peel`          a power faces anything else at a directional
+                              end of an equation; exposes one copy of its
+                              base (`U^n = U . U^(n-1)` for `n >= 1`, else
+                              `epsilon`).
+      - `power_var_decompose` a free variable faces a power token;
+                              decomposes the power's own base to match the
+                              variable, plus a branch where the variable
+                              extends past the whole power.
+      - `power_gpower_intro`  a free variable reappears after a ground run;
+                              compresses the run to its minimal period and
+                              introduces a fresh power token for the cycle.
+    All of these read pending obligations from `power_facet` and equations
+    from `eq_facet`; derived facts and fresh skolems are justified by the
+    triggering equation's own dependency.
 
 Author:
 
@@ -224,7 +260,24 @@ namespace seq {
     };
 
     // `X^M . V = Y^N . Z` with two leading powers: for the shorter side,
-    // `Y^N = X^M . z` holds iff one of five forms (empty, f1..f4) does.
+    // `Y^N = X^M . z` holds iff one of five forms applies (branches 0..4
+    // below; 5..9 are the mirror image when `Y^N` is instead the shorter
+    // side). Each form shifts a bounded amount of `X`/`Y` structure across
+    // to expose `z`'s head so the ordinary rules can continue:
+    //   empty  `M <= 0` (or `X`'s base is itself empty): `X^M` vanishes and
+    //          `z = Y^N` outright.
+    //   f1     one copy of `Y`'s base is covered by `X^M` plus a fresh
+    //          remainder, i.e. `Y = X^M . y'`.
+    //   f2     `X` and `Y` are both powers of a common base `w` (their
+    //          primitive root when constant); `z` continues as a power of `w`.
+    //   f3     `X` itself unfolds into whole copies of a shorter period plus
+    //          a partial copy, letting one `X`-copy align against `Y` by
+    //          shifting that period; one branch per candidate period length.
+    //   f4     `M = 1`: no periodicity assumed, `Y`'s base is split fresh
+    //          and `X` matched against `q` copies of it; the unconstrained
+    //          fallback needed for completeness.
+    // See `enumerate`/`apply` in the .cpp for the exact per-branch guards
+    // and substitutions.
     class power_trichotomy : public eq_tree::split_plugin_i {
         struct trigger {
             unsigned    m_x_idx;    // power_facet index of the lhs head
