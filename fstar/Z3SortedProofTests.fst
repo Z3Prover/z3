@@ -1542,4 +1542,55 @@ let conditional_rewrite_rejects_bad_branch ()
   assert_norm (match K.check_node core_schema [] conditional_bad_node with
                | Some (_, 1) -> true | _ -> false)
 
+let conditional_real_x = real_const "conditional-real-x"
+let conditional_real_num (n:int) : expr =
+  App { decl_name = "num"; domain = []; range = LA.real_s;
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
+let conditional_real_add : func_decl = {
+  decl_name = "+"; domain = [LA.real_s; LA.real_s]; range = LA.real_s;
+  interp = Some Z3OperatorTags.op_arith_add; int_params = []
+}
+let conditional_real_guard =
+  R.mk_eq_expr conditional_real_x (conditional_real_num 8)
+let conditional_real_sum =
+  App conditional_real_add [conditional_real_num 1; conditional_real_x]
+let conditional_real_lhs =
+  R.mk_eq_expr
+    (real_ite conditional_real_guard (conditional_real_num 1) conditional_real_sum)
+    (conditional_real_num 2)
+let conditional_real_rhs =
+  bool_and [R.mk_not_expr conditional_real_guard;
+            R.mk_eq_expr conditional_real_sum (conditional_real_num 2)]
+let conditional_real_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_real_lhs conditional_real_rhs;
+  premises = [];
+}
+let conditional_real_bad_node : U.proof_node = {
+  conditional_real_node with
+  U.conclusion = U.Equal conditional_real_lhs
+    (bool_and [R.mk_not_expr conditional_real_guard;
+               R.mk_eq_expr conditional_real_sum (conditional_real_num 3)]);
+}
+
+let conditional_real_rewrite_actual_route ()
+  : Lemma (NR.real_conditional_rewrite_ok true conditional_real_lhs conditional_real_rhs /\
+           K.real_rewrite core_schema conditional_real_node /\
+           (match K.check_node core_schema [] conditional_real_node with
+            | Some (_, 0) -> true | _ -> false)) =
+  assert_norm (NR.real_conditional_rewrite_ok true conditional_real_lhs conditional_real_rhs);
+  assert_norm (K.real_rewrite core_schema conditional_real_node);
+  assert_norm (match K.check_node core_schema [] conditional_real_node with
+               | Some (_, 0) -> true | _ -> false)
+
+let conditional_real_rewrite_rejects_bad_branch ()
+  : Lemma (not (NR.real_conditional_rewrite_ok true
+                  conditional_real_lhs
+                  (bool_and [R.mk_not_expr conditional_real_guard;
+                             R.mk_eq_expr conditional_real_sum (conditional_real_num 3)]))) =
+  assert_norm (not (NR.real_conditional_rewrite_ok true
+                      conditional_real_lhs
+                      (bool_and [R.mk_not_expr conditional_real_guard;
+                                 R.mk_eq_expr conditional_real_sum (conditional_real_num 3)])))
+
 #pop-options

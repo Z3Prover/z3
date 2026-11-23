@@ -962,6 +962,100 @@ let conditional_rewrite_ok (lhs rhs:expr) : bool =
 let real_rewrite_ok (real:bool) (lhs rhs:expr) : bool =
   if rewrite_ok lhs rhs then true else real && LIN.real_equivalent lhs rhs
 
+type real_fold_replay_kind =
+  | RealFoldUnchanged
+  | RealFoldArrayIte
+  | RealFoldRewrite
+  | RealFoldArithmetic
+
+unfold let real_fold_replay_evidence (real:bool) (e:expr) : option real_fold_replay_kind =
+  let folded = CR.fold e in
+  if not (D.scoped [] e && D.scoped [] folded && get_sort e = get_sort folded) then None
+  else if e = folded then Some RealFoldUnchanged
+  else match AS.ite_contract e with
+       | Some expected -> if expected = folded then Some RealFoldArrayIte else None
+       | None ->
+         if rewrite_ok e folded then Some RealFoldRewrite
+         else if real && LIN.real_equivalent e folded then Some RealFoldArithmetic
+         else None
+
+type real_choose_replay_certificate =
+  | RealChooseGuard
+  | RealChooseApplication : list real_choose_replay_certificate -> real_fold_replay_kind ->
+      real_choose_replay_certificate
+  | RealChooseUnchanged
+
+let rec real_choose_replay_evidence (real:bool) (guard:expr) (truth:bool) (e:expr)
+  : Tot (option real_choose_replay_certificate) (decreases e) =
+  if e = guard then if get_sort guard = bool_sort then Some RealChooseGuard else None
+  else match e with
+  | App f args ->
+    (match real_choose_args_replay_evidence real guard truth args,
+           real_fold_replay_evidence real (App f (CR.choose_args guard truth args)) with
+     | Some children, Some folded -> Some (RealChooseApplication children folded)
+     | _, _ -> None)
+  | _ -> if D.scoped [] e then Some RealChooseUnchanged else None
+
+and real_choose_args_replay_evidence (real:bool) (guard:expr) (truth:bool) (args:list expr)
+  : Tot (option (list real_choose_replay_certificate)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match real_choose_replay_evidence real guard truth a,
+           real_choose_args_replay_evidence real guard truth rest with
+     | Some child, Some children -> Some (child :: children)
+     | _, _ -> None)
+
+type real_conditional_rewrite_certificate =
+  | RealConditionalDirect
+  | RealConditionalTrue : expr -> real_choose_replay_certificate ->
+      real_choose_replay_certificate -> real_choose_replay_certificate ->
+      real_choose_replay_certificate -> real_conditional_rewrite_certificate ->
+      real_conditional_rewrite_certificate
+  | RealConditionalFalse : expr -> real_choose_replay_certificate ->
+      real_choose_replay_certificate -> real_choose_replay_certificate ->
+      real_choose_replay_certificate -> real_conditional_rewrite_certificate ->
+      real_conditional_rewrite_certificate
+
+let rec real_conditional_rewrite_evidence (real:bool) (fuel:nat) (lhs rhs:expr)
+  : Tot (option real_conditional_rewrite_certificate) (decreases fuel) =
+  if real_rewrite_ok real lhs rhs then Some RealConditionalDirect
+  else if fuel = 0 then None
+  else if None? (expression_budget 4096 lhs) ||
+          None? (expression_budget 4096 rhs) then None
+  else if fuel > 0 then
+    let guard = match CR.condition lhs with Some c -> Some c | None -> CR.condition rhs in
+    match guard with
+    | None -> None
+    | Some c ->
+      let tl = CR.choose c true lhs in
+      let tr = CR.choose c true rhs in
+      let fl = CR.choose c false lhs in
+      let fr = CR.choose c false rhs in
+      match D.scoped [] c,
+            real_choose_replay_evidence real c true lhs,
+            real_choose_replay_evidence real c true rhs,
+            real_choose_replay_evidence real c false lhs,
+            real_choose_replay_evidence real c false rhs with
+      | true, Some tlc, Some trc, Some flc, Some frc ->
+        if real_rewrite_ok real tl tr then
+          (match real_conditional_rewrite_evidence real (fuel - 1) fl fr with
+           | Some rest -> Some (RealConditionalTrue c tlc trc flc frc rest)
+           | None -> None)
+        else if real_rewrite_ok real fl fr then
+          (match real_conditional_rewrite_evidence real (fuel - 1) tl tr with
+           | Some rest -> Some (RealConditionalFalse c tlc trc flc frc rest)
+           | None -> None)
+        else None
+      | _, _, _, _, _ -> None
+  else None
+
+let real_conditional_rewrite_ok (real:bool) (lhs rhs:expr) : bool =
+  real && get_sort lhs = get_sort rhs && D.scoped [] lhs && D.scoped [] rhs &&
+  Some? (expression_budget 4096 lhs) &&
+  Some? (expression_budget 4096 rhs) &&
+  Some? (real_conditional_rewrite_evidence real 64 lhs rhs)
+
 (* `scoped`: the certificate has a quant-intro root, whose body proofs may
    use quant-intro congruences and rewrite leaves; an NNF certificate
    (scoped = false) is replayed by exactly the previous rules. *)
@@ -3421,6 +3515,191 @@ let lemma_real_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boole
       #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
       (fun reals -> LIN.lemma_real_equivalent s bc eq other reals scope rho lhs rhs);
     lemma_same_at s bc eq other scope rho lhs rhs)
+
+let lemma_real_rewrite_equality_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (real:bool) (lhs rhs:expr)
+  : Lemma (requires real_rewrite_ok real lhs rhs /\ (real ==> RL.real_model s bc eq other) /\
+                    D.scoped [] lhs /\ D.scoped [] rhs)
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_real_rewrite_at s bc eq other real [] rho lhs rhs;
+  lemma_same_at s bc eq other [] rho lhs rhs;
+  assert (same_at s bc eq other [] rho lhs rhs);
+  assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs)
+
+let lemma_real_fold_replay_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (real:bool) (e:expr)
+  (kind:real_fold_replay_kind)
+  : Lemma (requires real_fold_replay_evidence real e == Some kind /\
+                    (real ==> RL.real_model s bc eq other))
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (CR.fold e)) =
+  let folded = CR.fold e in
+  match kind with
+  | RealFoldUnchanged -> ()
+  | RealFoldArrayIte ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    (match AS.ite_contract e with
+     | Some expected ->
+       if expected = folded then SA.lemma_ite_contract s bc eq other [] (T.empty_environment (S.signature s)) e folded
+       else FStar.Pervasives.false_elim ()
+     | None -> FStar.Pervasives.false_elim ())
+  | RealFoldRewrite ->
+    assert (D.scoped [] e /\ D.scoped [] folded);
+    if rewrite_ok e folded then (
+      lemma_rewrite_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded;
+      assert (same_at s bc eq other [] (T.empty_environment (S.signature s)) e folded);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) folded))
+    else FStar.Pervasives.false_elim ()
+  | RealFoldArithmetic ->
+    assert (real && LIN.real_equivalent e folded);
+    lemma_real_rewrite_equality_at s bc eq other real e folded
+
+let rec lemma_real_choose_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (real:bool)
+  (guard:expr) (truth:bool) (e:expr) (cert:real_choose_replay_certificate)
+  : Lemma (requires D.scoped [] guard /\ get_sort guard = bool_sort /\ D.scoped [] e /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    real_choose_replay_evidence real guard truth e == Some cert /\
+                    (real ==> RL.real_model s bc eq other))
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) e ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose guard truth e))
+    (decreases e) =
+  if e = guard then (
+    let replacement = if truth then R.true_expr else R.false_expr in
+    lemma_boolean_literal_at s bc eq other truth;
+    lemma_same_truth s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    lemma_same_at s bc eq other [] (T.empty_environment (S.signature s)) guard replacement;
+    assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) guard ==
+            T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) replacement))
+  else
+    match e, cert with
+    | App f args, RealChooseApplication children folded ->
+      let chosen = CR.choose_args guard truth args in
+      assert (real_choose_args_replay_evidence real guard truth args == Some children);
+      lemma_real_choose_args_at s bc eq other real guard truth args f.domain children;
+      assert (real_fold_replay_evidence real (App f chosen) == Some folded);
+      lemma_real_fold_replay_at s bc eq other real (App f chosen) folded;
+      assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                (CR.choose_args guard truth args) f.domain ==
+              T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args f.domain);
+      assert (T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f args) ==
+              T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) (App f chosen));
+      assert (CR.choose guard truth e == CR.fold (App f chosen));
+      ()
+    | _, RealChooseUnchanged ->
+      assert (CR.choose guard truth e == e);
+      ()
+    | _, _ -> FStar.Pervasives.false_elim ()
+
+and lemma_real_choose_args_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (real:bool)
+  (guard:expr) (truth:bool) (args:list expr) (ss:list sort)
+  (certs:list real_choose_replay_certificate)
+  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\
+                    D.scoped [] guard /\ get_sort guard = bool_sort /\
+                    T.truth_at s bc eq other [] (T.empty_environment (S.signature s)) guard == truth /\
+                    real_choose_args_replay_evidence real guard truth args == Some certs /\
+                    (real ==> RL.real_model s bc eq other))
+          (ensures D.scoped_args [] (CR.choose_args guard truth args) /\
+                   sorts_match (CR.choose_args guard truth args) ss /\
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+                     (CR.choose_args guard truth args) ss ==
+                   T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s)) args ss)
+    (decreases args) =
+  match args, ss, certs with
+  | [], [], [] -> ()
+  | a :: rest, sort :: sorts, child :: children ->
+    assert (real_choose_replay_evidence real guard truth a == Some child);
+    lemma_real_choose_at s bc eq other real guard truth a child;
+    assert (real_choose_args_replay_evidence real guard truth rest == Some children);
+    lemma_real_choose_args_at s bc eq other real guard truth rest sorts children;
+    assert (D.scoped [] (CR.choose guard truth a));
+    assert (sorts_match (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts));
+    assert (T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (CR.choose guard truth a :: CR.choose_args guard truth rest) (sort :: sorts) ==
+            T.evaluate_arguments_at s bc eq other [] (T.empty_environment (S.signature s))
+              (a :: rest) (sort :: sorts));
+    ()
+  | _, _, _ -> FStar.Pervasives.false_elim ()
+
+let rec lemma_real_conditional_rewrite_at (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s)) (real:bool) (fuel:nat)
+  (lhs rhs:expr) (cert:real_conditional_rewrite_certificate)
+  : Lemma (requires D.scoped [] lhs /\ D.scoped [] rhs /\
+                    real_conditional_rewrite_evidence real fuel lhs rhs == Some cert /\
+                    (real ==> RL.real_model s bc eq other))
+          (ensures T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) lhs ==
+                   T.evaluate_at s bc eq other [] (T.empty_environment (S.signature s)) rhs)
+    (decreases fuel) =
+  let rho = T.empty_environment (S.signature s) in
+  match cert with
+  | RealConditionalDirect ->
+    if real_rewrite_ok real lhs rhs then
+      lemma_real_rewrite_equality_at s bc eq other real lhs rhs
+    else FStar.Pervasives.false_elim ()
+  | RealConditionalTrue guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (real_choose_replay_evidence real guard true lhs == Some tlc);
+    assert (real_choose_replay_evidence real guard true rhs == Some trc);
+    assert (real_choose_replay_evidence real guard false lhs == Some flc);
+    assert (real_choose_replay_evidence real guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_real_choose_at s bc eq other real guard true lhs tlc;
+      lemma_real_choose_at s bc eq other real guard true rhs trc;
+      if real_rewrite_ok real tl tr then
+        lemma_real_rewrite_equality_at s bc eq other real tl tr
+      else if fuel > 0 then (
+        assert (real_conditional_rewrite_evidence real (fuel - 1) fl fr == Some rest);
+        lemma_real_conditional_rewrite_at s bc eq other real (fuel - 1) fl fr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_real_choose_at s bc eq other real guard false lhs flc;
+      lemma_real_choose_at s bc eq other real guard false rhs frc;
+      if fuel > 0 then (
+        assert (real_conditional_rewrite_evidence real (fuel - 1) fl fr == Some rest);
+        lemma_real_conditional_rewrite_at s bc eq other real (fuel - 1) fl fr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+  | RealConditionalFalse guard tlc trc flc frc rest ->
+    let tl = CR.choose guard true lhs in
+    let tr = CR.choose guard true rhs in
+    let fl = CR.choose guard false lhs in
+    let fr = CR.choose guard false rhs in
+    assert (D.scoped [] guard /\ get_sort guard = bool_sort);
+    assert (real_choose_replay_evidence real guard true lhs == Some tlc);
+    assert (real_choose_replay_evidence real guard true rhs == Some trc);
+    assert (real_choose_replay_evidence real guard false lhs == Some flc);
+    assert (real_choose_replay_evidence real guard false rhs == Some frc);
+    if T.truth_at s bc eq other [] rho guard then (
+      lemma_real_choose_at s bc eq other real guard true lhs tlc;
+      lemma_real_choose_at s bc eq other real guard true rhs trc;
+      if fuel > 0 then (
+        assert (real_conditional_rewrite_evidence real (fuel - 1) tl tr == Some rest);
+        lemma_real_conditional_rewrite_at s bc eq other real (fuel - 1) tl tr rest)
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
+    else (
+      lemma_real_choose_at s bc eq other real guard false lhs flc;
+      lemma_real_choose_at s bc eq other real guard false rhs frc;
+      if real_rewrite_ok real fl fr then
+        lemma_real_rewrite_equality_at s bc eq other real fl fr
+      else FStar.Pervasives.false_elim ();
+      assert (T.evaluate_at s bc eq other [] rho lhs == T.evaluate_at s bc eq other [] rho rhs))
 
 (* ---------------------------------------------------------------------- *)
 (* 6. One entry at one assigned scope                                       *)

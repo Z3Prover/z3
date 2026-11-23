@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-22T18:09:42-08:00**.
+Updated: **2026-11-22T20:05:53-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -209,38 +209,38 @@ is made.
 
 ### Current-source Definition+Array matched replay (not promoted)
 
-The updated `check_definition_array_diagnosed` route was replayed on the same
-11 frozen documents from `files\conditional-current-source-control-04e`;
-all proof hashes were reverified (ordered proof-set SHA-256
+The Real-gated conditional rewrite path was verified and replayed through the
+independent `check_definition_array_diagnosed` route on the same 11 frozen
+documents from `files\conditional-current-source-control-04e`. All proof
+hashes were reverified (ordered proof-set SHA-256
 `176f8a87df57df9b3ba18914101ad3d5b9085cc350d4419c15c91117b297e22b`).
-Source HEAD is `aee05ad9b4e4a14a53e074055c537d3bcb7a0f38`; the relevant F*
+Source HEAD is `e6d993a219092ed820a9a984250be7bb81a72294`; the current F*
 source diff SHA-256 is
-`f8b67e9f8359dbf1c8bd168bdd4d806d2bafbdbb5d987567b302f4ab28d488b8`.
-The strict F* 2026.10.25 / OCaml 5.3.0 / Z3 5.4.2 build verified the
-219-module `.fst`/`.fsti` checker and test closure. The focused native
-`test_independent_array_document.ml` regression and strict
-`Z3SortedProofTests.fst` verification (including conditional
-`ApplyDefinition` controls) passed. Checker SHA-256 is
-`afdf301035f15f160398f30ddea1a1072b84ce725370b075b0d16e166d4afb95`;
-re-extracted `Z3IndependentChecker.ml` SHA-256 is
-`5441eabaa64762c7120ee477a0d99335e199b05c647f0c042925550dc2b02891`.
+`e971d15c787725702bd8326ccd76e4bffd20540ab71eef2a38ed52f202ef0a4e`.
+F* 2026.10.25 strictly verified the 218-module independent-checker
+dependency closure; the checker extracted and linked with OCaml 5.3.0 and
+Z3 5.4.2. Strict `Z3SortedProofTests.fst` verification passed, including
+positive actual-route and invalid-branch controls. Checker SHA-256 is
+`73c07133d25e5949bd07428fa64e106b5cc993461f72b1e0a63f3971959e7487`.
+The broader `build_independent_checker.py` test sequence stopped later in its
+test-only finite-field polynomial extraction because that module's `.checked`
+cache was stale; see
+`files\real-conditional-independent-build-02.log`.
 
-All 11 statuses, PENDING counts, and proof-node counts match the prior
-diagnosed-route capture. The updated route accepted 7/11 and returned PARTIAL
-on 4/11 (123 PENDING: 93 `intro-def`, 20 `rewrite`, 1 `def-axiom`, 9
-`quantifier-intro`; `apply-def` and `arith/farkas` were 0). Legacy accepted
-11/11 on these identical documents. Against the prior diagnosed-route
-single-pass capture, aggregate checker time fell from 272.614s to 181.016s
-(-33.6%), and median per-proof time from 15.872s to 11.101s (-30.1%); 6/11
-proofs were faster. The retained paired Legacy timings total 32.213s, so this
-route remains 5.62x slower. This is one paired fixed-proof timing pass, not
-cohort burn-down or a parity result. It adds no acceptance and provides no
-Farkas-producer evidence; keep the route unpromoted. Per-proof baseline and
-diagnostic files remain under
-`files\definition-array-lazy-diagnostics-20261122.tsv` and
-`files\definition-array-matched-20261122.tsv`. No sample/extended cohort was
-rerun for this candidate; cohort outcome counts, diagnostic errors, and
-timeout tails are N/M, as are new fstar-build counts.
+The candidate accepted 7/11 and returned PARTIAL on 4/11 (108 PENDING: 93
+`intro-def`, 5 `rewrite`, 1 `def-axiom`, 9 `quantifier-intro`; `apply-def`
+and `arith/farkas` were 0). Against the prior PR-head control, acceptance is
+unchanged at 7/11 while rewrite PENDING fell 20→5, reducing total PENDING
+123→108. On proof 63, PENDING fell 79→64 (60 `intro-def`, 19→4 `rewrite`).
+Legacy accepts 11/11. Candidate aggregate time / median was 181.047s /
+11.053s versus 181.016s / 11.101s in the prior single pass—no meaningful
+performance change. The retained paired Legacy total is 32.213s, so the
+candidate remains about 5.62x slower. This is fixed-proof evidence, not cohort
+burn-down or parity; no sample/extended cohort or new Legacy timing was run.
+Detailed output is under
+`files\real-conditional-independent-matched-11.log`; no Farkas-producer
+evidence is added. Cohort outcome counts, diagnostic errors, timeout tails,
+and new fstar-build counts remain N/M.
 
 ## Last 10 updates (measurements and corrections)
 
@@ -249,6 +249,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 22 20:05 | Add Real-gated conditional rewrite certificates and replay the 11 hash-pinned documents | Acceptance stays 7/11; PENDING 123→108, entirely from rewrite 20→5. Aggregate time 181.016s→181.047s and median 11.101s→11.053s: effectively flat, one pass. Strict 218-module checker closure and positive/negative controls pass; the broader native suite stops later at stale finite-field cache. Still 5.62x slower than Legacy; no cohort run or parity. |
 | Nov 22 18:09 | Reuse definition diagnostics before the array fallback; replay all 11 hash-pinned proofs | 7/11 ACCEPT versus Legacy 11/11; 123 PENDING unchanged. Strict 219-module closure, `Z3SortedProofTests.fst` including conditional `ApplyDefinition` controls, and focused native regression pass. Aggregate time 272.614s→181.016s (-33.6%), median 15.872s→11.101s (-30.1%), faster 6/11; still 5.62x slower than paired Legacy. Single-pass evidence only; no cohort burn-down, parity, or Farkas finding. |
 | Nov 22 17:15 | Repeat the retained Definition-mode checker on both pinned cohorts and diagnose every PARTIAL | Outcomes and per-rule PENDING reproduce: sample 110/225 ACCEPT, 3,836; extended 78/285 ACCEPT, 30,907. Diagnostics 77/77 and 126/126, zero errors/mismatches. QF_LIA sample: 19 ACCEPT, 5 UNKNOWN, 1 TIMEOUT, no PARTIAL. Timings 2,075.3s / 0.686s and 1,776.5s / 0.636s, slower than the prior repeat; repeatability only, no improvement, Farkas evidence, or matched-proof burn-down. |
 | Nov 22 09:39 | Fix certified array diagnostics, add valid/wrong-branch `ApplyDefinition` controls, and replay the matched 11 | Strict 220-module F* closure and focused native array test pass. Same 7/11 ACCEPT and 123 PENDING; Legacy 11/11. 272.614s vs 21.787s Legacy (12.51x, slower on all 11); one-pass timing only. Diagnostic fix, no burn-down or Farkas gap. |
@@ -258,7 +259,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 22 06:34 | Repeat the retained Definition-mode checker on both pinned cohorts; diagnose every PARTIAL | Same outcomes and per-rule PENDING as the prior capture: sample 110/225 ACCEPT and 3,836 PENDING; extended 78/285 ACCEPT and 30,907 PENDING. Diagnostics: 77/77 and 126/126, zero errors/mismatches. Latest aggregate case times 2,013.1s / 1,739.6s; no matched-proof burn-down inferred. |
 | Nov 22 02:56 | Rerun the retained PR-head checker on pinned sample inputs with `--definition-array-replay`; diagnose all PARTIALs | 142/225 ACCEPT, 42 PARTIAL, 21 UNKNOWN, 20 TIMEOUT; versus Definition-only, 32 PARTIAL→ACCEPT and 3 PARTIAL→TIMEOUT with no ACCEPT regressions. 344 observed PENDING; combined mode is slower (0.779s vs 0.579s median). Input-matched only, not frozen-proof burn-down or Legacy parity. |
 | Nov 21 23:04 | Complete current-source matched 11-input sample control | Independent checker 3/11 ACCEPT, 8/11 PARTIAL (811 PENDING); Legacy 11/11 ACCEPT. `apply-def` PENDING=0; single-pass medians 6.038s vs 0.573s. Fixed control only, no cohort burn-down; parity not met. |
-| Nov 21 22:19 | Correct extended arithmetic-rule attribution (dashboard correction; no new run) | `arith/bound` remains 11; `arith/farkas` corrected 11→0; total PENDING remains 30,907. Classification only, not improvement or burn-down. |
 
 ## Validation and cadence
 
