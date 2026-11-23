@@ -7,18 +7,32 @@ Module Name:
 
 Abstract:
 
-    Union-find based bisimulation algorithm for symbolic regular expression
-    equivalence, based on the construction described in:
+    Union-find based bisimulation algorithm for symbolic regular
+    expression equivalence.
 
-      "Symbolic Extended Regular Expression Equivalence"
-      Ian, Kathi, Margus
-      
+    Two regexes p, q are language-equivalent iff their symmetric
+    difference p XOR q is empty (accepts no word), so the algorithm
+    reduces equivalence checking to an emptiness search on p XOR q's
+    derivative automaton - explored by repeatedly taking the symbolic
+    derivative of a reached state and visiting its leaves, each leaf
+    itself being an XOR-pair (p', q') of a newly reached state pair.
 
-    The algorithm decides equivalence of two regexes p, q by performing
-    a bisimulation search on the symbolic derivative of p XOR q. A
-    union-find structure tracks pairs of regex states that should be
-    bisimilar, and the worklist is initialised with the singleton
-    {p XOR q}.
+    The key efficiency device is a union-find partition over regex
+    states, standing in for the states of that automaton: whenever a
+    leaf (p', q') is reached, p' and q' are merged into one class, and
+    the pair is pushed onto the worklist for further exploration only
+    if that merge was new (the two sides were not already known
+    similar). Once merged, p' and q' are treated as interchangeable for
+    the rest of the search, so the worklist drains as soon as every
+    state reachable from p XOR q has been confirmed similar to its
+    counterpart - collapsing what would otherwise be an unbounded
+    explicit product-automaton exploration (every syntactically
+    distinct pair kept separate forever) down to one bounded by the
+    number of distinct similarity classes actually discovered.
+    Encountering a nullable leaf at any point means exactly one side
+    accepts the empty continuation there and the other does not, which
+    both concludes inequivalence immediately and witnesses a
+    distinguishing word (the path taken to reach that leaf).
 
     The algorithm returns:
         l_true   p and q are equivalent (bisimilar)

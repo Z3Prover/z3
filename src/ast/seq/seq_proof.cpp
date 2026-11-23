@@ -64,6 +64,16 @@ namespace seq {
         facts.push_back(fact);
     }
 
+    // See seq_proof.h's module comment: this dynamic_cast chain, and
+    // collect_proofs()'s parallel one below, are the facet-kind dispatch
+    // the proof layer needs. Each case turns one facet's currently
+    // active constraints into the fact(s) they assert (the premise side
+    // of a refutation); collect_proofs() instead gathers those same
+    // constraints' own justification proofs. The two chains are kept
+    // separate rather than merged into one pass because snapshot()
+    // (fact collection) and proof assembly happen at different points -
+    // a snapshot is taken on every step, while proofs are only chased
+    // once a branch actually closes.
     void proof_tracker::append_facts(stx::facet_i const& facet, expr_ref_vector& facts) {
         if (auto* f = dynamic_cast<eq_facet const*>(&facet)) {
             for (auto const& e : f->equations())
