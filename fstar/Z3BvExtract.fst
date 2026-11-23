@@ -303,10 +303,24 @@ let lemma_concat_across (n:pos) (wx wy:pos) (x y:nat) (h l:nat)
           (ensures ((x * pow2 n + y) / pow2 l) % pow2 (wx + wy) ==
                    ((x / pow2 0) % pow2 wx) * pow2 wy + (y / pow2 l) % pow2 wy)
   = assert_norm (pow2 0 == 1);
-    lemma_shift_concat wy l x y;
     M.lemma_div_lt_nat y n l;
-    M.small_mod (y / pow2 l) (pow2 wy);
-    lemma_low_concat wx wy x (y / pow2 l)
+    let q = y / pow2 l in
+    M.small_mod q (pow2 wy);
+    calc (==) {
+      ((x * pow2 n + y) / pow2 l) % pow2 (wx + wy);
+      == {
+        assert (n == wy + l);
+        lemma_shift_concat wy l x y
+      }
+      (x * pow2 wy + q) % pow2 (wx + wy);
+      == { lemma_low_concat wx wy x q }
+      (x % pow2 wx) * pow2 wy + q;
+      == {
+        assert (x / pow2 0 == x);
+        assert (q % pow2 wy == q)
+      }
+      (x / pow2 0 % pow2 wx) * pow2 wy + q % pow2 wy;
+    }
 
 (* y is the bits [h:l] of x, which are k bits. *)
 let lemma_piece (i:interpretation value) (rho:env value) (project:pos -> value -> int)

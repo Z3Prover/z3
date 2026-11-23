@@ -73,8 +73,15 @@ let lemma_real_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   match e with
   | App g [k; _] ->
     assert (e == App g [k; y]);
-    RL.lemma_real_binary_at s bc model other reals scope rho g k y A.Mul;
-    lemma_real_numeral_value s bc model other reals scope rho (-1) k
+    calc (==) {
+      RL.real_at s bc model other reals scope rho e;
+      == { RL.lemma_real_binary_at s bc model other reals scope rho g k y A.Mul }
+      RL.real_at s bc model other reals scope rho k *. RL.real_at s bc model other reals scope rho y;
+      == { lemma_real_numeral_value s bc model other reals scope rho (-1) k }
+      (0.0R -. 1.0R) *. RL.real_at s bc model other reals scope rho y;
+      == { }
+      0.0R -. RL.real_at s bc model other reals scope rho y;
+    }
   | _ -> ()
 
 (* x - y as a canonical binary Real addition of x and (-1) * y, in either
