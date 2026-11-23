@@ -30,6 +30,8 @@ Use `--prepare` and `--once` directly, not through the supervisor. `$source` sen
 
 The host runs `fstar/tools/build_ocaml_checker.ps1 -RunTests` with checkout Z3, the native uninstrumented checker and a pinned external regression harness. Native bridge tests are not the separate in-memory Pulse tests. `ACCEPT` alone certifies a formula. A complete pre-existing failed case can become a work item; missing inputs, failed infrastructure, incomplete diagnostics or an altered evaluator are not improvements. Stats totals are from checker stderr and reported with their case coverage.
 
+Scored cases have a 60-second wall limit. A separate diagnostic replay of a scored `PARTIAL` or `REJECT` has 30 minutes to reproduce the verdict; both invocations keep the 10-second solver timeout. The Monitor’s Graph panel follows the latest top-level run, while the event log retains earlier cycles.
+
 Queue order is least attempts, then crash, reject, obligation family, timeout and slow case, then weight. The judge requires no new soundness marker or disallowed per-case regression, plus a targeted or corpus improvement. Previously near-budget cases use the existing 80% noise rule; targeted speedups use the existing 20% threshold.
 
 Inspect `queue.json`, `analytics.jsonl` and `runs/<iteration>/result.json` under the private state. Changed attempts include `attempt.patch` (full indexed binary diff, including new files). An accepted patch advances only the private branch; rejection retains evidence and reverses only the still-identical patch. The frontend shows the same result. `accept` counts formulas, `accepted_change` counts retained changes, and `queue_open` counts remaining work. No issues, PRs, remote branches, or external merges are created.

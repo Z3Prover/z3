@@ -16,6 +16,7 @@ export const CORPORA = [
 ] as const;
 const ERRORS = new Set(["ERROR", "CRASH", "PROTOCOL_ERROR"]);
 const SOLVER_BUDGET_MS = 10_000, CASE_BUDGET_S = 60;
+const DIAGNOSTIC_BUDGET_S = 30 * 60;
 const atBudget = (b: CaseStat) => b.wall >= 0.8 * CASE_BUDGET_S || (b.solveMs ?? 0) >= 0.8 * SOLVER_BUDGET_MS;
 const KIND_RANK = { crash: 0, reject: 1, obligation: 2, timeout: 3, slow: 4 } as const;
 const familyId = (rule: string, shape: string) => `obligation:${rule}|${shape}`;
@@ -204,7 +205,7 @@ async function readInputs(p: Paths, signal?: AbortSignal): Promise<Inputs> {
   const identity = {
     protectedCommit: PIN, harnessSha256: HARNESS_HASH, evaluationSha256: await fileHash(import.meta.path),
     corpusCommit: CORPUS_PIN, manifestSha256: MANIFEST, suites: CORPORA, corpora, maxCases: p.maxCases,
-    solverTimeoutMs: SOLVER_BUDGET_MS, caseTimeoutS: CASE_BUDGET_S, buildJobs: jobs(),
+    solverTimeoutMs: SOLVER_BUDGET_MS, caseTimeoutS: CASE_BUDGET_S, diagnosticTimeoutS: DIAGNOSTIC_BUDGET_S, buildJobs: jobs(),
     fstar, fstarSha256: await fileHash(p.fstarExe), opamSwitch: p.opamSwitch, toolchain,
   };
   return { sha, tree, evaluator: hash(JSON.stringify(identity)), harness, corpora, identity };
@@ -346,7 +347,7 @@ async function inspect(p: Paths, out: string, input: Inputs, signal?: AbortSigna
       try {
         for (let i = next++; i < need.length; i = next++) {
           const d = need[i]!;
-          diagnostics[d.path] = await sh(["/usr/bin/prlimit", `--as=${d.memory * 1024**2}`, "--", p.checker, "--diagnostics", "--timeout-ms", String(SOLVER_BUDGET_MS), join(p.corpus, d.path)], { cwd: out, signal: childSignal, timeoutMs: CASE_BUDGET_S * 1000 });
+          diagnostics[d.path] = await sh(["/usr/bin/prlimit", `--as=${d.memory * 1024**2}`, "--", p.checker, "--diagnostics", "--timeout-ms", String(SOLVER_BUDGET_MS), join(p.corpus, d.path)], { cwd: out, signal: childSignal, timeoutMs: DIAGNOSTIC_BUDGET_S * 1000 });
         }
       } catch (e) { stop.abort(e); throw e; }
     });
