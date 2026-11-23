@@ -1605,6 +1605,25 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(c.contains(d));
         return BR_DONE;
     }
+    expr* replace_source = nullptr, *replace_needle = nullptr, *replace_replacement = nullptr;
+    zstring replace_needle_text, replace_replacement_text, observed_text;
+    if (str().is_replace(a, replace_source, replace_needle, replace_replacement) &&
+        str().is_string(replace_needle, replace_needle_text) && replace_needle_text.length() == 1 &&
+        str().is_string(replace_replacement, replace_replacement_text) && replace_replacement_text.length() == 1 &&
+        str().is_string(b, observed_text)) {
+        bool invariant = true;
+        for (unsigned i = 0; i < observed_text.length(); ++i) {
+            unsigned ch = observed_text[i];
+            if (ch == replace_needle_text[0] || ch == replace_replacement_text[0]) {
+                invariant = false;
+                break;
+            }
+        }
+        if (invariant) {
+            result = str().mk_contains(replace_source, b);
+            return BR_REWRITE1;
+        }
+    }
     expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
     zstring needle_text, replacement_text, observed;
     if (str().is_replace(a, source, needle, replacement) &&

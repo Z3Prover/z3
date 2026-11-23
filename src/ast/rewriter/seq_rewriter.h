@@ -301,6 +301,7 @@ public:
     br_status mk_le_core(expr* lhs, expr* rhs, expr_ref& result);
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
     br_status mk_regular_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
+    bool regular_rewrite_enabled() const { return m_regular_rewrite; }
 
     expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.data()); }
     expr_ref mk_app(func_decl* f, unsigned n, expr* const* args) { 
