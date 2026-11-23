@@ -10,6 +10,7 @@ module U = Z3UnifiedProofSyntax
 module P = Z3DocumentSyntax
 module R = Z3ClauseSyntax
 module BR = Z3BooleanRewriteSyntax
+module DR = Z3DefinitionRecognition
 module NR = Z3NnfReplay
 module ZA = Z3SortedArray
 module CD = Z3IndependentConditionalDefinition
@@ -199,11 +200,24 @@ let boolean_search_definition_node : U.proof_node = {
   premises = [];
 }
 
+let clause_definition_atom = bool_const "clause-definition-p"
+let clause_definition_formula =
+  bool_or [clause_definition_atom; R.mk_not_expr clause_definition_atom]
+let clause_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds clause_definition_formula;
+  premises = [];
+}
+
 let sorted_boolean_search_definition_axiom_checked ()
   : Lemma (BR.boolean_search boolean_search_definition_formula R.true_expr /\
-           K.definition_axiom_search boolean_search_definition_node) =
+           K.definition_axiom_search boolean_search_definition_node /\
+           DR.propositional_tautology clause_definition_formula /\
+           K.definition_axiom_search clause_definition_node) =
   assert_norm (BR.boolean_search boolean_search_definition_formula R.true_expr);
-  assert_norm (K.definition_axiom_search boolean_search_definition_node)
+  assert_norm (K.definition_axiom_search boolean_search_definition_node);
+  assert_norm (DR.propositional_tautology clause_definition_formula);
+  assert_norm (K.definition_axiom_search clause_definition_node)
 
 let non_tautological_definition_node : U.proof_node = {
   U.kind = U.DefinitionIntroduction;
@@ -276,6 +290,18 @@ let ite_definition_intro_node : U.proof_node = {
   conclusion = U.Holds ite_definition_intro_axiom;
   premises = [];
 }
+
+let ite_definition_branch_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds ite_definition_intro_positive;
+  premises = [];
+}
+
+let ite_definition_branch_checked ()
+  : Lemma (K.choice_clause ite_definition_intro_positive /\
+           K.definition_axiom_search ite_definition_branch_node) =
+  assert_norm (K.choice_clause ite_definition_intro_positive);
+  assert_norm (K.definition_axiom_search ite_definition_branch_node)
 
 let ite_definition_intro_checked ()
   : Lemma (requires CD.ite_definition_axiom ite_definition_intro_axiom)

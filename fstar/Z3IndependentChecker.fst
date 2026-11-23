@@ -271,9 +271,8 @@ let check_definition_diagnosed (schema:S.schema) (doc:P.document)
     let verdict = check_definition_from schema doc base in
     verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
 
-let check_array_from (schema:S.schema) (doc:P.document)
-  (base:Root.root_verdict{base == check schema doc})
-  : result:Root.root_verdict{result == check_array schema doc} =
+let array_extension_from (schema:S.schema) (doc:P.document)
+                         (base:Root.root_verdict) : Root.root_verdict =
   match base with
   | Root.RootPending _ ->
     if Some? (Array.selected schema doc) ||
@@ -282,19 +281,23 @@ let check_array_from (schema:S.schema) (doc:P.document)
     then Root.RootCertified else base
   | _ -> base
 
+let check_array_from (schema:S.schema) (doc:P.document)
+  (base:Root.root_verdict{base == check schema doc})
+  : result:Root.root_verdict{result == check_array schema doc} =
+  array_extension_from schema doc base
+
+let check_definition_array_from (schema:S.schema) (doc:P.document)
+                                (base:Root.root_verdict) : Root.root_verdict =
+  array_extension_from schema doc base
+
 let check_definition_array (schema:S.schema) (doc:P.document) : Root.root_verdict =
-  let core = check schema doc in
-  let base = check_definition_from schema doc core in
-  match base with
-  | Root.RootPending _ ->
-    if check_array_from schema doc core = Root.RootCertified then Root.RootCertified else base
-  | _ -> base
+  check_definition_array_from schema doc (check_definition schema doc)
 
 let check_definition_array_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
-  let verdict = check_definition_array schema doc in
-  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 []
-            else diagnose schema doc)
+  let base, diagnostic = check_definition_diagnosed schema doc in
+  let verdict = check_definition_array_from schema doc base in
+  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
 
 let diagnose_definition (schema:S.schema) (doc:P.document) : P.document_diagnostic =
   match check schema doc with

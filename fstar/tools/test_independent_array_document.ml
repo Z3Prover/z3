@@ -69,6 +69,22 @@ let () =
     require (Checker.diagnose_array schema input = P.DocumentChecked (Z.zero, []))
       "array checker diagnostic did not reflect replay"
   ) [th; rewrite];
+  let other_index = constant "j" int_sort in
+  let unsupported_formula =
+    R.mk_eq_expr (A.App (select_decl, [stored; other_index])) value in
+  let unsupported_negated = R.mk_not_expr unsupported_formula in
+  let unsupported_doc = {
+    P.declarations = []; expressions = []; assertions = [unsupported_negated];
+    entries = [leaf (U.Unverified "th-lemma") unsupported_formula;
+               leaf U.Asserted unsupported_negated; resolution];
+    root = Z.of_int 2
+  } in
+  let diagnosed_verdict, diagnostic =
+    Checker.check_definition_array_diagnosed schema unsupported_doc in
+  require (diagnosed_verdict = Checker.check_definition_array schema unsupported_doc)
+    "definition-array diagnosed verdict changed for an unsupported lemma";
+  require (diagnostic = Checker.diagnose schema unsupported_doc)
+    "definition-array diagnostic changed for an unsupported lemma";
   let pair = decl "pair" [int_sort; int_sort] int_sort None [] in
   let rec expanded n term =
     if n = 0 then term

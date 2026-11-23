@@ -11,6 +11,7 @@ module U = Z3UnifiedProofSyntax
 module P = Z3DocumentPreparation
 module R = Z3ClauseSyntax
 module D = Z3ExprScope
+module DR = Z3DefinitionRecognition
 module L = FStar.List.Tot
 module I = Z3ProofIndex
 module IT = Z3IdTable
@@ -2066,9 +2067,14 @@ let expanded_definition_axiom (node:U.proof_node) : bool =
   CD.ite_definition_axiom (proposition node.conclusion)
 
 let definition_axiom_search (node:U.proof_node) : bool =
-  (node.kind = U.DefAxiom || node.kind = U.DefinitionIntroduction) &&
-  node.premises = [] &&
-  BR.boolean_search (proposition node.conclusion) R.true_expr
+  match node.kind with
+  | U.DefAxiom | U.DefinitionIntroduction ->
+    node.premises = [] &&
+    (choice_clause (proposition node.conclusion) ||
+     DR.propositional_tautology (proposition node.conclusion) ||
+     BR.boolean_search (proposition node.conclusion) R.true_expr ||
+     DR.bounded_tautology (proposition node.conclusion))
+  | _ -> false
 
 let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
   L.map Z3LinearArithmeticAst.positive_literal (propositions node.premises) @
@@ -3408,9 +3414,26 @@ let lemma_definition_axiom_search (#base:sort -> Type0) (s:S.checked_schema)
   : Lemma (requires boolean_expression s (proposition node.conclusion) /\
                     definition_axiom_search node)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  let e = proposition node.conclusion in
   let rho = T.empty_environment (S.signature s) in
-  SB.lemma_search s bc eq other [] rho (proposition node.conclusion) R.true_expr;
-  lemma_truth_true s bc eq other
+  if choice_clause e then
+    lemma_choice_clause s bc eq other e
+  else if DR.propositional_tautology e then (
+    let valuation = T.truth_at s bc eq other [] rho in
+    let boundaries = BR.boolean_frontier 3 e in
+    let cut = BR.boolean_cut boundaries 4 e in
+    let frozen = B.freeze valuation (B.support cut) in
+    B.lemma_freeze valuation (B.support cut) cut;
+    N.lemma_clause_tautology_sound frozen cut;
+    assert (B.geval valuation cut);
+    SB.lemma_cut s bc eq other [] rho boundaries 4 e)
+  else if BR.boolean_search e R.true_expr then (
+    SB.lemma_search s bc eq other [] rho e R.true_expr;
+    lemma_truth_true s bc eq other)
+  else (
+    assert (BR.boolean_equiv 8 10 e R.true_expr);
+    SB.lemma_equivalent s bc eq other [] rho 8 10 e R.true_expr;
+    lemma_truth_true s bc eq other)
 
 (* An accepted typed Int/Real certificate refutes its literals in every
    Sorted model satisfying the Real laws (RL.real_model: SOME Real carrier). *)
