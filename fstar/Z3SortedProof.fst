@@ -2112,7 +2112,7 @@ let bounds_equation (sort:sort) (e:expr) : bool =
    renormalization, comparison orientation and strictness, binary Real
    product commutation) prove, enabled by the same schema gate. *)
 let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
-  RL.real_primitive s && node.kind = U.RewriteRule && Nil? node.premises &&
+  node.kind = U.RewriteRule && Nil? node.premises && RL.real_primitive s &&
   (match node.conclusion with
    | U.Equal a b | U.Observational a b ->
      D.scoped [] a && D.scoped [] b &&

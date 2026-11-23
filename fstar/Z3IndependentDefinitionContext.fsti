@@ -13,8 +13,7 @@ module DV = Z3SortedIntDivision
 
 type item (s:S.checked_schema) (inputs:list expr) = {
   formula: expr;
-  domain: sort;
-  definition: Model.definition s inputs formula domain;
+  definition: Model.definition s inputs formula;
 }
 
 let rec safe (s:S.checked_schema) (inputs:list expr)
@@ -50,7 +49,7 @@ val lemma_build_cons (#base:sort -> Type0) (s:S.checked_schema)
   (other:V.interpretation base (S.signature s))
   : Lemma (build s bc eq inputs (d :: rest) other ==
     Model.override s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition)
+      inputs d.formula d.definition)
 
 val lemma_build_inputs (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)

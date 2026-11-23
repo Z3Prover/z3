@@ -2,6 +2,7 @@ module Z3IndependentDefinitionContextEquivalence
 
 open Z3AstTheory
 module S = Z3DatatypeSignature
+module D = Z3DefinitionSyntax
 module V = Z3DatatypeValue
 module T = Z3SortedSemantics
 module Q = Z3SortedQuantifier
@@ -14,7 +15,9 @@ let rec matches (s:S.checked_schema) (inputs:list expr) (items:list (Context.ite
   match items with
   | [] -> false
   | item :: rest ->
-    Eq.equivalent fuel item.Context.definition a b || matches s inputs rest fuel a b
+    (match item.Context.definition.D.symbol.domain with
+     | [_] -> Eq.equivalent fuel item.Context.definition a b || matches s inputs rest fuel a b
+     | _ -> matches s inputs rest fuel a b)
 
 val lemma_matches (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base)

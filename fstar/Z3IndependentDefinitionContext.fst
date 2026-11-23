@@ -19,7 +19,7 @@ let rec build (#base:sort -> Type0) (s:S.checked_schema)
   | [] -> other
   | d :: rest ->
     Model.override s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition
+      inputs d.formula d.definition
 
 let lemma_build_nil (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)
@@ -33,7 +33,7 @@ let lemma_build_cons (#base:sort -> Type0) (s:S.checked_schema)
   (other:V.interpretation base (S.signature s))
   : Lemma (build s bc eq inputs (d :: rest) other ==
     Model.override s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition) =
+      inputs d.formula d.definition) =
   ()
 
 let rec lemma_build_inputs (#base:sort -> Type0) (s:S.checked_schema)
@@ -47,7 +47,7 @@ let rec lemma_build_inputs (#base:sort -> Type0) (s:S.checked_schema)
   | d :: rest ->
     lemma_build_inputs s bc eq inputs rest other;
     Model.lemma_inputs s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition
+      inputs d.formula d.definition
 
 let rec lemma_build_quantification (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)
@@ -62,7 +62,7 @@ let rec lemma_build_quantification (#base:sort -> Type0) (s:S.checked_schema)
   | d :: rest ->
     lemma_build_quantification s bc eq inputs rest other;
     Model.lemma_quantification s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition
+      inputs d.formula d.definition
 
 let rec lemma_build_real (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)
@@ -76,7 +76,7 @@ let rec lemma_build_real (#base:sort -> Type0) (s:S.checked_schema)
   | d :: rest ->
     lemma_build_real s bc eq inputs rest other reals;
     Model.lemma_real s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition reals
+      inputs d.formula d.definition reals
 
 let rec lemma_build_division (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)
@@ -89,7 +89,7 @@ let rec lemma_build_division (#base:sort -> Type0) (s:S.checked_schema)
   | d :: rest ->
     lemma_build_division s bc eq inputs rest other;
     Model.lemma_division s bc eq (build s bc eq inputs rest other)
-      inputs d.formula d.domain d.definition
+      inputs d.formula d.definition
 
 let rec lemma_preserve (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base) (inputs:list expr)
@@ -97,7 +97,7 @@ let rec lemma_preserve (#base:sort -> Type0) (s:S.checked_schema)
   (other:V.interpretation base (S.signature s))
   : Lemma (requires safe s inputs newer items)
     (ensures T.truths s bc eq
-               (Model.override s bc eq other inputs newer.formula newer.domain newer.definition)
+               (Model.override s bc eq other inputs newer.formula newer.definition)
                (formulas s inputs items) ==
              T.truths s bc eq other (formulas s inputs items))
     (decreases items) =
@@ -105,7 +105,7 @@ let rec lemma_preserve (#base:sort -> Type0) (s:S.checked_schema)
   | [] -> ()
   | d :: rest ->
     assert (Scope.scoped [] d.formula);
-    Model.lemma_fresh s bc eq other inputs newer.formula newer.domain newer.definition
+    Model.lemma_fresh s bc eq other inputs newer.formula newer.definition
       [] (T.empty_environment (S.signature s)) d.formula;
     lemma_preserve s bc eq inputs newer rest other
 
@@ -121,5 +121,5 @@ let rec lemma_build_context (#base:sort -> Type0) (s:S.checked_schema)
     lemma_build_context s bc eq inputs rest other;
     lemma_build_quantification s bc eq inputs rest other;
     let older = build s bc eq inputs rest other in
-    Model.lemma_definition s bc eq older inputs d.formula d.domain d.definition;
+    Model.lemma_definition s bc eq older inputs d.formula d.definition;
     lemma_preserve s bc eq inputs d rest older

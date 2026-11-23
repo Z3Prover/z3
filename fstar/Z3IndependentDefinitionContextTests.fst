@@ -23,8 +23,12 @@ module NativeDatatype = Z3DatatypeNativeModelTests
 
 let old_item : Context.item X.schema X.inputs = {
   Context.formula = X.formula;
-  Context.domain = X.domain;
   Context.definition = X.definition;
+}
+
+let scalar_item : Context.item X.schema X.inputs = {
+  Context.formula = X.scalar_formula;
+  Context.definition = X.scalar_definition;
 }
 
 let dependent_body = App X.symbol [Var 0 X.domain]
@@ -44,7 +48,7 @@ let pair (symbol:func_decl) (body:expr) : expr =
 
 let new_formula = pair X.other_symbol dependent_body
 
-let new_definition : Model.definition X.schema X.inputs new_formula X.domain =
+let new_definition : Model.definition X.schema X.inputs new_formula =
   assert_norm (Dependent.function_safe X.schema X.other_symbol);
   assert_norm (D.make_definition [X.domain] (App X.other_symbol [Var 0 X.domain]) dependent_body ==
     Some raw_new);
@@ -58,7 +62,6 @@ let new_definition : Model.definition X.schema X.inputs new_formula X.domain =
 
 let new_item : Context.item X.schema X.inputs = {
   Context.formula = new_formula;
-  Context.domain = X.domain;
   Context.definition = new_definition;
 }
 
@@ -68,7 +71,7 @@ let raw_cyclic : D.definition = {
 }
 let cyclic_formula = pair X.symbol cyclic_body
 
-let cyclic_definition : Model.definition X.schema X.inputs cyclic_formula X.domain =
+let cyclic_definition : Model.definition X.schema X.inputs cyclic_formula =
   assert_norm (Dependent.function_safe X.schema X.symbol);
   assert_norm (D.make_definition [X.domain] (App X.symbol [Var 0 X.domain]) cyclic_body ==
     Some raw_cyclic);
@@ -82,7 +85,6 @@ let cyclic_definition : Model.definition X.schema X.inputs cyclic_formula X.doma
 
 let cyclic_item : Context.item X.schema X.inputs = {
   Context.formula = cyclic_formula;
-  Context.domain = X.domain;
   Context.definition = cyclic_definition;
 }
 
@@ -148,7 +150,21 @@ let inhabited_root_context ()
   DefinitionRoot.lemma_build_root X.uninterpreted X.schema (TR.booleans X.uninterpreted)
     (SR.root_scalars X.uninterpreted) X.inputs [new_item; old_item] original
 
-let datatype_definition : Model.definition NativeDatatype.schema X.inputs X.formula X.domain =
+let inhabited_scalar_context ()
+  : Lemma (
+    let original = TR.standard X.uninterpreted X.schema X.symbols in
+    let extended = Context.build X.schema (TR.booleans X.uninterpreted)
+      (SR.root_scalars X.uninterpreted) X.inputs [scalar_item] original in
+    T.truths X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
+      extended [X.scalar_formula]) =
+  let original = TR.standard X.uninterpreted X.schema X.symbols in
+  assert_norm (Context.ordered X.schema X.inputs [scalar_item]);
+  TR.lemma_standard_root X.uninterpreted X.schema X.symbols;
+  Root.lemma_forall_model X.uninterpreted X.schema original;
+  Context.lemma_build_context X.schema (TR.booleans X.uninterpreted)
+    (SR.root_scalars X.uninterpreted) X.inputs [scalar_item] original
+
+let datatype_definition : Model.definition NativeDatatype.schema X.inputs X.formula =
   assert_norm (Dependent.function_safe NativeDatatype.schema X.symbol);
   assert_norm (D.make_definition [X.domain] (App X.symbol [Var 0 X.domain]) R.true_expr ==
     Some X.raw_definition);
@@ -162,7 +178,6 @@ let datatype_definition : Model.definition NativeDatatype.schema X.inputs X.form
 
 let datatype_item : Context.item NativeDatatype.schema X.inputs = {
   Context.formula = X.formula;
-  Context.domain = X.domain;
   Context.definition = datatype_definition;
 }
 

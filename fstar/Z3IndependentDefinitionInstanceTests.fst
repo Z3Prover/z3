@@ -29,7 +29,7 @@ let formula =
     Quantifier Forall_k [X.domain] bool_sort (App (R.or_decl right) right)
   ] in
   App (R.and_decl args) args
-let definition : Model.definition X.schema X.inputs formula X.domain =
+let definition : Model.definition X.schema X.inputs formula =
   assert_norm (Dependent.function_safe X.schema X.symbol);
   assert_norm (D.make_definition [X.domain] (App X.symbol [Var 0 X.domain]) body == Some raw);
   assert_norm (D.fresh [raw] body /\ D.fresh_args [raw] X.inputs);
@@ -51,7 +51,7 @@ let instance_controls
   : Lemma (
     let original = TR.standard X.uninterpreted X.schema X.symbols in
     let extended = Model.override X.schema (TR.booleans X.uninterpreted)
-      (SR.root_scalars X.uninterpreted) original X.inputs formula X.domain definition in
+      (SR.root_scalars X.uninterpreted) original X.inputs formula definition in
     Sub.substitute [argument] body == Some result /\
     Sub.substitute [argument] body <> Some captured /\
     T.evaluate_at X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
@@ -60,15 +60,15 @@ let instance_controls
       extended [X.domain; X.domain] rho result) =
   let original = TR.standard X.uninterpreted X.schema X.symbols in
   let extended = Model.override X.schema (TR.booleans X.uninterpreted)
-    (SR.root_scalars X.uninterpreted) original X.inputs formula X.domain definition in
+    (SR.root_scalars X.uninterpreted) original X.inputs formula definition in
   assert_norm (Sub.substitute [argument] body == Some result);
   assert_norm (Sub.substitute [argument] body <> Some captured);
   assert_norm (Scope.scoped [X.domain; X.domain] argument);
   TR.lemma_standard_root X.uninterpreted X.schema X.symbols;
   Root.lemma_forall_model X.uninterpreted X.schema original;
   Model.lemma_definition X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
-    original X.inputs formula X.domain definition;
+    original X.inputs formula definition;
   Model.lemma_quantification X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
-    original X.inputs formula X.domain definition;
+    original X.inputs formula definition;
   Instance.lemma_instance X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
     extended X.inputs formula X.domain definition [X.domain; X.domain] rho argument result

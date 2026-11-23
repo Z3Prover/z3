@@ -18,7 +18,6 @@ module Scope = Z3ExprScope
 
 let item : Context.item X.schema X.inputs = {
   Context.formula = I.formula;
-  Context.domain = X.domain;
   Context.definition = I.definition;
 }
 
@@ -37,21 +36,21 @@ let semantic_control
   : Lemma (
     let original = TR.standard X.uninterpreted X.schema X.symbols in
     let extended = Model.override X.schema (TR.booleans X.uninterpreted)
-      (SR.root_scalars X.uninterpreted) original X.inputs I.formula X.domain I.definition in
+      (SR.root_scalars X.uninterpreted) original X.inputs I.formula I.definition in
     T.evaluate_at X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
       extended [X.domain] rho Test.lhs ==
     T.evaluate_at X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
       extended [X.domain] rho Test.rhs) =
   let original = TR.standard X.uninterpreted X.schema X.symbols in
   let extended = Model.override X.schema (TR.booleans X.uninterpreted)
-    (SR.root_scalars X.uninterpreted) original X.inputs I.formula X.domain I.definition in
+    (SR.root_scalars X.uninterpreted) original X.inputs I.formula I.definition in
   assert_norm (Eq.matches X.schema X.inputs [item] 3 Test.lhs Test.rhs);
   assert_norm (Scope.scoped [X.domain] Test.lhs /\ Scope.scoped [X.domain] Test.rhs);
   TR.lemma_standard_root X.uninterpreted X.schema X.symbols;
   Root.lemma_forall_model X.uninterpreted X.schema original;
   Model.lemma_definition X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
-    original X.inputs I.formula X.domain I.definition;
+    original X.inputs I.formula I.definition;
   Model.lemma_quantification X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
-    original X.inputs I.formula X.domain I.definition;
+    original X.inputs I.formula I.definition;
   Eq.lemma_matches X.schema (TR.booleans X.uninterpreted) (SR.root_scalars X.uninterpreted)
     extended X.inputs [item] [X.domain] rho 3 Test.lhs Test.rhs

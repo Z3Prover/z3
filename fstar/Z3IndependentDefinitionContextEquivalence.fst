@@ -2,6 +2,7 @@ module Z3IndependentDefinitionContextEquivalence
 
 open Z3AstTheory
 module S = Z3DatatypeSignature
+module D = Z3DefinitionSyntax
 module V = Z3DatatypeValue
 module T = Z3SortedSemantics
 module Q = Z3SortedQuantifier
@@ -24,7 +25,10 @@ let rec lemma_matches (#base:sort -> Type0) (s:S.checked_schema)
   match items with
   | [] -> ()
   | item :: rest ->
-    if Eq.equivalent fuel item.Context.definition a b then
-      Eq.lemma_equivalent s bc eq other inputs item.Context.formula item.Context.domain
-        item.Context.definition scope rho fuel a b
-    else lemma_matches s bc eq other inputs rest scope rho fuel a b
+    (match item.Context.definition.D.symbol.domain with
+     | [t] ->
+       if Eq.equivalent fuel item.Context.definition a b then
+         Eq.lemma_equivalent s bc eq other inputs item.Context.formula t
+           item.Context.definition scope rho fuel a b
+       else lemma_matches s bc eq other inputs rest scope rho fuel a b
+     | _ -> lemma_matches s bc eq other inputs rest scope rho fuel a b)

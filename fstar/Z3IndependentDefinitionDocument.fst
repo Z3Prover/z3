@@ -24,7 +24,8 @@ let item (s:S.checked_schema) (inputs:list expr) (entry:P.entry)
   | None -> None
   | Some d ->
     match d.D.symbol.domain with
-    | [t] -> Some { Context.formula = entry.P.formula; domain = t; definition = d }
+    | [] -> Some { Context.formula = entry.P.formula; definition = d }
+    | [_] -> Some { Context.formula = entry.P.formula; definition = d }
     | _ -> None
 
 let rec collect (s:S.checked_schema) (inputs:list expr) (entries:list P.entry)

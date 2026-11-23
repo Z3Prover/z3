@@ -5,6 +5,8 @@ module S = Z3DatatypeSignature
 module D = Z3DefinitionSyntax
 module Recognition = Z3DefinitionRecognition
 module Scope = Z3ExprScope
+module A = Z3ArraySyntax
+module SA = Z3SortedArray
 module Dependent = Z3SortedDependentSkolem
 module R = Z3ClauseSyntax
 module L = FStar.List.Tot
@@ -23,6 +25,23 @@ let pair (t:sort) (d:D.definition) : expr =
   let args = [positive; negative] in
   App (R.and_decl args) args
 
+let scalar_pair (condition name then_value else_value:expr) : expr =
+  let positive = disjunction (R.mk_not_expr condition) (R.mk_eq_expr name then_value) in
+  let negative = disjunction condition (R.mk_eq_expr name else_value) in
+  App (R.and_decl [positive; negative]) [positive; negative]
+
+let scalar_valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.definition) : bool =
+  d.D.symbol.domain = [] && d.D.variables = [] &&
+  Dependent.function_safe s d.D.symbol &&
+  get_sort d.D.body = d.D.symbol.range &&
+  D.fresh [d] d.D.body && D.fresh_args [d] inputs &&
+  Scope.scoped [] (App d.D.symbol []) &&
+  Scope.scoped [] d.D.body && Scope.scoped [] formula &&
+  (match A.ite_parts d.D.body with
+   | Some (condition, then_value, else_value) ->
+     formula = scalar_pair condition (App d.D.symbol []) then_value else_value
+   | None -> false)
+
 let valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.definition) : bool =
   match d.D.symbol.domain with
   | [t] ->
@@ -31,6 +50,7 @@ let valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.definition
     D.make_definition [t] (App d.D.symbol [Var 0 t]) d.D.body = Some d &&
     D.fresh [d] d.D.body && D.fresh_args [d] inputs &&
     Scope.scoped [] formula && formula = pair t d
+  | [] -> scalar_valid s inputs formula d
   | _ -> false
 
 let recognize (s:S.checked_schema) (inputs:list expr) (formula:expr)
@@ -142,6 +162,55 @@ let lemma_pair_pointwise (#base:sort -> Type0) (s:S.checked_schema)
   FStar.Classical.forall_intro at;
   Q.lemma_free_environments (S.signature s) (T.interpretation s bc eq other) [t] env rho name;
   Q.lemma_free_environments (S.signature s) (T.interpretation s bc eq other) [t] env rho d.D.body
+
+let lemma_scalar_pair_truth (#base:sort -> Type0) (s:S.checked_schema)
+  (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+  (other:V.interpretation base (S.signature s))
+  (inputs:list expr) (formula:expr) (d:D.definition)
+  : Lemma (requires scalar_valid s inputs formula d /\
+      T.evaluate s bc eq other (App d.D.symbol []) ==
+      T.evaluate s bc eq other d.D.body)
+    (ensures T.truth s bc eq other formula) =
+  match A.ite_parts d.D.body with
+  | Some (condition, then_value, else_value) ->
+    let name = App d.D.symbol [] in
+    let positive = disjunction (R.mk_not_expr condition) (R.mk_eq_expr name then_value) in
+    let negative = disjunction condition (R.mk_eq_expr name else_value) in
+    let rho = T.empty_environment (S.signature s) in
+    assert (formula == scalar_pair condition name then_value else_value);
+    SA.lemma_ite_scope [] d.D.body condition then_value else_value;
+    SA.lemma_ite s bc eq other [] rho d.D.body condition then_value else_value;
+    lemma_disjunction s bc eq other [] rho (R.mk_not_expr condition)
+      (R.mk_eq_expr name then_value);
+    lemma_disjunction s bc eq other [] rho condition
+      (R.mk_eq_expr name else_value);
+    lemma_negation s bc eq other [] rho condition;
+    T.lemma_equality s bc eq other d.D.body then_value;
+    T.lemma_equality s bc eq other d.D.body else_value;
+    T.lemma_equality s bc eq other name then_value;
+    T.lemma_equality s bc eq other name else_value;
+    T.lemma_nary s bc eq other (R.and_decl [positive; negative])
+      [positive; negative] B.And;
+    assert_norm (B.geval_args (T.truth s bc eq other) B.And
+      [B.Atom positive; B.Atom negative] ==
+      (T.truth s bc eq other positive && T.truth s bc eq other negative));
+    let condition_true = T.truth s bc eq other condition in
+    if condition_true then (
+      assert (T.evaluate s bc eq other d.D.body == T.evaluate s bc eq other then_value);
+      assert (T.evaluate s bc eq other name == T.evaluate s bc eq other then_value);
+      assert (T.truth s bc eq other (R.mk_eq_expr name then_value));
+      assert (T.truth s bc eq other (R.mk_not_expr condition) == false);
+      assert (T.truth s bc eq other positive);
+      assert (T.truth s bc eq other negative))
+    else (
+      assert (T.evaluate s bc eq other d.D.body == T.evaluate s bc eq other else_value);
+      assert (T.evaluate s bc eq other name == T.evaluate s bc eq other else_value);
+      assert (T.truth s bc eq other (R.mk_eq_expr name else_value));
+      assert (T.truth s bc eq other condition == false);
+      assert (T.truth s bc eq other positive);
+      assert (T.truth s bc eq other negative));
+    assert (T.truth s bc eq other formula)
+  | None -> ()
 
 let test_schema : S.checked_schema =
   let s = { S.sorts = []; cases = [] } in

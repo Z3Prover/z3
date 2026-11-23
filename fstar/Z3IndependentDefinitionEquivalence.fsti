@@ -38,10 +38,11 @@ and equivalent_args (fuel:nat) (d:D.definition) (xs ys:list expr)
 val lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema)
   (bc:S.boolean_carrier base) (eq:T.scalar_model base)
   (other:V.interpretation base (S.signature s))
-  (inputs:list expr) (formula:expr) (t:sort) (d:Model.definition s inputs formula t)
+  (inputs:list expr) (formula:expr) (t:sort) (d:Model.definition s inputs formula)
   (scope:list sort) (rho:V.environment base (S.signature s) scope)
   (fuel:nat) (a b:expr)
-  : Lemma (requires Q.forall_model s bc other /\ T.truth s bc eq other formula /\
+  : Lemma (requires d.D.symbol.domain == [t] /\ Q.forall_model s bc other /\
+      T.truth s bc eq other formula /\
       Scope.scoped scope a /\ Scope.scoped scope b /\ equivalent fuel d a b)
     (ensures get_sort a == get_sort b /\
       T.evaluate_at s bc eq other scope rho a == T.evaluate_at s bc eq other scope rho b)
