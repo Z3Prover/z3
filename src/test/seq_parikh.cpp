@@ -71,7 +71,10 @@ namespace {
         // A larger grid is strictly stronger, so any drop in the refutation count between
         // grids is this bound and nothing else - g_bounded says how often it was hit.
         scoped_rlimit rl(f.m.limit(), 2000000);
-        smt::kernel solver(f.m, fp);
+        // Observation systems are arithmetic; keep their string terms opaque.
+        params_ref params;
+        params.set_sym("string_solver", symbol("none"));
+        smt::kernel solver(f.m, fp, params);
         for (expr* e : defs) {
             solver.assert_expr(e);
         }

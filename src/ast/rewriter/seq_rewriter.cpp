@@ -40,6 +40,7 @@ void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();
     m_regular_rewrite = sp.seq_regular_rewrite();
+    m_reduce_length_eq = p.get_sym("string_solver", symbol()) != symbol("none");
     m_max_power_expansion = sp.max_power_expansion();
 }
 
@@ -891,6 +892,16 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     if (!m().is_value(a) && get_ground_seq_length(a, ground_length)) {
         result = m_autil.mk_int(ground_length);
         return BR_DONE;
+    }
+    expr* base = nullptr, *index = nullptr;
+    if (str().is_at(a, base, index)) {
+        expr_ref length(str().mk_length(base), m());
+        expr_ref lower(m_autil.mk_le(zero(), index), m());
+        expr_ref upper(m_autil.mk_lt(index, length), m());
+        expr_ref in_bounds(m().mk_and(lower, upper), m());
+        expr_ref one(m_autil.mk_int(1), m());
+        result = m().mk_ite(in_bounds, one, zero());
+        return BR_REWRITE_FULL;
     }
     zstring b;
     rational r;
@@ -5810,14 +5821,12 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         std::swap(l, r);
     if (str().is_length(r))
         std::swap(l, r);
-#if 0
-    rational n;
-    if (str().is_length(l) && m_autil.is_numeral(r, n) && n.is_zero()) {
+    rational value;
+    if (m_reduce_length_eq && str().is_length(l) && m_autil.is_numeral(r, value) && value.is_zero()) {
         VERIFY(str().is_length(l, l));
         result = m().mk_eq(l, str().mk_empty(l->get_sort()));
         return true;
     }
-#endif
     if (!str().is_empty(l))
         return false;
     expr* s = nullptr, *offset = nullptr, *len = nullptr;

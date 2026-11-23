@@ -139,6 +139,79 @@ static void tst_regular_rewrites(bool proofs) {
     ENSURE(result == s);
 }
 
+static void tst_character_observation_rewrites(bool proofs) {
+    ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    params_ref params;
+    params.set_bool("seq_regular_rewrite", false);
+    th_rewriter rw(m, params);
+    expr_ref s(m.mk_const("character-s", u.mk_string_sort()), m);
+    expr_ref i(m.mk_const("character-i", a.mk_int()), m);
+    expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+    expr_ref at(u.str.mk_at(s, i), m);
+    expr_ref len(u.str.mk_length(s), m);
+    expr_ref lower(a.mk_le(zero, i), m), upper(a.mk_lt(i, len), m);
+    expr_ref bounds(m.mk_and(lower, upper), m);
+    expr_ref expected_length(m.mk_ite(bounds, one, zero), m);
+    expr_ref at_length(u.str.mk_length(at), m);
+    expr_ref empty(u.str.mk_string(""), m);
+    expr_ref length_zero(m.mk_eq(len, zero), m);
+    expr_ref expected_empty(m.mk_eq(s, empty), m);
+    auto check = [&](expr* input, expr* expected) {
+        expr_ref result(m), normal(expected, m), again(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        rw(normal);
+        if (result != normal)
+            std::cerr << "input: " << mk_pp(input, m) << "\nactual: " << mk_pp(result, m)
+                      << "\nexpected: " << mk_pp(normal, m) << "\n";
+        ENSURE(result == normal);
+        if (proofs) {
+            expr *lhs, *rhs;
+            ENSURE(proof && m.is_eq(m.get_fact(proof), lhs, rhs));
+            ENSURE(lhs == input && rhs == result);
+        }
+        rw(result, again);
+        ENSURE(again == result);
+    };
+    check(at_length, expected_length);
+    check(length_zero, expected_empty);
+    expr_ref reversed_length_zero(m.mk_eq(zero, len), m);
+    check(reversed_length_zero, expected_empty);
+    params_ref arithmetic_params(params);
+    arithmetic_params.set_sym("string_solver", symbol("none"));
+    th_rewriter arithmetic_only(m, arithmetic_params);
+    expr_ref preserved(length_zero, m);
+    arithmetic_only(preserved);
+    ENSURE(preserved == length_zero || preserved == reversed_length_zero);
+    expr_ref suffix_index(a.mk_sub(len, a.mk_int(4)), m);
+    expr_ref suffix(u.str.mk_at(s, suffix_index), m);
+    expr_ref suffix_length(u.str.mk_length(suffix), m);
+    expr_ref enough(a.mk_le(a.mk_int(4), len), m);
+    expr_ref expected_suffix(m.mk_ite(enough, one, zero), m);
+    check(suffix_length, expected_suffix);
+    for (char const* word : {"", "a", "abcde", "\xCE\xB1"}) {
+        expr_ref text(u.str.mk_string(zstring(word)), m);
+        for (int index : {-1, 0, 1, 4, 5}) {
+            expr_ref position(a.mk_int(index), m);
+            expr_safe_replace substitute(m);
+            substitute.insert(s, text);
+            substitute.insert(i, position);
+            for (expr* input : {at_length.get(), length_zero.get()}) {
+                expr_ref rewritten(input, m), before(m), after(m);
+                rw(rewritten);
+                substitute(input, before);
+                substitute(rewritten, after);
+                rw(before);
+                rw(after);
+                ENSURE(before == after);
+            }
+        }
+    }
+}
+
 static void tst_eq_skolem_arity() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -891,6 +964,8 @@ static void tst_replace_contains() {
 }
 
 void tst_seq_rewriter() {
+    tst_character_observation_rewrites(false);
+    tst_character_observation_rewrites(true);
     tst_regular_rewrites(false);
     tst_regular_rewrites(true);
     tst_replace_contains();

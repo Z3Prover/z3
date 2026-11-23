@@ -171,6 +171,8 @@ namespace {
         seq_util u(m);
         params_ref p;
         p.set_sym("string_solver", symbol("nseq"));
+        // Keep the length-zero premise for the theory's v:=eps proof rule.
+        p.set_bool("preprocess", false);
         solver_ref s = mk_smt_solver(m, p, symbol("QF_SLIA"));
         expr_ref x(m.mk_const("proof-x", u.mk_string_sort()), m);
         expr_ref y(m.mk_const("proof-y", u.mk_string_sort()), m);

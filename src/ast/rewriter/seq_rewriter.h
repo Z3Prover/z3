@@ -88,6 +88,7 @@ class seq_rewriter {
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool m_coalesce_chars = true;
     bool m_regular_rewrite = true;
+    bool m_reduce_length_eq = true;
     unsigned m_max_power_expansion = 2;
     bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };

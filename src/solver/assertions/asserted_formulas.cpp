@@ -129,6 +129,8 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
 
 void asserted_formulas::updt_params(params_ref const& p) {
     m_params.append(p);
+    m_rewriter.updt_params(m_params);
+    flush_cache();
     m_reduce_pending = true;
 }
 

@@ -207,8 +207,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if (k == OP_EQ && m_seq_rw.u().has_seq() && is_app(args[0]) &&
-                to_app(args[0])->get_family_id() == m_seq_rw.get_fid()) {
+            if (k == OP_EQ && m_seq_rw.u().has_seq() &&
+                ((is_app(args[0]) && to_app(args[0])->get_family_id() == m_seq_rw.get_fid()) ||
+                 (is_app(args[1]) && to_app(args[1])->get_family_id() == m_seq_rw.get_fid()))) {
                 st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 if (st != BR_FAILED)
                     return st;
