@@ -119,22 +119,10 @@ struct false_pred {
 
 
 class and_then_tactical : public binary_tactical {
-    bool m_keep_sat_subgoals = false;
-
 public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
 
     char const* name() const override { return "and_then"; }
-
-    void updt_params(params_ref const & p) override {
-        m_keep_sat_subgoals = p.get_bool("keep_sat_subgoals", false);
-        binary_tactical::updt_params(p);
-    }
-
-    void collect_param_descrs(param_descrs & r) override {
-        binary_tactical::collect_param_descrs(r);
-        r.insert("keep_sat_subgoals", CPK_BOOL, "keep all satisfiable and undecided subgoals instead of stopping at the first satisfiable subgoal");
-    }
 
     // tactic_display_ctx::close displays and_then(t1, and_then(t2, t3)) as (then t1 t2 t3).
     void display_pipeline(params_ref const & p, tactic_display_ctx & ctx) override {
@@ -175,7 +163,7 @@ public:
                 if (is_decided(r2)) {
                     SASSERT(r2.size() == 1);
                     if (is_decided_sat(r2)) {                                                          
-                        if (m_keep_sat_subgoals) {
+                        if (in->keep_sat_subgoals()) {
                             result.push_back(r2[0]);
                             continue;
                         }
@@ -214,9 +202,7 @@ public:
     }
 
     tactic * translate(ast_manager & m) override {
-        auto * t = static_cast<and_then_tactical*>(translate_core<and_then_tactical>(m));
-        t->m_keep_sat_subgoals = m_keep_sat_subgoals;
-        return t;
+        return translate_core<and_then_tactical>(m);
     }
 
     void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
@@ -698,6 +684,7 @@ public:
         else {                                                                                              
 
             scoped_ptr_vector<ast_manager> managers;
+            scoped_limits scl(m.limit());
             tactic_ref_vector              ts2;
             goal_ref_vector                g_copies;
 
@@ -707,6 +694,7 @@ public:
                 ast_translation translator(m, *new_m);
                 g_copies.push_back(r1[i]->translate(translator));
                 ts2.push_back(m_t2->translate(*new_m));
+                scl.push_child(&new_m->limit());
             }
 
             scoped_ptr_vector<expr_dependency_ref> core_buffer;
@@ -731,7 +719,10 @@ public:
                 bool curr_failed = false;
 
                 try {
-                    ts2[i]->operator()(new_g, r2);                  
+                    if (in->keep_sat_subgoals() && new_g->is_decided())
+                        r2.push_back(new_g.get());
+                    else
+                        ts2[i]->operator()(new_g, r2);
                 }
                 catch (tactic_exception & ex) {
                     {
@@ -777,7 +768,12 @@ public:
                 else {
                     if (is_decided(r2)) {
                         SASSERT(r2.size() == 1);
-                        if (is_decided_sat(r2)) {                                                          
+                        if (is_decided_sat(r2) && in->keep_sat_subgoals()) {
+                            goal_ref_buffer * new_r2 = alloc(goal_ref_buffer);
+                            goals_vect.set(i, new_r2);
+                            new_r2->push_back(r2[0]);
+                        }
+                        else if (is_decided_sat(r2)) {
                             // found solution... 
                             bool first = false;
                             {
@@ -966,7 +962,6 @@ protected:
 
 class repeat_tactical : public unary_tactical {
     unsigned m_max_depth;
-    bool m_keep_sat_subgoals = false;
     
     void operator()(unsigned depth,
                     goal_ref const & in, 
@@ -983,7 +978,7 @@ class repeat_tactical : public unary_tactical {
         result.reset();      
     try_goal:
         r1.reset();
-        if (depth > m_max_depth || (m_keep_sat_subgoals && g->is_decided())) {
+        if (depth > m_max_depth || (in->keep_sat_subgoals() && g->is_decided())) {
             result.push_back(g.get());
             return;
         }
@@ -1016,9 +1011,12 @@ class repeat_tactical : public unary_tactical {
 			if (is_decided(r2)) {
 				SASSERT(r2.size() == 1);
 				if (is_decided_sat(r2)) {
-					result.push_back(r2[0]);
-					if (!m_keep_sat_subgoals)
+					if (!in->keep_sat_subgoals()) {
+						result.reset();
+						result.push_back(r2[0]);
 						return;
+					}
+					result.push_back(r2[0]);
 				}
 				else {
 					SASSERT(is_decided_unsat(r2));
@@ -1055,16 +1053,6 @@ public:
 
     char const* name() const override { return "repeat"; }
 
-    void updt_params(params_ref const & p) override {
-        m_keep_sat_subgoals = p.get_bool("keep_sat_subgoals", false);
-        unary_tactical::updt_params(p);
-    }
-
-    void collect_param_descrs(param_descrs & r) override {
-        unary_tactical::collect_param_descrs(r);
-        r.insert("keep_sat_subgoals", CPK_BOOL, "keep all satisfiable and undecided subgoals instead of stopping at the first satisfiable subgoal");
-    }
-
     char const * language_name() const override { return "repeat"; }
     std::string display_tail() const override {
         return m_max_depth == UINT_MAX ? std::string() : std::to_string(m_max_depth);
@@ -1076,9 +1064,7 @@ public:
 
     tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
-        auto * t = alloc(repeat_tactical, new_t, m_max_depth);
-        t->m_keep_sat_subgoals = m_keep_sat_subgoals;
-        return t;
+        return alloc(repeat_tactical, new_t, m_max_depth);
     }
 };
 

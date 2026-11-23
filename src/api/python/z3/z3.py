@@ -9196,6 +9196,9 @@ class Tactic:
     def apply(self, goal, *arguments, **keywords):
         """Apply tactic `self` to the given goal or Z3 Boolean expression using the given options.
 
+        Pass `keep_sat_subgoals=True` to retain all satisfiable and undecided
+        subgoals. This option applies only to this call, not to `With` or tactic solvers.
+
         >>> x, y = Ints('x y')
         >>> t = Tactic('solve-eqs')
         >>> t.apply(And(x == 0, y >= x + 1))
@@ -9291,10 +9294,7 @@ def AndThen(*ts, **ks):
     [(0, 0, 0), (1, 1, 2), (2, 2, 4), (3, 3, 6)]
     >>> len(t(g))
     1
-    >>> keep = With(t, keep_sat_subgoals=True)
-    >>> len(AndThen(keep, 'split-clause')(g))
-    1
-    >>> s = keep.solver()
+    >>> s = t.solver()
     >>> s.add(Or(a > 2, a == 0, a == 1), a > 0)
     >>> s.check()
     sat

@@ -66,6 +66,7 @@ protected:
     unsigned              m_core_enabled:1;    // unsat core extraction is enabled.
     unsigned              m_inconsistent:1;    // true if the goal is known to be inconsistent. 
     unsigned              m_precision:2;       // PRECISE, UNDER, OVER.
+    bool                  m_keep_sat_subgoals = false;
 
     void push_back(expr * f, proof * pr, expr_dependency * d);
     void quick_process(bool save_first, expr_ref & f, expr_dependency * d);
@@ -97,10 +98,12 @@ public:
     bool models_enabled() const { return m_models_enabled; }
     bool proofs_enabled() const { return m_proofs_enabled; }
     bool unsat_core_enabled() const { return m_core_enabled; }
+    bool keep_sat_subgoals() const { return m_keep_sat_subgoals; }
     bool inconsistent() const { return m_inconsistent; }
     precision prec() const { return static_cast<precision>(m_precision); }
     
     void set_depth(unsigned d) { m_depth = d; }
+    void set_keep_sat_subgoals(bool keep) { m_keep_sat_subgoals = keep; }
     void inc_depth() { m_depth++; }
     void set_prec(precision d) { m_precision = d; }
     void updt_prec(precision d) { m_precision = mk_union(prec(), d); }

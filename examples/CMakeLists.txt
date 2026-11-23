@@ -1,3 +1,7 @@
+if (POLICY CMP0225)
+  cmake_policy(SET CMP0225 NEW)
+endif()
+
 include(ExternalProject)
 
 option(Z3_C_EXAMPLES_FORCE_CXX_LINKER

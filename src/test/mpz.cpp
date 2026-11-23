@@ -22,6 +22,7 @@ Revision History:
 #include "util/timeit.h"
 #include "util/scoped_numeral.h"
 #include <iostream>
+#include <climits>
 
 static void tst1() {
     synch_mpz_manager m;
@@ -504,7 +505,27 @@ static void tst_pw2() {
     }
 }
 
+static void tst_hash_small_big_bug() {
+    synch_mpz_manager m;
+    int const vals[] = { -1, -5, 0, 7, INT_MIN, INT_MAX };
+    for (int v : vals) {
+        mpz big, off, r, small;
+        m.set(off, "4294967296");                  // 2^32: beyond int
+        m.set(big, static_cast<int64_t>(v));
+        m.add(big, off, big);                      // v + 2^32
+        m.sub(big, off, r);                        // back to v, through big arithmetic
+        m.set(small, v);
+        ENSURE(m.eq(r, small));
+        ENSURE(m.hash(r) == m.hash(small));
+        m.del(big); m.del(off); m.del(r); m.del(small);
+    }
+    rational a = rational("4294967296") - rational("4294967297");
+    ENSURE(a == rational(-1));
+    ENSURE(a.hash() == rational(-1).hash());
+}
+
 void tst_mpz() {
+    tst_hash_small_big_bug();
     disable_trace("mpz");
     enable_trace("mpz_2k");
     tst_pw2();
