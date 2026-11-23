@@ -26,6 +26,7 @@
   "tests": [
     "Z3IndependentProofIndex.fsti", "Z3IndependentProofIndex.fst",
     "Z3LinearArithmeticAstTests.fst",
+    "Z3NnfAssertionReplayTests.fst",
     "Z3IndependentModPow.fsti", "Z3IndependentModPow.fst",
     "Z3IndependentFiniteFieldMonomial.fsti", "Z3IndependentFiniteFieldMonomial.fst",
     "Z3IndependentFiniteFieldPolynomial.fsti", "Z3IndependentFiniteFieldPolynomial.fst",

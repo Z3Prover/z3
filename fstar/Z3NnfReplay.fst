@@ -1077,6 +1077,21 @@ let entry_ok (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry)
        | None -> false)
     else if Some? e.U.binder_sorts then false
     else if name = "refl" then Nil? facts && lhs = rhs
+    else if name = "asserted" then
+      Nil? facts && D.scoped [] e.U.binder_formula &&
+      L.mem e.U.binder_formula assertions &&
+      L.mem (R.mk_eq_expr lhs rhs) assertions
+    else if name = "mp" then
+      L.length facts = 2 && D.scoped [] e.U.binder_formula &&
+      L.mem e.U.binder_formula assertions &&
+      L.mem (R.mk_eq_expr lhs rhs) assertions
+    else if name = "symm" then
+      (match facts with
+       | [p] ->
+         (match edge p with
+          | Some (a, b) -> lhs = b && rhs = a
+          | None -> false)
+       | _ -> false)
     else if name = "trans" then
       (match facts with
        | [p; q] ->
@@ -3746,6 +3761,15 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
     else (
       lemma_all_hold s bc eq other scope rho facts;
       if name = "refl" then lemma_same_at s bc eq other scope rho lhs rhs
+      else if name = "symm" then (
+        match facts with
+        | [p] ->
+          (match edge p with
+           | Some (a, b) ->
+             lemma_edge s bc eq other scope rho p a b;
+             lemma_same_at s bc eq other scope rho lhs rhs
+           | None -> ())
+        | _ -> ())
       else if name = "trans" then (
         match facts with
         | [p; q] ->
