@@ -1,120 +1,35 @@
-# Z3-pulse-loop: autonomous Pulse/F* checker development loop
+# Local Pulse proof-checker loop
 
-A never-terminating [Junco](https://github.com/elefthei/junco) workflow that keeps improving the
-F*/Pulse "twin" proof checker under `fstar/` and opens one pull request per accepted improvement
-against `elefthei/z3` (`loop/junco-N` branches, base `master`).
+Each `wf.yml` execution handles one item from the F* proof-checker regression queue. `Regress` measures the private branch tip. `Analytics` sends the same case and diagnostics to a read-only Leader (Astra/high) and the sole Developer (Opus/high). Developer also receives the finished plan. `Verify` builds the captured patch separately. `Record` returns the local verdict, evidence, patch and commit to the frontend. An empty queue runs neither model.
 
-The loop is the graph itself: `wf.yml` is one cycle `Regress → … → Publish → Regress` that never
-terminates; `wf.ts` builds it once and owns the deterministic steps.
+## Run
 
-```mermaid
-flowchart LR
-  B([Boot]) --> R[Regress<br/>reset worktree, build checker, run corpora]
-  R -->|run dir| A[Analytics<br/>diagnostics, probes, queue]
-  A -->|work item prompt| D[Developer agent<br/>claude-opus-5.5]
-  D -->|report| V[Verify<br/>rebuild + re-run]
-  A --> P[Publish<br/>judge, push, gh pr create]
-  A -.->|queue empty| V
-  V -->|after analysis + report| P
-  P -->|next cycle| R
-  D -.->|re-arm| D
-```
-
-`Boot` exists because a cycle has no entry node of its own. The Developer is one agent session that
-runs once per assignment: `Developer -> Developer` re-arms the returned node and the `available`
-hook in `wf.ts` stages the next assignment as its prompt (the mechanism of `schedules.ralph`); Pi's
-auto-compaction keeps the session bounded. On an empty queue Analytics bypasses the Developer,
-and Publish pauses 10 minutes before the next cycle. A master that does not build is retried by
-Regress after the same pause.
-
-## What one cycle does
-
-1. **Regress** (code). Resets the loop worktree to `origin/master`, builds the native checker with
-   `fstar/tools/build_ocaml_checker.ps1 -RunTests` (the same command as
-   `.github/workflows/pulse-checker-regressions.yml`) and runs both corpora of
-   [Z3Prover/z3test](https://github.com/Z3Prover/z3test) through `fstar/tools/run_checker_regressions.py`
-   (`regressions/proofs`, `regressions/smtlib-sample`). Results are cached per master SHA under
-   `<state>/baseline/<sha>/`.
-2. **Analytics** (code). Parses `results.jsonl` and the per-case `--stats` lines, re-runs every
-   `PARTIAL`/`REJECT` case with `--diagnostics` to get the pending `obligation <rule> <count> <first> <shape>`
-   rows, counts `Lemma`/`assume`/`admit` markers in `fstar/*.fst*`, records the probes below, rebuilds
-   `<state>/queue.json` and assigns the next open item to the Developer.
-3. **Developer** (agent, `read bash edit grep find` inside the worktree). Implements the item: cover an
-   obligation family, fix a `REJECT`/crash/timeout, make z3's proof hints more specific (`src/`), or speed
-   up a slow case. It may not add `admit`/`assume`, commit or push.
-   Every shell command runs under `ulimit -t 1800` (30 CPU-minutes per process; a runaway analysis
-   script once stalled an iteration for hours).
-4. **Verify** (code). Rebuilds and re-runs the corpora on the modified tree into `<state>/runs/<n>/after/`.
-5. **Publish** (code). Deterministic judge: build and F*/Pulse regressions pass, no `ACCEPT`→worse or
-   `PARTIAL`→worse case, no new `assume`/`admit`, and the targeted item (or the corpus as a whole) improved.
-   A case that was already at ≥80% of the 60 s case or 10 s solver budget and now reports `TIMEOUT`/`UNKNOWN`
-   counts as noise, not a regression. The attempt is always saved as `<state>/runs/<n>/attempt.patch`.
-   Accepted: commit, push `loop/junco-N`, `gh pr create` with the Developer's report plus a before/after
-   analytics table. Rejected: the reason, the patch path and the Developer's report are appended to the
-   item's notes so the next attempt can start from them.
-
-The runner repeats forever. An empty queue or a master that does not build pauses 10 minutes before the
-next attempt. Any other iteration failure exits the process (the native tool runtime stays poisoned after
-a tokio worker panic; observed once as `OS can't spawn worker thread: EAGAIN` under a load-190 build) and
-`bun run loop` starts a fresh one 60 s later; the iteration counter, queue and caches are on disk.
-
-## Work queue (`<state>/queue.json`)
-
-Rebuilt from every baseline run; `attempts`, `notes` and `pr` of surviving items are kept.
-
-| kind | one item per | priority |
-|---|---|---|
-| `crash` | case with `ERROR`/`CRASH`/`PROTOCOL_ERROR` | 1 |
-| `reject` | `REJECT` diagnostic stage | 2 |
-| `obligation` | `(rule, shape)` family of pending proof steps | 3 |
-| `timeout` | `TIMEOUT` case | 4 |
-| `slow` | top-5 `check_ms` cases | 5 |
-
-Order: fewest failed attempts first (so failures rotate through the queue), then kind priority, then larger weight (pending count / cases / ms).
-
-## Analytics
-
-Every analysis (`before` = node `Analytics`, `after` = node `Verify`) emits these probes to Grafana
-(`junco_probe_value{node,edge_id}` on dashboard `Z3-pulse-loop`), appends one JSON line to
-`<state>/analytics.jsonl`, and lands in the PR body:
-
-`build_ok tested accept partial reject timeout errors proof_steps_total proof_steps_pending
-proof_steps_checked obligation_families check_ms_total solve_ms_total fstar_lemmas fstar_assumed
-queue_open queue_pr pr_opened iteration`
-
-One process run is one Opik trace (`Z3-pulse-loop <start time>`, project `Z3-pulse-loop`) with every
-cycle's node spans and the Developer's full agent transcript; the `iteration` probe and the
-`iteration N:` log lines separate cycles.
-
-## Running
-
-Prerequisites (all present on this machine as of 2026-11-05):
-
-- `bun`, `pwsh`, `cmake`, `g++`, `libgmp-dev`, `python3`, `btrfs-progs`, and `gh` with a login for the repo
-  owner (`elefthei` must be the active GitHub login; Git uses the CLI credential helper)
-- F* `v2026.09.27` at `/opt/fstar-v2026.09.27` (the CI pin; the 2026-11-05 nightly rejects `Z3PulseLraChecker.fst`)
-- opam's default switch (`opam switch show`) on OCaml 5.3.0 with `ocamlfind`, `zarith`
-- a btrfs mount with `user_subvol_rm_allowed` for the state dir (Junco's agent tools run in a btrfs seed)
-- a saved Pi `github-copilot` login; Opik at `http://localhost:5173` and the Grafana bridge at `http://localhost:8000`
-- the `junco` checkout with its `node_modules` (default `~/git/junco`; override `JUNCO=...`)
+Requires Linux, a writable Btrfs mount with `user_subvol_rm_allowed`, Bun, a built Junco checkout and frontend client, `pwsh`, CMake/C++/GMP, Python, the pinned F* release, and the `aeneas` OCaml 5.3.0 switch with `ocamlfind` and `zarith`. `bun run link` uses `$JUNCO` or `$HOME/git/junco`. Grafana must already serve its Junco Prometheus datasource on port 8000. The workflow never owns that service.
 
 ```sh
 cd .junco/Z3-pulse-loop
-bun run link      # symlinks junco, dataflow-engine(-opik), opik, pi-* into node_modules
-bun run check     # offline: YAML/roles/ladder validation + queue/judge self-checks + tsc
-bun run loop      # forever, as a plain user process; restarts wf.ts after a crash; Ctrl-C stops after the current step
+bun run link
+bun run check                    # private local fixtures, no paid requests or service state
+bun run wf.ts --prepare           # build/diagnose/select only; item ID on stdout
+bun run wf.ts --once --allow-paid # at most one graph; no idle or crash retry
+bun run loop --allow-paid         # continuous; intentional stops/configuration errors do not restart
 ```
 
-Environment: `Z3_PULSE_LOOP_REPO` (`~/git/z3`), `Z3_PULSE_LOOP_STATE` (`/btrfs/Z3-pulse-loop`),
-`FSTAR_EXE`, `Z3_PULSE_LOOP_MAX_CASES` (0 = whole corpora),
-`GRAFANA_URL`, `OPIK_URL_OVERRIDE`, `OPIK_PROJECT_NAME`.
+Use `--prepare` and `--once` directly, not through the supervisor. `loop` keeps the frontend, recorder and state lock across fresh graph instances, pauses ten minutes on idle/unbuildable tips and backs off sixty seconds after runtime failures. A paid flag is never implicit. Campaign runs use their fixed measurement driver, **not** these operator commands.
 
-State layout: `worktree/` (btrfs subvolume, git worktree of `Z3_PULSE_LOOP_REPO`), `z3test/`,
-`baseline/<sha>/`, `runs/<n>/{after,pr.md}`, `queue.json`, `analytics.jsonl`, `iteration`,
-`z3-build/`, `z3-install/`, `fstar-cache/`, `checker/`.
+- `Z3_PULSE_LOOP_REPO`: read-only local Z3 checkout (default `~/git/z3`). First use fetches its local `origin/master` SHA, or the immutable `Z3_PULSE_LOOP_BASE`, into a separate private repository. Later cycles start at `loop/pulse-local`.
+- `Z3_PULSE_LOOP_STATE`: new private state, default `/btrfs/Z3-pulse-loop-local`. Use an owned, real directory with mode 0700. No remotes, reset, clean or migration of previous state. A second owner or unexpected dirty tree is an error: inspect the evidence, not `git reset --hard`.
+- `Z3_PULSE_LOOP_CORPUS`: clean pinned z3test checkout (default `/btrfs/Z3-pulse-loop/z3test`). Campaign: `91c60596fd6a43de189a1ccba8080a3b48797537`, all 17 `regressions/proofs` and 225 hash-manifest-selected `regressions/smtlib-sample` cases, `Z3_PULSE_LOOP_MAX_CASES=0`.
+- `FSTAR_EXE`: `/opt/fstar-v2026.09.27/bin/fstar.exe`; `OPAMSWITCH=aeneas`.
+- `Z3_PULSE_LOOP_MODEL_STORE`: private nonsecret Copilot catalog populated by the installed Pi updater with the saved login. The workflow loads this catalog offline. It checks both contexts, prices and supported thinking before creating agents. OMP's `-1m` suffix is not a Pi model ID. Model-free preparation needs no catalog or login.
+- `GRAFANA_URL`: `http://localhost:8000` by default. Startup prints the dashboard URL with its stream selector. The Junco Monitor is at `http://127.0.0.1:3000/`, listening on **all interfaces**. Missing assets, a port collision, or a mismatched Grafana datasource fails startup.
 
-## Changing the loop
+**Trust boundary:** the worker uses ordinary Btrfs and the operator's Unix UID, not an OS sandbox. The native shell receives a minimal environment, separate home/build scratch and a per-process 1,800 CPU-second limit. Absolute paths and host sockets accessible to that UID remain accessible. Do not run untrusted work under an account whose privileges you would not give the worker. The frontend has no authentication and displays raw messages and tool I/O; use a trusted network. No role is assigned credentials, Docker operations or publication. Cgroup pipeline memory is reported only with actual delegation.
 
-- Judge thresholds and queue ranking: `judge`, `refreshQueue`, `pickItem` in `wf.ts`; `wf.check.ts` pins them.
-- Developer role and rules: `system:` of node `Developer` in `wf.yml`.
-- Model: `DEVELOPER` ladder in `wf.ts` (re-verify against the Pi catalog when changing).
+## What counts
+
+The host runs `fstar/tools/build_ocaml_checker.ps1 -RunTests` with checkout Z3, the native uninstrumented checker and a pinned external regression harness. Native bridge tests are not the separate in-memory Pulse tests. `ACCEPT` alone certifies a formula. A complete pre-existing failed case can become a work item; missing inputs, failed infrastructure, incomplete diagnostics or an altered evaluator are not improvements. Stats totals are from checker stderr and reported with their case coverage.
+
+Queue order is least attempts, then crash, reject, obligation family, timeout and slow case, then weight. The judge requires no new soundness marker or disallowed per-case regression, plus a targeted or corpus improvement. Previously near-budget cases use the existing 80% noise rule; targeted speedups use the existing 20% threshold.
+
+Inspect `queue.json`, `analytics.jsonl` and `runs/<iteration>/result.json` under the private state. Changed attempts include `attempt.patch` (full indexed binary diff, including new files). An accepted patch advances only the private branch; rejection retains evidence and reverses only the still-identical patch. The frontend shows the same result. `accept` counts formulas, `accepted_change` counts retained changes, and `queue_open` counts remaining work. No issues, PRs, remote branches, or external merges are created.

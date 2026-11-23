@@ -1,15 +1,21 @@
-// Offline checks: YAML schema/roles, ladder identities, and the queue/judge rules on a synthetic run.
-import assert from "node:assert/strict";
-import { schedules, syntax, tools } from "junco";
-import { type Analysis, analyticsMarkdown, document, judge, ladder, metrics, paths, pickItem, refreshQueue } from "./wf.ts";
+// Model-free checks, with a fresh private Btrfs seed rather than the service worktree.
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { schedules, syntax } from 'junco';
+import { type Analysis, analyticsMarkdown, judge, metrics, pickItem, refreshQueue } from './evaluation.ts';
+import { ladder, openCollection } from './wf.ts';
+import { paths } from './state.ts';
+import { checkState } from './state.check.ts';
+import './evaluation.check.ts';
 
 schedules.validateLadder(ladder);
-const seed = paths().worktree; // agent tools need a btrfs seed; resolveAgents only resolves tool names
-const collection = await tools.ToolCollection.create(seed, {});
-try { await syntax.resolveAgents(document, { cwd: seed, collection }); } finally { await collection.close(); }
+await syntax.resolveAgents(syntax.parse(await readFile(new URL('./wf.yml',import.meta.url),'utf8')), { cwd: import.meta.dir });
 
 const run = (over: Partial<Analysis> = {}): Analysis => ({
   sha: "abc", buildOk: true, tested: 4, counts: { ACCEPT: 1, PARTIAL: 2, REJECT: 1 }, pending: 7, proofNodes: 100, checkMs: 300, solveMs: 50,
+  tree: 'fixture-tree', evaluator: 'fixture-evaluator', ciPass: true, statsCases: 3,
   families: [
     { rule: "PR_TH_LEMMA", shape: "arith", pending: 5, cases: [{ path: "a.smt2", count: 3, first: "7" }, { path: "b.smt2", count: 2, first: "1" }] },
     { rule: "PR_REWRITE", shape: "bv", pending: 2, cases: [{ path: "b.smt2", count: 2, first: "9" }] },
@@ -47,4 +53,28 @@ const reject = queue.items.find((i) => i.kind === "reject")!;
 assert.equal(judge(reject, before, run({ cases: { ...before.cases, "r.smt2": { outcome: "PARTIAL", wall: 1, pending: 9 } }, pending: 16 })).ok, true, "REJECT -> PARTIAL is targeted progress");
 assert.equal(metrics(before).proof_steps_checked, 93);
 assert.match(analyticsMarkdown(before, improved), /\| proof_steps_pending \| 7 \| 4 \|/);
-console.log("Z3-pulse-loop: document, ladder and queue/judge checks passed");
+process.umask(0o077);
+const root = await mkdtemp(join(process.env.PULSE_CHECK_TMPDIR ?? '/btrfs', 'pulse-check-'));
+const seed = join(root,'seed'), home = join(root,'home');
+await mkdir(home);
+await checkState(root);
+execFileSync('btrfs',['subvolume','create',seed],{stdio:'ignore'});
+try {
+  const p = { ...paths(), state:root, worktree:seed };
+  process.env.PULSE_NONSECRET_SENTINEL = 'host-only fixture';
+  const collection = await openCollection(p);
+  try {
+    const binding=collection.bind();
+    try {
+      const bash=binding.tools.get(collection.tools.find(t=>t.name==='bash')!)!;
+      const result=await bash.execute('worker-preflight',{command:'test -z "${PULSE_NONSECRET_SENTINEL:-}" && test -w "$HOME" && ulimit -t'},undefined);
+      assert.equal(result.content.map(x=>x.type==='text'?x.text:'').join('').trim(),'1800');
+    } finally { await binding.close(); }
+  } finally { await collection.close(); }
+  const env = { PATH:process.env.PATH, HOME:home, LANG:'C.UTF-8', ...(process.env.PULSE_CHECK_GRAFANA ? {PULSE_CHECK_GRAFANA:process.env.PULSE_CHECK_GRAFANA}: {}) };
+  for (const check of ['wiring.check.ts','telemetry.check.ts']) {
+    execFileSync(process.execPath,['run',check,seed,root],{cwd:import.meta.dir,env,stdio:'inherit'});
+  }
+} finally { execFileSync('btrfs',['subvolume','delete',seed],{stdio:'ignore'}); }
+await rm(root,{recursive:true});
+console.log('Z3-pulse-loop: queue, judge, evaluator, local Git, graph and telemetry checks passed');
