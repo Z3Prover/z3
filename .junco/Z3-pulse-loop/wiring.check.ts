@@ -5,7 +5,7 @@ import { contentText, fauxAssistantMessage, fauxProvider, InMemoryCredentialStor
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { agent, graph, JuncoGraph, schedules, syntax, tools, tracer } from 'junco';
 import type { TSchema } from 'typebox';
-import { scheduler } from './wf.ts';
+import { regressionCycle, scheduler, startCycle } from './wf.ts';
 
 const document = syntax.parse(await readFile(new URL('./wf.yml', import.meta.url), 'utf8'));
 const cwd = process.argv[2];
@@ -29,8 +29,10 @@ const evidence = 'Title: fixture evidence\nCase retained its pending obligation.
 const expectedTools = {leader:['find','grep','read'],worker:['bash','edit','find','grep','read','release']};
 const collection = await tools.ToolCollection.create(cwd,{bash:{commandPrefix:'ulimit -t 1800',spawnHook:() => { throw Error('No shell calls in the offline wiring check'); }}});
 try {
-  for (const mode of ['idle','assigned','blank-writer','aborted-writer'] as const) {
-    const active = mode !== 'idle';
+  let previous = 0;
+  for (const mode of ['idle','assigned','stale-feedback','blank-writer','aborted-writer'] as const) {
+    const active = mode !== 'idle' && mode !== 'stale-feedback';
+    const iteration = previous + 1;
     const controller = new AbortController();
     const calls: string[] = [];
     let recordCalls = 0;
@@ -49,12 +51,15 @@ try {
       return fauxAssistantMessage(role==='leader' ? plan : mode==='blank-writer' ? '   ' : evidence);
     }) : []);
     const code: Record<string, syntax.DeterministicNode> = {
-      Regress: c=>({state:new graph.nodes.Deterministic<TSchema,unknown>(async function*(){return baseline;},c.policy)}),
+      Regress: regressionCycle(async (_c, _signal, received) => {
+        assert.equal(received, iteration - 1);
+        return baseline;
+      }),
       Analytics: c=>{
         let published = false;
         return {state:new graph.nodes.Deterministic<TSchema,unknown>(async function*(){
           const inputs = yield [];
-          assert.deepEqual(inputs.values.get(id('Regress->Analytics')),baseline);
+          assert.deepEqual(inputs.messages.get(id('Regress~>Analytics')),[baseline]);
           const send = (edge:string, value:unknown)=>graph.Message.create(c.edges.get(edge)!,value as TSchema);
           const outputs=[send('Analytics~>Record',{before,item:active?item:null})];
           if(active) outputs.push(send('Analytics~>Leader',task),send('Analytics~>Developer',task));
@@ -76,28 +81,37 @@ try {
         const verified=inputs.values.get(id('Verify->Record')) as {after:null;changed:boolean;report:{text:string}|null};
         assert.equal(verified.report?.text ?? null,active?evidence:null);
         recordCalls++;
-        return {iteration:1,item:active?item.id:null,base:baseline.sha,ok:false,reasons:[active?'no patch':'idle'],before,after:null,report:verified.report,title:active?'fixture evidence':null,patch:null,commit:null};
+        return {iteration:mode==='stale-feedback'?previous:iteration,item:active?item.id:null,base:baseline.sha,ok:false,reasons:[active?'no patch':'idle'],before,after:null,report:verified.report,title:active?'fixture evidence':null,patch:null,commit:null};
       },c.policy)}),
     };
     const execution=await JuncoGraph.fromYaml(document,{cwd,ladder,collection,code,signal:controller.signal,tracer:new tracer.DummyTracer(),scheduler});
     try {
+      if (mode === 'idle') {
+        await execution.run();
+        assert.equal(recordCalls,0,'no cycle before source ingress');
+        assert.equal(execution.graph.result(execution.graph.sink.id)._tag,'None');
+      }
+      startCycle(execution.graph, previous);
       for(const [node,names] of [['Leader',expectedTools.leader],['Developer',expectedTools.worker]] as const){
         const state=execution.graph.getNode(graph.NodeId.create(node))?.state;
         assert.ok(state instanceof agent.JuncoAgent);
         assert.deepEqual(state.getActiveTools().map(t=>t.name).sort(),names);
       }
-      if(mode==='blank-writer'||mode==='aborted-writer'){
+      if(mode==='blank-writer'||mode==='aborted-writer'||mode==='stale-feedback'){
         await assert.rejects(async()=>{
           await execution.run({signal:controller.signal});
           controller.signal.throwIfAborted();
         });
         assert.equal(execution.graph.result(execution.graph.sink.id)._tag,'None');
-        assert.equal(recordCalls,0);
+        assert.equal(recordCalls,mode==='stale-feedback'?1:0);
       }else{
         await execution.run();
         const result=execution.graph.result(execution.graph.sink.id);
         assert.equal(result._tag,'Some');
-        if(result._tag==='Some')assert.deepEqual(result.value,{iteration:1,item:active?item.id:null,base:baseline.sha,ok:false,reasons:[active?'no patch':'idle'],before,after:null,report:active?{text:evidence}:null,title:active?'fixture evidence':null,patch:null,commit:null});
+        if(result._tag==='Some'){
+          assert.deepEqual(result.value,{iteration,item:active?item.id:null,base:baseline.sha,ok:false,reasons:[active?'no patch':'idle'],before,after:null,report:active?{text:evidence}:null,title:active?'fixture evidence':null,patch:null,commit:null});
+          previous = result.value.iteration;
+        }
         assert.equal(recordCalls,1);
       }
       assert.deepEqual(calls,active?['leader','worker']:[]);

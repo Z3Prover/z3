@@ -15,7 +15,7 @@ bun run wf.ts --once --allow-paid # at most one graph; no idle or crash retry
 bun run loop --allow-paid         # continuous; intentional stops/configuration errors do not restart
 ```
 
-Use `--prepare` and `--once` directly, not through the supervisor. `loop` keeps the frontend, recorder and state lock across fresh graph instances, pauses ten minutes on idle/unbuildable tips and backs off sixty seconds after runtime failures. A paid flag is never implicit. Campaign runs use their fixed measurement driver, **not** these operator commands.
+Use `--prepare` and `--once` directly, not through the supervisor. `$source` sends the previous iteration to `Regress`. After recording, `Record -> Regress` carries the verdict back; only a verdict matching that iteration and branch tip reaches `$sink`. In continuous mode its iteration seeds the next graph with fresh agent sessions. `--once` stops at that sink. The frontend, recorder and state lock stay open across cycles. The service pauses ten minutes on idle/unbuildable tips and backs off sixty seconds after runtime failures. A paid flag is never implicit.
 
 - `Z3_PULSE_LOOP_REPO`: read-only local Z3 checkout (default `~/git/z3`). First use fetches its local `origin/master` SHA, or the immutable `Z3_PULSE_LOOP_BASE`, into a separate private repository. Later cycles start at `loop/pulse-local`.
 - `Z3_PULSE_LOOP_STATE`: new private state, default `/btrfs/Z3-pulse-loop-local`. Use an owned, real directory with mode 0700. No remotes, reset, clean or migration of previous state. A second owner or unexpected dirty tree is an error: inspect the evidence, not `git reset --hard`.

@@ -10,7 +10,7 @@ import { graph, JuncoGraph, schedules, syntax, tools, tracer } from 'junco';
 import { JuncoFrontend } from 'junco-frontend';
 import type { TArray, TSchema } from 'typebox';
 import { analyze, analyticsMarkdown, baseline, EvaluationConfigError, metrics, pickItem, refreshQueue, regress, sh, type Analysis, type Item, type Run } from './evaluation.ts';
-import { acquire, capture, next, paths, prepare, readQueue, record, saveQueue, StateConflict, verificationPaths, type Attempt, type LocalResult, type Paths } from './state.ts';
+import { acquire, capture, current, next, paths, prepare, readQueue, record, saveQueue, StateConflict, verificationPaths, type Attempt, type LocalResult, type Paths } from './state.ts';
 import { pairedRecorder } from './telemetry.ts';
 
 type Edges = syntax.CodeContext["edges"];
@@ -343,21 +343,42 @@ async function selection(p: Paths, base: { sha: string; out: string }, signal: A
   ].join('\n');
   return { before, item, text, queueOpen: queue.items.length };
 }
-export const Regress: syntax.DeterministicNode<Loop> = c => ({
-  state: new graph.nodes.Deterministic<TSchema, unknown>(async function* (signal) {
-    const x = c.context;
-    x.sha = await prepare(x.paths, signal);
-    x.iteration = next(x.paths);
-    log(`iteration ${x.iteration}: regressing ${x.sha}`);
-    return await withRunner(c, run => baseline(x.paths, x.sha, signal, run));
-  }, c.policy),
+export function startCycle(g: JuncoGraph<TSchema, unknown>, previous: number) {
+  g.source.enqueue({ messages: new Map([[E('start'), [previous]]]), values: new Map() });
+}
+
+/** A cycle cannot finish (or start a fresh set of agents) until Record sends back its own verdict. */
+export function regressionCycle<C>(measure: (c: syntax.CodeContext<C>, signal: AbortSignal, previous: number) => Promise<{sha: string; out: string}>): syntax.DeterministicNode<C> {
+  return c => ({
+    state: new graph.nodes.Deterministic<TSchema, unknown>(async function* (signal) {
+      const start = (yield []).messages.get(E('$source~>Regress'));
+      if (start?.length !== 1 || !Number.isSafeInteger(start[0])) throw Error('Expected one starting iteration');
+      const previous = Number(start[0]);
+      const base = await measure(c, signal, previous);
+      const feedback = yield [graph.Message.create(c.edges.get('Regress~>Analytics')!, base)];
+      const verdict = feedback.values.get(E('Record->Regress')) as LocalResult | undefined;
+      if (!verdict || verdict.iteration !== previous + 1 || verdict.base !== base.sha) throw new StateConflict('Missing or stale Record feedback');
+      return verdict;
+    }, c.policy),
+  });
+}
+
+export const Regress = regressionCycle<Loop>(async (c, signal, previous) => {
+  const x = c.context;
+  x.sha = await prepare(x.paths, signal);
+  if (current(x.paths) !== previous) throw new StateConflict('Starting iteration differs from private state');
+  x.iteration = next(x.paths);
+  log(`iteration ${x.iteration}: regressing ${x.sha}`);
+  return withRunner(c, run => baseline(x.paths, x.sha, signal, run));
 });
 export const Analytics: syntax.DeterministicNode<Loop> = c => {
   let published = false;
   return {
     state: new graph.nodes.Deterministic<TSchema, unknown>(async function* (signal) {
       const inputs = yield [];
-      const base = inputs.values.get(E('Regress->Analytics')) as {sha: string; out: string};
+      const batchIn = inputs.messages.get(E('Regress~>Analytics'));
+      if (batchIn?.length !== 1) throw Error('Expected one regression baseline');
+      const base = batchIn[0] as {sha: string; out: string};
       const x = c.context;
       if (!base || base.sha !== x.sha) throw Error('Stale Regress value');
       const { before, item, text, queueOpen } = await selection(x.paths, base, signal);
@@ -502,6 +523,7 @@ async function main(args: string[], signal: AbortSignal) {
       const monitored = cgroupDelegated();
       if (!monitored) log('cgroup v2 memory not delegated: per-pipeline memory unavailable');
       collection = await openCollection(p, monitored ? recorder : undefined);
+      let previous = current(p);
       do {
         signal.throwIfAborted();
         const context: Loop = { paths:p, sha:'', iteration:0, collection:monitored ? collection : undefined };
@@ -512,10 +534,12 @@ async function main(args: string[], signal: AbortSignal) {
         });
         running = true;
         try {
+          startCycle(execution.graph, previous);
           await execution.run({signal});
           signal.throwIfAborted();
           const sink = execution.graph.result(execution.graph.sink.id);
           if (sink._tag !== 'Some' || !context.result || !context.verification || !context.selected || sink.value !== context.result || context.result.iteration !== context.iteration || context.result.base !== context.sha || context.result.item !== (context.selected.item?.id ?? null)) throw Error('Missing or stale terminal verdict');
+          previous = context.result.iteration;
         } finally { await execution.graph.close(); }
         await recorder.flush();
         log(`result: ${JSON.stringify(context.result)}`);

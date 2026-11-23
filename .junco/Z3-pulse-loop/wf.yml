@@ -1,17 +1,19 @@
-# One local checker improvement. Record returns on both the verification and idle paths.
+# The source starts a cycle; the recorded verdict feeds back to Regress before the cycle can finish.
 graph:
   name: Z3-pulse-loop
   window: 1
   threads: unbounded
-  sink: { returns: Record }
+  source:
+    routes: { start: ["$source~>Regress"] }
+  sink: { returns: Regress }
   nodes:
     Regress:
       kind: code
-      trigger: always
-      description: Build and measure the current private branch tip, or use its complete baseline.
+      trigger: { any: ["$source~>Regress", Record->Regress] }
+      description: Measure the branch tip on startup. Hand the recorded verdict to the next cycle on feedback.
     Analytics:
       kind: code
-      trigger: Regress->Analytics
+      trigger: Regress~>Analytics
       description: Refresh the queue and deliver the selected formula and diagnostics to both engineers.
     Leader:
       trigger: Analytics~>Leader
@@ -51,9 +53,10 @@ graph:
       trigger: { all: [Analytics~>Record, Verify->Record] }
       description: Archive the attempt, retain only verified improvements locally and return the verdict.
   edges:
+    - { from: $source, to: Regress, kind: message, schema: { type: integer, minimum: 0 } }
     - from: Regress
       to: Analytics
-      kind: value
+      kind: message
       schema:
         type: object
         required: [sha, out]
@@ -102,9 +105,9 @@ graph:
           changed: { type: boolean }
           report: { anyOf: [{ type: object }, { type: 'null' }] }
     - from: Record
-      to: $sink
+      to: Regress
       kind: value
-      schema:
+      schema: &verdict
         type: object
         required: [iteration, item, base, ok, reasons, before, after, report, title, patch, commit]
         properties:
@@ -119,3 +122,4 @@ graph:
           title: { anyOf: [{ type: string }, { type: 'null' }] }
           patch: { anyOf: [{ type: string }, { type: 'null' }] }
           commit: { anyOf: [{ type: string }, { type: 'null' }] }
+    - { from: Regress, to: $sink, kind: value, schema: *verdict }
