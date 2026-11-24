@@ -38,7 +38,9 @@ val scalar_valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.def
        (match A.ite_parts d.D.body with
         | Some (condition, then_value, else_value) ->
           formula = scalar_pair condition (App d.D.symbol []) then_value else_value
-        | None -> false))}
+        | None ->
+          formula = R.mk_eq_expr (App d.D.symbol []) d.D.body ||
+          formula = R.mk_eq_expr d.D.body (App d.D.symbol [])))}
 val valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.definition)
   : result:bool{result == (match d.D.symbol.domain with
       | [t] ->

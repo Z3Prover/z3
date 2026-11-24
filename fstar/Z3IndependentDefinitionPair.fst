@@ -40,7 +40,9 @@ let scalar_valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.def
   (match A.ite_parts d.D.body with
    | Some (condition, then_value, else_value) ->
      formula = scalar_pair condition (App d.D.symbol []) then_value else_value
-   | None -> false)
+   | None ->
+     formula = R.mk_eq_expr (App d.D.symbol []) d.D.body ||
+     formula = R.mk_eq_expr d.D.body (App d.D.symbol []))
 
 let valid (s:S.checked_schema) (inputs:list expr) (formula:expr) (d:D.definition) : bool =
   match d.D.symbol.domain with
@@ -210,7 +212,14 @@ let lemma_scalar_pair_truth (#base:sort -> Type0) (s:S.checked_schema)
       assert (T.truth s bc eq other positive);
       assert (T.truth s bc eq other negative));
     assert (T.truth s bc eq other formula)
-  | None -> ()
+  | None ->
+    let name = App d.D.symbol [] in
+    if formula = R.mk_eq_expr name d.D.body then (
+      T.lemma_equality s bc eq other name d.D.body;
+      assert (T.truth s bc eq other formula))
+    else if formula = R.mk_eq_expr d.D.body name then (
+      T.lemma_equality s bc eq other d.D.body name;
+      assert (T.truth s bc eq other formula))
 
 let test_schema : S.checked_schema =
   let s = { S.sorts = []; cases = [] } in
@@ -261,3 +270,23 @@ let lemma_pair_controls ()
   assert_norm (recognize test_schema [] (pair test_sort { test_definition with
     D.body = Var 1 bool_sort }) == None);
   assert_norm (recognize test_schema [] R.true_expr == None)
+
+let test_scalar_symbol = {
+  decl_name = "fresh-scalar"; domain = []; range = test_sort; interp = None; int_params = [];
+}
+let test_scalar_body_symbol = {
+  decl_name = "scalar-body"; domain = []; range = test_sort; interp = None; int_params = [];
+}
+let test_scalar_body = App test_scalar_body_symbol []
+let test_scalar_definition : D.definition = {
+  D.symbol = test_scalar_symbol; variables = []; body = test_scalar_body;
+}
+let test_scalar_formula = R.mk_eq_expr test_scalar_body (App test_scalar_symbol [])
+let test_scalar_input = [App test_scalar_symbol []]
+
+let lemma_scalar_controls ()
+  : Lemma (
+    recognize test_schema [] test_scalar_formula == Some test_scalar_definition /\
+    recognize test_schema test_scalar_input test_scalar_formula == None) =
+  assert_norm (recognize test_schema [] test_scalar_formula == Some test_scalar_definition);
+  assert_norm (recognize test_schema test_scalar_input test_scalar_formula == None)
