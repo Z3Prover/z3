@@ -48,21 +48,17 @@ namespace seq {
 
         bool is_ho_map(expr* term, expr*& f, expr*& i, expr*& s) const {
             f = i = s = nullptr;
-            if (!is_app(term))
-                return false;
-            app* a = to_app(term);
-            return m_seq.str.is_map(a, f, s) || m_seq.str.is_mapi(a, f, i, s);
+            return m_seq.str.is_map(term, f, s) || m_seq.str.is_mapi(term, f, i, s);
+        }
+
+        bool is_ho_fold(expr* term, expr*& f, expr*& i, expr*& b, expr*& s) const {
+            f = i = b = s = nullptr;
+            return m_seq.str.is_foldl(term, f, b, s) || m_seq.str.is_foldli(term, f, i, b, s);
         }
 
         bool is_ho_term(expr* term, expr*& f, expr*& i, expr*& b, expr*& s) const {
             f = i = b = s = nullptr;
-            if (!is_app(term))
-                return false;
-            app* a = to_app(term);
-            return
-                is_ho_map(a, f, i, s) ||
-                m_seq.str.is_foldl(a, f, b, s) ||
-                m_seq.str.is_foldli(a, f, i, b, s);
+            return is_ho_map(term, f, i, s) || is_ho_fold(term, f, i, b, s);
         }
 
     public:
