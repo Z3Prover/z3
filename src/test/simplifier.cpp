@@ -1369,7 +1369,7 @@ static void test_use_aware_replace_contains() {
     expr_ref multi(seq.str.mk_string("YY"), m);
     expr_ref multi_contains(seq.str.mk_contains(replaced, multi), m);
     rw(multi_contains);
-    ENSURE(multi_contains != seq.str.mk_contains(source, multi));
+    ENSURE(multi_contains == seq.str.mk_contains(source, multi));
 }
 
 static void test_seq_decimal_comparisons() {

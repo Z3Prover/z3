@@ -169,10 +169,6 @@ namespace smt {
         m_solver(m, m_autil, m_tree.dep_mgr()),
         m_model_pin(m)
     {
-        params_ref rewrite_params;
-        rewrite_params.set_bool("seq_regular_rewrite", false);
-        m_rewriter.updt_params(rewrite_params);
-        m_th_rewriter.updt_params(rewrite_params);
         m_ambient = alloc(seq::theory_nseq_ambient_context, *this);
         m_tree.set_ambient_context(m_ambient.get());
         if (m.proofs_enabled()) {

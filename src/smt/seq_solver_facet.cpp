@@ -37,7 +37,6 @@ namespace seq {
         // Sequence facets enforce the definitions of higher-order applications.
         p.set_sym("string_solver", symbol("none"));
         p.set_bool("seq.regular", false);
-        p.set_bool("seq_regular_rewrite", false);
         // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
         m_solver = mk_smt_solver(m, p, symbol("ALL"), true);

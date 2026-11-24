@@ -17,7 +17,6 @@ Abstract:
 
 #define SEQ_REWRITER_PARAMS_LIST(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_) \
   BOOL_(coalesce_chars,       "coalesce_chars",       true,  "coalesce characters into strings") \
-  BOOL_(seq_regular_rewrite,  "seq_regular_rewrite",  false, "apply local regular-language sequence rewrites") \
   UINT_(max_power_expansion,  "max_power_expansion",  2,     "maximal exponent of a sequence power that is expanded into a concatenation")
 
 Z3_DEFINE_MODULE_PARAMS(seq_rewriter_params, "rewriter", SEQ_REWRITER_PARAMS_LIST, nullptr);

@@ -147,8 +147,6 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     //m_params.set_bool("expand_nested_stores", true);
     m_params.set_bool("bv_sort_ac", true);
     m_params.set_bool("coalesce_chars", true);
-    if (m_smt_params.m_string_solver == symbol("none"))
-        m_params.set_bool("seq_regular_rewrite", false);
     m_params.set_bool("som", true);
     if (m_smt_params.m_arith_mode == arith_solver_id::AS_OLD_ARITH)
         m_params.set_bool("flat", true);
