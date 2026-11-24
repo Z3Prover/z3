@@ -61,3 +61,8 @@ val lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   (doc:P.document) (symbols:TR.symbols u schema)
   : Lemma (requires check schema doc == Root.RootCertified)
           (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions))
+
+val lemma_selected_certified (u:TR.uninterpreted) (schema:S.checked_schema)
+  (doc:P.document) (symbols:TR.symbols u schema)
+  : Lemma (requires Some? (selected schema doc))
+          (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions))

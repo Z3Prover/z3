@@ -63,6 +63,8 @@ let () =
       "array control was not pending in definition mode";
     require (Checker.check_definition_array schema input = Root.RootCertified)
       "definition-array checker did not certify";
+    require (Checker.check_definition_array_fast schema input = Root.RootCertified)
+      "fast definition-array checker did not certify";
     require (Checker.check_definition_array_diagnosed schema input =
              (Root.RootCertified, P.DocumentChecked (Z.zero, [])))
       "definition-array diagnostic did not reflect certification";
@@ -85,6 +87,18 @@ let () =
     "definition-array diagnosed verdict changed for an unsupported lemma";
   require (diagnostic = Checker.diagnose schema unsupported_doc)
     "definition-array diagnostic changed for an unsupported lemma";
+  require (Checker.check_definition_array_fast schema unsupported_doc =
+           Checker.check_definition_array schema unsupported_doc)
+    "fast definition-array fallback changed an unsupported verdict";
+  require (Checker.check_definition_array_fast_diagnosed schema unsupported_doc =
+           Checker.check_definition_array_diagnosed schema unsupported_doc)
+    "fast definition-array fallback changed diagnostics";
+  let selected_doc = { (doc th) with P.declarations = [select_decl; store_decl] } in
+  require (Checker.check_definition_array_fast schema selected_doc = Root.RootCertified)
+    "fast definition-array selector did not certify declared array terms";
+  require (Checker.check_definition_array_fast_diagnosed schema selected_doc =
+           (Root.RootCertified, P.DocumentChecked (Z.zero, [])))
+    "fast definition-array diagnostics did not reflect certification";
   let pair = decl "pair" [int_sort; int_sort] int_sort None [] in
   let rec expanded n term =
     if n = 0 then term

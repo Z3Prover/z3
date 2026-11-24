@@ -247,3 +247,25 @@ let lemma_certified (u:TR.uninterpreted) (schema:S.checked_schema)
   | _ ->
     TR.lemma_standard_root u schema symbols;
     Root.lemma_root_certified_epsilon u schema doc original
+
+let lemma_selected_certified (u:TR.uninterpreted) (schema:S.checked_schema)
+                             (doc:P.document) (symbols:TR.symbols u schema)
+  : Lemma (requires Some? (selected schema doc))
+          (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions)) =
+  let extended = TR.standard u schema (AI.symbols u schema symbols) in
+  match core_selected schema doc with
+  | Some _ ->
+    AI.lemma_root_inhabited u schema symbols;
+    let model = AI.lemma_model u schema symbols in
+    let family = AF.family u (S.signature schema) in
+    let kernel : SP.array_kernel schema (TR.booleans u) (SR.root_scalars u) extended = {
+      SP.family = family;
+      SP.model = model;
+      SP.supports = lemma_core_array_support_entry u schema
+    } in
+    Root.lemma_root_check_document_array u schema extended kernel doc;
+    AP.lemma_eligible_truths u schema symbols max_assertions doc.P.assertions
+  | None ->
+    AI.lemma_root_inhabited u schema symbols;
+    lemma_augment_truths u schema doc symbols;
+    Root.lemma_root_certified_epsilon u schema (augment schema doc) extended

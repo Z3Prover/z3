@@ -208,7 +208,7 @@ let interactive
     let marshaled = Unix.gettimeofday () in
     let verdict, cached_diagnostic =
       if diagnostics && definition_array_replay then
-        let verdict, diagnostic = Z3IndependentChecker.check_definition_array_diagnosed schema doc in
+        let verdict, diagnostic = Z3IndependentChecker.check_definition_array_fast_diagnosed schema doc in
         verdict, Some diagnostic
       else if diagnostics && array_replay then
         let verdict, diagnostic = Z3IndependentChecker.check_array_diagnosed schema doc in
@@ -228,7 +228,7 @@ let interactive
            (match prime_evidence with
             | None -> Z3IndependentChecker.check_field schema doc
             | Some _ -> Z3IndependentChecker.check_field_with_evidence schema doc prime_evidence)
-         else if definition_array_replay then Z3IndependentChecker.check_definition_array schema doc
+         else if definition_array_replay then Z3IndependentChecker.check_definition_array_fast schema doc
          else if array_replay then Z3IndependentChecker.check_array schema doc
          else if definition_replay then Z3IndependentChecker.check_definition schema doc
          else Z3IndependentChecker.check schema doc), None in
@@ -396,7 +396,7 @@ let run args =
         let marshaled = Unix.gettimeofday () in
         let verdict, cached_diagnostic =
           if !diagnostics && !definition_array_replay then
-            let verdict, diagnostic = Z3IndependentChecker.check_definition_array_diagnosed schema doc in
+            let verdict, diagnostic = Z3IndependentChecker.check_definition_array_fast_diagnosed schema doc in
             verdict, Some diagnostic
           else if !diagnostics && !array_replay then
             let verdict, diagnostic = Z3IndependentChecker.check_array_diagnosed schema doc in
@@ -417,7 +417,7 @@ let run args =
                 | None -> Z3IndependentChecker.check_field schema doc
                 | Some _ -> Z3IndependentChecker.check_field_with_evidence schema doc !prime_evidence)
              else if !definition_array_replay then
-               Z3IndependentChecker.check_definition_array schema doc
+               Z3IndependentChecker.check_definition_array_fast schema doc
              else if !array_replay then Z3IndependentChecker.check_array schema doc
              else if !definition_replay then Z3IndependentChecker.check_definition schema doc
              else Z3IndependentChecker.check schema doc), None in

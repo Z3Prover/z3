@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-23T23:10:18-08:00**.
+Updated: **2026-11-24T01:55:01-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -394,6 +394,34 @@ same hashes (4.33x slower). This is a fixed-proof coverage improvement, not a
 performance gain, production CLI result, cohort burn-down, or Farkas finding.
 The cohort tables remain unchanged.
 
+## Current-source guarded definition-array fast path (fixed proof set)
+
+The explicit `--definition-array-replay` route now uses a guarded fast path:
+when the document has array declarations and candidates but no definition
+entries, it tries the selected array replay directly; otherwise it preserves
+the existing definition-array checker. The default route is unchanged.
+Strict F* verification passed for the 218-module dependency closure, the
+independent checker was extracted and linked, and the focused array-document
+and definition-array CLI regressions passed.
+
+On the same hash-pinned documents, proofs 10, 20, 37, and 40 all had array
+declarations, no definition entries, and ACCEPTed through both routes. Three
+isolated native runs per route produced these per-proof medians:
+
+| Proof | Existing definition-array | Guarded fast path |
+| --- | ---: | ---: |
+| 10 | 3.455s | 1.269s |
+| 20 | 5.974s | 2.765s |
+| 37 | 32.283s | 16.095s |
+| 40 | 16.384s | 10.303s |
+
+Summed per-proof medians fell from 58.096s to 30.432s (47.6%). Proof 45 had
+no array declarations and definition entries; its one-run fallback timings
+were 9.810s and 9.742s. A six-proof invocation hit its 600-second wrapper
+timeout during proof 90, so no timing is reported for that proof. These are
+fixed-proof route measurements, not cohort burn-down, a matched Legacy
+comparison, or a change to default checking. Cohort tables remain unchanged.
+
 ## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
@@ -401,6 +429,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 24 01:55 | Strictly verify and rebuild the guarded `--definition-array-replay` route; compare with the existing route on four hash-pinned array proofs | All four ACCEPT; summed per-proof medians fall 58.096s→30.432s (47.6%). Proof 45 takes the fallback; proof 90 timing is N/M after the six-proof wrapper timed out. No cohort or Legacy-parity claim. |
 | Nov 23 23:08 | Repeat schedule #5 on retained checker `6eb16f0b` with the same hashed cohort inputs | Sample reproduces 5,907 PENDING; extended changes 31,516→31,500 on one PARTIAL input (127→111: Farkas 13→16, intro-def 20→11, rewrite 47→24, th-lemma 46→59). Outcomes reproduce and diagnostics are error-free, but proof-document hashes are absent, so this is diagnostic drift, not burn-down. |
 | Nov 23 20:15 | Replay the exact 11 hash-pinned sample documents through `Z3IndependentArrayDocument.check`, including its root gate; run each proof three times | 6/11 ACCEPT and 118 PENDING versus the same-set SortedProof control's 2/11 and 807; Legacy remains 11/11. This adds four ACCEPTs and removes 689 PENDING, but is 4.33x slower than Legacy by summed per-proof medians (151.973s vs 35.109s). Five PARTIAL proofs have no per-rule attribution; cohort results are unchanged. |
 | Nov 23 18:31 | Capture and replay the current-source QF_LIA ring proof; benchmark the pinned input five times | Exact proof hash matches fixed sample proof 51. SortedProof is PARTIAL 4, solely `intro-def`; Legacy ACCEPT. All 251 `arith/farkas`, 1 `arith/bound`, and 18 `arith/lp-integer-lattice` entries have zero PENDING. Seven-run checker medians are 38.915ms vs 18.944ms (2.05x slower); solver benchmark is UNSAT, 28/44/92ms min/median/max. No Farkas failure or producer defect demonstrated. |
@@ -410,7 +439,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 23 14:50 | Add sound binary-only `distinct` semantics and recognize its NNF expansion before arithmetic normalization; replay the same frozen proof 69 | `rewrite` PENDING 1→0 and PARTIAL→ACCEPT on the 18,135-node document; Legacy remains ACCEPT. Seven-run paired medians: 6.010s current vs 0.568s Legacy (10.59x slower), so this is a coverage gain, not a speedup. Strict 167-module checker closure and focused NNF controls pass; cohorts not rerun. |
 | Nov 23 08:31 | Admit closed `asserted`/`mp` binder entries only as exact document equalities; replay a structurally reversed single-premise `symm` | On the same 11 frozen current-source Definition+Array proofs, acceptance stays 7/11 and PENDING drops 108→99, entirely removing proof 90's 9 `quant-intro` obligations (5 remain: 4 `intro-def`, 1 `def-axiom`). Aggregate/median are 181.549s / 11.138s versus 211.323s / 11.218s in the immediately prior run and 181.047s / 11.053s in the earlier matched run; one-pass timings are variable, so no performance claim. Legacy remains 11/11. Strict 219-module independent closure and isolated positive/negative replay tests pass; the full test suite is still blocked by unrelated finite-field/root-document test failures. No cohort run or parity. |
 | Nov 23 05:17 | Rerun both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker and all input hashes. Sample reproduces 83/225 ACCEPT and 5,907 PENDING. Extended returns 74/285 ACCEPT and 31,500 PENDING; one prior UNKNOWN returns PARTIAL with 111 observed obligations, so the 31,389→31,500 change is not burn-down. Zero diagnostic errors/mismatches; current-source production build now verifies, but this run remains fallback evidence. |
-| Nov 22 22:04 | Repeat both pinned cohorts with the retained fallback checker (`6eb16f0b`) | Sample reproduces exactly: 83/225 ACCEPT and 5,907 PENDING. Extended has 74/285 ACCEPT and 31,389 observed PENDING; one prior PARTIAL became UNKNOWN, leaving 112 obligations undiagnosed, so the 112-count difference is not burn-down. Zero diagnostic errors/mismatches. Current-source build failed before producing a checker; no coverage claim for the scalar-context changes. |
 ## Validation and cadence
 
 The prior candidate passed strict F* verification for its 185 registered
@@ -427,14 +455,16 @@ does not advertise `--definition-replay`, so the scheduled cohort data above
 still use the retained Definition-mode binary and do not measure these source
 changes.
 
-`build_independent_checker.py` also previously stopped in its standalone
-test-only `Z3IndependentFiniteFieldPolynomial` extraction because that
-module's cached `.checked` file was stale; the full standalone suite remains
-unverified and finite-field work remains paused. Current-source paired Legacy
-controls are measured on the 11-input fixed control above, where the
-independent checker still trails Legacy; broader cohort parity remains
-unestablished. Do not treat these cohort observations as matched-proof
-burn-down or Legacy parity.
+The guarded definition-array fast path passed strict F* verification for its
+218-module dependency closure, native extraction/linking, the
+`test_independent_array_document.ml` regression, and the focused
+`test_definition_array_replay_cli` test. The full standalone test suite was not
+run for this update; a prior full run failed in the unrelated
+`Z3IndependentFiniteFieldPolynomial` test at line 638, so finite-field work
+remains paused. Current-source paired Legacy controls are measured on the
+11-input fixed control above, where the independent checker still trails
+Legacy; broader cohort parity remains unestablished. Do not treat these cohort
+observations as matched-proof burn-down or Legacy parity.
 The array-kernel fast path passed strict F* verification, the focused
 `Z3SortedProofTests.fst` regressions, and the isolated native build. An optional
 profile-instrumented build stopped with `Missing extracted rule datatype`, so

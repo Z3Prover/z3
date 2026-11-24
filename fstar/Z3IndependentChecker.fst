@@ -2,6 +2,8 @@ module Z3IndependentChecker
 
 module S = Z3DatatypeSignature
 module P = Z3DocumentSyntax
+module A = Z3AstTheory
+module Tags = Z3OperatorTags
 module Root = Z3SortedRootDocument
 module TR = Z3TypedRoot
 module SP = Z3SortedProof
@@ -26,6 +28,18 @@ module DefinitionSkolem = Z3IndependentDefinitionSkolemDocument
 module CertificateFallback = Z3IndependentCertificateFallback
 module RootReplay = Z3IndependentRootReplay
 module Cached = Z3IndependentCachedReplay
+
+let rec has_array_declarations (declarations:list A.func_decl) : Tot bool
+  (decreases declarations) =
+  match declarations with
+  | [] -> false
+  | declaration :: rest ->
+    declaration.A.interp = Some Tags.op_select ||
+    declaration.A.interp = Some Tags.op_store ||
+    has_array_declarations rest
+
+let has_array_symbols (doc:P.document) : bool =
+  has_array_declarations doc.P.declarations
 
 let check (schema:S.schema) (doc:P.document) : Root.root_verdict =
   RootReplay.check_recovering schema doc
@@ -293,11 +307,25 @@ let check_definition_array_from (schema:S.schema) (doc:P.document)
 let check_definition_array (schema:S.schema) (doc:P.document) : Root.root_verdict =
   check_definition_array_from schema doc (check_definition schema doc)
 
+let check_definition_array_fast (schema:S.schema) (doc:P.document) : Root.root_verdict =
+  if not (Definition.has_definition doc.P.entries) &&
+     has_array_symbols doc && Array.has_candidates schema doc then
+    match Array.selected schema doc with
+    | Some _ -> Root.RootCertified
+    | None -> check_definition_array schema doc
+  else check_definition_array schema doc
+
 let check_definition_array_diagnosed (schema:S.schema) (doc:P.document)
   : Root.root_verdict & P.document_diagnostic =
   let base, diagnostic = check_definition_diagnosed schema doc in
   let verdict = check_definition_array_from schema doc base in
   verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 [] else diagnostic)
+
+let check_definition_array_fast_diagnosed (schema:S.schema) (doc:P.document)
+  : Root.root_verdict & P.document_diagnostic =
+  let verdict = check_definition_array_fast schema doc in
+  verdict, (if verdict = Root.RootCertified then P.DocumentChecked 0 []
+            else diagnose schema doc)
 
 let diagnose_definition (schema:S.schema) (doc:P.document) : P.document_diagnostic =
   match check schema doc with
@@ -443,3 +471,14 @@ let lemma_certified_definition_array (u:TR.uninterpreted) (schema:S.checked_sche
   | _ ->
     TR.lemma_standard_root u schema symbols;
     lemma_certified_definition u schema doc (TR.standard u schema symbols)
+
+let lemma_certified_definition_array_fast (u:TR.uninterpreted)
+  (schema:S.checked_schema) (doc:P.document) (symbols:TR.symbols u schema)
+  : Lemma (requires check_definition_array_fast schema doc == Root.RootCertified)
+    (ensures not (Root.root_truths u schema (TR.standard u schema symbols) doc.P.assertions)) =
+  if not (Definition.has_definition doc.P.entries) &&
+     has_array_symbols doc && Array.has_candidates schema doc then
+    match Array.selected schema doc with
+    | Some _ -> Array.lemma_selected_certified u schema doc symbols
+    | None -> lemma_certified_definition_array u schema doc symbols
+  else lemma_certified_definition_array u schema doc symbols
