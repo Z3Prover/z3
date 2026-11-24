@@ -1,0 +1,10 @@
+; origin: https://github.com/plfm-iis/trauc_benchmarks : ttt_026.smt2
+(declare-fun g () String)
+(declare-fun c () String)
+(declare-fun b () String)
+(declare-fun h () String)
+(declare-fun f () String)
+(assert (= (str.++ g (str.++ f "e")) (str.++ h (str.++ "f" "a"))))
+(assert (= (str.++ g (str.++ b h)) (str.++ "f" (str.++ "d" f))))
+(assert (= (str.++ "b" (str.++ c "a")) (str.++ c (str.++ "b" "e"))))
+(check-sat)

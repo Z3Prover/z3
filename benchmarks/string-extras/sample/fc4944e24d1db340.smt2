@@ -1,0 +1,15 @@
+; origin: https://github.com/plfm-iis/trauc_benchmarks : biopythonBio.GenBank.__init___BaseGenBankConsumer._split_accessionsformula26_unsat.smt2
+(set-logic ALL)
+(declare-const accession_string String)
+(assert (not (< (str.len accession_string) 0)))
+(assert (= (+ 0 (str.indexof accession_string "\u{a}" 0)) (- 1)))
+(assert (not (< (str.len (str.++ "" accession_string)) 0)))
+(assert (= (+ 0 (str.indexof (str.++ "" accession_string) ";" 0)) (- 1)))
+(assert (not (< (str.len (str.++ "" (str.++ "" accession_string))) 0)))
+(assert (not (= (+ 0 (str.indexof (str.++ "" (str.++ "" accession_string)) " " 0)) (- 1))))
+(assert (not (< (+ 0 (str.indexof (str.++ "" (str.++ "" accession_string)) " " 0)) 0)))
+(assert (not (< (+ (+ 0 (str.indexof (str.++ "" (str.++ "" accession_string)) " " 0)) 1) 0)))
+(assert (not (< (str.len (str.++ "" (str.++ "" accession_string))) 0)))
+(assert (< (str.len (str.substr (str.++ "" (str.++ "" accession_string)) (+ (+ 0 (str.indexof (str.++ "" (str.++ "" accession_string)) " " 0)) 1) (- (str.len (str.++ "" (str.++ "" accession_string))) (+ (+ 0 (str.indexof (str.++ "" (str.++ "" accession_string)) " " 0)) 1)))) 0))
+(check-sat)
+

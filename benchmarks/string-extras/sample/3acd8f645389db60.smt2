@@ -1,0 +1,31 @@
+; origin: https://github.com/uuverifiers/ostrich/tree/master/tests : epsilon-3.smt2
+(set-logic QF_S)
+
+(set-option :produce-models true)
+(declare-fun sigmaStar_0 () String)
+(declare-fun sigmaStar_5 () String)
+(declare-fun x_2 () String)
+(declare-fun epsilon () String)
+(declare-fun literal_7 () String)
+(declare-fun x_6 () String)
+(declare-fun x_8 () String)
+(declare-fun sigmaStar_12 () String)
+(declare-fun literal_11 () String)
+(declare-fun x_14 () String)
+(declare-fun x_13 () String)
+(declare-fun x_15 () String)
+(declare-fun literal_16 () String)
+(declare-fun x_17 () String)
+(declare-fun x_18 () String)
+(declare-fun literal_19 () String)
+(declare-fun x_20 () String)
+
+(assert (= epsilon ""))
+(assert (or (= x_2 epsilon)))
+(assert (= literal_7 "[ hello:"))
+(assert (= x_8 (str.++ literal_7 x_6)))
+(assert (= x_18 (str.++ x_8 sigmaStar_0)))
+(assert (str.in_re x_18 (re.++ (re.* re.allchar) (re.++ (str.to_re "\<SCRIPT") (re.* re.allchar)))))
+(check-sat)
+
+

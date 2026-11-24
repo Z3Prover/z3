@@ -1,0 +1,18 @@
+; origin: https://github.com/cvc5/cvc5/tree/main/test/regress/cli : regress0/seq/issue9696-unit-type-cmi.smt2
+; EXPECT: sat
+(set-logic ALL)
+(declare-datatypes ((a 0)) (((b))))
+(define-fun c () (Seq Bool) (as seq.empty (Seq Bool)))
+(declare-fun d () (Seq a))
+(define-fun m () Int (seq.len d))
+(define-fun g () (Seq a) (seq.extract d 1 (- m 1)))
+(define-fun h () (Seq a) (seq.extract g 1 (- (seq.len g) 1)))
+(define-fun l () (Seq Bool) (ite (= 0 (seq.len h)) c (seq.unit true)))
+(define-fun e () (Seq Bool) (seq.++ (seq.unit false) l))
+(define-fun f () (Seq Bool) (ite (= 0 (seq.len g)) c e))
+(define-fun i () (Seq Bool) (seq.++ (seq.unit false) f))
+(define-fun n () (Seq Bool) (ite (= 0 m) c i))
+(define-fun j () (Seq Bool) (seq.extract n 1 (- (seq.len n) 1)))
+(define-fun k () (Seq Bool) (seq.extract j 1 (- (seq.len j) 1)))
+(assert (distinct 0 (seq.len k)))
+(check-sat)

@@ -1,0 +1,17 @@
+; origin: https://github.com/plfm-iis/trauc_benchmarks : 08_djangodjango.contrib.auth.hashersBCryptSHA256PasswordHasher.decodeformula13_sat.smt2
+(set-logic ALL)
+(declare-const encoded String)
+(assert (not (< (str.len encoded) 0)))
+(assert (not (= (+ 0 (str.indexof encoded "$" 0)) (- 1))))
+(assert (not (< (+ 0 (str.indexof encoded "$" 0)) 0)))
+(assert (not (< (+ (+ 0 (str.indexof encoded "$" 0)) 1) 0)))
+(assert (not (< (str.len encoded) 0)))
+(assert (not (< (str.len (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1)))) 0)))
+(assert (not (= (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) (- 1))))
+(assert (not (< (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 0)))
+(assert (not (< (+ (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 1) 0)))
+(assert (not (< (str.len (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1)))) 0)))
+(assert (not (< (str.len (str.substr (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) (+ (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 1) (- (str.len (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1)))) (+ (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 1)))) 0)))
+(assert (not (= (+ 0 (str.indexof (str.substr (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) (+ (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 1) (- (str.len (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1)))) (+ (+ 0 (str.indexof (str.substr encoded (+ (+ 0 (str.indexof encoded "$" 0)) 1) (- (str.len encoded) (+ (+ 0 (str.indexof encoded "$" 0)) 1))) "$" 0)) 1))) "$" 0)) (- 1))))
+(check-sat)
+

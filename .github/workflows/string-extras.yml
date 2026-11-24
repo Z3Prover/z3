@@ -1,0 +1,59 @@
+name: String-extras benchmarks
+
+on:
+  pull_request:
+    branches: [c3mv]
+  push:
+    branches: [c3mv]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: string-extras-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Test benchmark runner
+        run: python -m unittest discover -s scripts/tests -p test_run_string_extras.py
+
+      - name: Configure Release build
+        run: cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON
+
+      - name: Build solver and Python bindings
+        run: cmake --build build --target shell libz3 build_z3_python_bindings --parallel 2
+
+      - name: Validate solver and Python bindings
+        env:
+          PYTHONPATH: ${{ github.workspace }}/build/python
+          Z3_LIBRARY_PATH: ${{ github.workspace }}/build
+        run: |
+          build/z3 --version
+          build/z3 --help | sed -n '1,10p'
+          printf '(declare-const x Int)(assert (> x 0))(check-sat)(get-model)\n' | build/z3 -in
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); assert s.check() == z3.sat; print(s.model())"
+
+      - name: Run checked-in string-extras corpus
+        run: python scripts/run_string_extras.py --binary build/z3 --output reports/string-extras --jobs 2
+
+      - name: Upload results and solver statistics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: string-extras-results
+          path: reports/string-extras
+          if-no-files-found: warn
+          retention-days: 14

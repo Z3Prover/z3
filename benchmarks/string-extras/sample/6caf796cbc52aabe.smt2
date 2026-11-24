@@ -1,0 +1,21 @@
+; origin: https://github.com/plfm-iis/trauc_benchmarks : biopythonBio.Nexus.Nexussafenameformula122_sat.smt2
+(set-logic ALL)
+(declare-const name String)
+(declare-const mrbayes Bool)
+(assert mrbayes)
+(assert (not (< (str.len name) 0)))
+(assert (= (+ 0 (str.indexof name " " 0)) (- 1)))
+(assert (< 0 (str.len (str.++ "" name))))
+(assert (< 1 (str.len (str.++ "" name))))
+(assert (< 2 (str.len (str.++ "" name))))
+(assert (< 3 (str.len (str.++ "" name))))
+(assert (< 4 (str.len (str.++ "" name))))
+(assert (< 5 (str.len (str.++ "" name))))
+(assert (< 6 (str.len (str.++ "" name))))
+(assert (< 7 (str.len (str.++ "" name))))
+(assert (< 8 (str.len (str.++ "" name))))
+(assert (< 9 (str.len (str.++ "" name))))
+(assert (< 10 (str.len (str.++ "" name))))
+(check-sat)
+
+
