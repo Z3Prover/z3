@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-24T01:55:01-08:00**.
+Updated: **2026-11-24T08:06:46-08:00** (America/Los_Angeles).
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -112,57 +112,113 @@ original checker, manifest, per-case results, and diagnostics are under
 per-case results, and diagnostics are under
 `files\current-retained-definition-cycle-02`.
 
-## Latest scheduled retained-Definition cohort (fallback, not current-source coverage)
+<!-- BEGIN PERIODIC SMTLIB -->
+### Six-hour SMT-LIB measurements (Definition)
 
-The 2026-11-23 23:08 PST run used retained checker SHA-256
-`6eb16f0b187e27a5d4a5298f7c848869899edf7feb15895ab525325cb5099fbb`
-with `--definition-replay`, OCaml 5.3.0, and static Z3 linkage. Its
-`verified-sources.json` SHA-256 is
-`8b89ce3fdebb1889fda9fc61c57101ab83c8968d6deb5b4efb036168565b2917`;
-the verification-evidence SHA-256 is
-`0a4f2adb19703246ff54d034eab24ff6ec15a11ede9963379afe0b7bb6d6e78d`,
-binding archive SHA-256
-`792254aa957e20c1c960d59664edf6f20e65e722ec05af2f1379ccb265577360`,
-and static producer archive SHA-256
-`abca1c8401f6fb7208f83ca9e521f853335b6e0ad8ebc33024a62a32d1bee1d4`.
-Both complete non-field input manifests and all 510 input hashes were reverified:
-sample `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`,
-extended `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
-Artifacts are retained under `files\periodic-smtlib-20261124T055950Z`.
+Updated `2026-11-24T05:10:51-08:00`; cycle `periodic-smtlib-20261124T115951Z` **completed**; checker `6eb16f0b187e`. Schedule **#5**, every six hours.
+Fixed hashed inputs; serial native cases; 10,000-ms queries / 60-s cases / 4,096-MiB / 3,600-s budget per cohort. A 30-s quiet pause precedes each cohort. Finite fields are excluded; QF_BV is excluded from extended as in the workflow.
 
-| Dataset | Outcomes | Diagnostic replays | Errors / mismatches | Weighted PENDING | Aggregate time / median |
-| --- | --- | ---: | ---: | ---: | ---: |
-| smtlib-sample | 83 ACCEPT, 103 PARTIAL, 0 REJECT, 0 SAT, 20 solver UNKNOWN, 19 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 186 / 225 | 0 / 0 | 5,907 | 2,072.6s / 0.545s |
-| smtlib-extended | 74 ACCEPT, 135 PARTIAL, 0 REJECT, 0 SAT, 69 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 209 / 285 | 0 / 0 | 31,500 | 1,755.8s / 0.545s |
+| Cohort | State | ACCEPT | PARTIAL | Solver UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| smtlib-sample | COMPLETED | 83 | 103 | 20 | 19 | 0 | 0 | 0 | 0 |
+| smtlib-extended | COMPLETED | 74 | 134 | 70 | 7 | 0 | 0 | 0 | 0 |
 
-Per-rule PENDING is limited to completed diagnostic replays; UNKNOWN and
-TIMEOUT cases have no proof diagnostics and are not zero-PENDING:
+Diagnostics and weighted PENDING cover completed checkable proofs only; solver UNKNOWN, TIMEOUT, and NOT_RUN cases have no diagnostic and are not zero-PENDING.
 
-| Rule | smtlib-sample | smtlib-extended |
+| Cohort | Diagnostic replays | Diagnostic errors | Weighted PENDING |
+| --- | ---: | ---: | ---: |
+| smtlib-sample | 186 | 0 | 5907 |
+| smtlib-extended | 208 | 0 | 31389 |
+
+| Rule PENDING (diagnostic-bearing proofs only) | smtlib-sample | smtlib-extended |
 | --- | ---: | ---: |
-| `arith/farkas` | 0 | 36 |
+| `apply-def` | 203 | 0 |
+| `arith/farkas` | 0 | 20 |
 | `arith/lp-monomial-interval` | 0 | 46 |
 | `arith/lp-monomial-substitute` | 0 | 1 |
-| `apply-def` | 203 | 0 |
-| `assumed:nlsat` | 0 | 146 |
+| `assumed:nlsat` | 0 | 145 |
 | `def-axiom` | 3 | 89 |
 | `der` | 7 | 0 |
-| `intro-def` | 272 | 138 |
+| `intro-def` | 272 | 127 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 1,866 | 24,681 |
-| `th-lemma` | 3,514 | 6,280 |
+| `rewrite` | 1,866 | 24,657 |
+| `th-lemma` | 3,514 | 6,221 |
 
-Compared with the prior scheduled run at 17:12 using the same checker and
-input hashes, all outcome counts and sample per-rule PENDING reproduce exactly.
-Extended outcome counts also reproduce. One PARTIAL input,
-`QF_NIA/20170427-VeryMax/ITS/From_AProVE_2014__Count.jar-obl-10-2__terminationS_9_0.smt2`,
-changed from 127 to 111 PENDING: `arith/farkas` 13→16, `intro-def` 20→11,
-`rewrite` 47→24, and `th-lemma` 46→59. The cohort total changed
-31,516→31,500, but proof-document hashes were not retained, so this is
-diagnostic drift, not matched-proof burn-down or an attributable checker
-effect. All 186 and 209 diagnostic replays have zero errors or mismatches.
-This retained binary predates current-source changes; no Legacy parity is
-established.
+NOT_RUN includes cases not yet observed, including any active case; solver UNKNOWN is not checker success. Historical nine-case guards remain separate.
+Pins, per-case timestamps/logs, per-logic CSV/JSON and collector: session `files\periodic-smtlib-20261124T115951Z`. Active case: `none`.
+
+<details><summary>Per-logic outcomes and input pins</summary>
+
+| Cohort / logic | ACCEPT | PARTIAL | UNKNOWN | TIMEOUT | SAT | REJECT | Crash/error | NOT_RUN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| smtlib-sample / AUFLIA | 13 | 11 | 1 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_AUFLIA | 8 | 14 | 0 | 3 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_AX | 1 | 22 | 0 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_IDL | 11 | 5 | 2 | 7 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_LIA | 12 | 6 | 5 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_LRA | 5 | 11 | 8 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_UF | 22 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / QF_UFLIA | 2 | 22 | 1 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-sample / UFLIA | 9 | 9 | 3 | 4 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_ABV | 0 | 21 | 3 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_AUFBV | 0 | 13 | 10 | 2 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_DT | 11 | 0 | 13 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_NIA | 0 | 16 | 9 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_NRA | 9 | 13 | 2 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFBV | 0 | 22 | 2 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFDT | 0 | 0 | 25 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / QF_UFLRA | 8 | 16 | 0 | 1 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UF | 14 | 9 | 2 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFDT | 11 | 10 | 4 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFDTLIA | 11 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
+| smtlib-extended / UFLRA | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+smtlib-sample: seed `independent-checker-b09a2011`; manifest SHA-256 `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`.
+
+smtlib-extended: seed `42`; manifest SHA-256 `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
+
+</details>
+<!-- END PERIODIC SMTLIB -->
+
+## QF_LIA rewrite and Farkas diagnosis (candidate; no cohort measurement)
+
+In the retained Definition cycle, QF_LIA has 12 ACCEPT and 6 PARTIAL. Five
+PARTIAL inputs have only 26 pending `rewrite` obligations, all of the form
+integer equality rewritten as a conjunction of matching `<=` and `>=`
+comparisons. A narrowly guarded, premise-free checker rule for this identity
+was added to `Z3SortedProof`, with positive and negative regression controls.
+The focused `Z3SortedProofTests` module has now been checked with all VCs
+discharged, using the installed Z3 5.4.2. The run kept every warning ID fatal
+except stale-cache diagnostics 241/247, which were silenced; this is not a
+strict full-closure check. The candidate has not been extracted or replayed on
+the pinned inputs, so cohort outcomes and PENDING remain unchanged.
+
+The retained sample has zero `arith/farkas` PENDING. The separately captured
+current-source QF_LIA ring proof has 251 Farkas entries and zero Farkas
+PENDING; its four PENDING obligations are all `intro-def`. The 20 extended
+`arith/farkas` PENDING entries are in three QF_NIA inputs and one QF_NRA input,
+with fingerprints containing multiplication. In `theory_lra.cpp`,
+`set_proof_params` attempts to reconstruct and check the LP derivation, then
+linearizes and locally validates Farkas coefficients; it emits an
+`unsupported` payload when that path cannot be checked, and bound propagation
+can export a replayable LP derivation. This source evidence and the QF_LIA
+controls do not demonstrate flaky QF_LIA Farkas generation. The extended
+nonlinear cases still need their exact proof documents before attributing
+their PENDING to producer output versus checker coverage.
+
+The consumer path is also certificate-based: `Z3Native_view_proof` extracts
+Farkas parameters from `th-lemma` nodes, `Z3NativeProof.native_rule` maps
+those supplied weights to `ArithmeticFarkas`, and
+`Z3LinearArithmeticAst.check` replays them against the premises and negated
+conclusion literals, including integer strict-bound rounding. It does not
+search for weights. If the producer marks a node `unsupported`, the decoder
+leaves it as `Unverified "th-lemma"`; generic checked fragments may then
+accept it, otherwise it remains PENDING. The separate LP-certificate route
+encodes replayable linear, integer-tightening, lattice, Gomory, and monomial
+steps. Without the four extended proof documents, the observed PENDING cannot
+distinguish absent/unsupported producer evidence from a mismatch in the exact
+certificate or nonlinear evidence outside the fragment. No QF_LIA producer
+defect is demonstrated.
 
 ## Current PR-head sample: Definition+Array route
 
@@ -222,6 +278,15 @@ proof is indicative only, not a stable performance estimate. These 11 controls
 are not cohort totals and do not establish parity or burn-down. Hashes, logs,
 and build provenance are retained under
 `files\conditional-current-source-control-04e`.
+
+The retained fixed-control logs localize its 681 `th-lemma` PENDING to proofs
+10, 20, 37, and 40, but do not retain per-obligation fingerprints. Legacy's
+`Z3UnifiedProof.checked_theory_lemma` tries `array_lemma`, `TN.consequence`,
+LP bound/equality checks, and inferred split rules; the sorted route uses its
+own schema-indexed fragments. `TN.lemma_consequence` requires the broader
+`TN.normalization_model`, so this is not a sound drop-in port. The 681
+obligations are a target for further per-entry tracing, not yet attributed to
+a specific Legacy rule.
 
 ### Sorted array-kernel control (not a native CLI or cohort result)
 
@@ -293,6 +358,23 @@ Detailed output is under
 `files\real-conditional-independent-matched-11.log`; no Farkas-producer
 evidence is added. Cohort outcome counts, diagnostic errors, timeout tails,
 and new fstar-build counts remain N/M.
+
+A follow-on candidate hoists the input-expression budget check out of the
+per-definition collection loop and reuses collected items while rewriting
+entries. Strict `Z3IndependentDefinitionPair.fst` verification passed;
+focused document and NNF regression checks discharged their VCs but emitted
+stale-cache warnings 241/247 for `Z3SortedProof` and
+`Z3IndependentDefinitionPair.fsti`. Full strict closure, extraction, pinned
+replay, and timing remain incomplete. The 7/11 and 5.62x results above remain
+the last verified matched result; this change is not promoted.
+
+Proof-90 triage attributes 9 of its 14 PENDING obligations to `quant-intro`,
+reported as `eq:binder->binder`. Legacy uses `binder_quantifier_step` with
+bounded `QR.equivalent`; `Z3BinderKernel` has a narrower exact-body-edge
+fragment over asserted/core entries, but its soundness theorem has not been
+connected to the sorted model here. The retained diagnostics lack the full
+binder-entry graph, so coverage by that fragment is unestablished. No
+acceptance or performance change is claimed.
 
 ### Current-source binary-distinct replay on frozen proof 69
 
@@ -429,16 +511,16 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
-| Nov 24 01:55 | Strictly verify and rebuild the guarded `--definition-array-replay` route; compare with the existing route on four hash-pinned array proofs | All four ACCEPT; summed per-proof medians fall 58.096s→30.432s (47.6%). Proof 45 takes the fallback; proof 90 timing is N/M after the six-proof wrapper timed out. No cohort or Legacy-parity claim. |
+| Nov 24 08:06 | Recheck the guarded Int equality-to-bounds rewrite and conditional ApplyDefinition positive/negative controls in `Z3SortedProofTests` | F* verified the focused module with all VCs discharged using installed Z3 5.4.2; only stale-cache diagnostics 241/247 were silenced. No extraction, pinned replay, or cohort run; no acceptance/PENDING delta. |
+| Nov 24 07:53 | Diagnose the current-source strict-closure failure from its retained log | Closure stops at 74/219 on a finite-field solver timeout even with `z3rlimit=100000`; no code, coverage, or timing change. Finite-field work remains paused. |
+| Nov 24 07:46 | Compare Legacy and sorted `th-lemma` dispatch on the pinned 11-proof sample control | The 681 `th-lemma` PENDING are concentrated in proofs 10/20/37/40; logs lack per-entry fingerprints. Legacy's generic route has stronger model assumptions, so no direct port or causal attribution yet. No coverage/timing delta. |
+| Nov 24 07:41 | Trace Farkas producer parameters through native decoding and exact certificate replay | Confirms the arithmetic checker consumes supplied weights without search; unsupported evidence falls back to generic `th-lemma` fragments. No coverage/timing delta; extended nonlinear attribution remains open. |
+| Nov 24 07:34 | Trace proof-90’s remaining `quant-intro` obligations against Legacy and the existing binder kernel | Identifies 9/14 PENDING as `eq:binder->binder`; exact certificate fit and sorted-model soundness are unestablished. No checker change or coverage/timing delta. |
+| Nov 24 07:26 | Hoist the definition-input budget scan and reuse collected definition items during entry rewriting | Strict `Z3IndependentDefinitionPair.fst` verification passes; focused document and NNF controls discharge VCs with stale-cache warnings 241/247. No extraction, pinned replay, cohort run, or checker timing. |
+| Nov 24 07:17 | Reuse collected definition items while rewriting entries in the Definition+Array route | Focused `Z3IndependentDefinitionDocument.fst` verification discharges its VCs but emits stale-cache warnings 241/247. No extraction, pinned replay, cohort run, or performance measurement; not promoted. |
+| Nov 24 07:03 | Diagnose QF_LIA rewrite/Farkas findings; add a guarded Int equality-to-bounds rewrite with positive/negative controls | Focused `Z3SortedProofTests` verification discharges all VCs with stale-cache warnings 241/247. No extraction or pinned-proof replay; cohort statistics and PENDING are unchanged, so there is no measured burn-down or Legacy comparison. |
+| Nov 24 05:08 | Repeat schedule #5 with retained checker `6eb16f0b` and the same hashed cohort inputs <!-- periodic-smtlib-cycle:periodic-smtlib-20261124T115951Z --> | Sample reproduces 83 ACCEPT / 103 PARTIAL and 5,907 PENDING; extended reports 74 ACCEPT / 134 PARTIAL and 31,389 PENDING, with one fewer PARTIAL than the previous run. Rule deltas are Farkas −16, `intro-def` −11, `rewrite` −24, `th-lemma` −59, and `assumed:nlsat` −1. Proof-document hashes are absent, so this is diagnostic drift, not burn-down or checker attribution. Diagnostics have zero errors; no Legacy-parity claim. |
 | Nov 23 23:08 | Repeat schedule #5 on retained checker `6eb16f0b` with the same hashed cohort inputs | Sample reproduces 5,907 PENDING; extended changes 31,516→31,500 on one PARTIAL input (127→111: Farkas 13→16, intro-def 20→11, rewrite 47→24, th-lemma 46→59). Outcomes reproduce and diagnostics are error-free, but proof-document hashes are absent, so this is diagnostic drift, not burn-down. |
-| Nov 23 20:15 | Replay the exact 11 hash-pinned sample documents through `Z3IndependentArrayDocument.check`, including its root gate; run each proof three times | 6/11 ACCEPT and 118 PENDING versus the same-set SortedProof control's 2/11 and 807; Legacy remains 11/11. This adds four ACCEPTs and removes 689 PENDING, but is 4.33x slower than Legacy by summed per-proof medians (151.973s vs 35.109s). Five PARTIAL proofs have no per-rule attribution; cohort results are unchanged. |
-| Nov 23 18:31 | Capture and replay the current-source QF_LIA ring proof; benchmark the pinned input five times | Exact proof hash matches fixed sample proof 51. SortedProof is PARTIAL 4, solely `intro-def`; Legacy ACCEPT. All 251 `arith/farkas`, 1 `arith/bound`, and 18 `arith/lp-integer-lattice` entries have zero PENDING. Seven-run checker medians are 38.915ms vs 18.944ms (2.05x slower); solver benchmark is UNSAT, 28/44/92ms min/median/max. No Farkas failure or producer defect demonstrated. |
-| Nov 23 18:15 | Replay current `Z3SortedProof.check_document_array` on the same 11 hash-pinned sample proofs | Exploratory route returns 5/11 ACCEPT and 126 PENDING versus default 2/11 and 807; one-pass aggregate 93.500s is not comparable to paired seven-run medians. Kernel premise/root gate not exercised, no per-rule attribution, no parity or cohort claim. |
-| Nov 23 17:12 | Repeat both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker, runtime, manifests, and outcomes. Sample reproduces 5,907 PENDING; extended's single PARTIAL proof shifts `arith/farkas` −3, `intro-def` +9, `rewrite` +23, `th-lemma` −13 (net PENDING +16). No proof hashes: diagnostic drift, not burn-down or checker attribution. Zero diagnostic errors/mismatches; fallback coverage only. |
-| Nov 23 15:18 | Replay the same 11 frozen sample proofs through current `Z3SortedProof.check_document` and Legacy with seven alternating paired runs | Hashes verified; 2/11 versus 11/11 ACCEPT, current 807 PENDING versus prior same-set sorted-core 832, a 25-obligation fixed-set reduction (not attributed solely to distinct). Current is still 2.59x slower by summed per-proof medians; no cohort or Farkas-producer claim. |
-| Nov 23 14:50 | Add sound binary-only `distinct` semantics and recognize its NNF expansion before arithmetic normalization; replay the same frozen proof 69 | `rewrite` PENDING 1→0 and PARTIAL→ACCEPT on the 18,135-node document; Legacy remains ACCEPT. Seven-run paired medians: 6.010s current vs 0.568s Legacy (10.59x slower), so this is a coverage gain, not a speedup. Strict 167-module checker closure and focused NNF controls pass; cohorts not rerun. |
-| Nov 23 08:31 | Admit closed `asserted`/`mp` binder entries only as exact document equalities; replay a structurally reversed single-premise `symm` | On the same 11 frozen current-source Definition+Array proofs, acceptance stays 7/11 and PENDING drops 108→99, entirely removing proof 90's 9 `quant-intro` obligations (5 remain: 4 `intro-def`, 1 `def-axiom`). Aggregate/median are 181.549s / 11.138s versus 211.323s / 11.218s in the immediately prior run and 181.047s / 11.053s in the earlier matched run; one-pass timings are variable, so no performance claim. Legacy remains 11/11. Strict 219-module independent closure and isolated positive/negative replay tests pass; the full test suite is still blocked by unrelated finite-field/root-document test failures. No cohort run or parity. |
-| Nov 23 05:17 | Rerun both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker and all input hashes. Sample reproduces 83/225 ACCEPT and 5,907 PENDING. Extended returns 74/285 ACCEPT and 31,500 PENDING; one prior UNKNOWN returns PARTIAL with 111 observed obligations, so the 31,389→31,500 change is not burn-down. Zero diagnostic errors/mismatches; current-source production build now verifies, but this run remains fallback evidence. |
 ## Validation and cadence
 
 The prior candidate passed strict F* verification for its 185 registered
@@ -478,6 +560,15 @@ The separate parity/performance schedule has been updated to prioritize
 smtlib-sample and legacy-method parity. Preserve `N/M` for unobserved evidence,
 serialize native runs with `files\current-corpus.lock`, and claim burn-down only
 for identical fixed proof documents.
+
+The latest strict production-closure attempt verified 74/219 modules, then
+timed out in `Z3SortedFiniteField.lemma_pprod` at the VC
+`peval v q % p == x % p` (F* reported solver timeout at `z3rlimit=100000`).
+The earlier fresh-cache attempt timed out in `Z3TheoryNormalize.fst`. These
+are build blockers, not checker results; no finite-field source was changed,
+and current-source extraction and pinned replay remain incomplete. Logs are
+under `files\proof63-budget-production-closure-verify-20261124-r2.log` and
+`files\proof63-budget-strict-verify-20261124-r1.log`.
 
 ## QF_LIA ring: producer and checker evidence
 
