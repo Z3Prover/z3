@@ -80,6 +80,15 @@ namespace smt {
         m_context.register_plugin(alloc(theory_ff, m_context));
     }
 
+    // setup_QF_DT registers datatypes and recursive functions only. A tactic that runs
+    // before the SMT core, such as dt2bv, can introduce terms of other theories. Without
+    // a plugin they would be treated as uninterpreted, which is unsound, so such
+    // formulas get the general setup.
+    static bool has_non_datatype_theory(static_features const& st) {
+        return st.m_has_bv || st.m_has_fpa || st.m_has_arrays || st.m_has_int || st.m_has_real ||
+               st.m_has_str || st.m_has_seq_non_str || st.m_has_ff || st.m_has_sr;
+    }
+
     void setup::setup_default() {
         if (m_logic == "QF_UF") 
             setup_QF_UF();
@@ -141,8 +150,16 @@ namespace smt {
             setup_QF_FPBV();
         else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
             setup_QF_S();
-        else if (m_logic == "QF_DT")
-            setup_QF_DT();
+        else if (m_logic == "QF_DT") {
+            static_features st(m_manager);
+            ptr_vector<expr> fmls;
+            m_context.get_asserted_formulas(fmls);
+            st.collect(fmls.size(), fmls.data());
+            if (has_non_datatype_theory(st))
+                setup_unknown();
+            else
+                setup_QF_DT();
+        }
         else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
             setup_ff();
         else
@@ -211,8 +228,12 @@ namespace smt {
                 setup_AUFLIRA();
             else if (m_logic == "UFNIA")
                 setup_UFNIA();
-            else if (m_logic == "QF_DT")
-                setup_QF_DT();
+            else if (m_logic == "QF_DT") {
+                if (has_non_datatype_theory(st))
+                    setup_unknown();
+                else
+                    setup_QF_DT();
+            }
             else if (m_logic == "LRA")
                 setup_LRA();
             else if (m_logic == "QF_FF" || m_logic == "QF_FFA")

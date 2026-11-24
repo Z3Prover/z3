@@ -841,6 +841,31 @@ static void test_eq2bv_recursive_definitions() {
     }
 }
 
+static void test_dt2bv_under_qf_dt() {
+    // dt2bv turns the enumeration sort into bit-vectors. The SMT core then needs
+    // a bit-vector theory although the declared logic is QF_DT.
+    for (char const* check : {"(check-sat-using (then dt2bv smt))\n",
+                              "(check-sat-using (then dt2bv simplify smt))\n",
+                              "(check-sat)\n"}) {
+        std::string input =
+            "(set-logic QF_DT)\n"
+            "(declare-datatypes ((C 0)) (((r) (g) (b))))\n"
+            "(declare-fun c1 () C)\n"
+            "(declare-fun c2 () C)\n"
+            "(declare-fun c3 () C)\n"
+            "(declare-fun c4 () C)\n"
+            "(assert (distinct c1 c2 c3 c4))\n";
+        input += check;
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx, input.c_str());
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(response == "unsat\n");
+        Z3_del_context(ctx);
+    }
+}
+
 static void test_nary_probe() {
     // (+ a b c) and (* a b c) in user-written probes must combine each argument once.
     Z3_context ctx = Z3_mk_context(nullptr);
@@ -860,6 +885,7 @@ static void test_nary_probe() {
 
 void tst_api() {
     test_eq2bv_recursive_definitions();
+    test_dt2bv_under_qf_dt();
     test_solver_model_completion();
     test_apps();
     test_mk_app_polymorphic_arity();
