@@ -24,6 +24,7 @@ Notes:
 #include "ast/func_decl_dependencies.h"
 #include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
+#include "smt/smt_solver.h"
 #include "params/smt_params.h"
 #include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
@@ -73,7 +74,7 @@ namespace {
         obj_map<expr, expr*> m_name2assertion;
 
     public:
-        smt_solver(ast_manager & m, params_ref const & p, symbol const & l) :
+        smt_solver(ast_manager & m, params_ref const & p, symbol const & l, bool array_fake_support = false) :
             solver_na2as(m),
             m_smt_params(p),
             m_context(m, m_smt_params),
@@ -86,6 +87,7 @@ namespace {
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
             updt_params(p);
+            m_smt_params.m_array_fake_support = array_fake_support;
         }
 
         solver * translate(ast_manager & target, params_ref const & p) override {
@@ -94,7 +96,7 @@ namespace {
             init.copy(get_params());
             init.copy(p);
 
-            smt_solver* result = alloc(smt_solver, target, init, m_logic);
+            smt_solver* result = alloc(smt_solver, target, init, m_logic, m_smt_params.m_array_fake_support);
             smt::kernel::copy(m_context, result->m_context, true);
 
             if (mc0())
@@ -281,6 +283,11 @@ namespace {
 
         unsigned get_max_conflicts() const override {
             return m_context.get_context().get_fparams().m_max_conflicts;
+        }
+
+        bool get_value(expr* e, expr_ref& value) {
+            auto& ctx = m_context.get_context();
+            return ctx.e_internalized(e) && ctx.get_value(ctx.get_enode(e), value);
         }
 
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
@@ -655,8 +662,12 @@ namespace {
     };
 }
 
-solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic) {
-    return alloc(smt_solver, m, p, logic);
+solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic, bool array_fake_support) {
+    return alloc(smt_solver, m, p, logic, array_fake_support);
+}
+
+bool smt_solver_get_value(solver* s, expr* e, expr_ref& value) {
+    return static_cast<smt_solver*>(s)->get_value(e, value);
 }
 
 namespace {
