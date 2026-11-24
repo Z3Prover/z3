@@ -191,16 +191,12 @@ namespace seq {
     }
 
     bool solver_facet::value(expr* e, rational& v) const {
-        if (a.is_numeral(e, v) || m_values.find(e, v))
+        if (a.is_numeral(e, v))
             return true;
         expr_ref direct(m);
         if (!m_model && m_solver.get_value(e, direct) && a.is_numeral(direct, v))
             return true;
         expr_ref query(e, m);
-        expr_safe_replace cached(m);
-        for (auto const& entry : m_values)
-            cached.insert(entry.m_key, a.mk_numeral(entry.m_value, true));
-        cached(query);
         recfun::util rec(m);
         array_util arrays(m);
         // Executing a restored step definition on an abstract sequence can diverge
@@ -302,20 +298,6 @@ namespace seq {
     stx::facet_i* solver_facet::clone(trail_stack& trail) const {
         solver_facet* f = alloc(solver_facet, trail, m, u, m_solver);
         m_solver.get_model(f->m_model); // the leaf's arithmetic model, for exponent values
-        for (auto const& entry : m_values)
-            f->m_values.insert(entry.m_key, entry.m_value);
-        f->m_value_terms.append(m_value_terms);
-        if (f->m_model)
-            for (auto const& c : m_own)
-                for (expr* e : subterms_postorder::ground(c.m_fact)) {
-                    expr_ref value(m);
-                    rational v;
-                    if (a.is_int(e) && !f->m_values.contains(e) &&
-                        m_solver.get_value(e, value) && a.is_numeral(value, v)) {
-                        f->m_values.insert(e, v);
-                        f->m_value_terms.push_back(e);
-                    }
-                }
         // Snapshot clones do not own any new backend assertions.
         return f;
     }
