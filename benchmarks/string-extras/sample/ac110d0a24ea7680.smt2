@@ -1,0 +1,10 @@
+; origin: https://github.com/cvc5/cvc5/tree/main/test/regress/cli : regress0/seq/proj-issue340.smt2
+(set-logic ALL)
+(declare-const x0 Bool)
+(declare-const x2 (Seq Bool))
+(declare-const i Int)
+(assert (= i (str.to_int (str.from_code (seq.len x2)))))
+(assert (not (seq.nth x2 i)))
+(assert (>= i 0))
+(set-info :status sat)
+(check-sat)

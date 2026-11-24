@@ -1,0 +1,38 @@
+; origin: https://github.com/uuverifiers/ostrich/tree/master/tests : concat-regex4.smt2
+(set-logic QF_S)
+
+(declare-fun a () String)
+(declare-fun b () String)
+(declare-fun c () String)
+(declare-fun d () String)
+(declare-fun x0 () String)
+(declare-fun x1 () String)
+(declare-fun x2 () String)
+(declare-fun x3 () String)
+(declare-fun x4 () String)
+(declare-fun x5 () String)
+(declare-fun x6 () String)
+(declare-fun x7 () String)
+(declare-fun x8 () String)
+(declare-fun x9 () String)
+
+(assert (= a (str.++ b (str.++ (str.++ c c) b))))
+; (assert (= b (str.++ d c)))
+
+(assert (= b (str.++ x0 x0)))
+(assert (= x0 (str.++ x1 x1)))
+(assert (= x1 (str.++ x2 x2)))
+(assert (= x2 (str.++ x3 x3)))
+(assert (= x3 (str.++ x4 x4)))
+(assert (= x4 (str.++ x5 x5)))
+(assert (= x5 (str.++ x6 x6)))
+(assert (= x6 (str.++ x7 x7)))
+(assert (= x7 (str.++ x8 x8)))
+(assert (= x8 (str.++ x9 x9)))
+
+(assert (str.in_re a (re.+ (re.++ (str.to_re "x")
+                                  (re.++ (re.* (str.to_re "z"))
+                                         (re.* (str.to_re "y")))))))
+(assert (str.in_re c (re.+ (str.to_re "x"))))
+
+(check-sat)

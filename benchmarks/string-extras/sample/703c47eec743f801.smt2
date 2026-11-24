@@ -1,0 +1,1 @@
+(declare-const n Int)(declare-const m Int)(declare-const k Int)(declare-const l Int)(declare-const p Int)(declare-const q Int)(declare-const r Int)(declare-const s Int)(assert (and (>= n 1)(>= m 1)(>= k 1)(>= l 1)(>= p 1)(>= q 1)(>= r 1)(>= s 1))) (assert (= (str.++ (seq.power "a" n) (seq.power "b" m)) (str.++ (seq.power "a" k) (seq.power "b" l)))) (check-sat)
