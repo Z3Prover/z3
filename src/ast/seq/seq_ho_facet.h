@@ -7,7 +7,52 @@ Module Name:
 
 Abstract:
 
-    Incremental facet tracking higher-order sequence terms.
+    Incremental facet tracking higher-order sequence terms: `seq.map`,
+    `seq.mapi`, `seq.foldl`, and `seq.foldli` applications. Each applies a
+    function pointwise (map/mapi) or as a left-to-right accumulation
+    (foldl/foldli) over a sequence argument `s` whose own structure is
+    frequently still symbolic when the term needs reasoning about, so it
+    cannot simply be rewritten away term-by-term the way a plain arithmetic
+    or Boolean operator can.
+
+    Two independent unfolding strategies, tried in order of increasing cost:
+
+      - `propagate()` is the cheap, syntactic path. It first asks the
+        rewriter to reduce the term directly (works once `s` is fully
+        ground). If that fails, it asks an external `find_elaboration`
+        callback for some other term already known equal to `s` that *is*
+        concrete - found by walking `s`'s own e-graph congruence class, not
+        by searching the model - retries the rewrite against that
+        elaborated form, and, if it now succeeds, records the result
+        conditioned on `s = elaboration` actually holding. It also asserts
+        the one structural fact that needs no unfolding at all:
+        `len(map(f,s)) = len(s)` (ditto mapi).
+
+      - `propagate_model()` is the fallback for when no syntactic
+        elaboration is available at all. It asks the ambient arithmetic
+        model for a concrete *length* of `s` (bounded to 256, to keep the
+        unfolding tractable), builds an explicit index-by-index shape
+        `seq.unit(nth(s,0)) ++ ... ++ seq.unit(nth(s,n-1))` purely from that
+        length, substitutes it into the term, and rewrites. Since map/foldl
+        are themselves defined as recursive functions over the sequence
+        structure, this can still leave behind unresolved recursive calls;
+        the subsequent loop manually expands non-recursive step bodies
+        (bounded to `n+1` rounds, enough to fully unroll a chain of `n`
+        steps) until nothing further changes. The resulting fact is only
+        sound conditioned on the observed length actually being `n`
+        (`length(s) = n` is just this branch's current model, not a
+        guaranteed invariant), so it is asserted as a guarded implication,
+        never an unconditional equality.
+
+    `publish` controls how far a `propagate_model()` discovery travels:
+    `sf.add_constraint(...)` always happens, strengthening only the current
+    node's own backend; `m_add_eq(...)` additionally broadcasts the guarded
+    equality as a general fact when `publish` is true. The per-node
+    `ho_propagation` plugin below always passes `publish=false` (DFS
+    refinement stays branch-local - today's model-observed length may not
+    survive backtracking); the dedicated root-level call in theory_nseq's
+    final-check uses the default `publish=true`, since a length refined
+    before the search even starts is a safer global commitment.
 
 Author:
 
@@ -48,21 +93,18 @@ namespace seq {
 
         bool is_ho_map(expr* term, expr*& f, expr*& i, expr*& s) const {
             f = i = s = nullptr;
-            if (!is_app(term))
-                return false;
-            app* a = to_app(term);
-            return m_seq.str.is_map(a, f, s) || m_seq.str.is_mapi(a, f, i, s);
+            return m_seq.str.is_map(term, f, s) || m_seq.str.is_mapi(term, f, i, s);
         }
+
+        bool is_ho_fold(expr* term, expr*& f, expr*& i, expr*& b, expr*& s) const {
+            f = i = b = s = nullptr;
+            return m_seq.str.is_foldl(term, f, b, s) || m_seq.str.is_foldli(term, f, i, b, s);
+        }
+
 
         bool is_ho_term(expr* term, expr*& f, expr*& i, expr*& b, expr*& s) const {
             f = i = b = s = nullptr;
-            if (!is_app(term))
-                return false;
-            app* a = to_app(term);
-            return
-                is_ho_map(a, f, i, s) ||
-                m_seq.str.is_foldl(a, f, b, s) ||
-                m_seq.str.is_foldli(a, f, i, b, s);
+            return is_ho_map(term, f, i, s) || is_ho_fold(term, f, i, b, s);
         }
 
     public:
@@ -280,6 +322,9 @@ namespace seq {
     class ho_propagation : public eq_tree::propagation_plugin_i {
     public:
         char const* name() const override { return "ho-propagate"; }
+        // Always publish=false (see module comment): this runs at every
+        // DFS node, so a model-observed length here is only ever a
+        // branch-local hint, not a fact to broadcast globally.
         stx::simplify_result propagate(eq_tree::node& n) override {
             auto ac = get_ambient(n);
             auto& hf = ac.context().ho_facet(n);
