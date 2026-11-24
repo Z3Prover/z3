@@ -100,6 +100,23 @@ let ordering_controls ()
   assert_norm (not (Context.ordered X.schema X.inputs [new_item; cyclic_item]));
   assert_norm (not (Context.ordered X.schema X.inputs [cyclic_item; new_item]))
 
+let dependency_order_controls ()
+  : Lemma (
+    (match Context.dependency_order X.schema X.inputs [old_item; new_item] with
+     | Some items ->
+       Context.ordered X.schema X.inputs items /\
+       Context.formulas X.schema X.inputs items == [new_formula; X.formula]
+     | None -> false) /\
+    Context.dependency_order X.schema X.inputs [new_item; cyclic_item] == None /\
+    Context.dependency_order X.schema X.inputs [old_item; old_item] == None) =
+  assert_norm (match Context.dependency_order X.schema X.inputs [old_item; new_item] with
+    | Some items ->
+      Context.ordered X.schema X.inputs items /\
+      Context.formulas X.schema X.inputs items == [new_formula; X.formula]
+    | None -> false);
+  assert_norm (Context.dependency_order X.schema X.inputs [new_item; cyclic_item] == None);
+  assert_norm (Context.dependency_order X.schema X.inputs [old_item; old_item] == None)
+
 let inhabited_dependent_context ()
   : Lemma (
     let original = TR.standard X.uninterpreted X.schema X.symbols in

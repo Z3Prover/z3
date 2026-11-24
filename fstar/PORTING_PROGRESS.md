@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-23T20:15:23-08:00**.
+Updated: **2026-11-23T23:10:18-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -114,7 +114,7 @@ per-case results, and diagnostics are under
 
 ## Latest scheduled retained-Definition cohort (fallback, not current-source coverage)
 
-The 2026-11-23 17:12 PST run used retained checker SHA-256
+The 2026-11-23 23:08 PST run used retained checker SHA-256
 `6eb16f0b187e27a5d4a5298f7c848869899edf7feb15895ab525325cb5099fbb`
 with `--definition-replay`, OCaml 5.3.0, and static Z3 linkage. Its
 `verified-sources.json` SHA-256 is
@@ -128,40 +128,41 @@ and static producer archive SHA-256
 Both complete non-field input manifests and all 510 input hashes were reverified:
 sample `72cba03d2816fa47b8bb65d2dc03105b0781cb1243813846bbed1a789666cc44`,
 extended `6f6ad04db40a0f49733329ce056e5d599328a4468133f987a56c2172ac08cb34`.
-Artifacts are retained under `files\periodic-smtlib-20261124T000402Z`.
+Artifacts are retained under `files\periodic-smtlib-20261124T055950Z`.
 
 | Dataset | Outcomes | Diagnostic replays | Errors / mismatches | Weighted PENDING | Aggregate time / median |
 | --- | --- | ---: | ---: | ---: | ---: |
-| smtlib-sample | 83 ACCEPT, 103 PARTIAL, 0 REJECT, 0 SAT, 20 solver UNKNOWN, 19 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 186 / 225 | 0 / 0 | 5,907 | 2,073.6s / 0.543s |
-| smtlib-extended | 74 ACCEPT, 135 PARTIAL, 0 REJECT, 0 SAT, 69 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 209 / 285 | 0 / 0 | 31,516 | 1,747.8s / 0.545s |
+| smtlib-sample | 83 ACCEPT, 103 PARTIAL, 0 REJECT, 0 SAT, 20 solver UNKNOWN, 19 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (225) | 186 / 225 | 0 / 0 | 5,907 | 2,072.6s / 0.545s |
+| smtlib-extended | 74 ACCEPT, 135 PARTIAL, 0 REJECT, 0 SAT, 69 solver UNKNOWN, 7 TIMEOUT, 0 ERROR, 0 CRASH, 0 PROTOCOL_ERROR, 0 NOT_RUN (285) | 209 / 285 | 0 / 0 | 31,500 | 1,755.8s / 0.545s |
 
 Per-rule PENDING is limited to completed diagnostic replays; UNKNOWN and
 TIMEOUT cases have no proof diagnostics and are not zero-PENDING:
 
 | Rule | smtlib-sample | smtlib-extended |
 | --- | ---: | ---: |
-| `arith/farkas` | 0 | 33 |
+| `arith/farkas` | 0 | 36 |
 | `arith/lp-monomial-interval` | 0 | 46 |
 | `arith/lp-monomial-substitute` | 0 | 1 |
 | `apply-def` | 203 | 0 |
 | `assumed:nlsat` | 0 | 146 |
 | `def-axiom` | 3 | 89 |
 | `der` | 7 | 0 |
-| `intro-def` | 272 | 147 |
+| `intro-def` | 272 | 138 |
 | `quant-intro` | 42 | 83 |
-| `rewrite` | 1,866 | 24,704 |
-| `th-lemma` | 3,514 | 6,267 |
+| `rewrite` | 1,866 | 24,681 |
+| `th-lemma` | 3,514 | 6,280 |
 
-Compared with the prior scheduled run using the same checker and input hashes,
-all outcome counts and sample per-rule PENDING reproduce exactly. Extended
-outcome counts also reproduce. All extended per-rule shifts come from one
-PARTIAL input, `QF_NIA/20170427-VeryMax/ITS/From_AProVE_2014__Count.jar-obl-10-2__terminationS_9_0.smt2`:
-`arith/farkas` 16→13, `intro-def` 11→20, `rewrite` 24→47, and `th-lemma`
-59→46, for 31,500→31,516 total PENDING. Proof-document hashes were not
-retained, so this is diagnostic drift, not matched-proof burn-down or an
-attributable checker effect. All 186 and 209 diagnostic replays have zero
-errors or mismatches. This retained binary predates current-source changes; no
-Legacy parity is established.
+Compared with the prior scheduled run at 17:12 using the same checker and
+input hashes, all outcome counts and sample per-rule PENDING reproduce exactly.
+Extended outcome counts also reproduce. One PARTIAL input,
+`QF_NIA/20170427-VeryMax/ITS/From_AProVE_2014__Count.jar-obl-10-2__terminationS_9_0.smt2`,
+changed from 127 to 111 PENDING: `arith/farkas` 13→16, `intro-def` 20→11,
+`rewrite` 47→24, and `th-lemma` 46→59. The cohort total changed
+31,516→31,500, but proof-document hashes were not retained, so this is
+diagnostic drift, not matched-proof burn-down or an attributable checker
+effect. All 186 and 209 diagnostic replays have zero errors or mismatches.
+This retained binary predates current-source changes; no Legacy parity is
+established.
 
 ## Current PR-head sample: Definition+Array route
 
@@ -400,6 +401,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 23 23:08 | Repeat schedule #5 on retained checker `6eb16f0b` with the same hashed cohort inputs | Sample reproduces 5,907 PENDING; extended changes 31,516→31,500 on one PARTIAL input (127→111: Farkas 13→16, intro-def 20→11, rewrite 47→24, th-lemma 46→59). Outcomes reproduce and diagnostics are error-free, but proof-document hashes are absent, so this is diagnostic drift, not burn-down. |
 | Nov 23 20:15 | Replay the exact 11 hash-pinned sample documents through `Z3IndependentArrayDocument.check`, including its root gate; run each proof three times | 6/11 ACCEPT and 118 PENDING versus the same-set SortedProof control's 2/11 and 807; Legacy remains 11/11. This adds four ACCEPTs and removes 689 PENDING, but is 4.33x slower than Legacy by summed per-proof medians (151.973s vs 35.109s). Five PARTIAL proofs have no per-rule attribution; cohort results are unchanged. |
 | Nov 23 18:31 | Capture and replay the current-source QF_LIA ring proof; benchmark the pinned input five times | Exact proof hash matches fixed sample proof 51. SortedProof is PARTIAL 4, solely `intro-def`; Legacy ACCEPT. All 251 `arith/farkas`, 1 `arith/bound`, and 18 `arith/lp-integer-lattice` entries have zero PENDING. Seven-run checker medians are 38.915ms vs 18.944ms (2.05x slower); solver benchmark is UNSAT, 28/44/92ms min/median/max. No Farkas failure or producer defect demonstrated. |
 | Nov 23 18:15 | Replay current `Z3SortedProof.check_document_array` on the same 11 hash-pinned sample proofs | Exploratory route returns 5/11 ACCEPT and 126 PENDING versus default 2/11 and 807; one-pass aggregate 93.500s is not comparable to paired seven-run medians. Kernel premise/root gate not exercised, no per-rule attribution, no parity or cohort claim. |
@@ -409,9 +411,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 23 08:31 | Admit closed `asserted`/`mp` binder entries only as exact document equalities; replay a structurally reversed single-premise `symm` | On the same 11 frozen current-source Definition+Array proofs, acceptance stays 7/11 and PENDING drops 108→99, entirely removing proof 90's 9 `quant-intro` obligations (5 remain: 4 `intro-def`, 1 `def-axiom`). Aggregate/median are 181.549s / 11.138s versus 211.323s / 11.218s in the immediately prior run and 181.047s / 11.053s in the earlier matched run; one-pass timings are variable, so no performance claim. Legacy remains 11/11. Strict 219-module independent closure and isolated positive/negative replay tests pass; the full test suite is still blocked by unrelated finite-field/root-document test failures. No cohort run or parity. |
 | Nov 23 05:17 | Rerun both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker and all input hashes. Sample reproduces 83/225 ACCEPT and 5,907 PENDING. Extended returns 74/285 ACCEPT and 31,500 PENDING; one prior UNKNOWN returns PARTIAL with 111 observed obligations, so the 31,389→31,500 change is not burn-down. Zero diagnostic errors/mismatches; current-source production build now verifies, but this run remains fallback evidence. |
 | Nov 22 22:04 | Repeat both pinned cohorts with the retained fallback checker (`6eb16f0b`) | Sample reproduces exactly: 83/225 ACCEPT and 5,907 PENDING. Extended has 74/285 ACCEPT and 31,389 observed PENDING; one prior PARTIAL became UNKNOWN, leaving 112 obligations undiagnosed, so the 112-count difference is not burn-down. Zero diagnostic errors/mismatches. Current-source build failed before producing a checker; no coverage claim for the scalar-context changes. |
-| Nov 22 20:05 | Add Real-gated conditional rewrite certificates and replay the 11 hash-pinned documents | Acceptance stays 7/11; PENDING 123→108, entirely from rewrite 20→5. Aggregate time 181.016s→181.047s and median 11.101s→11.053s: effectively flat, one pass. Strict 218-module checker closure and positive/negative controls pass; the broader native suite stops later at stale finite-field cache. Still 5.62x slower than Legacy; no cohort run or parity. |
-| Nov 22 18:09 | Reuse definition diagnostics before the array fallback; replay all 11 hash-pinned proofs | 7/11 ACCEPT versus Legacy 11/11; 123 PENDING unchanged. Strict 219-module closure, `Z3SortedProofTests.fst` including conditional `ApplyDefinition` controls, and focused native regression pass. Aggregate time 272.614s→181.016s (-33.6%), median 15.872s→11.101s (-30.1%), faster 6/11; still 5.62x slower than paired Legacy. Single-pass evidence only; no cohort burn-down, parity, or Farkas finding. |
-
 ## Validation and cadence
 
 The prior candidate passed strict F* verification for its 185 registered
@@ -466,6 +465,19 @@ replays measured medians of 38.915 ms for SortedProof and 18.944 ms for Legacy
 This current-source evidence does not show a QF_LIA Farkas-certificate or
 producer defect. Artifacts are under
 `files\qflia-ring-current-20261123T1820PST`.
+
+The four pending `intro-def` entries are recognized as scalar ITE definitions
+on the exact proof above. Their collected order was compatible but not
+`Context.ordered`, so Definition eligibility was false even though an
+ungated augmented-root probe returned ACCEPT. Stable dependency ordering now
+makes the context ordered and eligible; the root-gated Definition and NNF
+probes both ACCEPT. The default SortedProof result remains PARTIAL 4, and the
+Definition route's final result already ACCEPTed before this change, so this
+is not new final acceptance or cohort burn-down. Preparation now reuses one
+elaborated document; its native runtime impact has not been measured. Strict
+verification of the affected Definition pipeline and focused tests passed;
+the full registered test harness stopped later at the unrelated
+`Z3IndependentFiniteFieldPolynomial.lemma_canon_bound_split`.
 
 On the older
 trace-06 capture (`c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb`),

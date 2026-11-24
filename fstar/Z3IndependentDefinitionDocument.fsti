@@ -3,7 +3,9 @@ module Z3IndependentDefinitionDocument
 open Z3AstTheory
 open FStar.List.Tot
 module S = Z3DatatypeSignature
+module D = Z3DefinitionSyntax
 module P = Z3DocumentSyntax
+module Pair = Z3IndependentDefinitionPair
 module Context = Z3IndependentDefinitionContext
 module Combined = Z3IndependentDefinitionSkolem
 module SP = Z3SortedProof
@@ -16,8 +18,17 @@ let rec has_definition (entries:list P.entry) : Tot bool (decreases entries) =
   | [] -> false
   | e :: rest -> e.P.rule = U.DefinitionIntroduction || has_definition rest
 
+val item (s:S.checked_schema) (inputs:list expr) (entry:P.entry)
+  : option (Context.item s inputs)
+val collect (s:S.checked_schema) (inputs:list expr) (entries:list P.entry)
+  (acc:list (Context.item s inputs)) : list (Context.item s inputs)
+val order_context (s:S.checked_schema) (inputs:list expr)
+  (items:list (Context.item s inputs)) : list (Context.item s inputs)
+
 val context (s:S.checked_schema) (doc:P.document)
-  : list (Context.item s doc.P.assertions)
+  : result:list (Context.item s doc.P.assertions){
+      result == order_context s doc.P.assertions
+        (collect s doc.P.assertions (SP.elaborate_full s doc).P.entries [])}
 val augment (s:S.checked_schema) (doc:P.document) : P.document
 val eligible_context (s:S.checked_schema) (doc:P.document)
   (items:list (Context.item s doc.P.assertions))

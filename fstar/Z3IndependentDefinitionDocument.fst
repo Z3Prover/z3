@@ -37,8 +37,15 @@ let rec collect (s:S.checked_schema) (inputs:list expr) (entries:list P.entry)
      | None -> collect s inputs rest acc
      | Some d -> collect s inputs rest (d :: acc))
 
+let order_context (s:S.checked_schema) (inputs:list expr)
+  (items:list (Context.item s inputs)) : list (Context.item s inputs) =
+  match Context.dependency_order s inputs items with
+  | Some ordered -> ordered
+  | None -> items
+
 let context (s:S.checked_schema) (doc:P.document) : list (Context.item s doc.P.assertions) =
-  collect s doc.P.assertions (SP.elaborate_full s doc).P.entries []
+  order_context s doc.P.assertions
+    (collect s doc.P.assertions (SP.elaborate_full s doc).P.entries [])
 
 let rec rewrite_entries (s:S.checked_schema) (inputs:list expr) (entries:list P.entry)
   : Tot (list P.entry) (decreases entries) =
@@ -50,7 +57,8 @@ let rec rewrite_entries (s:S.checked_schema) (inputs:list expr) (entries:list P.
 
 let augment (s:S.checked_schema) (doc:P.document) : P.document =
   let prepared = SP.elaborate_full s doc in
-  let items = collect s doc.P.assertions prepared.P.entries [] in
+  let items = order_context s doc.P.assertions
+    (collect s doc.P.assertions prepared.P.entries []) in
   { prepared with
     P.assertions = prepared.P.assertions @ Context.formulas s doc.P.assertions items;
     P.entries = rewrite_entries s doc.P.assertions prepared.P.entries }
@@ -91,7 +99,8 @@ let prepare (s:S.checked_schema) (doc:P.document)
   : result:(list (Context.item s doc.P.assertions) & P.document){
       fst result == context s doc /\ snd result == SP.elaborate_full s doc} =
   let prepared = SP.elaborate_full s doc in
-  let items = collect s doc.P.assertions prepared.P.entries [] in
+  let items = order_context s doc.P.assertions
+    (collect s doc.P.assertions prepared.P.entries []) in
   items, prepared
 
 let augment_prepared (s:S.checked_schema) (doc:P.document)

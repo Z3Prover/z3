@@ -1,6 +1,7 @@
 module Z3IndependentDefinitionContext
 
 open Z3AstTheory
+open FStar.List.Tot
 module S = Z3DatatypeSignature
 module D = Z3DefinitionSyntax
 module V = Z3DatatypeValue
@@ -10,6 +11,7 @@ module E = Z3SortedSkolem
 module Model = Z3IndependentDefinitionModel
 module RL = Z3SortedReal
 module DV = Z3SortedIntDivision
+module L = FStar.List.Tot
 
 type item (s:S.checked_schema) (inputs:list expr) = {
   formula: expr;
@@ -28,6 +30,62 @@ let rec ordered (s:S.checked_schema) (inputs:list expr) (items:list (item s inpu
   match items with
   | [] -> true
   | d :: rest -> safe s inputs d rest && ordered s inputs rest
+
+let rec insert_at (s:S.checked_schema) (inputs:list expr) (position:nat)
+  (candidate:item s inputs) (items:list (item s inputs))
+  : Tot (list (item s inputs)) (decreases position) =
+  if position = 0 then candidate :: items
+  else match items with
+  | [] -> [candidate]
+  | current :: rest ->
+    current :: insert_at s inputs (position - 1) candidate rest
+
+let rec insertion_position (s:S.checked_schema) (inputs:list expr)
+  (candidate:item s inputs) (items:list (item s inputs))
+  (index minimum maximum preferred:nat)
+  : Tot (option nat) (decreases items) =
+  match items with
+  | [] ->
+    if minimum <= maximum then
+      Some (if preferred < minimum then minimum
+            else if maximum < preferred then maximum
+            else preferred)
+    else None
+  | current :: rest ->
+    let minimum' =
+      if not (D.fresh [candidate.definition] current.formula)
+      then index + 1 else minimum in
+    let maximum' =
+      if not (D.fresh [current.definition] candidate.formula) && index < maximum
+      then index else maximum in
+    insertion_position s inputs candidate rest (index + 1)
+      minimum' maximum' preferred
+
+let rec dependency_insert (s:S.checked_schema) (inputs:list expr)
+  (remaining:list (item s inputs)) (ordered_items:list (item s inputs))
+  : Tot (result:option (list (item s inputs)){
+      match result with
+      | None -> true
+      | Some items -> ordered s inputs items})
+    (decreases remaining) =
+  match remaining with
+  | [] -> if ordered s inputs ordered_items then Some ordered_items else None
+  | candidate :: rest ->
+    let count = L.length ordered_items in
+    match insertion_position s inputs candidate ordered_items 0 0 count count with
+    | None -> None
+    | Some position ->
+      dependency_insert s inputs rest
+        (insert_at s inputs position candidate ordered_items)
+
+let dependency_order (s:S.checked_schema) (inputs:list expr)
+  (items:list (item s inputs))
+  : result:option (list (item s inputs)){
+      match result with
+      | None -> true
+      | Some ordered_items -> ordered s inputs ordered_items} =
+  if ordered s inputs items then Some items
+  else dependency_insert s inputs items []
 
 let rec formulas (s:S.checked_schema) (inputs:list expr) (items:list (item s inputs))
   : Tot (list expr) (decreases items) =
