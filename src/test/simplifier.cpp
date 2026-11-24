@@ -682,6 +682,52 @@ static void test_bit2int_proofs() {
     check_simplifier_proofs(m, state, assertions);
 }
 
+static void test_bit2int_negative_numeral_product() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    bv_util bv(m);
+    expr_ref u(m.mk_const("mul-u", bv.mk_sort(3)), m);
+    expr_ref ui(bv.mk_ubv2int(u), m);
+    bit2int rewrite(m);
+    expr_ref result(m);
+    proof_ref pr(m);
+    for (int k : {-1, -2, -3, -4, -5, -7, -8, 3, 5}) {
+        expr_ref original(a.mk_mul(a.mk_int(k), ui), m);
+        rewrite(original, result, pr);
+        solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
+        check->assert_expr(m.mk_not(m.mk_eq(original, result)));
+        ENSURE(check->check_sat(0, nullptr) == l_false);
+    }
+}
+
+static void test_bit2int_negative_numeral_qe() {
+    // forall R . exists x, y . 8*x + 3*y = R holds over the integers.
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* integer = a.mk_int();
+    expr_ref x(m.mk_var(1, integer), m), y(m.mk_var(0, integer), m), r(m.mk_var(2, integer), m);
+    expr_ref sum(a.mk_add(a.mk_mul(a.mk_int(8), x), a.mk_mul(a.mk_int(3), y)), m);
+    expr_ref body(m.mk_eq(sum, r), m);
+    sort* xy_sorts[] = {integer, integer};
+    symbol xy_names[] = {symbol("x"), symbol("y")};
+    expr_ref inner(m.mk_exists(2, xy_sorts, xy_names, body), m);
+    symbol r_name("R");
+    expr_ref original(m.mk_forall(1, &integer, &r_name, inner), m);
+    goal_ref input = alloc(goal, m, false, true, false);
+    input->assert_expr(original);
+    tactic_ref qe = mk_qe_tactic(m);
+    tactic_ref smt = mk_smt_tactic(m);
+    tactic_ref pipeline = and_then(qe.get(), smt.get());
+    model_ref model;
+    labels_vec labels;
+    proof_ref proof(m);
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*pipeline, input, model, labels, proof, core, reason) == l_true);
+}
+
 static void test_bit2int_zero_divisor_qe() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -1318,6 +1364,8 @@ void tst_simplifier() {
 
     test_proof_mode_simplifier_pipeline();
     test_bit2int_proofs();
+    test_bit2int_negative_numeral_product();
+    test_bit2int_negative_numeral_qe();
     test_bit2int_zero_divisor_qe();
     test_nested_symbolic_rotations();
     test_quantified_bool_literals();
