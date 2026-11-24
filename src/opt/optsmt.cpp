@@ -860,8 +860,6 @@ namespace opt {
     */
     lbool optsmt::lex_after_unbounded(unsigned unbounded_index, unsigned idx, bool is_maximize) {
         TRACE(opt, tout << "optsmt:lex after unbounded " << unbounded_index << " objective " << idx << "\n";);
-        if (!m_lex_after_unbounded)
-            return l_true;
         arith_util arith(m);
         app* obj = m_objs.get(idx);
         bool is_int = arith.is_int(obj);
@@ -1075,7 +1073,6 @@ namespace opt {
         m_optsmt_nlsat = _p.optsmt_nlsat();
         m_dual_bounds = _p.optsmt_dual_bounds();
         m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
-        m_lex_after_unbounded = _p.optsmt_lex_after_unbounded();
         m_unbounded_curve = _p.optsmt_unbounded_curve();
     }
 

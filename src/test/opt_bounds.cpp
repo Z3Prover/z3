@@ -1941,16 +1941,40 @@ static void tst_lex_after_unbounded() {
             unsigned h = f.objective(Z3_mk_ite(f.ctx, b, hi, lo), maximize);
             ENSURE(f.check() == Z3_L_TRUE);
             ensure_symbolic_bounds(f, first, is_real ? 1 : -1, 0, 0);
-            Z3_ast lower = scalar_bound(f, h, true);
-            Z3_ast upper = scalar_bound(f, h, false);
-            ENSURE(Z3_algebraic_le(f.ctx, lower, upper));
-            // The interval must contain the limiting optimum, even when this
-            // converted MaxSMT objective is not optimized after the unbounded one.
-            Z3_ast expected = maximize ? hi : lo;
-            ENSURE(Z3_algebraic_le(f.ctx, lower, expected));
-            ENSURE(Z3_algebraic_le(f.ctx, expected, upper));
-            ensure_vector(f, h, true, 0, lower, 0, Z3_INT_SORT);
-            ensure_vector(f, h, false, 0, upper, 0, Z3_INT_SORT);
+            ensure_finite_bounds(f, h, maximize ? hi : lo, Z3_INT_SORT);
+        }
+    }
+    {
+        // #11820: e = 1 is feasible, but cannot persist as e tends to -oo.
+        opt_fixture f;
+        Z3_ast e = f.real("e");
+        f.objective(e, false);
+        Z3_ast cost = Z3_mk_ite(f.ctx, Z3_mk_eq(f.ctx, e, f.num(1)), f.num(1), f.num(3));
+        unsigned h = f.objective(cost, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, f.num(3), Z3_INT_SORT);
+        ensure_model_value(f, cost, f.num(3));
+    }
+    for (unsigned rounds : {0u, 64u}) {
+        opt_fixture f("lex", rounds);
+        Z3_ast e = f.real("e"), y = f.real("y");
+        Z3_ast b = Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_ite(f.ctx, b, f.num(2), f.num(5))));
+        f.objective(e, false);
+        unsigned h = Z3_optimize_assert_soft(f.ctx, f.opt, Z3_mk_eq(f.ctx, e, f.num(1)), "1/2", nullptr);
+        Z3_optimize_assert_soft(f.ctx, f.opt, b, "3/4", nullptr);
+        unsigned last = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        if (rounds == 0) {
+            // No probes: report the full penalty range, including its limiting optimum.
+            ensure_value(f, scalar_bound(f, h, true), f.num(0));
+            ensure_value(f, scalar_bound(f, h, false), f.num(5, 4));
+        }
+        else {
+            ensure_finite_bounds(f, h, f.num(1, 2));
+            // The minimum limiting penalty forces b before maximizing y.
+            ensure_finite_bounds(f, last, f.num(2), Z3_INT_SORT);
+            ensure_model_value(f, y, f.num(2));
         }
     }
     for (bool minimize_first : {false, true}) {
