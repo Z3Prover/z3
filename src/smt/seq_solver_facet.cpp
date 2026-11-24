@@ -201,17 +201,31 @@ namespace seq {
         for (auto const& entry : m_values)
             cached.insert(entry.m_key, a.mk_numeral(entry.m_value, true));
         cached(query);
+        recfun::util rec(m);
+        array_util arrays(m);
+        // Executing a restored step definition on an abstract sequence can diverge
+        // (e.g. seq.tail/seq.pre of a known sequence at a still-symbolic offset
+        // unfolds without terminating). Check before rewriting, since the
+        // divergence happens inside th_rewriter itself, not only in a later
+        // consumer of its output.
+        auto diverges = [&](expr_ref const& t) {
+            for (expr* sub : subterms_postorder::ground(t))
+                if (rec.is_defined(sub) ||
+                    (arrays.is_as_array(sub) && rec.is_defined(arrays.get_as_array_func_decl(to_app(sub)))))
+                    return true;
+            return false;
+        };
+        if (diverges(query))
+            return false;
         th_rewriter rw(m);
         rw(query);
         if (a.is_numeral(query, v))
             return true;
-        recfun::util rec(m);
-        array_util arrays(m);
-        // Executing a restored step definition on an abstract sequence can diverge.
-        for (expr* t : subterms_postorder::ground(query))
-            if (rec.is_defined(t) ||
-                (arrays.is_as_array(t) && rec.is_defined(arrays.get_as_array_func_decl(to_app(t)))))
-                return false;
+        // Rewriting can also expose a recursive definition that was not a
+        // ground subterm of the original query (e.g. behind a let-bound or
+        // partially-evaluated wrapper); re-check the simplified form too.
+        if (diverges(query))
+            return false;
         e = query;
         model_ref md = m_model;
         if (!md && !m_solver.get_model(md))
@@ -236,6 +250,14 @@ namespace seq {
                 else if (all_of(*app_term, [&](expr* arg) { return m.is_value(arg); }))
                     fi->eval_else(app_term->get_args(), value);
             }
+            // A sequence-sorted application with no func_interp is a foreign
+            // skolem (e.g. seq.tail/seq.pre/seq.at) this arithmetic-only
+            // backend (string_solver=none) never asserted anything about.
+            // The generic model evaluator has no sound, bounded way to
+            // interpret it and can spend unbounded time trying; stop here
+            // instead of calling it on a sort the backend cannot reason about.
+            if (!value && u.is_seq(app_term->get_sort()))
+                return false;
             if (!value)
                 value = (*md)(term);
             values.insert(t, value);
