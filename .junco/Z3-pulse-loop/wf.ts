@@ -1,16 +1,20 @@
 /** One verified local proof-checker improvement per graph instance. See README.md. */
-import { accessSync, closeSync, constants, existsSync, openSync, readFileSync, writeSync } from 'node:fs';
+import { accessSync, closeSync, constants, existsSync, lstatSync, openSync, readFileSync, writeSync } from 'node:fs';
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
-import { graph, JuncoGraph, schedules, syntax, tools, tracer } from 'junco';
+import { agent, graph, JuncoGraph, schedules, syntax, tools, tracer } from 'junco';
 import { JuncoFrontend } from 'junco-frontend';
-import type { TArray, TSchema } from 'typebox';
-import { analyze, analyticsMarkdown, baseline, EvaluationConfigError, metrics, pickItem, refreshQueue, regress, sh, type Analysis, type Item, type Run } from './evaluation.ts';
-import { acquire, capture, current, next, paths, prepare, readQueue, record, saveQueue, StateConflict, verificationPaths, type Attempt, type LocalResult, type Paths } from './state.ts';
+import { Type, type TArray, type TSchema } from 'typebox';
+import { analyze, analyticsMarkdown, baseline, evaluationPaths, EvaluationConfigError, metrics, pickItem, prCandidateFailure, refreshQueue, regress, sh, type Analysis, type Item, type Run } from './evaluation.ts';
+import { acquire, adoptPrParent, capture, current, next, paths, prepare, readQueue, record, saveQueue, StateConflict, verificationPaths, type Attempt, type LocalResult, type Paths } from './state.ts';
+import { Publisher, atomicJson, check, digest, parts, type Parent } from './publication.ts';
+import { requestPublication, type certify, type Request } from './certification.ts';
+import { publish, reconcile, type Receipt } from './transaction.ts';
 import { pairedRecorder } from './telemetry.ts';
 
 type Edges = syntax.CodeContext["edges"];
@@ -260,7 +264,49 @@ const SPEC = 'Reproduce the named case; justify one sound local improvement and 
 
 type Selected = { before: Analysis; item: Item | null };
 type Verification = { after: Analysis | null; changed: boolean; report: { stopReason: string; text: string } | null };
-export type Loop = { paths: Paths; sha: string; iteration: number; collection?: tools.ToolCollection; selected?: Selected; attempt?: Attempt | null; verification?: Verification; reasons?: string[]; result?: LocalResult };
+type PublicationTurn = { request: Request; leader: {readonly status: string}; used: boolean; receipt?: Receipt; failure?: unknown };
+export type Loop = {
+  paths: Paths; sha: string; iteration: number; collection?: tools.ToolCollection;
+  selected?: Selected; attempt?: Attempt | null; verification?: Verification; reasons?: string[]; result?: LocalResult;
+  publisher?: Publisher; parent?: Parent; beforeOut?: string; publication?: PublicationTurn;
+};
+const leaderReturn = (p: Paths, i: number) => join(p.state, 'runs', String(i), 'publication', 'leader-return.json');
+
+export function makePublishTool(x: Loop, fixtureVerify?: typeof certify): AgentTool {
+  check(!fixtureVerify || x.publisher?.isFixture, 'Only local fixture transports may substitute certification');
+  return {
+    name: 'publish_verified', label: 'Publish verified change',
+    description: 'Publish the host-verified change for the current PR task and return its receipt.',
+    parameters: Type.Object({}, { additionalProperties: false }), replay: 'never',
+    execute: async (_id, args, signal) => {
+      const pub = x.publisher, permit = x.publication;
+      check(typeof args === 'object' && args !== null && !Array.isArray(args) && !Object.keys(args).length, 'publish_verified accepts only an empty object');
+      check(process.env.JUNCO_GRAPH_RUN_DIR === undefined && pub && permit && permit.leader.status === 'running', 'No verified publication task is active');
+      const r = permit.request, result = x.result, after = x.verification?.after;
+      check(r.pr === pub.pr && r.iteration === x.iteration && r.P === x.sha && r.H === x.parent?.H && r.M === x.parent.M && r.P === x.parent.P &&
+        result?.ok && result.ciPass && result.accepted_change === 1 && result.commit === r.privateCommit && result.base === r.P && result.iteration === r.iteration &&
+        result.patch === x.attempt?.patch && r.patchHash === x.attempt?.hash && r.tree === x.attempt?.tree && after?.tree === r.tree &&
+        r.itemId === result.item && r.itemId === x.selected?.item?.id && r.beforeHash === x.selected.before.evidenceSha256 &&
+        r.afterHash === after.evidenceSha256 && r.evaluator === after.evaluator, 'Stale publication permission');
+      if (!permit.receipt) {
+        check(!permit.used, 'Publication permission already consumed');
+        permit.used = true;
+        signal?.throwIfAborted();
+        try {
+          const receipt = await publish(pub, x.paths, r, signal, fixtureVerify);
+          // A delivered tool receipt needs its Leader's second return even across a supervisor restart.
+          await atomicJson(leaderReturn(x.paths,r.iteration), {head:receipt.publicCommit, acknowledged:false});
+          permit.receipt = receipt;
+        } catch (cause) {
+          permit.failure = cause;
+          throw new StateConflict('Publication not confirmed. The host has preserved the evidence.');
+        }
+      }
+      const { url, publicCommit } = permit.receipt;
+      return { content: [{ type: 'text', text: `${url}/commits/${publicCommit}` }], details: undefined };
+    },
+  };
+}
 
 function cgroupDelegated(): boolean {
   try {
@@ -316,6 +362,7 @@ function probeAll(c: syntax.CodeContext<Loop>, values: Record<string, number>) {
   for (const [edgeId, value] of Object.entries({ iteration: c.context.iteration, ...values })) view?.record({ resource: 'probe', kind: 'probe', edgeId, value, unit: UNITS[edgeId] ?? 'short' });
 }
 async function selection(p: Paths, base: { sha: string; out: string }, signal: AbortSignal) {
+  const built = evaluationPaths(p,base.out);
   const before = await analyze(p, base.out, base.sha, signal);
   // A failed build is not an empty or completed corpus: leave the saved work queue alone.
   const queue = before.buildOk ? refreshQueue(readQueue(p), before) : readQueue(p);
@@ -324,7 +371,7 @@ async function selection(p: Paths, base: { sha: string; out: string }, signal: A
   if (!item) return { before, item, text: '', queueOpen: queue.items.length };
   const scratch = join(p.state, 'worker');
   await mkdir(join(scratch,'home'), { recursive: true, mode: 0o700 });
-  const z3 = join(p.z3Install, 'bin', 'z3');
+  const z3 = join(built.z3Install, 'bin', 'z3');
   const versionResult = await sh([z3, '-version'], { cwd: p.worktree, signal });
   const version = /Z3 version (\S+)/.exec(versionResult.stdout)?.[1];
   if (versionResult.code || !version) throw Error(`Cannot identify checkout Z3: ${z3}`);
@@ -333,8 +380,8 @@ async function selection(p: Paths, base: { sha: string; out: string }, signal: A
     `Work item ${item.id} [${item.kind}]: ${item.title}`, item.detail, `Cases (under ${p.corpus}): ${item.cases.join(', ')}`,
     item.notes.length ? `Earlier attempts on this item failed:\n${item.notes.map(n => `- ${n}`).join('\n')}` : 'This item has not been attempted before.',
     '', `Checkout (your cwd): ${p.worktree} on loop/pulse-local at ${base.sha}.`,
-    `- Baseline F* cache: ${p.fstarCache}; checkout solver: ${z3} (--z3version ${version}); F*: ${p.fstarExe}. Do not modify host build or evidence paths.`,
-    `- Baseline native checker: ${p.checker}. Reproduce the case with --stats --diagnostics --timeout-ms 10000.`,
+    `- Baseline F* cache: ${built.fstarCache}; checkout solver: ${z3} (--z3version ${version}); F*: ${p.fstarExe}. Do not modify host build or evidence paths.`,
+    `- Baseline native checker: ${built.checker}. Reproduce the case with --stats --diagnostics --timeout-ms 10000.`,
     `- Worker rebuild: cd ${quote(p.worktree)} && eval "$(opam env --switch=${quote(p.opamSwitch)} --set-switch)" && ${cmd.map(quote).join(' ')}`,
     `- Test changes with ${join(scratch, 'checker', 'checker')}. Build scratch only under ${scratch}; leave the sources in your checkout.`,
     `- Baseline run logs (stdout/stderr per case, results.jsonl, diagnostics.json): ${base.out}`,
@@ -363,9 +410,35 @@ export function regressionCycle<C>(measure: (c: syntax.CodeContext<C>, signal: A
   });
 }
 
+export async function campaignParent(p: Paths, publisher: Publisher, signal: AbortSignal) {
+  try {
+    await reconcile(publisher,p,signal);
+    const binding = await publisher.binding();
+    if (binding.iteration) {
+      const path = leaderReturn(p,binding.iteration);
+      const s = lstatSync(path,{throwIfNoEntry:false});
+      if (s) {
+        check(s.isFile() && s.nlink === 1 && s.uid === process.getuid!() && !(s.mode & 0o077), 'Untrusted final Leader return checkpoint');
+        const turn = JSON.parse(await readFile(path,'utf8'));
+        check(turn.acknowledged === true && turn.head === binding.head, 'Published change lacks a confirmed final Leader return; operator reconciliation required');
+      }
+    }
+    const parent = await publisher.parent(binding.head,signal);
+    p.base = binding.seed;
+    p.reviewedUpstream = parent.M;
+    const tip = await prepare(p,signal);
+    await adoptPrParent(p,tip,parent.P,signal);
+    return parent;
+  } catch (cause) {
+    if (cause instanceof StateConflict) throw cause;
+    throw new StateConflict('Cannot establish the bound PR campaign parent; private evidence preserved', {cause});
+  }
+}
+
 export const Regress = regressionCycle<Loop>(async (c, signal, previous) => {
   const x = c.context;
-  x.sha = await prepare(x.paths, signal);
+  if (x.publisher) x.parent = await campaignParent(x.paths,x.publisher,signal);
+  x.sha = x.parent?.P ?? await prepare(x.paths,signal);
   if (current(x.paths) !== previous) throw new StateConflict('Starting iteration differs from private state');
   x.iteration = next(x.paths);
   log(`iteration ${x.iteration}: regressing ${x.sha}`);
@@ -387,6 +460,7 @@ export const Analytics: syntax.DeterministicNode<Loop> = c => {
         const frozen = JSON.parse(await readFile(join(x.paths.state, 'selected.json'), 'utf8'));
         if (item?.id !== expected || frozen.item !== expected || frozen.text !== text || frozen.spec !== SPEC) throw new StateConflict('Selected item or assignment differs from the frozen fixture');
       }
+      x.beforeOut = base.out;
       x.selected = { before, item };
       const m = metrics(before);
       probeAll(c, { ...m, queue_open: queueOpen });
@@ -442,21 +516,55 @@ export const Verify: syntax.DeterministicNode<Loop> = c => ({
     return v;
   }, c.policy),
 });
-export const Record: syntax.DeterministicNode<Loop> = c => ({
-  state: new graph.nodes.Deterministic<TSchema, unknown>(async function* (signal) {
-    const inputs = yield [];
-    const x = c.context;
-    const batch = inputs.messages.get(E('Analytics~>Record')) ?? [];
-    const selected = batch[0] as unknown as Selected;
-    const v = inputs.values.get(E('Verify->Record')) as Verification;
-    if (batch.length !== 1 || !x.selected || selected.before.sha !== x.sha || selected.item?.id !== x.selected.item?.id || v !== x.verification || !v) throw Error('Stale or missing record/verification inputs');
-    signal.throwIfAborted();
-    const result = await record(x.paths, { iteration: x.iteration, before: selected.before, item: selected.item, after: v.after, report: v.report, attempt: x.attempt ?? null, reasons: x.reasons }, signal);
-    probeAll(c, { accepted_change: result.commit ? 1 : 0, queue_open: result.queue_open });
-    x.result = result;
-    return result;
-  }, c.policy),
-});
+/** Tests may supply a private decision for a local fixture; the publication continuation is the real one. */
+export function recordNode(decide = record): syntax.DeterministicNode<Loop> {
+  return c => {
+    const x = c.context, leaderEdge = E('Leader->Record');
+    check(!x.publisher || x.publisher.isFixture || decide === record, 'Live publication requires the independent private decision');
+    let planning: unknown;
+    return {
+      state: new graph.nodes.Deterministic<TSchema, unknown>(async function* (signal) {
+        const inputs = yield [];
+        const batch = inputs.messages.get(E('Analytics~>Record')) ?? [];
+        const selected = x.selected, v = x.verification;
+        check(batch.length === 1 && selected && batch[0] === selected && selected.before.sha === x.sha && v && inputs.values.get(E('Verify->Record')) === v, 'Stale or missing record/verification inputs');
+        signal.throwIfAborted();
+        const failure = x.publisher && selected.item && (v.after ? prCandidateFailure(v.after) : 'Missing verified PR candidate');
+        const reasons = failure ? [...(x.reasons ?? []), failure] : x.reasons;
+        const result = x.result = await decide(x.paths, { iteration: x.iteration, before: selected.before, item: selected.item, after: v.after, report: v.report, attempt: x.attempt ?? null, reasons }, signal);
+        probeAll(c, { accepted_change: result.accepted_change, queue_open: result.queue_open });
+        if (!x.publisher || !result.ok) return result;
+        check(!failure && result.ciPass && result.accepted_change === 1 && result.commit, 'Private result is not publishable');
+        const request = await requestPublication(x,signal);
+        planning = inputs.values.get(leaderEdge);
+        syntax.finalText(planning, 'Leader planning turn');
+        const leader = c.graph.getNode(graph.NodeId.create('Leader'));
+        check(leader && leader.state instanceof agent.JuncoAgent, 'Publication requires the planning Leader');
+        leader.state.stagePrompt('Carry out the verified publication task in the following host message; return the exact receipt URL from the tool.');
+        const task = graph.nodes.Task.create({ kind: 'prompt', text: `Call publish_verified for the verified iteration ${request.iteration} of PR #${request.pr}.`, spec: 'Return the confirmed publication URL.' });
+        const permit: PublicationTurn = { request, leader, used: false };
+        x.publication = permit;
+        try {
+          const feedback = yield [graph.Message.create(c.edges.get('Record~>Leader')!, task)];
+          const answer = feedback.values.get(leaderEdge);
+          check(answer !== planning, 'Stale Leader planning return');
+          const text = syntax.finalText(answer, 'Leader publication turn');
+          if (permit.failure) throw new StateConflict('Host publication failed; private evidence preserved', {cause:permit.failure});
+          const receipt = permit.receipt;
+          check(permit.used && receipt && receipt.pr === request.pr && receipt.iteration === result.iteration && receipt.privateCommit === result.commit && receipt.privateTree === request.tree && receipt.url === x.publisher.url, 'Missing or mismatched host publication receipt');
+          check(text.includes(`${receipt.url}/commits/${receipt.publicCommit}`), 'Leader did not return the confirmed publication URL');
+          const binding = await x.publisher.binding(), { H, pr } = await x.publisher.observed(signal);
+          const block = parts(pr.body).block;
+          check(H === receipt.publicCommit && H === binding.head && binding.iteration === receipt.iteration && binding.block === block && digest(block) === receipt.blockDigest, 'Acknowledged PR head or claims block changed');
+          await atomicJson(leaderReturn(x.paths,request.iteration), {head:H, acknowledged:true});
+          return result;
+        } finally { delete x.publication; }
+      }, c.policy),
+      is_available: (view, triggered) => planning === undefined ? triggered : view.values.has(leaderEdge) && view.values.get(leaderEdge) !== planning,
+    };
+  };
+}
+export const Record = recordNode();
 
 async function loadLadder(signal: AbortSignal) {
   const store = process.env.Z3_PULSE_LOOP_MODEL_STORE;
@@ -480,11 +588,40 @@ function conflict(error: unknown): boolean {
   return error instanceof Error && error.cause !== undefined && conflict(error.cause);
 }
 
+export function failureCode(failures: unknown[], running: boolean, aborted: boolean, single: boolean, cleanupFailed: boolean) {
+  if (failures.some(conflict)) return 78;
+  if (aborted) return single ? 1 : cleanupFailed ? 78 : 0;
+  return running ? 1 : 78;
+}
+
+export async function runCycle(execution: {graph: JuncoGraph<TSchema, unknown>; run(options: {signal: AbortSignal}): Promise<unknown>}, x: Loop, previous: number, signal: AbortSignal) {
+  try {
+    startCycle(execution.graph, previous);
+    await execution.run({signal});
+    signal.throwIfAborted();
+    const sink = execution.graph.result(execution.graph.sink.id);
+    if (sink._tag !== 'Some' || !x.result || !x.verification || !x.selected || sink.value !== x.result || x.result.iteration !== x.iteration || x.result.base !== x.sha || x.result.item !== (x.selected.item?.id ?? null)) throw Error('Missing or stale terminal verdict');
+    return { result: x.result, selected: x.selected, verification: x.verification };
+  } catch (cause) {
+    if (x.publisher && x.result?.ok) throw new StateConflict(`Publication of iteration ${x.iteration} on PR #${x.publisher.pr} did not finish; reconcile preserved evidence`, {cause});
+    throw cause;
+  } finally { delete x.publication; }
+}
+
+export function parseMode(args: string[], measuring: boolean) {
+  const opts=args.filter(a=>a.startsWith('--publish-pr='));
+  if (opts.length>1 || new Set(args).size!==args.length || args.some(a=>!['--prepare','--once','--allow-paid'].includes(a) && !/^--publish-pr=[1-9]\d*$/.test(a))) return;
+  const pr=opts.length ? Number(opts[0]!.slice('--publish-pr='.length)) : undefined;
+  const prepareOnly=args.includes('--prepare'), once=args.includes('--once');
+  if (prepareOnly ? args.length!==1 : !args.includes('--allow-paid')) return;
+  if (pr!==undefined && (!Number.isSafeInteger(pr) || prepareOnly || once || measuring)) return;
+  return {pr,prepareOnly,once};
+}
+
 async function main(args: string[], signal: AbortSignal) {
-  const prepareOnly = args.includes('--prepare'), once = args.includes('--once');
-  if (args.some(a=>!['--prepare','--once','--allow-paid'].includes(a)) || new Set(args).size !== args.length || (prepareOnly ? args.length!==1 : !args.includes('--allow-paid'))) {
-    console.error('usage: bun run wf.ts --prepare | [--once] --allow-paid'); return 64;
-  }
+  const mode=parseMode(args,process.env.JUNCO_GRAPH_RUN_DIR!==undefined);
+  if (!mode) { console.error('usage: bun run wf.ts --prepare | [--once] --allow-paid | --allow-paid --publish-pr=N'); return 64; }
+  const {prepareOnly,once,pr}=mode;
   const failures: unknown[] = [];
   let request: GraphRun | undefined, hash = "", measured: Record<string, number> | undefined;
   let unlock: (()=>void) | undefined, frontend: JuncoFrontend | undefined, recorder: tracer.ProfileRecorder<string> | undefined, collection: tools.ToolCollection | undefined;
@@ -497,8 +634,14 @@ async function main(args: string[], signal: AbortSignal) {
       if (hash !== request.expectedGraphHash || !once || !process.env.Z3_PULSE_LOOP_EXPECT_ITEM) throw Error("Measurement requires the nonce-bound graph, --once and a frozen item");
     }
     const p = paths();
+    const publisher=pr===undefined ? undefined : await Publisher.live(pr,p);
+    if (publisher) {
+      const binding = await publisher.binding();
+      p.base = binding.seed;
+      p.reviewedUpstream = binding.upstream;
+    }
     unlock = acquire(p);
-    const sha = await prepare(p, signal);
+    const sha=publisher ? (await campaignParent(p,publisher,signal)).P : await prepare(p,signal);
     if (prepareOnly) {
       const base = await baseline(p, sha, signal);
       const selected = await selection(p, base, signal);
@@ -526,33 +669,31 @@ async function main(args: string[], signal: AbortSignal) {
       let previous = current(p);
       do {
         signal.throwIfAborted();
-        const context: Loop = { paths:p, sha:'', iteration:0, collection:monitored ? collection : undefined };
+        const context: Loop = { paths:p, sha:'', iteration:0, publisher, collection:monitored ? collection : undefined };
         const execution = await JuncoGraph.fromYaml(document, {
           cwd:p.worktree, scheduler, ladder:models, collection, signal, recorder, tracer:frontend,
+          tools:{publish_verified:makePublishTool(context)},
           code:withOptimizerCode<Loop>({Regress,Analytics,Verify,Record}, ASSIGNMENTS), context,
           available:mergeAvailable(undefined,ralphUntil(RALPH_CHECKS).available,new Set(Object.keys(RALPH_CHECKS))),
         });
         running = true;
-        try {
-          startCycle(execution.graph, previous);
-          await execution.run({signal});
-          signal.throwIfAborted();
-          const sink = execution.graph.result(execution.graph.sink.id);
-          if (sink._tag !== 'Some' || !context.result || !context.verification || !context.selected || sink.value !== context.result || context.result.iteration !== context.iteration || context.result.base !== context.sha || context.result.item !== (context.selected.item?.id ?? null)) throw Error('Missing or stale terminal verdict');
-          previous = context.result.iteration;
-        } finally { await execution.graph.close(); }
+        const {result, selected, verification} = await runCycle(execution, context, previous, signal).finally(async () => {
+          try { await execution.graph.close(); }
+          catch (cause) { if (publisher && context.result?.ok) throw new StateConflict('PR graph did not close cleanly', {cause}); throw cause; }
+        });
+        previous = result.iteration;
         await recorder.flush();
-        log(`result: ${JSON.stringify(context.result)}`);
+        log(`result: ${JSON.stringify(result)}`);
         if (once) {
-          if (!context.selected.before.buildOk || (context.selected.item && !context.verification.after?.buildOk)) throw Error(`Cycle has no complete verification: ${context.result.reasons.join('; ')}`);
+          if (!selected.before.buildOk || (selected.item && !verification.after?.buildOk)) throw Error(`Cycle has no complete verification: ${result.reasons.join('; ')}`);
           if (request) {
-            const after = context.verification.after;
-            if (!after?.buildOk || !after.ciPass || after.tested !== 242 || !context.result.ok || !context.result.commit || !context.result.patch || context.result.item !== process.env.Z3_PULSE_LOOP_EXPECT_ITEM) throw Error(`Infeasible measured attempt: ${context.result.reasons.join("; ")}`);
+            const after = verification.after;
+            if (!after?.buildOk || !after.ciPass || after.tested !== 242 || !result.ok || !result.commit || !result.patch || result.item !== process.env.Z3_PULSE_LOOP_EXPECT_ITEM) throw Error(`Infeasible measured attempt: ${result.reasons.join("; ")}`);
             measured = metrics(after);
           }
           break;
         }
-        if (!context.selected?.item) await delay(PAUSE_MS, undefined, {signal});
+        if (!selected.item) await delay(PAUSE_MS, undefined, {signal});
         running = false;
       } while (!signal.aborted);
     }
@@ -563,8 +704,7 @@ async function main(args: string[], signal: AbortSignal) {
   }
   if (failures.length) {
     for (const e of failures) console.error(e);
-    if (signal.aborted) return once || prepareOnly ? 1 : failures.length > beforeClose ? 78 : 0;
-    return !running || failures.some(conflict) ? 78 : 1;
+    return failureCode(failures, running, signal.aborted, once || prepareOnly, failures.length > beforeClose);
   }
   if (request) {
     signal.throwIfAborted();

@@ -5,13 +5,26 @@ import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { schedules, syntax } from 'junco';
 import { type Analysis, analyticsMarkdown, judge, metrics, pickItem, refreshQueue } from './evaluation.ts';
-import { ladder, openCollection } from './wf.ts';
+import { ladder, makePublishTool, openCollection, parseMode } from './wf.ts';
+import { checkPublisherParent } from './publication.check.ts';
+import { checkPublication } from './publication.integration.check.ts';
+import { checkClaims } from './claims.check.ts';
 import { paths } from './state.ts';
 import { checkState } from './state.check.ts';
 import './evaluation.check.ts';
 
 schedules.validateLadder(ladder);
-await syntax.resolveAgents(syntax.parse(await readFile(new URL('./wf.yml',import.meta.url),'utf8')), { cwd: import.meta.dir });
+for (const args of [['--publish-pr=7'],['--allow-paid','--publish-pr=0'],['--allow-paid','--publish-pr=01'],['--allow-paid','--publish-pr=2x'],['--allow-paid','--publish-pr=1','--publish-pr=2'],['--allow-paid','--once','--publish-pr=7'],['--prepare','--publish-pr=7']]) assert.equal(parseMode(args,false),undefined);
+assert.equal(parseMode(['--allow-paid','--publish-pr=7'],true),undefined);
+assert.equal(parseMode(['--allow-paid','--publish-pr=7'],false)?.pr,7);
+assert.equal(parseMode(['--allow-paid'],false)?.pr,undefined);
+process.umask(0o077);
+await checkPublisherParent();
+await checkPublication();
+await checkClaims();
+const disabled = makePublishTool({paths:paths(), sha:'', iteration:0});
+await assert.rejects(disabled.execute('local',{},undefined), /No verified publication task/);
+await syntax.resolveAgents(syntax.parse(await readFile(new URL('./wf.yml',import.meta.url),'utf8')), { cwd: import.meta.dir, tools:{publish_verified:disabled} });
 
 const run = (over: Partial<Analysis> = {}): Analysis => ({
   sha: "abc", buildOk: true, tested: 4, counts: { ACCEPT: 1, PARTIAL: 2, REJECT: 1 }, pending: 7, proofNodes: 100, checkMs: 300, solveMs: 50,
@@ -53,7 +66,6 @@ const reject = queue.items.find((i) => i.kind === "reject")!;
 assert.equal(judge(reject, before, run({ cases: { ...before.cases, "r.smt2": { outcome: "PARTIAL", wall: 1, pending: 9 } }, pending: 16 })).ok, true, "REJECT -> PARTIAL is targeted progress");
 assert.equal(metrics(before).proof_steps_checked, 93);
 assert.match(analyticsMarkdown(before, improved), /\| proof_steps_pending \| 7 \| 4 \|/);
-process.umask(0o077);
 const root = await mkdtemp(join(process.env.PULSE_CHECK_TMPDIR ?? '/btrfs', 'pulse-check-'));
 const seed = join(root,'seed'), home = join(root,'home');
 await mkdir(home);
@@ -71,7 +83,7 @@ try {
       assert.equal(result.content.map(x=>x.type==='text'?x.text:'').join('').trim(),'1800');
     } finally { await binding.close(); }
   } finally { await collection.close(); }
-  const env = { PATH:process.env.PATH, HOME:home, LANG:'C.UTF-8', ...(process.env.PULSE_CHECK_GRAFANA ? {PULSE_CHECK_GRAFANA:process.env.PULSE_CHECK_GRAFANA}: {}) };
+  const env = { PATH:process.env.PATH, HOME:home, LANG:'C.UTF-8', PULSE_CHECK_TMPDIR:root, ...(process.env.PULSE_CHECK_GRAFANA ? {PULSE_CHECK_GRAFANA:process.env.PULSE_CHECK_GRAFANA}: {}) };
   for (const check of ['wiring.check.ts','telemetry.check.ts']) {
     execFileSync(process.execPath,['run',check,seed,root],{cwd:import.meta.dir,env,stdio:'inherit'});
   }

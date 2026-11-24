@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { closeSync, openSync } from "node:fs";
+import { closeSync, createReadStream, openSync } from "node:fs";
 import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { cpus, homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,6 +10,12 @@ const CORPUS_PIN = "91c60596fd6a43de189a1ccba8080a3b48797537";
 const MANIFEST = "ea0349ec8af0fe55353ade9258e82c6c0ef8198b9d487c0cf306de4556c7483e";
 const HARNESS = "fstar/tools/run_checker_regressions.py", BUILD = "fstar/tools/build_ocaml_checker.ps1";
 const HARNESS_HASH = "28c23a82d911a98354aee6a7a6b0524637113c415bec1aa50c36f570a51a6a4a";
+const REVIEW = "803df8055301cf5e65a3a05a2402a5da678652dd";
+const PR_HARNESS = "da9f7dd490044153ce00d56f16509899fe9b8de6";
+const PR_HARNESS_HASH = "4856282b9643a034b8fedc5bc7cb56441aa747102ed2f4efb9607efd2031d937";
+const PR_FSTAR_HASH = "360741f618a1882b3bb6273afc98e7d564b76448c7a96b00d60c71c0d3abb46a";
+const SCOPE = "fstar/tools/checker_scope.py", MODULES = "fstar/tools/checker_modules.json";
+const OID = /^[0-9a-f]{40}$/;
 export const CORPORA = [
   { name: "proofs", path: "regressions/proofs", total: 1800, memory: 2048, manifest: false, size: 17 },
   { name: "smtlib-sample", path: "regressions/smtlib-sample", total: 3600, memory: 4096, manifest: true, size: 225 },
@@ -23,6 +29,7 @@ const familyId = (rule: string, shape: string) => `obligation:${rule}|${shape}`;
 export type CaseStat = { outcome: string; wall: number; solveMs?: number; checkMs?: number; proofNodes?: number; pending?: number; stage?: string };
 export type Family = { rule: string; shape: string; pending: number; cases: { path: string; count: number; first: string }[] };
 export type Analysis = {
+  evidenceSha256?: string;
   sha: string; tree: string; evaluator: string; buildOk: boolean; ciPass: boolean; statsCases: number; tested: number; counts: Record<string, number>;
   pending: number; proofNodes: number; checkMs: number; solveMs: number; families: Family[]; cases: Record<string, CaseStat>; lemmas: number; assumed: number;
 };
@@ -56,7 +63,11 @@ export async function must(cmd: string[], o: Parameters<Run>[1]) {
 const git = (cwd: string, ...args: string[]) => must(["/usr/bin/git", "--no-optional-locks", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", ...args], { cwd });
 const nul = (s: string) => s === "" ? [] : s.slice(0, -1).split("\0");
 const hash = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
-const fileHash = async (path: string) => hash(await readFile(path));
+async function fileHash(path: string) {
+  const digest = createHash("sha256");
+  for await (const chunk of createReadStream(path)) digest.update(chunk);
+  return digest.digest("hex");
+}
 function requireThat(ok: unknown, message: string): asserts ok { if (!ok) throw new Error(message); }
 const json = async (path: string) => JSON.parse(await readFile(path, "utf8"));
 const save = (path: string, obj: unknown) => writeFile(path, JSON.stringify(obj, null, 2) + "\n", { flag: "wx", mode: 0o600 });
@@ -70,9 +81,9 @@ const expectedPaths = (actual: string[], wanted: string[]) => requireThat(Array.
 // Compare the PowerShell program outside the three literal arrays byte-for-byte. Inside,
 // only insert quoted names of real new verified modules; never interpret PowerShell here.
 const listNames = ["modules", "testModules", "order"] as const;
-function moduleLists(script: string) {
-  const lists = {} as Record<typeof listNames[number], string[]>;
-  for (const name of listNames) {
+function moduleLists<K extends string>(script: string, names: readonly K[]) {
+  const lists = {} as Record<K, string[]>;
+  for (const name of names) {
     const pattern = new RegExp(`^( +\\$${name} = @\\()(.*?)(^ +\\))`, "ms");
     const m = pattern.exec(script);
     requireThat(m && /^\s*"[A-Za-z_][A-Za-z0-9_]*\.(?:fst|fsti|ml)"(?:\s*,\s*"[A-Za-z_][A-Za-z0-9_]*\.(?:fst|fsti|ml)")*\s*$/.test(m[2]!), `invalid build ${name} literals`);
@@ -83,7 +94,7 @@ function moduleLists(script: string) {
   return { script, lists };
 }
 function validateBuildScript(before: string, after: string, addedFiles: Set<string>) {
-  const a = moduleLists(before), b = moduleLists(after);
+  const a = moduleLists(before, listNames), b = moduleLists(after, listNames);
   requireThat(a.script === b.script, "protected build command or flag changed");
   const added = {} as Record<typeof listNames[number], string[]>;
   for (const key of listNames) {
@@ -95,6 +106,37 @@ function validateBuildScript(before: string, after: string, addedFiles: Set<stri
   requireThat(!b.lists.modules.some(x => b.lists.testModules.includes(x)), "test module also appears in production list");
   requireThat(JSON.stringify(added.modules.map(n => n.replace(/\.fst$/, ".ml")).sort()) === JSON.stringify([...added.order].sort()), "new linked objects must match the new verified modules exactly");
   return b.lists;
+}
+
+function scopeManifest(text: string) {
+  const value = JSON.parse(text);
+  // JSON.parse silently takes the last duplicate key; never let two readers disagree.
+  requireThat(!text.includes("\\") && (text.match(/"[^"]*"\s*:/g) ?? []).length === 3 &&
+    Object.keys(value).sort().join() === "cherry_modules,modules,tests", "invalid checker manifest keys");
+  for (const key of ["modules", "tests", "cherry_modules"]) {
+    requireThat(Array.isArray(value[key]) && value[key].every((v: unknown) => typeof v === "string" && /^Z3[A-Za-z0-9_.-]+\.fsti?$/.test(v)), `invalid manifest ${key}`);
+  }
+  const names: string[] = [...value.modules, ...value.tests, ...value.cherry_modules];
+  requireThat(new Set(names.map(n => n.toLowerCase())).size === names.length, "duplicate checker registration");
+  return value as { modules: string[]; tests: string[]; cherry_modules: string[] };
+}
+function insertions(original: string[], updated: string[], label: string) {
+  const old = new Set(original);
+  requireThat(updated.filter(x => old.has(x)).join() === original.join(), `${label} removed/reordered`);
+  return updated.filter(x => !old.has(x));
+}
+function validateRegistration(before: string, after: string, oldScript: string, newScript: string, added: Set<string>) {
+  const a = scopeManifest(before), b = scopeManifest(after);
+  requireThat(a.cherry_modules.join() === b.cherry_modules.join(), "protected cherry_modules changed");
+  const mods = insertions(a.modules, b.modules, "production modules"), tests = insertions(a.tests, b.tests, "tests");
+  for (const n of [...mods, ...tests]) requireThat(/^Z3[A-Za-z0-9_]+\.fst$/.test(n) && added.has(`fstar/${n}`), `unverified registration: ${n}`);
+  requireThat(!mods.some(n => /Tests\.fst$/.test(n)), "regression test registered as production");
+  const x = moduleLists(oldScript, ["order"] as const), y = moduleLists(newScript, ["order"] as const);
+  requireThat(x.script === y.script, "protected build commands changed");
+  const linked = insertions(x.lists.order, y.lists.order, "native link order");
+  // Ghost-only modules need no linked object. Any newly linked implementation must be extracted.
+  for (const n of linked) requireThat(n.endsWith(".ml") && mods.includes(n.slice(0, -3) + ".fst"), `unverified linked object: ${n}`);
+  return { modules: b.modules, testModules: b.tests, order: y.lists.order };
 }
 const lsTree = async (cwd: string, rev: string, ...paths: string[]) => new Map(nul(await git(cwd, "ls-tree", "-rz", rev, "--", ...paths)).map(entry => {
   const i = entry.indexOf("\t"); return [entry.slice(i + 1), entry.slice(0, i)] as const;
@@ -109,7 +151,46 @@ function appendedTest(file: string, original: string, candidate: string) {
   return candidate.startsWith(original) && (file.endsWith(".ml") ? /^\s*;;\s+let\b/.test(suffix) : /^\s*\nlet\s+\w/.test(suffix));
 }
 
+async function prProtected(p: Paths, root: string, tree: string, base: string, upstream: string) {
+  requireThat(OID.test(upstream) && OID.test(base), "invalid protected upstream/feature parent");
+  await git(p.repo, "merge-base", "--is-ancestor", REVIEW, upstream);
+  await git(p.repo, "merge-base", "--is-ancestor", upstream, base);
+  const immutableTools = [SCOPE, HARNESS, ".github/scripts/install-pulse-checker-toolchains.sh", ".github/workflows/pulse-checker-build.yml"];
+  await git(p.repo, "diff", "--quiet", "--no-ext-diff", "--no-textconv", REVIEW, upstream, "--", ...immutableTools);
+  const candidate = await lsTree(root, tree, "fstar");
+  const script = await blob(root, tree, BUILD), manifest = await blob(root, tree, MODULES);
+  // Inspect the authenticated upstream build language before accepting it as a reference.
+  const official = await lsTree(p.repo, upstream, "fstar"), reviewed = await lsTree(p.repo, REVIEW, "fstar");
+  validateRegistration(await blob(p.repo, REVIEW, MODULES), await blob(p.repo, upstream, MODULES),
+    await blob(p.repo, REVIEW, BUILD), await blob(p.repo, upstream, BUILD), new Set([...official.keys()].filter(k => !reviewed.has(k))));
+  async function compare(repo: string, rev: string, ref: Map<string,string>) {
+    const added = new Set([...candidate.keys()].filter(k => !ref.has(k)));
+    const original = await blob(repo, rev, MODULES);
+    const lists = validateRegistration(original, manifest, await blob(repo, rev, BUILD), script, added);
+    const tests = new Set(scopeManifest(original).tests.map(n => `fstar/${n}`));
+    const registered = new Set([...lists.modules, ...lists.testModules].map(n => `fstar/${n}`));
+    for (const file of registered) requireThat(candidate.get(file)?.startsWith("100644 blob "), `missing or non-regular registered module: ${file}`);
+    for (const file of added) {
+      requireThat(!guardedPath(file) || registered.has(file), `unverified evaluator/runtime file: ${file}`);
+      if (!/^fstar\/Z3[^/]*\.fst$/i.test(file)) continue;
+      const name = file.slice(6, -4).toLowerCase();
+      requireThat(registered.has(file) && ![...candidate.keys()].some(k => k !== file &&
+        [file.toLowerCase(), `fstar/${name}.fsti`, `fstar/ocaml_runtime/${name}.ml`].includes(k.toLowerCase())), `unregistered or shadowing module: ${file}`);
+    }
+    for (const [file, entry] of ref) {
+      if ((!guardedPath(file) && !tests.has(file)) || candidate.get(file) === entry) continue;
+      requireThat(entry.startsWith("100644 blob ") && candidate.get(file)?.startsWith("100644 blob "), `protected file removed or mode changed: ${file}`);
+      if (file === MODULES || file === BUILD) continue;
+      requireThat((tests.has(file) || protectedTest(file)) && appendedTest(file, await blob(repo, rev, file), await blob(root, tree, file)), `protected evaluator or original test changed: ${file}`);
+    }
+    return lists;
+  }
+  await compare(p.repo, upstream, official);
+  return compare(root, base, await lsTree(root, base, "fstar"));
+}
+
 async function checkProtected(p: Paths, root: string, tree: string, base: string) {
+  if (p.reviewedUpstream !== undefined) return prProtected(p, root, tree, base, p.reviewedUpstream);
   const pinned = await lsTree(p.repo, PIN, "fstar"), candidate = await lsTree(root, tree, "fstar"), prior = await lsTree(root, base, "fstar");
   const script = await blob(root, tree, BUILD);
   const lists = validateBuildScript(await blob(p.repo, PIN, BUILD), script, new Set([...candidate.keys()].filter(n => !pinned.has(n))));
@@ -136,7 +217,7 @@ export async function validatePatch(p: Paths, base: string, verifiedCheckout: st
   for (let i = 0; i < entries.length; i += 2) {
     const [oldMode, newMode,,,status] = entries[i]!.slice(1).split(" "), file = entries[i+1]!;
     requireThat((status === "A" || status === "M") && newMode === "100644" && (status === "A" || newMode === oldMode), `forbidden file removal/mode: ${file}`);
-    if (file === BUILD) continue;
+    if (file === BUILD || (p.reviewedUpstream !== undefined && file === MODULES)) continue;
     if (/^src\/(?!test\/)[\w./-]+\.(?:cpp|h)$/.test(file)) continue;
     if (protectedTest(file) && status === "M") {
       requireThat((file.endsWith(".ml") || lists.testModules.includes(file.slice(6))) && appendedTest(file, await blob(root, base, file), await blob(root, tree, file)), `original assertions must remain intact: ${file}`);
@@ -150,7 +231,7 @@ export async function validatePatch(p: Paths, base: string, verifiedCheckout: st
 }
 
 type CorpusInput = { paths: string[]; sha256: Record<string,string> };
-type Inputs = { sha: string; tree: string; evaluator: string; harness: string; corpora: CorpusInput[]; identity: object };
+type Inputs = { sha: string; tree: string; evaluator: string; harness: string; corpora: CorpusInput[]; identity: { fstar: string; harnessSha256: string } };
 export class EvaluationConfigError extends Error {}
 function configurationFailure(error: unknown): never {
   if (error instanceof EvaluationConfigError) throw error;
@@ -162,6 +243,9 @@ function requireConfig(ok: unknown, message: string): asserts ok {
 function inputs(p: Paths, signal?: AbortSignal): Promise<Inputs> {
   return readInputs(p, signal).catch(error => { signal?.throwIfAborted(); return configurationFailure(error); });
 }
+export async function evaluatorIdentity(p: Paths, signal?: AbortSignal): Promise<string> {
+  return (await inputs(p, signal)).evaluator;
+}
 async function readInputs(p: Paths, signal?: AbortSignal): Promise<Inputs> {
   signal?.throwIfAborted();
   requireThat(p.maxCases === 0, "complete Pulse CI evaluation requires --max-cases 0");
@@ -170,8 +254,10 @@ async function readInputs(p: Paths, signal?: AbortSignal): Promise<Inputs> {
   const sha = (await git(p.worktree, "rev-parse", "HEAD")).trim(), tree = (await git(p.worktree, "write-tree")).trim();
   await git(p.worktree, "diff", "--quiet", "--no-ext-diff", "--no-textconv", "--");
   requireThat(!(await git(p.worktree, "ls-files", "--others", "--exclude-standard", "-z")), "source has untracked build inputs");
-  const harness = await blob(p.repo, PIN, HARNESS);
-  requireThat(hash(harness) === HARNESS_HASH, "protected regression harness digest mismatch");
+  const pr = p.reviewedUpstream !== undefined, reference = pr ? REVIEW : PIN;
+  if (pr) requireThat(OID.test(p.reviewedUpstream!) && (await git(p.repo, "rev-parse", `${reference}:${HARNESS}`)).trim() === PR_HARNESS, "wrong reviewed PR harness blob");
+  const harness = await blob(p.repo, reference, HARNESS), harnessSha256 = pr ? PR_HARNESS_HASH : HARNESS_HASH;
+  requireThat(hash(harness) === harnessSha256, "protected regression harness digest mismatch");
   const manifestFile = join(p.corpus, CORPORA[1].path, "manifest.json");
   await regular(manifestFile);
   const manifestBytes = await readFile(manifestFile);
@@ -200,41 +286,90 @@ async function readInputs(p: Paths, signal?: AbortSignal): Promise<Inputs> {
   const cwd = p.state;
   // Hash actual selected binaries and Zarith objects, not mtimes or merely tool names.
   const toolchain = await must(opam(p, "/bin/sh", "-ec", 'for n in ocamlc ocamlopt ocamlfind cc c++ cmake make pwsh python3 opam; do sha256sum "$(command -v "$n")"; done; d=$(ocamlfind query zarith); sha256sum "$d/zarith.a" "$d/zarith.cmxa"; test "$(ocamlc -version)" = 5.3.0; opam list --installed --short --columns=name,version --color=never'), { cwd, signal });
+  const fstarSha256 = await fileHash(p.fstarExe);
+  if (pr) requireThat(fstarSha256 === PR_FSTAR_HASH, "wrong v2026.10.25 Linux x86_64 F* executable");
   const fstar = await must([p.fstarExe, "--version"], { cwd, signal });
-  requireThat(/^F\* 2026\.09\.27$/m.test(fstar) && /^commit=7deb38a27c86990664c6b41e4b6093597acdebd4$/m.test(fstar), "wrong pinned F* compiler");
+  requireThat(pr ? /^F\* 2026\.10\.25$/m.test(fstar) && /^commit=362e792b3aa882f1766b95c7450e3fe63081163d$/m.test(fstar)
+    : /^F\* 2026\.09\.27$/m.test(fstar) && /^commit=7deb38a27c86990664c6b41e4b6093597acdebd4$/m.test(fstar), "wrong pinned F* compiler");
   const identity = {
-    protectedCommit: PIN, harnessSha256: HARNESS_HASH, evaluationSha256: await fileHash(import.meta.path),
+    ...(pr && { policy: "upstream-pr-v1", upstream: p.reviewedUpstream, parent: sha, harnessBlob: PR_HARNESS,
+      upstreamBuild: (await git(p.repo, "rev-parse", `${p.reviewedUpstream}:${BUILD}`)).trim(),
+      upstreamScope: (await git(p.repo, "rev-parse", `${p.reviewedUpstream}:${SCOPE}`)).trim(),
+      parentManifest: (await git(p.worktree, "rev-parse", `${sha}:${MODULES}`)).trim(),
+      parentBuild: (await git(p.worktree, "rev-parse", `${sha}:${BUILD}`)).trim() }),
+    protectedCommit: reference, harnessSha256, evaluationSha256: await fileHash(import.meta.path),
     corpusCommit: CORPUS_PIN, manifestSha256: MANIFEST, suites: CORPORA, corpora, maxCases: p.maxCases,
     solverTimeoutMs: SOLVER_BUDGET_MS, caseTimeoutS: CASE_BUDGET_S, diagnosticTimeoutS: DIAGNOSTIC_BUDGET_S, buildJobs: jobs(),
-    fstar, fstarSha256: await fileHash(p.fstarExe), opamSwitch: p.opamSwitch, toolchain,
+    fstar, fstarSha256, opamSwitch: p.opamSwitch, toolchain,
   };
   return { sha, tree, evaluator: hash(JSON.stringify(identity)), harness, corpora, identity };
+}
+
+/** PR evidence keeps its own source, build products and checked modules, including cached baselines. */
+export function evaluationPaths(p: Paths, out: string): Paths {
+  return p.reviewedUpstream === undefined ? p : { ...p, worktree: join(out, "source"), z3Build: join(out, "z3-build"),
+    z3Install: join(out, "z3-install"), fstarCache: join(out, "fstar-cache"), checkerDir: join(out, "checker"), checker: join(out, "checker", "checker") };
+}
+async function checkoutTestedTree(p: Paths, out: string, input: Pick<Inputs, "sha"|"tree">) {
+  const root = evaluationPaths(p, out).worktree;
+  await mkdir(root, {mode: 0o700});
+  await git(root, "init", "--template=", "--quiet");
+  await git(root, "-c", "protocol.allow=never", "-c", "protocol.file.allow=always", "fetch", "--depth=1", "--no-tags", "--no-recurse-submodules", "--", resolve(p.worktree), input.sha);
+  await git(root, "switch", "--no-overwrite-ignore", "--detach", input.sha);
+  if ((await git(root, "write-tree")).trim() === input.tree) return input.sha;
+  // The upstream report and harness name HEAD. Give a staged tree its own real, local-only identity.
+  const patch = join(out, "source.patch");
+  await git(p.worktree, "diff", "--binary", "--no-renames", "--no-ext-diff", "--no-textconv", "--full-index", `--output=${patch}`, input.sha, input.tree, "--");
+  await git(root, "apply", "--binary", "--index", "--whitespace=nowarn", "--", patch);
+  requireThat((await git(root, "write-tree")).trim() === input.tree, "independent build checkout differs from staged tree");
+  const commit = (await git(root, "-c", "user.name=Pulse verifier", "-c", "user.email=verifier@localhost", "commit-tree", input.tree, "-p", input.sha, "-m", "Local verifier input")).trim();
+  await git(root, "switch", "--no-overwrite-ignore", "--detach", commit);
+  return commit;
+}
+function validateScope(report: Record<string, unknown>, modules: string[], tests: string[], source: string, fstar: string) {
+  const selected = [...modules, ...tests];
+  requireThat(report.source_sha === source && report.backend === "ocaml" && report.mode === "full" && report.native_tests === true &&
+    report.fstar === fstar.trim() && report.selected_count === selected.length &&
+    JSON.stringify(report.selected_modules) === JSON.stringify(selected) && JSON.stringify(report.registered_not_selected) === "[]", "wrong source, compiler or incomplete native verification scope");
+}
+async function scopeEvidence(p: Paths, out: string, tree: string, source: string, fstar: string) {
+  const path = join(out, "scope-ocaml.json");
+  await regular(path);
+  const {modules, tests} = scopeManifest(await blob(p.worktree, tree, MODULES));
+  validateScope(await json(path), modules, tests, source, fstar);
+  return { scope_sha256: await fileHash(path), native_tests_sha256: await fileHash(join(p.checkerDir, "native-tests")) };
 }
 
 async function execute(p: Paths, out: string, input: Inputs, signal: AbortSignal | undefined, run: Run) {
   await mkdir(out, { recursive: true, mode: 0o700 });
   requireThat(!(await readdir(out)).length && await realpath(out) === resolve(out), `refusing nonempty or aliased evidence directory: ${out}`);
-  await checkProtected(p, p.worktree, input.tree, input.sha).catch(configurationFailure);
+  const pr = p.reviewedUpstream !== undefined;
+  if (pr && input.tree !== (await git(p.worktree, "rev-parse", `${input.sha}^{tree}`)).trim()) await validatePatch(p, input.sha, p.worktree);
+  else await checkProtected(p, p.worktree, input.tree, input.sha).catch(configurationFailure);
+  const source = pr ? await checkoutTestedTree(p, out, input) : input.sha;
+  p = evaluationPaths(p, out);
   const start = Date.now(), harness = join(out, "run_checker_regressions.py");
   await writeFile(harness, input.harness, { flag: "wx", mode: 0o400 });
   await save(join(out, "evaluator.json"), input.identity);
   const build = await run(cleanCmd(opam(p, "pwsh", "-NoProfile", "-File", BUILD, "-FstarExe", p.fstarExe,
     "-Z3WindowsBuildDir", p.z3Build, "-Z3InstallDir", p.z3Install, "-CacheDir", p.fstarCache, "-WslBuildDir", p.checkerDir,
-    "-OpamSwitch", p.opamSwitch, "-BuildJobs", String(jobs()), "-RunTests")), { cwd: p.worktree, log: join(out, "build.log"), signal });
+    "-OpamSwitch", p.opamSwitch, "-BuildJobs", String(jobs()), "-RunTests", ...(pr ? ["-ReportDir", out] : []))), { cwd: p.worktree, log: join(out, "build.log"), signal });
   signal?.throwIfAborted();
   requireThat(Number.isInteger(build.code) && build.code >= 0 && build.code < 128, `build was interrupted: ${build.code}`);
-  const metadata = { sha: input.sha, tree: input.tree, evaluator: input.evaluator, wall_seconds: (Date.now() - start) / 1000, exit_code: build.code, fstar_exe: p.fstarExe };
+  const metadata = { sha: input.sha, tree: input.tree, evaluator: input.evaluator, wall_seconds: (Date.now() - start) / 1000, exit_code: build.code, fstar_exe: p.fstarExe,
+    ...(pr && { source_sha: source, build_log_sha256: await fileHash(join(out, "build.log")) }) };
   if (build.code !== 0) { await save(join(out, "build.json"), metadata); return false; }
   const checker_version = (await must([p.checker, "--version"], { cwd: out, signal })).trim();
   requireThat(checker_version.length > 0, "built checker has no producer version");
-  await save(join(out, "build.json"), { ...metadata, checker_version, checker_sha256: await fileHash(p.checker), z3_sha256: await fileHash(join(p.z3Install, "bin/z3")) });
+  await save(join(out, "build.json"), { ...metadata, ...(pr && await scopeEvidence(p, out, input.tree, source, input.identity.fstar)),
+    checker_version, checker_sha256: await fileHash(p.checker), z3_sha256: await fileHash(join(p.z3Install, "bin/z3")) });
   for (const c of CORPORA) {
     const dir = join(out, c.name);
     const manifest = c.manifest ? ["--manifest", join(p.corpus, c.path, "manifest.json")] : [];
     const r = await run(cleanCmd(["python3", "-I", "-B", harness, "run", "--checker", p.checker, "--corpus", p.corpus, "--corpus-path", c.path,
       "--corpus-commit", CORPUS_PIN, "--max-cases", "0", "--expected-cases", String(c.size), "--solver-timeout-ms", String(SOLVER_BUDGET_MS),
       "--case-timeout-seconds", String(CASE_BUDGET_S), "--total-timeout-seconds", String(c.total), "--memory-limit-mb", String(c.memory),
-      ...manifest, "--output", dir], { GITHUB_SHA: input.sha }), { cwd: out, log: join(out, `${c.name}.log`), signal });
+      ...manifest, "--output", dir], pr ? { SOURCE_SHA: source } : { GITHUB_SHA: source }), { cwd: out, log: join(out, `${c.name}.log`), signal });
     signal?.throwIfAborted();
     await save(join(out, `${c.name}.exit.json`), { exit_code: r.code });
     const report = await sh(["python3", "-I", "-B", harness, "report", "--output", dir], {
@@ -277,6 +412,12 @@ function parseDiagnostic(verdict: string, r: Result): Diagnostic {
 }
 
 const STATS = /solve_ms=([\d.]+) marshal_ms=([\d.]+) check_ms=([\d.]+) expressions=\d+ declarations=\d+ proof_nodes=(\d+)/;
+const PR_STATS = /^solve_ms=([\d.]+) marshal_ms=([\d.]+) check_ms=([\d.]+) expressions=(\d+) declarations=(\d+) proof_nodes=(\d+) semantics=(legacy|sorted-datatype|sorted-core)$/;
+function checkStatistics(line: string, stats?: Record<string,unknown>) {
+  const m = PR_STATS.exec(line);
+  const fields = ["solve_ms", "marshal_ms", "check_ms", "expressions", "declarations", "proof_nodes"];
+  requireThat(m && stats && stats.semantics === m[7] && fields.every((k,i) => Number.isFinite(Number(m[i+1])) && Number(m[i+1]) === stats[k]), "truncated or contradictory native statistics");
+}
 const VERDICTS: Record<number, [string, RegExp]> = { 0: ["ACCEPT", /^ACCEPT$/], 1: ["REJECT", /^REJECT$/], 3: ["PARTIAL", /^PARTIAL [1-9]\d*$/], 4: ["SAT", /^SAT$/], 5: ["UNKNOWN", /^UNKNOWN .+$/] };
 function retainedOutcome(code: number | null, text: string) {
   if (code === null) return "TIMEOUT";
@@ -287,30 +428,60 @@ function retainedOutcome(code: number | null, text: string) {
 }
 
 async function inspect(p: Paths, out: string, input: Inputs, signal?: AbortSignal): Promise<Analysis> {
+  const pr = p.reviewedUpstream !== undefined;
+  p = evaluationPaths(p, out);
   const build = await json(join(out, "build.json"));
   requireConfig(hash(JSON.stringify(await json(join(out, "evaluator.json")))) === input.evaluator, "wrong retained evaluator/toolchain inputs");
   requireConfig(build.sha === input.sha && build.tree === input.tree && build.evaluator === input.evaluator && Number.isInteger(build.exit_code), "stale build/evaluator identity");
   await regular(join(out, "build.log"));
-  requireConfig(await fileHash(join(out, "run_checker_regressions.py")) === HARNESS_HASH, "retained protected harness changed");
+  if (pr) await regular(join(out, "run_checker_regressions.py"));
+  requireConfig(await fileHash(join(out, "run_checker_regressions.py")) === input.identity.harnessSha256, "retained protected harness changed");
+  const source = pr ? build.source_sha : input.sha;
+  if (pr) {
+    requireConfig(OID.test(source) && (await git(p.worktree, "rev-parse", "HEAD")).trim() === source &&
+      (await git(p.worktree, "rev-parse", "HEAD^{tree}")).trim() === input.tree &&
+      (source === input.sha || (await git(p.worktree, "rev-parse", "HEAD^")).trim() === input.sha) &&
+      !(await git(p.worktree, "status", "--porcelain", "-uno")), "wrong tested parent/tree or modified verification checkout");
+    requireConfig(build.build_log_sha256 === await fileHash(join(out, "build.log")), "retained build log changed");
+  }
   const a: Analysis = { sha: input.sha, tree: input.tree, evaluator: input.evaluator, buildOk: build.exit_code === 0, ciPass: build.exit_code === 0, statsCases: 0, tested: 0, counts: {}, pending: 0, proofNodes: 0, checkMs: 0, solveMs: 0, families: [], cases: {}, lemmas: 0, assumed: 0 };
   if (!a.buildOk) return a;
+  if (pr) {
+    for (const path of [p.checker, join(p.checkerDir, "native-tests"), join(p.z3Install, "bin/z3")]) await regular(path);
+    const scope = await scopeEvidence(p, out, input.tree, source, input.identity.fstar);
+    requireConfig(scope.scope_sha256 === build.scope_sha256 && scope.native_tests_sha256 === build.native_tests_sha256, "retained native scope or tests changed");
+  }
   requireConfig(build.checker_sha256 === await fileHash(p.checker) && build.z3_sha256 === await fileHash(join(p.z3Install, "bin/z3")), "built checker or checkout solver changed");
   const need: { path: string; verdict: string; memory: number }[] = [];
+  const artifacts: Record<string,string> = pr ? {
+    "build.log": build.build_log_sha256, "checker/checker": build.checker_sha256, "checker/native-tests": build.native_tests_sha256,
+    "z3-install/bin/z3": build.z3_sha256, "run_checker_regressions.py": input.identity.harnessSha256,
+  } : {};
   for (const [n,c] of CORPORA.entries()) {
     const dir = join(out, c.name), pinned = input.corpora[n]!;
     const selected = await json(join(dir, "selection.json")), summary = await json(join(dir, "summary.json"));
     const code = (await json(join(out, `${c.name}.exit.json`))).exit_code;
-    requireThat(selected.corpus_path === c.path && selected.corpus_commit === CORPUS_PIN && selected.z3_commit === input.sha && selected.checker_version === build.checker_version &&
+    requireThat(selected.corpus_path === c.path && selected.corpus_commit === CORPUS_PIN && selected.z3_commit === source && selected.checker_version === build.checker_version &&
       selected.solver_timeout_ms === SOLVER_BUDGET_MS && selected.case_timeout_seconds === CASE_BUDGET_S && selected.total_timeout_seconds === c.total && selected.memory_limit_mb === c.memory &&
       selected.discovered === c.size && JSON.stringify(summary.selection) === JSON.stringify(selected), `wrong revision, selection or budget: ${dir}`);
     expectedPaths(selected.paths, pinned.paths);
-    if (c.manifest) requireThat(selected.manifest?.sha256 === MANIFEST && await fileHash(join(dir, "input-manifest.json")) === MANIFEST, "wrong recorded corpus manifest");
+    if (pr) requireThat(summary.corpus_outcome === "success" && (!c.manifest || Object.keys(selected.input_sha256 ?? {}).length === c.size), "incomplete retained corpus selection");
+    if (c.manifest) {
+      const name = `${c.name}/input-manifest.json`, path = join(out, name);
+      if (pr) await regular(path);
+      requireThat(selected.manifest?.sha256 === MANIFEST && await fileHash(path) === MANIFEST, "wrong recorded corpus manifest");
+      if (pr) artifacts[name] = MANIFEST;
+    }
     requireThat(summary.selected === c.size && summary.tested === c.size && Array.isArray(summary.warnings) && !summary.warnings.length &&
       summary.build_outcome === "success" && summary.runner_outcome === (code === 0 ? "success" : "failure"), `incomplete report at ${dir}: ${JSON.stringify(summary.warnings)}`);
     const raw = await readFile(join(dir, "results.jsonl"), "utf8");
     requireThat(raw.endsWith("\n"), `truncated results at ${dir}`);
     const rows = raw.slice(0,-1).split("\n").map(l => JSON.parse(l));
     expectedPaths(rows.map(r => r.path), pinned.paths);
+    if (pr) {
+      for (const name of [`${c.name}.log`, `${c.name}.report.log`, `${c.name}.exit.json`, `${c.name}/selection.json`, `${c.name}/summary.json`]) artifacts[name] = await fileHash(join(out, name));
+      artifacts[`${c.name}/results.jsonl`] = hash(raw);
+    }
     const counts: Record<string,number> = {};
     for (const [i,r] of rows.entries()) {
       signal?.throwIfAborted();
@@ -319,14 +490,21 @@ async function inspect(p: Paths, out: string, input: Inputs, signal?: AbortSigna
       if (c.manifest) requireThat(r.input_sha256 === pinned.sha256[path] && selected.input_sha256?.[path] === pinned.sha256[path], `case digest mismatch: ${path}`);
       const stdoutPath = join(dir, r.stdout), stderrPath = join(dir, r.stderr);
       await regular(stdoutPath); await regular(stderrPath);
-      const stdout = (await readFile(stdoutPath, "utf8")).trim(), stderr = await readFile(stderrPath, "utf8");
+      const stdoutBytes = await readFile(stdoutPath), stderrBytes = await readFile(stderrPath);
+      const stdout = stdoutBytes.toString().trim(), stderr = stderrBytes.toString();
+      if (pr) {
+        artifacts[`${c.name}/${r.stdout}`] = hash(stdoutBytes);
+        artifacts[`${c.name}/${r.stderr}`] = hash(stderrBytes);
+      }
       requireThat(r.verdict === stdout && r.outcome === retainedOutcome(r.returncode, stdout), `truncated/invalid case verdict: ${path}`);
       const stat: CaseStat = { outcome: r.outcome, wall: r.wall_seconds };
       const stats = stderr.split("\n").filter(line => line.startsWith("solve_ms="));
       requireThat(stats.length <= 1, `ambiguous timing: ${path}`);
+      if (pr) requireThat(Boolean(stats.length) === (r.statistics !== undefined), `scored statistics disagree with native log: ${path}`);
       if (stats.length) {
         const m = STATS.exec(stats[0]!);
-        requireThat(m && / semantics=(?:legacy|sorted-datatype)$/.test(stats[0]!) && m.slice(1).every(v => Number.isFinite(Number(v))), `truncated phase statistics: ${path}`);
+        if (pr) checkStatistics(stats[0]!, r.statistics);
+        requireThat(m && (pr || / semantics=(?:legacy|sorted-datatype)$/.test(stats[0]!)) && m.slice(1).every(v => Number.isFinite(Number(v))), `truncated phase statistics: ${path}`);
         stat.solveMs = Number(m[1]); stat.checkMs = Number(m[3]); stat.proofNodes = Number(m[4]);
         a.solveMs += stat.solveMs; a.checkMs += stat.checkMs; a.proofNodes += stat.proofNodes; a.statsCases++;
       } else requireThat(!["ACCEPT","REJECT","PARTIAL"].includes(r.outcome), `completed proof missing checker --stats stderr: ${path}`);
@@ -373,6 +551,17 @@ async function inspect(p: Paths, out: string, input: Inputs, signal?: AbortSigna
     a.pending += stat.pending;
   }
   a.families = [...families.values()].sort((x, y) => y.pending - x.pending || x.rule.localeCompare(y.rule));
+  if (pr) {
+    for (const name of (await readdir(p.fstarCache)).filter(n => n.endsWith(".checked")).sort()) {
+      const file = join(p.fstarCache, name); await regular(file);
+      artifacts[`fstar-cache/${name}`] = await fileHash(file);
+    }
+    for (const name of ["build.json", "diagnostics.json", "scope-ocaml.json", "evaluator.json"]) artifacts[name] = await fileHash(join(out, name));
+    const path = join(out, "evidence.json");
+    if (await exists(path)) requireConfig(JSON.stringify(await json(path)) === JSON.stringify(artifacts), "retained native evidence changed");
+    else await save(path, artifacts);
+    a.evidenceSha256 = await fileHash(path);
+  }
   for (const family of a.families) family.cases.sort((x,y) => y.count-x.count);
   const fstar = join(p.worktree, "fstar");
   for (const name of await readdir(fstar)) {
@@ -384,6 +573,20 @@ async function inspect(p: Paths, out: string, input: Inputs, signal?: AbortSigna
     }
   }
   return a;
+}
+
+/** inspect() establishes pinned input identity and per-case native evidence, not aggregate counts alone. */
+export function prCandidateFailure(a: Analysis): string | null {
+  if (!a.buildOk || !a.ciPass) return "candidate build or corpus CI failed";
+  const total = CORPORA.reduce((n,c) => n + c.size, 0), cases = Object.values(a.cases);
+  if (a.tested !== total || cases.length !== total) return `candidate did not attempt all ${total} pinned cases`;
+  const counts: Record<string,number> = {};
+  for (const {outcome} of cases) {
+    if (!["ACCEPT","PARTIAL","REJECT","SAT","UNKNOWN","TIMEOUT"].includes(outcome)) return `candidate contains ${outcome} case`;
+    counts[outcome] = (counts[outcome] ?? 0) + 1;
+  }
+  if ([...new Set([...Object.keys(counts), ...Object.keys(a.counts)])].some(k => (counts[k] ?? 0) !== (a.counts[k] ?? 0))) return "candidate case counts disagree";
+  return null;
 }
 
 export async function analyze(p: Paths, out: string, sha: string, signal?: AbortSignal): Promise<Analysis> {
@@ -402,6 +605,7 @@ export async function baseline(p: Paths, sha: string, signal?: AbortSignal, run:
       requireConfig(typeof name === "string" && /^attempt-[A-Za-z0-9]+$/.test(name), "invalid baseline completion marker");
       const out = join(root, name);
       await regular(join(out, "diagnostics.json"));
+      if (p.reviewedUpstream !== undefined) await regular(join(out, "evidence.json"));
       const a = await inspect(p, out, input, signal);
       requireConfig(a.buildOk && hash(JSON.stringify(a)) === digest, "cached baseline differs from completed evaluation");
       return { sha, out };
@@ -493,4 +697,4 @@ export function analyticsMarkdown(before: Analysis, after?: Analysis): string {
   return [`| metric | before |${n ? " after |" : ""}`, `|---|---|${n ? "---|" : ""}`, ...rows, "", "Largest remaining obligation families:", ...top].join("\n");
 }
 
-export { expectedPaths, parseDiagnostic, validateBuildScript };
+export { expectedPaths, parseDiagnostic, validateBuildScript, validateRegistration, validateScope, checkStatistics, checkoutTestedTree };

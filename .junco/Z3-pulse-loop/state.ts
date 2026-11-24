@@ -2,11 +2,12 @@ import { execFile, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { closeSync, constants, fstatSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, statfsSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { judge, metrics, pickItem, validatePatch, type Analysis, type Item, type Queue } from "./evaluation.ts";
+import { judge, metrics, pickItem, prCandidateFailure, validatePatch, type Analysis, type Item, type Queue } from "./evaluation.ts";
 
 const LEGACY = "/btrfs/Z3-pulse-loop", BRANCH = "loop/pulse-local", MARKER = ".pulse-local.json";
+const REF = `refs/heads/${BRANCH}`, MOVE = ".pr-parent-move.json";
 const OID = /^[0-9a-f]{40}$/;
 const digest = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 const gitEnv = {
@@ -17,7 +18,7 @@ const gitEnv = {
 const gitArgs = ["/usr/bin/git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "gc.auto=0", "-c", "commit.gpgSign=false", "-c", "credential.helper="];
 
 export type Paths = {
-  repo: string; state: string; worktree: string; corpus: string; fstarExe: string; opamSwitch: string; maxCases: number; base?: string;
+  repo: string; state: string; worktree: string; corpus: string; fstarExe: string; opamSwitch: string; maxCases: number; base?: string; reviewedUpstream?: string;
   z3Build: string; z3Install: string; fstarCache: string; checkerDir: string; checker: string;
 };
 const outputs = (dir: string) => ({ z3Build: join(dir, "z3-build"), z3Install: join(dir, "z3-install"), fstarCache: join(dir, "fstar-cache"), checkerDir: join(dir, "checker"), checker: join(dir, "checker", "checker") });
@@ -73,6 +74,22 @@ function command(cwd: string, argv: string[], signal?: AbortSignal, input?: Buff
 const git = (cwd: string, args: string[], signal?: AbortSignal, input?: Buffer) => command(cwd, [...gitArgs, ...args], signal, input);
 const text = async (cwd: string, args: string[], s?: AbortSignal) => (await git(cwd, args, s)).toString().trimEnd();
 
+function boundPr(p: Paths): { pr: number; head: string; iteration: number } | undefined {
+  const match = /^Z3-pulse-loop-pr-([1-9]\d*)$/.exec(basename(p.state));
+  if (p.reviewedUpstream === undefined) {
+    need(!match, "PR state requires the reviewed publication policy");
+    return undefined;
+  }
+  const pr = Number(match?.[1]);
+  need(Number.isSafeInteger(pr) && basename(p.repo) === `pr-${pr}-publisher` && !below(p.state, "/btrfs/Z3-pulse-loop-local"), "not a bound PR campaign path");
+  need(p.base && OID.test(p.base) && OID.test(p.reviewedUpstream), "PR state requires immutable seed and official upstream commits");
+  need(!(directory(p.repo, true).mode & 0o077), "PR publisher checkout must be private");
+  const binding = JSON.parse(file(join(p.repo, ".git", "pulse-binding.json")).toString());
+  need(binding.version === 1 && binding.pr === pr && binding.state === p.state && binding.seed === p.base && OID.test(binding.head) && OID.test(binding.upstream), "PR publisher/seed binding mismatch");
+  need(Number.isSafeInteger(binding.iteration) && binding.iteration >= 0, "invalid acknowledged PR iteration");
+  return binding;
+}
+
 export type Attempt = Readonly<{ iteration: number; base: string; tree: string; patch: string; hash: string }>;
 type Lock = { fd: number; attempt?: Attempt; validated?: Attempt };
 const locks = new Map<string, Lock>();
@@ -88,6 +105,7 @@ export function acquire(p: Paths): () => void {
   try {
     need(!locks.has(p.state) && isAbsolute(p.state) && p.state === resolve(p.state), `state already owned or noncanonical: ${p.state}`);
     directory(p.repo); directory(p.corpus); directory(dirname(p.state));
+    boundPr(p);
     for (const other of [p.repo, p.corpus, LEGACY]) need(!below(p.state, other) && !below(other, p.state), `state overlaps protected path: ${other}`);
     if (!exists(p.state)) {
       need(statfsSync(dirname(p.state)).type === 0x9123683e, `state parent must be on Btrfs: ${dirname(p.state)}`);
@@ -104,18 +122,18 @@ export function acquire(p: Paths): () => void {
   } catch (e) { if (fd !== undefined) closeSync(fd); conflict(e); }
 }
 
-type Marker = { version: 1; repo: string; base: string; tip: string; config: string };
+type Marker = { version: 1; repo: string; base: string; tip: string; config: string; pr?: number };
 function marker(p: Paths): Marker {
   held(p);
   const m = JSON.parse(file(join(p.state, MARKER)).toString()) as Marker;
-  need(m.version === 1 && m.repo === p.repo && OID.test(m.base) && OID.test(m.tip) && (!p.base || p.base === m.base), `unexpected private seed identity in ${p.state}`);
+  need(m.version === 1 && m.pr === boundPr(p)?.pr && m.repo === p.repo && OID.test(m.base) && OID.test(m.tip) && (!p.base || p.base === m.base), `unexpected private seed identity in ${p.state}`);
   return m;
 }
 function subvolume(p: Paths) {
   const s = directory(p.worktree, true);
   need(s.ino === 256 && statfsSync(p.worktree).type === 0x9123683e, `not an owned Btrfs seed subvolume: ${p.worktree}`);
 }
-async function authority(p: Paths, expected?: string, signal?: AbortSignal) {
+async function checkout(p: Paths, signal?: AbortSignal) {
   const m = marker(p), w = p.worktree, d = join(w, ".git"); subvolume(p); directory(d, true);
   for (const dir of ["objects", "objects/info", "objects/pack", "refs", "refs/heads"]) directory(join(d, dir), true);
   if (exists(join(d, "refs/heads/loop"))) directory(join(d, "refs/heads/loop"), true);
@@ -125,9 +143,17 @@ async function authority(p: Paths, expected?: string, signal?: AbortSignal) {
   for (const name of ["commondir", "gitdir", "objects/info/alternates", "info/grafts", "info/attributes", "info/exclude", "info/sparse-checkout", "worktrees", "modules", "MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD"]) need(!exists(join(d, name)), `foreign Git metadata: ${join(d, name)}`);
   need(digest(file(join(d, "config"))) === m.config, `private repository configuration changed: ${d}`);
   const info = await text(w, ["rev-parse", "--show-toplevel", "--absolute-git-dir", "--path-format=absolute", "--git-common-dir", "HEAD"], signal);
-  need(info === [w, d, d, m.tip].join("\n") && (expected === undefined || m.tip === expected), `private HEAD, checkout or Git directory changed (expected ${expected ?? m.tip}): ${w}`);
-  need(await text(w, ["symbolic-ref", "HEAD"], signal) === `refs/heads/${BRANCH}` && !await text(w, ["remote"], signal), `foreign branch or remote: ${w}`);
-  need(await text(w, ["for-each-ref", "--format=%(refname)"], signal) === `refs/heads/${BRANCH}`, `unexpected private refs: ${w}`);
+  const head = info.split("\n").at(-1)!;
+  need(OID.test(head) && info === [w, d, d, head].join("\n") && !await text(w, ["remote"], signal), `foreign checkout, Git directory or remote: ${w}`);
+  const refs = await text(w, ["for-each-ref", "--format=%(refname) %(objectname)"], signal), ref = refs.slice(-40);
+  need(OID.test(ref) && refs === `${REF} ${ref}`, `unexpected private refs: ${w}`);
+  const field = file(join(d, "HEAD")).toString(), attached = field === `ref: ${REF}\n`;
+  need(attached ? head === ref : field === `${head}\n`, `foreign HEAD: ${w}`);
+  return { m, head, ref, attached };
+}
+async function authority(p: Paths, expected?: string, signal?: AbortSignal) {
+  const { m, head, attached } = await checkout(p, signal);
+  need(attached && head === m.tip && (expected === undefined || head === expected), `private HEAD changed (expected ${expected ?? m.tip}): ${p.worktree}`);
   return m;
 }
 async function checkIndex(w: string, s?: AbortSignal) {
@@ -146,7 +172,9 @@ async function init(w: string, signal?: AbortSignal) {
 export async function prepare(p: Paths, signal?: AbortSignal): Promise<string> {
   try {
     held(p);
+    const binding = boundPr(p);
     if (!exists(join(p.state, MARKER))) {
+      need(!binding?.iteration, "missing state for a previously acknowledged publication");
       need(!readdirSync(p.state).length, `refusing partial initial state: ${p.state}`);
       need(await text(p.repo, ["rev-parse", "--show-toplevel"], signal) === p.repo, `source is not an exact checkout: ${p.repo}`);
       const base = await text(p.repo, ["rev-parse", "--verify", `${p.base ?? "refs/remotes/origin/master"}^{commit}`], signal);
@@ -157,9 +185,10 @@ export async function prepare(p: Paths, signal?: AbortSignal): Promise<string> {
       await git(p.worktree, ["switch", "--no-track", "-c", BRANCH, "FETCH_HEAD"], signal);
       mkdirSync(join(p.state, "runs"), { mode: 0o700 });
       save(join(p.state, "iteration"), "0\n"); save(join(p.state, "queue.json"), json({ items: [] }));
-      const m: Marker = { version: 1, repo: p.repo, base, tip: base, config: digest(file(join(p.worktree, ".git", "config"))) };
+      const m: Marker = { version: 1, repo: p.repo, base, tip: base, config: digest(file(join(p.worktree, ".git", "config"))), pr: binding?.pr };
       save(join(p.state, MARKER), json(m));
     }
+    if (exists(join(p.state, MOVE))) await finishMove(p, signal);
     const m = await authority(p, undefined, signal); await clean(p.worktree, signal);
     return m.tip;
   } catch (e) { conflict(e); }
@@ -171,13 +200,86 @@ export function current(p: Paths): number {
     need(/^(0|[1-9]\d*)$/.test(raw) && Number.isSafeInteger(n), "invalid private iteration counter"); return n;
   } catch (e) { conflict(e); }
 }
+function checkLastDecision(p: Paths, n = current(p)) {
+  if (!n) return;
+  const dir = join(p.state, "runs", String(n)); directory(dir, true);
+  const result = join(dir, "result.json");
+  if (p.reviewedUpstream === undefined && exists(result)) return;
+  need(!readdirSync(dir).some(f => f.startsWith(".result.") || f.startsWith(".pulse-write-") || (f === "attempt.patch" && !exists(result))), `unfinished archive for iteration ${n}; preserving evidence`);
+  if (p.reviewedUpstream !== undefined && exists(result)) {
+    const r = JSON.parse(file(result).toString());
+    need(r.iteration === n && typeof r.ok === "boolean" && r.ok === (r.commit !== null) && r.accepted_change === Number(r.ok), `invalid decision for iteration ${n}`);
+    if (r.ok) {
+      const path = join(dir, "publication", "receipt.json");
+      need(boundPr(p)?.iteration === n && OID.test(r.commit) && exists(path) && file(path).length, `unacknowledged publication for iteration ${n}`);
+    }
+  }
+}
+
+type ParentMove = { old: string; new: string; iteration: number; head: string; upstream: string };
+async function retained(p: Paths, oid: string, signal?: AbortSignal) {
+  need(await text(p.repo, ["for-each-ref", "--contains", oid, "--count=1", "--format=%(refname)"], signal), `publisher did not retain ${oid}`);
+}
+async function preparedParent(p: Paths, head: string, upstream: string, parent: string, signal?: AbortSignal) {
+  need(OID.test(head) && OID.test(upstream) && await text(p.repo, ["rev-parse", "--verify", `refs/pulse/parents/${head}/${upstream}`], signal) === parent, "PR parent does not match the bound fork head and official upstream");
+}
+async function cleanTree(w: string, sha: string, signal?: AbortSignal) {
+  await clean(w, signal);
+  need(await text(w, ["write-tree"], signal) === await text(w, ["rev-parse", `${sha}^{tree}`], signal), `index does not match ${sha}: ${w}`);
+}
+async function finishMove(p: Paths, signal?: AbortSignal) {
+  const path = join(p.state, MOVE), move: ParentMove = JSON.parse(file(path).toString());
+  need(boundPr(p) && OID.test(move.old) && OID.test(move.new) && move.old !== move.new && move.iteration === current(p), "invalid PR parent-move journal");
+  checkLastDecision(p, move.iteration); readQueue(p);
+  const w = p.worktree, { m, head, ref, attached } = await checkout(p, signal);
+  // The four checkpoints are attached old, detached new/old ref, detached new/new ref, attached new.
+  const atOld = attached && head === move.old, atNew = attached && head === move.new;
+  need((m.tip === move.old && (atOld || atNew || (!attached && head === move.new && (ref === move.old || ref === move.new)))) ||
+    (m.tip === move.new && atNew), "private checkout diverged from PR parent-move journal");
+  await cleanTree(w, head, signal);
+  await retained(p, move.old, signal); await preparedParent(p, move.head, move.upstream, move.new, signal);
+  if (atOld) await git(w, ["switch", "--no-overwrite-ignore", "--detach", move.new], signal);
+  if (ref === move.old) await git(w, ["update-ref", REF, move.new, move.old], signal);
+  if (!atNew) await git(w, ["switch", "--no-overwrite-ignore", "--no-guess", BRANCH], signal);
+  if (m.tip !== move.new) {
+    saveQueue(p, { items: [] });
+    save(join(p.state, MARKER), json({ ...m, tip: move.new }));
+  }
+  await authority(p, move.new, signal); await cleanTree(w, move.new, signal);
+  need(!readQueue(p).items.length, "PR parent changed without invalidating its queue");
+  unlinkSync(path); fsyncSync(held(p).fd);
+}
+
+/** The publisher retains both objects under its own refs. Never add a remote or a recovery branch here. */
+export async function adoptPrParent(p: Paths, expectedTip: string, parent: string, signal?: AbortSignal): Promise<void> {
+  try {
+    held(p);
+    const binding = boundPr(p);
+    need(binding && OID.test(expectedTip) && OID.test(parent), "parent adoption requires a bound PR state and immutable commits");
+    const path = join(p.state, MOVE);
+    if (exists(path)) {
+      const move: ParentMove = JSON.parse(file(path).toString());
+      need(move.old === expectedTip && move.new === parent, "conflicting unfinished PR parent move");
+      await finishMove(p, signal); return;
+    }
+    await authority(p, expectedTip, signal); await cleanTree(p.worktree, expectedTip, signal);
+    checkLastDecision(p);
+    await preparedParent(p, binding.head, p.reviewedUpstream!, parent, signal);
+    if (parent === expectedTip) return;
+    await retained(p, expectedTip, signal);
+    await git(p.repo, ["merge-base", "--is-ancestor", p.reviewedUpstream!, parent], signal);
+    await git(p.worktree, ["fetch", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--", p.repo, parent], signal);
+    need(await text(p.worktree, ["rev-parse", "--verify", `${parent}^{commit}`], signal) === parent, "fetched object is not the prepared PR parent");
+    save(path, json({ old: expectedTip, new: parent, iteration: current(p), head: binding.head, upstream: p.reviewedUpstream! } satisfies ParentMove));
+    await finishMove(p, signal);
+  } catch (e) { conflict(e); }
+}
+
 export function next(p: Paths): number {
   try {
     const n = current(p), dir = join(p.state, "runs"); directory(dir, true);
-    if (n) {
-      const previous = join(dir, String(n)); directory(previous, true);
-      need(exists(join(previous, "result.json")) || !readdirSync(previous).some(f => f === "attempt.patch" || f.startsWith(".result.") || f.startsWith(".pulse-write-")), `unfinished archive for iteration ${n}; preserving evidence`);
-    }
+    need(!exists(join(p.state, MOVE)), "unfinished PR parent move; prepare state before advancing");
+    checkLastDecision(p, n);
     need(Number.isSafeInteger(n + 1), "iteration counter overflow");
     mkdirSync(join(dir, String(n + 1)), { mode: 0o700 }); save(join(p.state, "iteration"), `${n + 1}\n`);
     const lock = held(p); delete lock.attempt; delete lock.validated; return n + 1;
@@ -193,6 +295,7 @@ export function saveQueue(p: Paths, q: Queue): void {
   try { marker(p); save(join(p.state, "queue.json"), json(q)); } catch (e) { conflict(e); }
 }
 function runDir(p: Paths, iteration: number) {
+  need(!exists(join(p.state, MOVE)), "cannot record or capture during a PR parent move");
   need(iteration > 0 && iteration === current(p), `stale iteration ${iteration}`);
   const dir = join(p.state, "runs", String(iteration)); directory(dir, true);
   need(!exists(join(dir, "result.json")) && !exists(join(dir, ".result.pending.json")), `iteration ${iteration} already recorded or interrupted`); return dir;
@@ -270,6 +373,10 @@ export async function record(p: Paths, input: RecordInput, signal?: AbortSignal)
       if (!before.buildOk || !after?.buildOk || !a || lock.validated !== a) reasons.push("missing complete, policy-checked verification");
       if (after && a && (after.sha !== m.tip || after.tree !== a.tree || !before.evaluator || after.evaluator !== before.evaluator)) reasons.push("verification belongs to another base, patch or evaluator");
       if (after) {
+        if (p.reviewedUpstream !== undefined) {
+          const failure = prCandidateFailure(after);
+          if (failure && !reasons.includes(failure)) reasons.push(failure);
+        }
         const keys = Object.keys(before.cases);
         if (!keys.length || before.tested !== keys.length || after.tested !== keys.length || Object.keys(after.cases).length !== keys.length || keys.some(k => !Object.hasOwn(after.cases, k) || [before.cases[k]!.outcome, after.cases[k]!.outcome].includes("NOT_RUN"))) reasons.push("before/after case identities or coverage differ");
       }
