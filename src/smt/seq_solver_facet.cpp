@@ -22,6 +22,9 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 
 namespace seq {
 
@@ -31,13 +34,13 @@ namespace seq {
         m(m), m_assump_lits(m), m_core_dep_mgr(core_dep_mgr) {
         core_dep_mgr.set_manager(m);
         params_ref p;
-        // This backend only handles arithmetic; keep string theories out.
+        // Sequence facets enforce the definitions of higher-order applications.
         p.set_sym("string_solver", symbol("none"));
         p.set_bool("seq.regular", false);
         p.set_bool("seq_regular_rewrite", false);
         // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
-        m_solver = mk_smt_solver(m, p, symbol("ALL"));
+        m_solver = mk_smt_solver(m, p, symbol("ALL"), true);
     }
 
     sub_solver::~sub_solver() {
@@ -184,13 +187,36 @@ namespace seq {
         return md.get() != nullptr;
     }
 
+    bool sub_solver::get_value(expr* e, expr_ref& value) {
+        return check() == l_true && smt_solver_get_value(m_solver, e, value);
+    }
+
     bool solver_facet::value(expr* e, rational& v) const {
+        if (a.is_numeral(e, v) || m_values.find(e, v))
+            return true;
+        expr_ref direct(m);
+        if (!m_model && m_solver.get_value(e, direct) && a.is_numeral(direct, v))
+            return true;
+        expr_ref query(e, m);
+        expr_safe_replace cached(m);
+        for (auto const& entry : m_values)
+            cached.insert(entry.m_key, a.mk_numeral(entry.m_value, true));
+        cached(query);
+        th_rewriter rw(m);
+        rw(query);
+        if (a.is_numeral(query, v))
+            return true;
+        recfun::util rec(m);
+        array_util arrays(m);
+        // Executing a restored step definition on an abstract sequence can diverge.
+        for (expr* t : subterms_postorder::ground(query))
+            if (rec.is_defined(t) ||
+                (arrays.is_as_array(t) && rec.is_defined(arrays.get_as_array_func_decl(to_app(t)))))
+                return false;
+        e = query;
         model_ref md = m_model;
         if (!md && !m_solver.get_model(md))
             return false;
-        if (a.is_numeral(e, v))
-            return true;
-
         // The arithmetic backend interprets sequence operations as functions.
         // Consult their graphs before rewriting: substr(s, i, 1) can otherwise
         // become an unassigned str.at on an abstract string model value.
@@ -226,6 +252,13 @@ namespace seq {
     }
 
     bool solver_facet::value(expr* e, expr_ref& v) const {
+        if (a.is_int(e)) {
+            rational number;
+            if (!value(e, number))
+                return false;
+            v = a.mk_numeral(number, true);
+            return true;
+        }
         model_ref md = m_model;
         if (!md && !m_solver.get_model(md))
             return false;
@@ -248,6 +281,20 @@ namespace seq {
     stx::facet_i* solver_facet::clone(trail_stack& trail) const {
         solver_facet* f = alloc(solver_facet, trail, m, u, m_solver);
         m_solver.get_model(f->m_model); // the leaf's arithmetic model, for exponent values
+        for (auto const& entry : m_values)
+            f->m_values.insert(entry.m_key, entry.m_value);
+        f->m_value_terms.append(m_value_terms);
+        if (f->m_model)
+            for (auto const& c : m_own)
+                for (expr* e : subterms_postorder::ground(c.m_fact)) {
+                    expr_ref value(m);
+                    rational v;
+                    if (a.is_int(e) && !f->m_values.contains(e) &&
+                        m_solver.get_value(e, value) && a.is_numeral(value, v)) {
+                        f->m_values.insert(e, v);
+                        f->m_value_terms.push_back(e);
+                    }
+                }
         // Snapshot clones do not own any new backend assertions.
         return f;
     }

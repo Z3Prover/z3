@@ -67,6 +67,7 @@ namespace seq {
         virtual eq_tree::dep_tracker unsat_core() const { return nullptr; }
         // model of the current constraints, if they are satisfiable
         virtual bool get_model(model_ref& md) { return false; }
+        virtual bool get_value(expr* e, expr_ref& value) { return false; }
     };
 
 } // namespace seq

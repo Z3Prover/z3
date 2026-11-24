@@ -71,6 +71,7 @@ namespace seq {
         lbool check() override;
         eq_tree::dep_tracker unsat_core() const override { return m_last_core; }
         bool get_model(model_ref& md) override;
+        bool get_value(expr* e, expr_ref& value) override;
     };
 
     /**
@@ -97,6 +98,8 @@ namespace seq {
         proof_manager*    m_dm;
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         model_ref         m_model;                       // arithmetic model captured by clone() at a sat leaf
+        obj_map<expr, rational> m_values;
+        expr_ref_vector m_value_terms;
 
         // Pairs the backend push for a trail scope with the matching pop.
         class scope_trail : public ::trail {
@@ -111,7 +114,7 @@ namespace seq {
 
     public:
         solver_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
-            solver_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_dm(solver.get_proof_manager()) {}
+            solver_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_dm(solver.get_proof_manager()), m_value_terms(m) {}
 
         ast_manager& get_manager() const { return m; }
         arith_util& get_arith_util() override { return a; }

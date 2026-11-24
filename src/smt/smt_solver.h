@@ -26,6 +26,9 @@ Notes:
 class solver;
 class solver_factory;
 
-solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic);
+// Relax array completeness only for internal solvers whose clients validate candidates.
+solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic, bool array_fake_support = false);
+// Read an internal SMT solver's theory value without executing model definitions.
+bool smt_solver_get_value(solver* s, expr* e, expr_ref& value);
 solver_factory * mk_smt_solver_factory();
 

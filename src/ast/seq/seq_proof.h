@@ -10,6 +10,14 @@ Abstract:
     Domain proof DAG for sequence search. Refutations are conditional on
     fact-level derivations with scoped branch closure.
 
+    append_facts()/collect_proofs() (seq_proof.cpp) are the one place
+    that has to know, per concrete facet kind, what its active
+    constraints mean as a fact and where their justification proofs
+    live - facet_i itself stays facet-agnostic (see stx_search_tree.h),
+    so this cannot be a virtual method on it without pulling
+    proof-specific knowledge into every facet. Adding a new facet kind
+    to the search means adding a case to both.
+
 --*/
 #pragma once
 
