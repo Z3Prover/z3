@@ -363,6 +363,9 @@ public:
         bool is_mapi(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_MAPI); }
         bool is_foldl(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_FOLDL); }
         bool is_foldli(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_FOLDLI); }
+        // Any higher-order application (seq.map/mapi/foldl/foldli). Their
+        // function parameter `f` is always the first argument, by construction.
+        bool is_ho_term(expr const* n)  const { return is_map(n) || is_mapi(n) || is_foldl(n) || is_foldli(n); }
         bool is_power(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_POWER); }
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
