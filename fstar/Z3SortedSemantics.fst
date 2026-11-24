@@ -126,7 +126,7 @@ type operation =
   | Implication
   | Nary : B.nary_op -> operation
   | Equality : sort -> operation
-  | Distinct
+  | Distinct : sort -> operation
   | Choice : sort -> operation
   | Other
 
@@ -137,9 +137,7 @@ let operation_typed (f:func_decl) (op:operation) : bool =
   | Implication -> f.domain = [bool_sort; bool_sort] && f.range = bool_sort
   | Nary _ -> boolean_sorts f.domain && f.range = bool_sort
   | Equality s -> f = R.eq_decl s
-  | Distinct ->
-    Distinct.distinct_declaration f &&
-    (match f.domain with [_; _] -> true | _ -> false)
+  | Distinct s -> Distinct.distinct_declaration f && f.domain = [s; s]
   | Choice s -> f = ite_decl s
   | Other -> true
 
@@ -160,7 +158,8 @@ let classify (f:func_decl) : op:operation{operation_typed f op} =
     Nary (if f.interp = Some op_and then B.And
           else if f.interp = Some op_or then B.Or else B.Xor)
   else if Distinct.distinct_declaration f &&
-          (match f.domain with [_; _] -> true | _ -> false) then Distinct
+          (match f.domain with [_; _] -> true | _ -> false) then
+    (match f.domain with [s; _] -> Distinct s | _ -> Other)
   else match f.domain with
   | [s; _] -> if f = R.eq_decl s then Equality s else Other
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
@@ -187,7 +186,7 @@ let application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
     (match xs with
      | [x; y] -> boolean s bc (equal_tree equality.reflection x y)
      | _ -> FStar.Pervasives.false_elim ())
-  | Distinct ->
+  | Distinct _ ->
     (match xs with
      | [x; y] -> boolean s bc (not (equal_tree equality.reflection x y))
      | _ -> FStar.Pervasives.false_elim ())
@@ -302,7 +301,6 @@ let lemma_distinct_binary_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   assert (Distinct.distinct_app f [a; b]);
   Distinct.lemma_sorts_match_length [a; b] f.domain;
   assert (match f.domain with [_; _] -> true | _ -> false);
-  assert (classify f == Distinct);
   assert (Distinct.distinct_declaration f);
   assert (sorts_match [a; b] f.domain);
   (match f.domain with
@@ -314,7 +312,8 @@ let lemma_distinct_binary_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
      V.lemma_sort_eq (get_sort b) sb;
      assert (get_sort b == sb);
      assert (sa == sb);
-     V.lemma_sort_eq (get_sort a) (get_sort b)
+     V.lemma_sort_eq (get_sort a) (get_sort b);
+     assert (classify f == Distinct (get_sort a))
    | _ -> FStar.Pervasives.false_elim ());
   let distinct_expr = App f [a; b] in
   let va = evaluate_at s bc equality other scope rho a in

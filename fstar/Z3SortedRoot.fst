@@ -64,6 +64,7 @@ let core_op (op:T.operation) : TR.theory_op =
   | T.Implication -> TR.Implication
   | T.Nary o -> TR.Nary o
   | T.Equality s -> TR.Equality s
+  | T.Distinct s -> TR.Distinct s
   | T.Choice s -> TR.Choice s
   | T.Other -> TR.Other
 
@@ -344,6 +345,19 @@ let lemma_equality_layer (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.inter
     lemma_bool_ext sch (i.V.application f [x; y]) (T.equal_tree (root_equality u) x y)
   | _ -> ()
 
+let lemma_distinct_layer (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
+                         (s:sort) (f:func_decl) (xs:TR.targuments u sch f.domain)
+  : Lemma (requires TR.root_model u sch i /\ T.classify f == T.Distinct s)
+          (ensures tapp u sch i f xs == i.V.application f xs) =
+  lemma_core_classify sch f;
+  match xs with
+  | [x; y] ->
+    TR.law_distinct i f s x y;
+    T.lemma_equal_tree (root_equality u) x y;
+    lemma_bool_ext sch (i.V.application f [x; y])
+      (not (T.equal_tree (root_equality u) x y))
+  | _ -> ()
+
 let lemma_choice_layer (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch) (s:sort)
                        (f:func_decl) (xs:TR.targuments u sch f.domain)
   : Lemma (requires TR.root_model u sch i /\ T.classify f == T.Choice s)
@@ -363,6 +377,7 @@ let lemma_application_agreement (u:TR.uninterpreted) (sch:S.checked_schema) (i:T
   | T.Constant _ | T.Negation | T.Implication -> lemma_connective_layer u sch i f xs
   | T.Nary op -> lemma_nary_layer u sch i op f xs
   | T.Equality s -> lemma_equality_layer u sch i s f xs
+  | T.Distinct s -> lemma_distinct_layer u sch i s f xs
   | T.Choice s -> lemma_choice_layer u sch i s f xs
   | T.Other -> lemma_integer_layer u sch i f xs
 

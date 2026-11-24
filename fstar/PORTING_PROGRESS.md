@@ -1,6 +1,6 @@
 # Proof-checker pending dashboard
 
-Updated: **2026-11-23T17:12:10-08:00**.
+Updated: **2026-11-23T20:15:23-08:00**.
 
 `PENDING` is the weighted total of unresolved obligations from diagnostic-bearing
 proofs. Missing diagnostics, timeout tails, and unobserved evidence are `N/M`,
@@ -346,6 +346,53 @@ producer defect. Per-proof hashes, timings, and output are retained under
 `files\sample-sorted-legacy-fixed-11-20261123\replay.log`; this is not cohort
 data.
 
+## Exploratory sort-indexed array-kernel route (not root-gated)
+
+Using current source HEAD `823915c2c`, the direct
+`Z3SortedProof.check_document_array` route was replayed on the same 11
+hash-pinned documents. It returned 5/11 ACCEPT and 6 PARTIAL with 126 total
+PENDING (proofs 40: 7, 45: 29, 51: 4, 59: 16, 63: 64, 90: 6), versus the
+default `check_document` result above of 2/11 ACCEPT and 807 PENDING. The
+array-route diagnostic helper reports no per-rule attribution (`N/M`). Its
+one-pass summed time was 93.500s; this is not comparable to the default and
+Legacy seven-run medians above.
+
+This is exploratory checker-function evidence, not a root-certified CLI
+result: `lemma_check_document_array` requires an explicit `array_kernel`, and
+this replay did not execute the root-level wrapper that constructs that
+kernel. Legacy still accepts 11/11; no parity, cohort burn-down, or
+performance claim follows. The default route and dashboard counts remain
+unchanged. Proof hashes, helper source, replay output, and candidate binary
+hash are retained under
+`files\sample-sorted-array-route-current-20261123` (`12ef0ed921770c7d4ef849af6e592455681fbd2c3bda0e95dbcbe6a1912c8a96`).
+
+## Current-source root-gated array-document replay (fixed proof set)
+
+The same 11 hash-pinned documents from
+`files\conditional-current-source-control-04e` were replayed through
+`Z3IndependentArrayDocument.check`, including the root wrapper, rather than
+calling `Z3SortedProof.check_document_array` directly. All 11 proof hashes
+were reverified. The current-source 115-module array-document closure passed
+strict F* verification; focused `Z3TypedRootTests` and `Z3SortedRootTests`
+passed. The replay helper and executable are retained under
+`files\array-root-certified-replay-20261124`; their SHA-256 values are
+`a8cec893bb68560164698e2bd0974532a5f748d786b7fb84dcda10504ae9329a` and
+`da3c299085d6f2fabde68e57a79036aec0c2142006c18c10ff928d7045c71ef7`,
+respectively.
+
+The root-gated route ACCEPTed 6/11 (proofs 10, 20, 37, 40, 49, 69) and
+returned PARTIAL on 5/11 (proof 45: 29, 51: 4, 59: 16, 63: 64, 90: 5), for
+118 total PENDING. It has no per-rule diagnostic breakdown (`N/M`). On these
+identical documents the current SortedProof control ACCEPTed 2/11 with 807
+PENDING, and Legacy ACCEPTed 11/11; the root-gated route therefore adds four
+ACCEPTs and removes 689 PENDING, but remains short of Legacy parity.
+
+Three isolated current runs per proof have 151.973s summed per-proof medians,
+versus 35.109s for the existing seven-run alternating Legacy medians on the
+same hashes (4.33x slower). This is a fixed-proof coverage improvement, not a
+performance gain, production CLI result, cohort burn-down, or Farkas finding.
+The cohort tables remain unchanged.
+
 ## Last 10 updates (measurements and corrections)
 
 Times are Pacific. A cohort comparison without identical proof-document hashes
@@ -353,6 +400,9 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 23 20:15 | Replay the exact 11 hash-pinned sample documents through `Z3IndependentArrayDocument.check`, including its root gate; run each proof three times | 6/11 ACCEPT and 118 PENDING versus the same-set SortedProof control's 2/11 and 807; Legacy remains 11/11. This adds four ACCEPTs and removes 689 PENDING, but is 4.33x slower than Legacy by summed per-proof medians (151.973s vs 35.109s). Five PARTIAL proofs have no per-rule attribution; cohort results are unchanged. |
+| Nov 23 18:31 | Capture and replay the current-source QF_LIA ring proof; benchmark the pinned input five times | Exact proof hash matches fixed sample proof 51. SortedProof is PARTIAL 4, solely `intro-def`; Legacy ACCEPT. All 251 `arith/farkas`, 1 `arith/bound`, and 18 `arith/lp-integer-lattice` entries have zero PENDING. Seven-run checker medians are 38.915ms vs 18.944ms (2.05x slower); solver benchmark is UNSAT, 28/44/92ms min/median/max. No Farkas failure or producer defect demonstrated. |
+| Nov 23 18:15 | Replay current `Z3SortedProof.check_document_array` on the same 11 hash-pinned sample proofs | Exploratory route returns 5/11 ACCEPT and 126 PENDING versus default 2/11 and 807; one-pass aggregate 93.500s is not comparable to paired seven-run medians. Kernel premise/root gate not exercised, no per-rule attribution, no parity or cohort claim. |
 | Nov 23 17:12 | Repeat both pinned cohorts with the retained Definition checker (`6eb16f0b`) | Same checker, runtime, manifests, and outcomes. Sample reproduces 5,907 PENDING; extended's single PARTIAL proof shifts `arith/farkas` −3, `intro-def` +9, `rewrite` +23, `th-lemma` −13 (net PENDING +16). No proof hashes: diagnostic drift, not burn-down or checker attribution. Zero diagnostic errors/mismatches; fallback coverage only. |
 | Nov 23 15:18 | Replay the same 11 frozen sample proofs through current `Z3SortedProof.check_document` and Legacy with seven alternating paired runs | Hashes verified; 2/11 versus 11/11 ACCEPT, current 807 PENDING versus prior same-set sorted-core 832, a 25-obligation fixed-set reduction (not attributed solely to distinct). Current is still 2.59x slower by summed per-proof medians; no cohort or Farkas-producer claim. |
 | Nov 23 14:50 | Add sound binary-only `distinct` semantics and recognize its NNF expansion before arithmetic normalization; replay the same frozen proof 69 | `rewrite` PENDING 1→0 and PARTIAL→ACCEPT on the 18,135-node document; Legacy remains ACCEPT. Seven-run paired medians: 6.010s current vs 0.568s Legacy (10.59x slower), so this is a coverage gain, not a speedup. Strict 167-module checker closure and focused NNF controls pass; cohorts not rerun. |
@@ -361,8 +411,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 22 22:04 | Repeat both pinned cohorts with the retained fallback checker (`6eb16f0b`) | Sample reproduces exactly: 83/225 ACCEPT and 5,907 PENDING. Extended has 74/285 ACCEPT and 31,389 observed PENDING; one prior PARTIAL became UNKNOWN, leaving 112 obligations undiagnosed, so the 112-count difference is not burn-down. Zero diagnostic errors/mismatches. Current-source build failed before producing a checker; no coverage claim for the scalar-context changes. |
 | Nov 22 20:05 | Add Real-gated conditional rewrite certificates and replay the 11 hash-pinned documents | Acceptance stays 7/11; PENDING 123→108, entirely from rewrite 20→5. Aggregate time 181.016s→181.047s and median 11.101s→11.053s: effectively flat, one pass. Strict 218-module checker closure and positive/negative controls pass; the broader native suite stops later at stale finite-field cache. Still 5.62x slower than Legacy; no cohort run or parity. |
 | Nov 22 18:09 | Reuse definition diagnostics before the array fallback; replay all 11 hash-pinned proofs | 7/11 ACCEPT versus Legacy 11/11; 123 PENDING unchanged. Strict 219-module closure, `Z3SortedProofTests.fst` including conditional `ApplyDefinition` controls, and focused native regression pass. Aggregate time 272.614s→181.016s (-33.6%), median 15.872s→11.101s (-30.1%), faster 6/11; still 5.62x slower than paired Legacy. Single-pass evidence only; no cohort burn-down, parity, or Farkas finding. |
-| Nov 22 17:15 | Repeat the retained Definition-mode checker on both pinned cohorts and diagnose every PARTIAL | Outcomes and per-rule PENDING reproduce: sample 110/225 ACCEPT, 3,836; extended 78/285 ACCEPT, 30,907. Diagnostics 77/77 and 126/126, zero errors/mismatches. QF_LIA sample: 19 ACCEPT, 5 UNKNOWN, 1 TIMEOUT, no PARTIAL. Timings 2,075.3s / 0.686s and 1,776.5s / 0.636s, slower than the prior repeat; repeatability only, no improvement, Farkas evidence, or matched-proof burn-down. |
-| Nov 22 09:39 | Fix certified array diagnostics, add valid/wrong-branch `ApplyDefinition` controls, and replay the matched 11 | Strict 220-module F* closure and focused native array test pass. Same 7/11 ACCEPT and 123 PENDING; Legacy 11/11. 272.614s vs 21.787s Legacy (12.51x, slower on all 11); one-pass timing only. Diagnostic fix, no burn-down or Farkas gap. |
 
 ## Validation and cadence
 
@@ -406,6 +454,20 @@ for identical fixed proof documents.
 
 The pinned ring input SHA-256 is
 `bd330dab1469304d3d149dc6062aa1ba00be734aee5bad0feaa27a10267dc8c5`. On the
+current source HEAD `823915c2c` (Z3 build hash
+`823915c2c1595019ed0ec943d43d8de660e6b341`), the captured proof SHA-256 is
+`70fbf6f5c3934ca6ac0e4373bfc5297502f75997b07ad2afc89fb819ba45c912`, matching
+fixed sample proof 51. The current checker returns PARTIAL 4 solely from
+`intro-def`; Legacy accepts. All 251 `arith/farkas`, one `arith/bound`, and 18
+`arith/lp-integer-lattice` entries have zero PENDING. Seven alternating paired
+replays measured medians of 38.915 ms for SortedProof and 18.944 ms for Legacy
+(2.05x slower). Separately, five solver runs on the input were UNSAT with
+28/44/92 ms min/median/max; this formula timing is not proof-checker timing.
+This current-source evidence does not show a QF_LIA Farkas-certificate or
+producer defect. Artifacts are under
+`files\qflia-ring-current-20261123T1820PST`.
+
+On the older
 trace-06 capture (`c8fabf7675231bc5a27e9bd999c1507ce62d07a1b589157addf1f1ddbf181dcb`),
 the instrumented native producer recorded 33 Farkas hints, one bound hint, and
 zero pending `th-lemma` hints. The same run's checker diagnostic was PARTIAL 46:

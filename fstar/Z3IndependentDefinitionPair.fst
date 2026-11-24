@@ -290,3 +290,46 @@ let lemma_scalar_controls ()
     recognize test_schema test_scalar_input test_scalar_formula == None) =
   assert_norm (recognize test_schema [] test_scalar_formula == Some test_scalar_definition);
   assert_norm (recognize test_schema test_scalar_input test_scalar_formula == None)
+
+let test_scalar_ite_condition = App {
+  decl_name = "fresh-scalar-ite-condition"; domain = []; range = bool_sort;
+  interp = None; int_params = []
+} []
+let test_scalar_ite_then = App {
+  decl_name = "fresh-scalar-ite-then"; domain = []; range = test_sort;
+  interp = None; int_params = []
+} []
+let test_scalar_ite_else = App {
+  decl_name = "fresh-scalar-ite-else"; domain = []; range = test_sort;
+  interp = None; int_params = []
+} []
+let test_scalar_ite_wrong_else = App {
+  decl_name = "fresh-scalar-ite-wrong-else"; domain = []; range = test_sort;
+  interp = None; int_params = []
+} []
+let test_scalar_ite_body =
+  App (A.term_ite_decl test_sort)
+    [test_scalar_ite_condition; test_scalar_ite_then; test_scalar_ite_else]
+let test_scalar_ite_definition : D.definition = {
+  D.symbol = test_scalar_symbol; variables = []; body = test_scalar_ite_body;
+}
+let test_scalar_ite_formula =
+  scalar_pair test_scalar_ite_condition (App test_scalar_symbol [])
+    test_scalar_ite_then test_scalar_ite_else
+let test_scalar_ite_wrong_branch =
+  scalar_pair test_scalar_ite_condition (App test_scalar_symbol [])
+    test_scalar_ite_then test_scalar_ite_wrong_else
+
+let lemma_scalar_ite_controls ()
+  : Lemma (
+    recognize test_schema [] test_scalar_ite_formula == Some test_scalar_ite_definition /\
+    not (scalar_valid test_schema [] test_scalar_ite_wrong_branch test_scalar_ite_definition) /\
+    recognize test_schema [App test_scalar_symbol []] test_scalar_ite_formula == None) =
+  assert_norm (Some? (A.ite_parts test_scalar_ite_body));
+  assert_norm (Recognition.definition_of test_scalar_ite_formula ==
+    Some test_scalar_ite_definition);
+  assert_norm (scalar_valid test_schema [] test_scalar_ite_formula test_scalar_ite_definition);
+  assert_norm (recognize test_schema [] test_scalar_ite_formula == Some test_scalar_ite_definition);
+  assert_norm (not (scalar_valid test_schema [] test_scalar_ite_wrong_branch
+    test_scalar_ite_definition));
+  assert_norm (recognize test_schema [App test_scalar_symbol []] test_scalar_ite_formula == None)

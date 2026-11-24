@@ -136,6 +136,10 @@ let sorted_empty_sum (u:TR.uninterpreted) (i:RT.model u)
 let classifier_mutants ()
   : Lemma (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
            TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other /\
+           T.classify (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+             T.Distinct TR.int_s /\
+           TR.classify RT.sigma (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+             TR.Distinct TR.int_s /\
            I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other /\
            TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other /\
            I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
@@ -143,11 +147,24 @@ let classifier_mutants ()
            I.classify TR.native_plus_int == I.Calculate A.Add) =
   assert_norm (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other);
   assert_norm (TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
+  assert_norm (T.classify (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+               T.Distinct TR.int_s);
+  assert_norm (TR.classify RT.sigma (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+               TR.Distinct TR.int_s);
   assert_norm (I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other);
   assert_norm (TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other);
   assert_norm (I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other);
   assert_norm (TR.classify RT.sigma (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
   assert_norm (I.classify TR.native_plus_int == I.Calculate A.Add)
+
+let distinct_int_decl = RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []
+let distinct_int_expr = App distinct_int_decl [RT.zero; RT.one]
+
+let sorted_binary_distinct (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
+  : Lemma (struth u i [] rho distinct_int_expr ==
+           RT.bool_v (RT.ev u i [] rho distinct_int_expr)) =
+  assert_norm (D.scoped [] distinct_int_expr /\ get_sort distinct_int_expr == bool_sort);
+  agree u i [] rho distinct_int_expr
 
 (* --- Negative controls: the agreement needs the root contract ---------- *)
 
