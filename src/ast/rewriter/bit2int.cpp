@@ -91,8 +91,10 @@ bool bit2int::extract_bv(expr* n, unsigned& sz, bool& sign, expr_ref& bv) {
         return true;
     }
     else if (m_arith_util.is_numeral(n, k, is_int) && is_int) {
+        // sz is the width of abs(k) and the sign is returned separately,
+        // so the bits encode the magnitude: k itself would wrap modulo 2^sz.
         sz = get_numeral_bits(k);
-        bv = m_bv_util.mk_numeral(k, m_bv_util.mk_sort(sz));
+        bv = m_bv_util.mk_numeral(abs(k), m_bv_util.mk_sort(sz));
         sign = k.is_neg();
         return true;
     }
