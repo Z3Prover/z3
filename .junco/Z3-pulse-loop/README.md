@@ -1,0 +1,47 @@
+# Local Pulse proof-checker loop
+
+Each `wf.yml` execution handles one item from the F* proof-checker regression queue. `Regress` measures the private branch tip. `Analytics` sends the same case and diagnostics to a read-only Leader (Astra/high) and the sole Developer (Opus/high). Developer also receives the finished plan. `Verify` builds the captured patch separately. `Record` returns the local verdict, evidence, patch and commit to the frontend. An empty queue runs neither model.
+
+## Run
+
+Requires Linux, a writable Btrfs mount with `user_subvol_rm_allowed`, Bun, a built Junco checkout and frontend client, `pwsh`, CMake/C++/GMP, Python, the pinned F* release, and the `aeneas` OCaml 5.3.0 switch with `ocamlfind` and `zarith`. `bun run link` uses `$JUNCO` or `$HOME/git/junco`. Grafana must already serve its Junco Prometheus datasource on port 8000. The workflow never owns that service.
+
+```sh
+cd .junco/Z3-pulse-loop
+bun run link
+bun run check                    # private local fixtures, no paid requests or service state
+bun run wf.ts --prepare           # build/diagnose/select only; item ID on stdout
+bun run wf.ts --once --allow-paid # at most one graph; no idle or crash retry
+bun run loop --allow-paid         # continuous; intentional stops/configuration errors do not restart
+```
+
+Use `--prepare` and `--once` directly, not through the supervisor. `$source` sends the previous iteration to `Regress`. After recording, `Record -> Regress` carries the verdict back; only a verdict matching that iteration and branch tip reaches `$sink`. In continuous mode its iteration seeds the next graph with fresh agent sessions. `--once` stops at that sink. The frontend, recorder and state lock stay open across cycles. The service pauses ten minutes on idle/unbuildable tips and backs off sixty seconds after runtime failures. A paid flag is never implicit.
+
+- `Z3_PULSE_LOOP_REPO`: read-only local Z3 checkout (default `~/git/z3`). First use fetches its local `origin/master` SHA, or the immutable `Z3_PULSE_LOOP_BASE`, into a separate private repository. Later cycles start at `loop/pulse-local`.
+- `Z3_PULSE_LOOP_STATE`: new private state, default `/btrfs/Z3-pulse-loop-local`. Use an owned, real directory with mode 0700. No remotes, reset, clean or migration of previous state. A second owner or unexpected dirty tree is an error: inspect the evidence, not `git reset --hard`.
+- `Z3_PULSE_LOOP_CORPUS`: clean pinned z3test checkout (default `/btrfs/Z3-pulse-loop/z3test`). Campaign: `91c60596fd6a43de189a1ccba8080a3b48797537`, all 17 `regressions/proofs` and 225 hash-manifest-selected `regressions/smtlib-sample` cases, `Z3_PULSE_LOOP_MAX_CASES=0`.
+- `FSTAR_EXE`: local policy uses `/opt/fstar-v2026.09.27/bin/fstar.exe`; PR policy requires the verified `v2026.10.25` release. Both use `OPAMSWITCH=aeneas`.
+- `Z3_PULSE_LOOP_MODEL_STORE`: private nonsecret Copilot catalog populated by the installed Pi updater with the saved login. The workflow loads this catalog offline. It checks both contexts, prices and supported thinking before creating agents. OMP's `-1m` suffix is not a Pi model ID. Model-free preparation needs no catalog or login.
+- `GRAFANA_URL`: `http://localhost:8000` by default. Startup prints the dashboard URL with its stream selector. The Junco Monitor is at `http://127.0.0.1:3000/`, listening on **all interfaces**. Missing assets, a port collision, or a mismatched Grafana datasource fails startup.
+
+### PR campaign
+
+`bun run loop --allow-paid --publish-pr=N` binds continuous operation to one existing, open `elefthei:feat/junco-fstar` pull request against `Z3Prover/z3:master`. It is invalid with `--prepare`, `--once`, or graph measurement. A login or `--allow-paid` alone does not enable publication.
+
+The operator supplies a separate private `pr-N-publisher` checkout, the confirmed bootstrap head, and new state `/btrfs/Z3-pulse-loop-pr-N`. The initial seed and acknowledged fork head live in the publisher’s `.git/pulse-binding.json`. Each cycle measures the acknowledged feature after rebasing it on the fetched official trunk. Do not copy another campaign’s queue or evidence. The worker checkout has no remotes, and public updates do not move the operator’s runner checkout.
+
+After `Record` accepts a fully verified change, the same Leader can call `publish_verified` once. The tool takes no arguments. The host checks the archived patch, rebases the feature, and repeats paired verification if its inputs changed. It pushes only the fork ref, with the previously acknowledged OID as its lease. Do not replace that OID to resolve a conflict.
+
+The PR body lists only newly certified pinned inputs and named F* lemmas checked under their declared assumptions. Each row links to a public commit and its source or input. A speedup can advance the PR without adding a claim. The private decision in `result.json` is not a public receipt: check `runs/<iteration>/publication/receipt.json`, the fork ref and the PR. The Git push and body edit are separate operations. Preserve a pending request or intent on exit 78; restarting must not infer authorization from an accepted local commit.
+
+**Trust boundary:** the worker uses ordinary Btrfs and the operator's Unix UID, not an OS sandbox. The native shell receives a minimal environment, separate home/build scratch and a per-process 1,800 CPU-second limit. Absolute paths and host sockets accessible to that UID remain accessible. Use only an account whose privileges you would give the worker. No agent receives credentials; only the Leader is assigned the bound publication tool. The unauthenticated frontend displays raw messages and tool I/O: use a trusted network. Cgroup pipeline memory is reported only with actual delegation.
+
+## What counts
+
+The host runs `fstar/tools/build_ocaml_checker.ps1 -RunTests` with checkout Z3, the native uninstrumented checker and a pinned external regression harness. Native bridge tests are not the separate in-memory Pulse tests. `ACCEPT` alone certifies a formula. A complete pre-existing failed case can become a work item; missing inputs, failed infrastructure, incomplete diagnostics or an altered evaluator are not improvements. Stats totals are from checker stderr and reported with their case coverage.
+
+Scored cases have a 60-second wall limit. A separate diagnostic replay of a scored `PARTIAL` or `REJECT` has 30 minutes to reproduce the verdict; both invocations keep the 10-second solver timeout. The Monitor’s Graph panel follows the latest top-level run, while the event log retains earlier cycles.
+
+Queue order is least attempts, then crash, reject, obligation family, timeout and slow case, then weight. The judge requires no new soundness marker or disallowed per-case regression, plus a targeted or corpus improvement. Previously near-budget cases use the existing 80% noise rule; targeted speedups use the existing 20% threshold.
+
+Inspect `queue.json`, `analytics.jsonl` and `runs/<iteration>/result.json` under the private state. Changed attempts include `attempt.patch` (full indexed binary diff, including new files). A private acceptance advances `loop/pulse-local`; rejection retains evidence and reverses only the still-identical patch. `accept` counts formulas, `accepted_change` counts retained changes, and `queue_open` counts remaining work. Local-only mode never writes to GitHub.
