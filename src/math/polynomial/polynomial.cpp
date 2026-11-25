@@ -1918,6 +1918,23 @@ namespace polynomial {
             numeral_vector     m_tmp_as;
             monomial_vector    m_tmp_ms;
 
+            // Erase a cancelled remainder term and keep the remaining slots packed.
+            void erase_zero(unsigned pos) {
+                monomial* removed = m_tmp_ms[pos];
+                m_m2pos.reset(removed);
+                if (pos != m_tmp_ms.size() - 1) {
+                    monomial* moved = m_tmp_ms.back();
+                    m_tmp_ms[pos] = moved;
+                    swap(m_tmp_as[pos], m_tmp_as.back());
+                    m_m2pos.reset(moved);
+                    m_m2pos.set(moved, pos);
+                }
+                m_owner->m_manager.reset(m_tmp_as.back());
+                m_tmp_as.pop_back();
+                m_tmp_ms.pop_back();
+                m_owner->dec_ref(removed);
+            }
+
             /**
                \brief Remove zeros from m_tmp_as & m_tmp_ms.
                The reference counters of eliminated m_tmp_ms are decremented.
@@ -2013,7 +2030,7 @@ namespace polynomial {
 
                The reference counter of new monomials added into the buffer is increased.
             */
-            template<typename PolyType, bool CheckZeros>
+            template<typename PolyType, bool CheckZeros, bool EraseZeros = false>
             void addmul_core(numeral const & a, monomial const * m, PolyType const * p) {
                 numeral_manager & mng = m_owner->m_manager;
                 if (mng.is_zero(a))
@@ -2026,7 +2043,8 @@ namespace polynomial {
                     m2 = m_owner->mul(m, m2);
                     unsigned pos  = m_m2pos.get(m2);
                     if (pos == UINT_MAX) {
-                        m_m2pos.set(m2, m_tmp_ms.size());
+                        pos = m_tmp_ms.size();
+                        m_m2pos.set(m2, pos);
                         m_tmp_ms.push_back(m2);
                         m_owner->inc_ref(m2);
                         m_tmp_as.push_back(numeral());
@@ -2034,6 +2052,10 @@ namespace polynomial {
                     }
                     else {
                         mng.addmul(m_tmp_as[pos], a, p->a(i), m_tmp_as[pos]);
+                    }
+                    if constexpr (EraseZeros) {
+                        if (mng.is_zero(m_tmp_as[pos]))
+                            erase_zero(pos);
                     }
                 }
             }
@@ -5496,7 +5518,7 @@ namespace polynomial {
                 m_manager.div(a_r, a_q, a_r_q);
                 C.add(a_r_q, m_r_q);       // C <- C + (a_r/a_q)*(m_r/m_q)
                 m_manager.neg(a_r_q);
-                R.addmul(a_r_q, m_r_q, q); // R <- R - (a_r/a_q)*(m_r/m_q)*Q
+                R.addmul_core<polynomial, false, true>(a_r_q, m_r_q, q); // R <- R - (a_r/a_q)*(m_r/m_q)*Q
             }
         }
 
