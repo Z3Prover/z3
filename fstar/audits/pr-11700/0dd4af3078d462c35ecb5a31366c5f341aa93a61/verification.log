@@ -1,0 +1,4 @@
+Verified module: ArithCharge
+All verification conditions discharged successfully
+exit 0
+cmd: timeout 120 fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out ArithCharge.fst
