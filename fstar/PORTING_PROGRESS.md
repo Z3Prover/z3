@@ -222,30 +222,38 @@ PENDING are unchanged. Artifacts are under
 
 The retained sample has zero `arith/farkas` PENDING. The separately captured
 current-source QF_LIA ring proof has 251 Farkas entries and zero Farkas
-PENDING; its four PENDING obligations are all `intro-def`. The 20 extended
-`arith/farkas` PENDING entries are in three QF_NIA inputs and one QF_NRA input,
-with fingerprints containing multiplication. In `theory_lra.cpp`,
-`set_proof_params` attempts to reconstruct and check the LP derivation, then
-linearizes and locally validates Farkas coefficients; it emits an
-`unsupported` payload when that path cannot be checked, and bound propagation
-can export a replayable LP derivation. This source evidence and the QF_LIA
-controls do not demonstrate flaky QF_LIA Farkas generation. The extended
-nonlinear cases still need their exact proof documents before attributing
-their PENDING to producer output versus checker coverage.
+PENDING; its four PENDING obligations are all `intro-def`. The prior report's
+extended Farkas count is superseded by the latest pinned capture: 33
+`arith/farkas` PENDING, across four QF_NIA inputs (13, 5, 4, and 9) and one
+QF_NRA input (2). The diagnostic fingerprints contain multiplication but do
+not preserve proof documents, premises, or coefficient vectors. These entries
+are classified as `arith/farkas`, so the checker received Farkas payloads;
+they are not merely generic `unsupported` `th-lemma` fallbacks.
+
+In the `theory_lra.cpp` producer path, `set_proof_params` first tries to export
+a checked LP derivation. Its coefficient fallback linearizes the evidence,
+constructs weights in premise order, and runs `check_farkas_certificate`;
+when that validation fails, it emits `unsupported`. Bound propagation can
+also export a replayable LP derivation. This source path validates the
+combination it emits, but the retained cohort artifacts do not tie these
+specific nodes to that path or retain enough data to compare its check with
+the independent one.
 
 The consumer path is also certificate-based: `Z3Native_view_proof` extracts
 Farkas parameters from `th-lemma` nodes, `Z3NativeProof.native_rule` maps
 those supplied weights to `ArithmeticFarkas`, and
-`Z3LinearArithmeticAst.check` replays them against the premises and negated
-conclusion literals, including integer strict-bound rounding. It does not
-search for weights. If the producer marks a node `unsupported`, the decoder
-leaves it as `Unverified "th-lemma"`; generic checked fragments may then
-accept it, otherwise it remains PENDING. The separate LP-certificate route
-encodes replayable linear, integer-tightening, lattice, Gomory, and monomial
-steps. Without the four extended proof documents, the observed PENDING cannot
-distinguish absent/unsupported producer evidence from a mismatch in the exact
-certificate or nonlinear evidence outside the fragment. No QF_LIA producer
-defect is demonstrated.
+`Z3SortedArithmetic.check_contradiction` replays them against the premises
+and negated conclusion literals, including integer strict-bound rounding. It
+does not search for weights. Its arithmetic linearizer can treat a nonlinear
+product as an opaque term, which is sound for exact cancellation but may be
+incomplete when a certificate depends on identities between differently
+normalized nonlinear terms. The available fingerprints do not show whether
+that limitation explains any of these 33 cases. The separate LP-certificate
+route encodes replayable linear, integer-tightening, lattice, Gomory, and
+monomial steps. Until proof documents and exact Farkas vectors are retained,
+we cannot decide whether these payloads expose a checker-fragment gap or a
+producer/consumer mismatch. The current sample and QF_LIA ring control show no
+QF_LIA Farkas PENDING and provide no evidence of a QF_LIA producer defect.
 
 ## Current PR-head sample: Definition+Array route
 
@@ -533,6 +541,7 @@ is a coverage observation, not causal attribution or burn-down.
 
 | Time | Change / measurement | Measured effect |
 | --- | --- | --- |
+| Nov 24 17:14 | Reconcile the pinned Farkas diagnostics with producer and consumer source | Sample: 0 Farkas PENDING; extended: 33 across QF_NIA (31) and QF_NRA (2), all with Farkas payloads. Proof documents and coefficient vectors were not retained, so no producer-versus-checker attribution or coverage delta. |
 | Nov 24 17:07:30 | Complete pinned Schedule #5 Definition cohorts with checker SHA-256 `6eb16f0b187e` and OCaml 5.3.0 | Sample: 83 ACCEPT / 103 PARTIAL, 5,907 weighted PENDING, 2,070.827s / 0.498s median. Extended: 74 ACCEPT / 135 PARTIAL, 31,516 weighted PENDING, 1,751.094s / 0.547s median. Same outcomes and PENDING as the preceding capture; without proof-document hashes or paired Legacy controls, no matched-proof burn-down or parity claim. |
 | Nov 24 11:55:36 | Complete pinned Schedule #5 Definition cohorts with checker SHA-256 `6eb16f0b187e` | Sample: 83 ACCEPT / 103 PARTIAL, 5,907 weighted PENDING, 2,072.97s aggregate / 0.498s median. Extended: 74 ACCEPT / 135 PARTIAL, 31,516 weighted PENDING, 1,747.76s / 0.548s. All inputs observed; missing diagnostics are UNKNOWN/TIMEOUT only. No proof hashes or paired Legacy control, so no matched-proof burn-down or parity claim. |
 | Nov 24 09:19 | Replay the current SortedProof and indexed Legacy checkers on the fixed 11 proofs, compare both modes on the pinned 25-input QF_LIA sample, refresh the root-gated delta, and clarify its historical comparator | Fixed 11: SortedProof 2/11 ACCEPT, 802 PENDING, 4.34x slower; Legacy 11/11. QF_LIA sample: SortedProof 17 ACCEPT / 2 PARTIAL versus Legacy 19 ACCEPT; all 34 PENDING are `intro-def`. The root-gated array delta is +4 ACCEPT and −684 PENDING against the latest control; the 807-PENDING control in the exploratory array section is historical. No parity or 225-case cohort burn-down. |
@@ -542,7 +551,6 @@ is a coverage observation, not causal attribution or burn-down.
 | Nov 24 07:46 | Compare Legacy and sorted `th-lemma` dispatch on the pinned 11-proof sample control | The 681 `th-lemma` PENDING are concentrated in proofs 10/20/37/40; logs lack per-entry fingerprints. Legacy's generic route has stronger model assumptions, so no direct port or causal attribution yet. No coverage/timing delta. |
 | Nov 24 07:41 | Trace Farkas producer parameters through native decoding and exact certificate replay | Confirms the arithmetic checker consumes supplied weights without search; unsupported evidence falls back to generic `th-lemma` fragments. No coverage/timing delta; extended nonlinear attribution remains open. |
 | Nov 24 07:34 | Trace proof-90’s remaining `quant-intro` obligations against Legacy and the existing binder kernel | Identifies 9/14 PENDING as `eq:binder->binder`; exact certificate fit and sorted-model soundness are unestablished. No checker change or coverage/timing delta. |
-| Nov 24 07:26 | Hoist the definition-input budget scan and reuse collected definition items during entry rewriting | Strict `Z3IndependentDefinitionPair.fst` verification passes; focused document and NNF controls discharge VCs with stale-cache warnings 241/247. No extraction, pinned replay, cohort run, or checker timing. |
 ## Validation and cadence
 
 The prior candidate passed strict F* verification for its 185 registered
