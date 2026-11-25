@@ -704,6 +704,8 @@ namespace smt {
         if (hf.is_ho_term(n, s)) {
             hf.add_term(n);
             ensure_length_var(s);
+            if (m_seq.str.is_map(n) || m_seq.str.is_mapi(n))
+                ensure_length_var(n);
         }
         // Register the power obligation with exponent clamped at 0.
         expr* pow_base = nullptr, *k = nullptr;
@@ -1288,6 +1290,9 @@ namespace smt {
         }
 
         flush_assigned_literals();
+        if (hf.propagate_lengths())
+            return FC_CONTINUE;
+
         if (hf.propagate_model(m_ambient->solver_facet(*m_root)))
             return FC_CONTINUE;
 
