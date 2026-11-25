@@ -368,6 +368,7 @@ template<typename Ext>
 void theory_arith<Ext>::mk_derived_nl_bound(theory_var v, inf_numeral const & coeff, bound_kind k, v_dependency * dep) {
     inf_numeral coeff_norm = normalize_bound(v, coeff, k);
     derived_bound * new_bound = alloc(derived_bound, v, coeff_norm, k);
+    new_bound->set_non_linear();
     m_bounds_to_delete.push_back(new_bound);
     m_asserted_bounds.push_back(new_bound);
     // copy justification to new bound
@@ -839,6 +840,8 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
     }
     SASSERT(new_lower);
     SASSERT(new_upper);
+    new_lower->set_non_linear();
+    new_upper->set_non_linear();
     m_bounds_to_delete.push_back(new_lower);
     m_asserted_bounds.push_back(new_lower);
     m_bounds_to_delete.push_back(new_upper);
