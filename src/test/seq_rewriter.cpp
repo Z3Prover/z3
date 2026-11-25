@@ -39,13 +39,116 @@ Tests:
 #include "ast/seq/seq_skolem.h"
 #include "model/model.h"
 #include "smt/smt_context.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
+}
+
+static void tst_ho_structural_rewrites() {
+    char const* cases[] = {
+        R"(
+            (declare-const s (Seq Bool))
+            (assert (not (= (seq.map (lambda ((x Bool)) x) s) s)))
+        )",
+        R"(
+            (declare-const s (Seq (Seq Int)))
+            (declare-const k Int)
+            (assert (not (= (seq.mapi (lambda ((i Int) (x (Seq Int))) x) k s) s)))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const a (Array Int Int))
+            (assert (not (= (seq.fold_left (lambda ((b (Array Int Int)) (x Bool)) b) a s) a)))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const a (Seq Int))
+            (declare-const k Int)
+            (assert (not (= (seq.fold_lefti (lambda ((i Int) (b (Seq Int)) (x Bool)) b) k a s) a)))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const F (Array Bool Int))
+            (declare-const G (Array Int Bool))
+            (assert (not (= (seq.map G (seq.map F s))
+                (seq.map (lambda ((x Bool)) (select G (select F x))) s))))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const F (Array Int Bool Int))
+            (declare-const G (Array Int Int Bool))
+            (declare-const i Int)
+            (declare-const j Int)
+            (assert (not (= (seq.mapi G j (seq.mapi F i s))
+                (seq.mapi (lambda ((k Int) (x Bool))
+                    (select G (+ k (- j i)) (select F k x))) i s))))
+        )",
+        R"(
+            (declare-const s (Seq Int))
+            (declare-const F (Array Int Int Int))
+            (declare-const i Int)
+            (declare-const d Int)
+            (assert (not (= (seq.mapi F (+ i d) s)
+                (seq.mapi (lambda ((k Int) (x Int)) (select F (+ k d) x)) i s))))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const b (Array Int Int))
+            (declare-const F (Array (Array Int Int) Int (Array Int Int)))
+            (declare-const G (Array Bool Int))
+            (assert (not (= (seq.fold_left F b (seq.map G s))
+                (seq.fold_left (lambda ((a (Array Int Int)) (x Bool))
+                    (select F a (select G x))) b s))))
+        )",
+        R"(
+            (declare-const s (Seq Bool))
+            (declare-const b (Seq Int))
+            (declare-const F (Array Int (Seq Int) Int (Seq Int)))
+            (declare-const G (Array Bool Int))
+            (declare-const k Int)
+            (assert (not (= (seq.fold_lefti F k b (seq.map G s))
+                (seq.fold_lefti (lambda ((i Int) (a (Seq Int)) (x Bool))
+                    (select F i a (select G x))) k b s))))
+        )",
+        R"(
+            (assert (not (forall ((offset Int) (s (Seq Int)))
+                (= (seq.map (lambda ((x Int)) (+ x offset))
+                       (seq.map (lambda ((x Int)) (- x offset)) s)) s))))
+        )",
+        R"(
+            (assert (not (forall ((F (Array Int Int Int)) (G (Array Int Int))
+                                 (s (Seq Int)) (b Int))
+                (= (seq.fold_left F b (seq.map G s))
+                   (seq.fold_left (lambda ((a Int) (x Int))
+                       (select F a (select G x))) b s)))))
+        )",
+        R"(
+            (assert (not (forall ((F (Array Int Int Int)) (s (Seq Int)) (i Int) (d Int))
+                (= (seq.mapi F (+ i d) s)
+                   (seq.mapi (lambda ((k Int) (x Int)) (select F (+ k d) x)) i s)))))
+        )"
+    };
+    for (char const* input : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        ENSURE(cmd.assertions().size() == 1);
+        expr_ref result(cmd.assertions().get(0), m);
+        th_rewriter rw(m);
+        rw(result);
+        if (!m.is_false(result))
+            std::cerr << input << "\nrewritten: " << mk_pp(result, m) << "\n";
+        ENSURE(m.is_false(result));
+    }
 }
 
 static void tst_eq_skolem_arity() {
@@ -796,6 +899,7 @@ static void tst_replace_contains() {
 }
 
 void tst_seq_rewriter() {
+    tst_ho_structural_rewrites();
     tst_replace_contains();
     tst_extract_equal_offset_length();
     tst_delete_first_character();

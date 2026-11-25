@@ -147,6 +147,7 @@ class seq_rewriter {
     bool is_subset(expr* r1, expr* r2) const;
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
+    expr_ref compose_seq_functions(expr* f, expr* g);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
     br_status mk_seq_power(expr* a, expr* b, expr_ref& result);

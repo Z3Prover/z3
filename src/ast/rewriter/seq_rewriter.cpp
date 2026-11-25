@@ -163,6 +163,25 @@ br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
+    auto kind = f->get_decl_kind();
+    if ((kind == OP_SEQ_MAP || kind == OP_SEQ_MAPI || kind == OP_SEQ_FOLDL || kind == OP_SEQ_FOLDLI) && is_lambda(args[0])) {
+        quantifier* q = to_quantifier(args[0]);
+        svector<symbol> names;
+        bool canonical = true;
+        for (unsigned j = 0; j < q->get_num_decls(); ++j) {
+            names.push_back(symbol(j));
+            canonical &= q->get_decl_name(j) == names.back();
+        }
+        // Lambda binder names participate in AST identity even though they do not affect semantics.
+        if (!canonical) {
+            expr_ref_vector normalized(m());
+            normalized.push_back(m().mk_lambda(q->get_num_decls(), q->get_decl_sorts(), names.data(), q->get_expr()));
+            for (unsigned j = 1; j < num_args; ++j)
+                normalized.push_back(args[j]);
+            result = m().mk_app(f, num_args, normalized.data());
+            return BR_REWRITE3;
+        }
+    }
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
         
@@ -2495,7 +2514,41 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
    nth_i(map(f,s), i) = f(nth_i(s, i))
 
  */
+expr_ref seq_rewriter::compose_seq_functions(expr* f, expr* g) {
+    unsigned arity = get_array_arity(f->get_sort());
+    unsigned g_arity = get_array_arity(g->get_sort());
+    SASSERT(g_arity == 1 || (g_arity == 2 && arity == 2));
+    var_shifter shift(m());
+    expr_ref shifted_f(m()), shifted_g(m());
+    shift(f, arity, shifted_f);
+    shift(g, arity, shifted_g);
+    ptr_vector<sort> sorts;
+    svector<symbol> names;
+    expr_ref_vector args(m());
+    args.push_back(shifted_f);
+    for (unsigned j = 0; j < arity; ++j) {
+        sort* s = j + 1 == arity ? get_array_domain(g->get_sort(), g_arity - 1) : get_array_domain(f->get_sort(), j);
+        sorts.push_back(s);
+        names.push_back(symbol(j));
+        args.push_back(m().mk_var(arity - j - 1, s));
+    }
+    array_util arrays(m());
+    expr_ref_vector inner(m());
+    inner.push_back(shifted_g);
+    if (g_arity == 2)
+        inner.push_back(args.get(1));
+    inner.push_back(args.back());
+    args.set(args.size() - 1, arrays.mk_select(inner));
+    expr_ref body(arrays.mk_select(args), m());
+    return expr_ref(m().mk_lambda(arity, sorts.data(), names.data(), body), m());
+}
+
 br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
+    if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 1 &&
+        is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 0) {
+        result = seqA;
+        return BR_DONE;
+    }
     if (str().is_empty(seqA)) {
         result = str().mk_empty(str().mk_seq(get_array_range(f->get_sort())));
         return BR_DONE;
@@ -2514,10 +2567,20 @@ br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
         result = str().mk_concat(m1, m2);
         return BR_REWRITE2;
     }
+    if (str().is_map(seqA, a, s1)) {
+        expr_ref composed = compose_seq_functions(f, a);
+        result = str().mk_map(composed, s1);
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& result) {
+    if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 2 &&
+        is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 0) {
+        result = seqA;
+        return BR_DONE;
+    }
     if (str().is_empty(seqA)) {
         result = str().mk_empty(str().mk_seq(get_array_range(f->get_sort())));
         return BR_DONE;
@@ -2536,10 +2599,38 @@ br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& resu
         result = str().mk_concat(left, right);
         return BR_REWRITE2;
     }
+    if (!m_autil.is_zero(i)) {
+        var_shifter shift(m());
+        expr_ref shifted_f(m()), shifted_i(m());
+        shift(f, 2, shifted_f);
+        shift(i, 2, shifted_i);
+        sort* sorts[] = {m_autil.mk_int(), get_array_domain(f->get_sort(), 1)};
+        symbol names[] = {symbol("i"), symbol("x")};
+        expr_ref index(m().mk_var(1, sorts[0]), m());
+        index = m_autil.mk_add(index, shifted_i);
+        expr_ref value(m().mk_var(0, sorts[1]), m());
+        expr* args[] = {shifted_f, index, value};
+        expr_ref body(array_util(m()).mk_select(3, args), m());
+        expr_ref normalized(m().mk_lambda(2, sorts, names, body), m());
+        expr_ref zero(m_autil.mk_int(0), m());
+        result = str().mk_mapi(normalized, zero, seqA);
+        return BR_REWRITE3;
+    }
+    expr* start;
+    if (str().is_mapi(seqA, a, start, s1) && m_autil.is_zero(start)) {
+        expr_ref composed = compose_seq_functions(f, a);
+        result = str().mk_mapi(composed, i, s1);
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& result) {
+    if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 2 &&
+        is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 1) {
+        result = b;
+        return BR_DONE;
+    }
     if (str().is_empty(seqA)) {
         result = b;
         return BR_DONE;
@@ -2556,10 +2647,20 @@ br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& res
         result = str().mk_foldl(f, result, s2);
         return BR_REWRITE3;
     }
+    if (str().is_map(seqA, a, s1)) {
+        expr_ref composed = compose_seq_functions(f, a);
+        result = str().mk_foldl(composed, b, s1);
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, expr_ref& result) {
+    if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 3 &&
+        is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 1) {
+        result = b;
+        return BR_DONE;
+    }
     if (str().is_empty(seqA)) {
         result = b;
         return BR_DONE;
@@ -2575,6 +2676,11 @@ br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, exp
         expr_ref j(m_autil.mk_add(i, str().mk_length(s1)), m());
         result = str().mk_foldli(f, i, b, s1);
         result = str().mk_foldli(f, j, result, s2);
+        return BR_REWRITE3;
+    }
+    if (str().is_map(seqA, a, s1)) {
+        expr_ref composed = compose_seq_functions(f, a);
+        result = str().mk_foldli(composed, i, b, s1);
         return BR_REWRITE3;
     }
     return BR_FAILED;
