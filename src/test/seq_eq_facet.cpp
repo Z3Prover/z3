@@ -1864,6 +1864,61 @@ namespace {
         )");
     }
 
+    static void tst_nseq_ho_lengths() {
+        char const* cases[] = {
+            R"(
+                (declare-const s (Seq Int))
+                (assert (= (seq.map (lambda ((x Int)) (- x 5)) s) (seq.unit (- 10))))
+                (assert (not (= s (seq.unit (- 5)))))
+            )",
+            R"(
+                (declare-const s (Seq Int))
+                (assert (= (seq.unit (- 16))
+                    (seq.mapi (lambda ((i Int) (x Int)) (+ x (- 5) i)) (- 6) s)))
+                (assert (not (= s (seq.unit (- 5)))))
+            )",
+            R"(
+                (declare-const s (Seq Int))
+                (declare-fun f (Int) Bool)
+                (assert (= (seq.map f s) (seq.++ (seq.unit true) (seq.unit false))))
+                (assert (not (= (seq.len s) 2)))
+            )",
+            R"(
+                (declare-const s (Seq Int))
+                (declare-const f (Array Int Int Bool))
+                (assert (= (seq.++ (seq.unit true) (seq.unit false)) (seq.mapi f 3 s)))
+                (assert (not (= (seq.len s) 2)))
+            )"
+        };
+        for (bool proofs : {false, true}) {
+            for (char const* input : cases) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                scoped_rlimit limit(m.limit(), 100000);
+                cmd_context cmd(false, &m);
+                std::istringstream is(input);
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_bool("model", true);
+                ref<solver> s = mk_smt2_solver(m, p, symbol("ALL"));
+                unsigned last = cmd.assertions().size() - 1;
+                for (unsigned i = 0; i < last; ++i)
+                    s->assert_expr(cmd.assertions().get(i));
+                s->push();
+                s->assert_expr(cmd.assertions().get(last));
+                ENSURE(s->check_sat(0, nullptr) == l_false);
+                s->pop(1);
+                ENSURE(s->check_sat(0, nullptr) == l_true);
+                model_ref md;
+                s->get_model(md);
+                ENSURE(md);
+                for (unsigned i = 0; i < last; ++i)
+                    ENSURE(md->is_true(cmd.assertions().get(i)));
+            }
+        }
+    }
+
     static void tst_nseq_array_map_models() {
         check_nseq_candidate_model(R"(
             (declare-const f (Array Int Int Bool))
@@ -2566,6 +2621,7 @@ void tst_seq_eq_facet() {
     tst_nseq_qfs_character_models();
     tst_nseq_large_membership_models();
     tst_nseq_large_witness_models();
+    tst_nseq_ho_lengths();
     tst_nseq_array_map_models();
     tst_nseq_incremental_array_map_models();
     tst_nseq_epsilon_intersection_models();

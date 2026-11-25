@@ -141,6 +141,24 @@ namespace seq {
 
         bool is_unfolded(app* term) const { return m_unfolded.contains(term); }
 
+        bool propagate_lengths() {
+            unsigned num_terms = m_terms.size();
+            bool progress = false;
+            for (unsigned i = 0; i < num_terms; ++i) {
+                app* term = m_terms.get(i);
+                expr* f = nullptr, *s = nullptr, *idx = nullptr;
+                if (!is_ho_map(term, f, idx, s))
+                    continue;
+                expr_ref len_map(m_seq.str.mk_length(term), m);
+                expr_ref len_s(m_seq.str.mk_length(s), m);
+                if (m_add_eq(len_map, len_s, nullptr)) {
+                    ++m_num_length_axioms;
+                    progress = true;
+                }
+            }
+            return progress;
+        }
+
         bool propagate() {
             unsigned num_terms = m_terms.size();
             bool progress = false;
@@ -196,18 +214,7 @@ namespace seq {
                 }
             }
 
-            for (unsigned i = 0; i < num_terms; ++i) {
-                app* term = m_terms.get(i);
-                expr* f = nullptr, *s = nullptr, *idx = nullptr;
-                if (!is_ho_map(term, f, idx, s))
-                    continue;
-                expr_ref len_map(m_seq.str.mk_length(term), m);
-                expr_ref len_s(m_seq.str.mk_length(s), m);
-                if (m_add_eq(len_map, len_s, nullptr)) {
-                    ++m_num_length_axioms;
-                    progress = true;
-                }
-            }
+            progress |= propagate_lengths();
             return progress;
         }
 

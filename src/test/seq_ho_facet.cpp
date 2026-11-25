@@ -53,10 +53,12 @@ static void tst_unfolded_obligations() {
             return output != nullptr;
         });
     facet.add_term(mapped);
-    ENSURE(facet.propagate());
+    ENSURE(facet.propagate_lengths());
     ENSURE(!facet.is_satisfied());
     trail.push_scope();
     elaborate = true;
+    ENSURE(!facet.propagate_lengths());
+    ENSURE(!facet.is_satisfied());
     ENSURE(facet.propagate());
     ENSURE(facet.is_satisfied());
     {
