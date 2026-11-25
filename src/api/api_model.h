@@ -22,6 +22,7 @@ Revision History:
 
 struct Z3_model_ref : public api::object {
     model_ref  m_model;
+    bool m_symbolic = false;
     Z3_model_ref(api::context& c): api::object(c) {}
 };
 
@@ -49,5 +50,4 @@ struct Z3_func_entry_ref : public api::object {
 inline Z3_func_entry_ref * to_func_entry(Z3_func_entry s) { return reinterpret_cast<Z3_func_entry_ref *>(s); }
 inline Z3_func_entry of_func_entry(Z3_func_entry_ref * s) { return reinterpret_cast<Z3_func_entry>(s); }
 inline func_entry const * to_func_entry_ref(Z3_func_entry s) { return to_func_entry(s)->m_func_entry; }
-
 

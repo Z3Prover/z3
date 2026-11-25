@@ -162,8 +162,17 @@ extern "C" {
         params_ref p;
         ast_manager& mgr = mk_c(c)->m();
         expr_ref result(mgr);
-        model::scoped_model_completion _scm(*_m, model_completion);
-        result = (*_m)(to_expr(t));
+        if (to_model(m)->m_symbolic && !model_completion) {
+            model_evaluator ev(*_m);
+            ev.set_model_completion(false);
+            ev.set_symbolic(true);
+            ev.set_expand_array_equalities(false);
+            result = ev(to_expr(t));
+        }
+        else {
+            model::scoped_model_completion _scm(*_m, model_completion);
+            result = (*_m)(to_expr(t));
+        }
         mk_c(c)->save_ast_trail(result.get());
         if (v) *v = of_ast(result.get());
         RETURN_Z3_model_eval true;
@@ -220,6 +229,7 @@ extern "C" {
         Z3_model_ref* dst = alloc(Z3_model_ref, *mk_c(target));
         ast_translation tr(mk_c(c)->m(), mk_c(target)->m());
         dst->m_model = to_model_ref(m)->translate(tr);
+        dst->m_symbolic = to_model(m)->m_symbolic;
         mk_c(target)->save_object(dst);
         RETURN_Z3(of_model(dst));
         Z3_CATCH_RETURN(nullptr);

@@ -1,0 +1,22 @@
+{
+  "pull_request": 11672,
+  "head_sha": "30cf1143a94622b8c394caccce1b986637566cb4",
+  "base_sha": "d72de58d9e36009f1397377cd185342474c8ecfb",
+  "path_prefix": "fstar/audits/pr-11672/30cf1143a94622b8c394caccce1b986637566cb4/",
+  "verdict": "inconclusive",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43306906658",
+  "files": [
+    {
+      "name": "PartialModel.fst",
+      "sha256": "7ee34026f20e0bd434da2d8bceecd2963b27619c54dfa08a172abc7bc26cead3"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "9928b08dfde647a87c70914d5d08df871380a1bbeff5a493854e982328184727"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "c89d5666929070645627e1334e8961e1d02443aa1fb77cf0884d0f74bc904320"
+    }
+  ]
+}
