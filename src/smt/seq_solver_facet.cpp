@@ -254,6 +254,30 @@ namespace seq {
                 else if (all_of(*app_term, [&](expr* arg) { return m.is_value(arg); }))
                     fi->eval_else(app_term->get_args(), value);
             }
+            // `select` has no func_interp of its own in this backend; the
+            // array's content lives in whatever function its `as-array`
+            // value wraps. If the array argument (already resolved, by
+            // the postorder walk, to `(_ as-array g)` when known) wraps a
+            // function, look up g's interpretation directly and apply it
+            // to the remaining (index) arguments - this is a bounded
+            // lookup, not a re-derivation, so it carries none of the
+            // divergence risk the skolem guard below exists to avoid.
+            func_decl* arr_f = nullptr;
+            if (!value && arrays.is_select(app_term) && arrays.is_as_array(app_term->get_arg(0), arr_f)) {
+                if (func_interp* arr_fi = md->get_func_interp(arr_f)) {
+                    expr* const* idx_args = app_term->get_args() + 1;
+                    unsigned num_idx = app_term->get_num_args() - 1;
+                    if (func_entry* entry = arr_fi->get_entry(idx_args))
+                        value = entry->get_result();
+                    else {
+                        bool idx_all_values = true;
+                        for (unsigned i = 0; i < num_idx && idx_all_values; ++i)
+                            idx_all_values = m.is_value(idx_args[i]);
+                        if (idx_all_values)
+                            arr_fi->eval_else(idx_args, value);
+                    }
+                }
+            }
             // A sequence-sorted application with no func_interp is a foreign
             // skolem (e.g. seq.tail/seq.pre/seq.at) this arithmetic-only
             // backend (string_solver=none) never asserted anything about.
