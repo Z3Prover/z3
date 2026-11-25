@@ -30,6 +30,7 @@ Authors:
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "params/seq_rewriter_params.hpp"
 #include <functional>
@@ -1217,6 +1218,18 @@ bool seq_rewriter::extract_push_length(expr_ref_vector& as, expr* b, expr* c, ex
 
 
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
+    expr* function, *input, *start;
+    if (str().is_map(a, function, input)) {
+        expr_ref slice(str().mk_substr(input, b, c), m());
+        result = str().mk_map(function, slice);
+        return BR_REWRITE2;
+    }
+    if (str().is_mapi(a, function, start, input)) {
+        expr_ref slice(str().mk_substr(input, b, c), m());
+        expr_ref offset(m_autil.mk_add(start, b), m());
+        result = str().mk_mapi(function, offset, slice);
+        return BR_REWRITE2;
+    }
     zstring s;
     rational pos, len;
 
@@ -1821,6 +1834,18 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
 
 
 br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
+    expr* f, *s, *start;
+    if (str().is_map(a, f, s)) {
+        expr* args[2] = { f, str().mk_nth_i(s, b) };
+        result = array_util(m()).mk_select(2, args);
+        return BR_REWRITE1;
+    }
+    if (str().is_mapi(a, f, start, s)) {
+        expr_ref index(m_autil.mk_add(start, b), m());
+        expr* args[3] = { f, index, str().mk_nth_i(s, b) };
+        result = array_util(m()).mk_select(3, args);
+        return BR_REWRITE2;
+    }
     zstring c;
     rational r;
     rational length;
@@ -1847,13 +1872,6 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     expr* a2, *i2;
     if (offset == 0 && str().is_at(a, a2, i2) && m_autil.is_numeral(i2, r) && r.is_zero()) {
         result = str().mk_nth_i(a2, i2);
-        return BR_REWRITE1;
-    }
-
-    expr* f, *s;
-    if (str().is_map(a, f, s)) {
-        expr* args[2] = { f, str().mk_nth_i(s, b) };
-        result = array_util(m()).mk_select(2, args);
         return BR_REWRITE1;
     }
 
@@ -2539,6 +2557,108 @@ br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& resu
     return BR_FAILED;
 }
 
+br_status seq_rewriter::mk_seq_fold_summary(expr* f, expr* i, expr* b, expr* s, expr_ref& result) {
+    unsigned arity = i ? 3 : 2;
+    if (!is_lambda(f) || to_quantifier(f)->get_num_decls() != arity)
+        return BR_FAILED;
+    quantifier* q = to_quantifier(f);
+    expr* body = q->get_expr();
+    th_rewriter rw(m());
+    auto apply = [&](expr* body, expr_ref_vector const& args, unsigned binders = 0) {
+        expr_ref function(m().mk_lambda(arity, q->get_decl_sorts(), q->get_decl_names(), body), m());
+        if (binders) {
+            var_shifter shift(m());
+            shift(function, binders, function);
+        }
+        expr_ref_vector values(m());
+        values.push_back(function);
+        values.append(args);
+        expr_ref value(array_util(m()).mk_select(values), m());
+        rw(value);
+        return value;
+    };
+    expr_ref acc(m().mk_var(1, b->get_sort()), m());
+    expr* left, *right, *element;
+    if (str().is_concat(body, left, right) && left == acc && str().is_unit(right, element) &&
+        !expr_free_vars(element).contains(1)) {
+        // Drop the accumulator binder without capturing variables outside the fold lambda.
+        expr_ref_vector args(m());
+        ptr_buffer<sort> sorts;
+        svector<symbol> names;
+        if (i) {
+            sorts.push_back(m_autil.mk_int());
+            names.push_back(symbol("i"));
+            args.push_back(m().mk_var(1, sorts.back()));
+        }
+        args.push_back(acc);
+        sort* element_sort = get_array_domain(f->get_sort(), arity - 1);
+        sorts.push_back(element_sort);
+        names.push_back(symbol("x"));
+        args.push_back(m().mk_var(0, element_sort));
+        expr_ref mapped_element = apply(element, args, arity - 1);
+        expr_ref mapped(m());
+        if (is_var(mapped_element) && to_var(mapped_element)->get_idx() == 0)
+            mapped = s;
+        else {
+            expr_ref function(m().mk_lambda(sorts.size(), sorts.data(), names.data(), mapped_element), m());
+            mapped = i ? str().mk_mapi(function, i, s) : str().mk_map(function, s);
+        }
+        result = str().mk_concat(b, mapped);
+        return BR_REWRITE3;
+    }
+
+    expr_free_vars vars(body);
+    if (vars.contains(0))
+        return BR_FAILED;
+    expr_ref_vector args(m());
+    if (i)
+        args.push_back(i);
+    args.push_back(b);
+    args.push_back(m().mk_var(0, get_array_domain(f->get_sort(), arity - 1)));
+    if (m_autil.is_int(b) && m_autil.is_add(body)) {
+        expr_ref_vector increments(m());
+        unsigned accumulators = 0, indices = 0;
+        bool linear = true;
+        for (expr* term : *to_app(body)) {
+            if (term == acc)
+                ++accumulators;
+            else if (i && is_var(term) && to_var(term)->get_idx() == 2)
+                ++indices;
+            else {
+                expr_free_vars used(term);
+                linear &= !used.contains(1) && (!i || !used.contains(2));
+                increments.push_back(term);
+            }
+        }
+        if (linear && accumulators == 1) {
+            expr_ref stride(increments.empty() ? zero() : m_autil.mk_add(increments.size(), increments.data()), m());
+            stride = apply(stride, args);
+            expr_ref length(str().mk_length(s), m());
+            expr_ref total(m_autil.mk_mul(length, stride), m());
+            if (indices) {
+                expr_ref previous(m_autil.mk_sub(length, one()), m());
+                expr_ref pairs(m_autil.mk_mul(length, previous), m());
+                pairs = m_autil.mk_idiv(pairs, m_autil.mk_int(2));
+                expr_ref index_sum(m_autil.mk_mul(length, i), m());
+                index_sum = m_autil.mk_add(index_sum, pairs);
+                index_sum = m_autil.mk_mul(m_autil.mk_int(indices), index_sum);
+                total = m_autil.mk_add(total, index_sum);
+            }
+            result = m_autil.mk_add(b, total);
+            return BR_REWRITE3;
+        }
+    }
+    if (i && vars.contains(2))
+        return BR_FAILED;
+    expr_ref first = apply(body, args);
+    args.set(arity - 2, first);
+    expr_ref second = apply(body, args);
+    if (first != second)
+        return BR_FAILED;
+    result = first == b ? b : m().mk_ite(str().mk_is_empty(s), b, first);
+    return BR_REWRITE3;
+}
+
 br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& result) {
     if (str().is_empty(seqA)) {
         result = b;
@@ -2556,7 +2676,7 @@ br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& res
         result = str().mk_foldl(f, result, s2);
         return BR_REWRITE3;
     }
-    return BR_FAILED;
+    return mk_seq_fold_summary(f, nullptr, b, seqA, result);
 }
 
 br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, expr_ref& result) {
@@ -2577,7 +2697,7 @@ br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, exp
         result = str().mk_foldli(f, j, result, s2);
         return BR_REWRITE3;
     }
-    return BR_FAILED;
+    return mk_seq_fold_summary(f, i, b, seqA, result);
 }
 
 /*
@@ -2632,7 +2752,21 @@ br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& r
     return BR_FAILED;
 }
 
+bool seq_rewriter::is_fold_prefix_suffix(expr* seed, expr* term, bool prefix) {
+    expr* f, *b, *s, *i;
+    if ((!str().is_foldl(term, f, b, s) && !str().is_foldli(term, f, i, b, s)) ||
+        seed != b || !is_lambda(f))
+        return false;
+    expr* body = to_quantifier(f)->get_expr();
+    expr* edge = prefix ? str().get_leftmost_concat(body) : str().get_rightmost_concat(body);
+    return is_var(edge) && to_var(edge)->get_idx() == 1;
+}
+
 br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
+    if (is_fold_prefix_suffix(a, b, true)) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
     TRACE(seq, tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
     zstring s1, s2;
     bool isc1 = str().is_string(a, s1);
@@ -2776,6 +2910,10 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
+    if (is_fold_prefix_suffix(a, b, false)) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
     if (a == b) {
         result = m().mk_true();
         return BR_DONE;
@@ -2907,6 +3045,11 @@ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_str_from_code(expr* a, expr_ref& result) {
+    expr* ch;
+    if (u().is_char2int(a, ch)) {
+        result = str().mk_unit(ch);
+        return BR_REWRITE1;
+    }
     rational r;
     if (m_autil.is_numeral(a, r)) {
         if (r.is_neg() || r > u().max_char()) {
