@@ -107,6 +107,11 @@ protected:
     bool is_numeral(expr * n) const override;
 public:
     maximize_bv_sharing(ast_manager & m);
+    br_status reduce_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result, proof_ref& result_pr) {
+        if (f->get_family_id() != m_util.get_family_id())
+            return BR_FAILED;
+        return maximize_ac_sharing::reduce_app(f, n, args, result, result_pr);
+    }
 };
 
 class maximize_bv_sharing_rw : public rewriter_tpl<maximize_bv_sharing> {
