@@ -51,7 +51,6 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         str.find("NIA") != std::string::npos ||
         str.find("IDL") != std::string::npos ||
         str.find("RDL") != std::string::npos ||
-        str == "QF_BVRE" ||
         logic_has_fpa(s) ||
         str == "QF_S" ||
         logic_is_all(s) ||
@@ -93,7 +92,7 @@ bool smt_logics::logic_has_array(symbol const & s) {
 }
 
 bool smt_logics::logic_has_seq(symbol const & s) {
-    return s == "QF_BVRE" || logic_has_str(s);
+    return logic_has_str(s);
 }
 
 bool smt_logics::logic_has_str(symbol const & s) {

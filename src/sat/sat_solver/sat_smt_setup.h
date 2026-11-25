@@ -74,7 +74,6 @@ namespace sat_smt {
         void setup_UFLRA();
         void setup_AUFLIAp();
         void setup_AUFNIRA();
-        void setup_QF_BVRE();
         void setup_unknown();
         void setup_unknown(static_features & st);
 

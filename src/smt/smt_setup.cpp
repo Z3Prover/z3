@@ -110,8 +110,6 @@ namespace smt {
             setup_QF_AUFBV();
         else if (m_logic == "QF_UFBV")
             setup_QF_AUFBV();
-        else if (m_logic == "QF_BVRE")
-            setup_QF_BVRE();
         else if (m_logic == "AUFLIA")
             setup_AUFLIA();
         else if (m_logic == "AUFLIRA")
@@ -186,8 +184,6 @@ namespace smt {
                 setup_QF_UFLRA();
             else if (m_logic == "QF_AX")
                 setup_QF_AX(st);
-            else if (m_logic == "QF_BVRE")
-                 setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
             else if (m_logic == "QF_S")
@@ -236,19 +232,6 @@ namespace smt {
         setup_QF_UF();
         setup_datatypes();
         setup_recfuns();
-    }
-
-    void setup::setup_QF_BVRE() {
-        setup_QF_BV();
-        setup_QF_LIA();
-        // Respect smt.string_solver like setup_QF_S() does, instead of always
-        // registering the legacy theory_seq: nseq is equally applicable here
-        // (the sequence theory is generic in its element sort), and silently
-        // falling back to seq would defeat smt.string_solver=nseq/auto.
-        if (m_params.m_string_solver == "nseq" || m_params.m_string_solver == "auto")
-            setup_nseq();
-        else
-            setup_seq();
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
