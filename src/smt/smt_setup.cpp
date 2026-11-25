@@ -150,16 +150,8 @@ namespace smt {
             setup_QF_FPBV();
         else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
             setup_QF_S();
-        else if (m_logic == "QF_DT") {
-            static_features st(m_manager);
-            ptr_vector<expr> fmls;
-            m_context.get_asserted_formulas(fmls);
-            st.collect(fmls.size(), fmls.data());
-            if (has_non_datatype_theory(st))
-                setup_unknown();
-            else
-                setup_QF_DT();
-        }
+        else if (m_logic == "QF_DT") 
+             setup_QF_DT();        
         else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
             setup_ff();
         else
@@ -254,6 +246,7 @@ namespace smt {
 
     void setup::setup_QF_DT() {
         setup_QF_UF();
+        setup_QF_BV();
         setup_datatypes();
         setup_recfuns();
     }
