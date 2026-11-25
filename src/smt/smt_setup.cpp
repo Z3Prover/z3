@@ -80,6 +80,12 @@ namespace smt {
         m_context.register_plugin(alloc(theory_ff, m_context));
     }
 
+    // NB. setup_QF_DT registers datatypes, bit-vectors and recursive functions only. 
+    static bool has_non_datatype_theory(static_features const& st) {
+        return st.m_has_fpa || st.m_has_arrays || st.m_has_int || st.m_has_real ||
+               st.m_has_str || st.m_has_seq_non_str || st.m_has_ff || st.m_has_sr;
+    }
+
     void setup::setup_default() {
         if (m_logic == "QF_UF") 
             setup_QF_UF();
@@ -141,8 +147,8 @@ namespace smt {
             setup_QF_FPBV();
         else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
             setup_QF_S();
-        else if (m_logic == "QF_DT")
-            setup_QF_DT();
+        else if (m_logic == "QF_DT") 
+             setup_QF_DT();        
         else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
             setup_ff();
         else
@@ -211,8 +217,12 @@ namespace smt {
                 setup_AUFLIRA();
             else if (m_logic == "UFNIA")
                 setup_UFNIA();
-            else if (m_logic == "QF_DT")
-                setup_QF_DT();
+            else if (m_logic == "QF_DT") {
+                if (has_non_datatype_theory(st))
+                    setup_unknown();
+                else
+                    setup_QF_DT();
+            }
             else if (m_logic == "LRA")
                 setup_LRA();
             else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
@@ -233,6 +243,7 @@ namespace smt {
 
     void setup::setup_QF_DT() {
         setup_QF_UF();
+        setup_QF_BV();
         setup_datatypes();
         setup_recfuns();
     }
