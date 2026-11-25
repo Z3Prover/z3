@@ -26,6 +26,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
@@ -4905,7 +4906,18 @@ namespace smt {
     bool context::is_beta_redex(enode* p, enode* n) const {
         family_id th_id = p->get_family_id();
         theory * th = get_theory(th_id);
-        return th && th->is_beta_redex(p, n);
+        if (th && th->is_beta_redex(p, n))
+            return true;
+        // seq.map/mapi/foldl/foldli applications are beta redexes in their
+        // function argument regardless of which (if any) theory is
+        // registered for the seq family in this context: the check is a
+        // purely syntactic AST fact, not search state, so it must hold the
+        // same way in a nested subsolver that never registers theory_nseq
+        // (e.g. nseq's own arithmetic-only backend) as it does at top level.
+        expr* e = p->get_expr();
+        seq_util seq(m);
+        return seq.str.is_ho_term(e) && to_app(e)->get_num_args() > 0 &&
+               p->get_arg(0)->get_root() == n->get_root();
     }
 
     bool context::get_value(enode * n, expr_ref & value) {

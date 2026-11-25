@@ -39,7 +39,15 @@ namespace seq {
         p.set_bool("seq.regular", false);
         // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
-        m_solver = mk_smt_solver(m, p, symbol("ALL"), true);
+        // No "fake" array support: context::is_beta_redex recognizes
+        // seq.map/mapi/foldl/foldli applications structurally (see
+        // smt_context.cpp), so the array theory can tell a higher-order
+        // function array's only use is its own defining application without
+        // needing theory_nseq registered in this backend. Faking array
+        // completeness here previously let genuinely unrelated array
+        // content (e.g. a plain `(Array Int String)` modeling a Java
+        // String[]) go unchecked, producing internally inconsistent models.
+        m_solver = mk_smt_solver(m, p, symbol("ALL"), false);
     }
 
     sub_solver::~sub_solver() {
