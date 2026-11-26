@@ -1919,6 +1919,124 @@ namespace {
         }
     }
 
+    static void tst_nseq_map_predicates() {
+        for (bool proofs : {false, true}) {
+            for (bool indexed : {false, true}) {
+                for (unsigned kind = 0; kind < 3; ++kind) {
+                    std::string input = "(declare-const p (Seq Int))(declare-const s (Seq Int))";
+                    input += indexed ? "(declare-const F (Array Int Int Bool))" : "(declare-const F (Array Int Bool))";
+                    input += "(assert (not (= (seq.at p 0) (as seq.empty (Seq Int)))))(assert (= (seq.nth p 0) 2))";
+                    if (kind == 2 && indexed)
+                        input += "(assert (= p (seq.extract s 2 (seq.len p))))(assert (<= (+ 2 (seq.len p)) (seq.len s)))";
+                    else if (kind == 2)
+                        input += "(assert (seq.contains s p))";
+                    else
+                        input += kind == 0 ? "(assert (seq.prefixof p s))" : "(assert (seq.suffixof p s))";
+                    std::string mapped_s = indexed ? "(seq.mapi F (- 3) s)" : "(seq.map F s)";
+                    std::string mapped_p = "(seq.map F p)";
+                    if (indexed) {
+                        std::string offset = kind == 0 ? "(- 3)" : kind == 1 ?
+                            "(+ (- 3) (- (seq.len s) (seq.len p)))" : "(- 1)";
+                        mapped_p = "(seq.mapi F " + offset + " p)";
+                    }
+                    std::string predicate = kind == 0 ? "(seq.prefixof " : kind == 1 ? "(seq.suffixof " : "(seq.contains ";
+                    predicate += kind == 2 ? mapped_s + " " + mapped_p : mapped_p + " " + mapped_s;
+                    predicate += ")";
+                    input += "(assert (not " + predicate + "))";
+                    ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                    reg_decl_plugins(m);
+                    scoped_rlimit limit(m.limit(), 4000000);
+                    cmd_context cmd(false, &m);
+                    std::istringstream is(input);
+                    ENSURE(parse_smt2_commands(cmd, is));
+                    params_ref params;
+                    params.set_sym("string_solver", symbol("nseq"));
+                    params.set_bool("model", true);
+                    params.set_bool("unsat_core", true);
+                    ref<solver> solver = mk_smt2_solver(m, params, symbol("ALL"));
+                    unsigned last = cmd.assertions().size() - 1;
+                    for (unsigned j = 0; j < last; ++j)
+                        solver->assert_expr(cmd.assertions().get(j));
+                    for (unsigned cycle = 0; cycle < 2; ++cycle) {
+                        solver->push();
+                        expr_ref guard(m.mk_fresh_const("denied", m.mk_bool_sort()), m);
+                        solver->assert_expr(m.mk_implies(guard, cmd.assertions().get(last)));
+                        expr* assumptions[] = {guard};
+                        lbool denied_result = solver->check_sat(1, assumptions);
+                        if (denied_result != l_false)
+                            std::cerr << "map predicate denial: " << proofs << " " << indexed << " " << kind << " " << cycle
+                                      << " result " << denied_result << " " << solver->reason_unknown()
+                                      << " count " << m.limit().count() << "\n" << input << "\n";
+                        ENSURE(denied_result == l_false);
+                        expr_ref_vector core(m);
+                        solver->get_unsat_core(core);
+                        ENSURE(core.size() == 1 && core.get(0) == guard);
+                        solver->pop(1);
+                        solver->push();
+                        expr_ref positive(m.mk_not(cmd.assertions().get(last)), m);
+                        solver->assert_expr(positive);
+                        lbool result = solver->check_sat(0, nullptr);
+                        if (result != l_true)
+                            std::cerr << "map predicate model: " << proofs << " " << indexed << " " << kind << " " << cycle
+                                      << " result " << result << "\n" << input << "\n";
+                        ENSURE(result == l_true);
+                        model_ref md;
+                        solver->get_model(md);
+                        ENSURE(md && md->is_true(positive));
+                        for (unsigned j = 0; j < last; ++j)
+                            ENSURE(md->is_true(cmd.assertions().get(j)));
+                        solver->pop(1);
+                    }
+                }
+            }
+            char const* counterexamples[] = {
+                R"(
+                    (declare-const p (Seq Int))(declare-const s (Seq Int))
+                    (assert (= p (seq.unit 0)))
+                    (assert (= s (seq.++ (seq.unit 1) p)))
+                    (assert (seq.suffixof p s))
+                    (assert (not (seq.suffixof
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 0 p)
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 0 s))))
+                )",
+                R"(
+                    (declare-const p (Seq Int))(declare-const s (Seq Int))
+                    (assert (= p (seq.unit 0)))(assert (= s p))
+                    (assert (seq.prefixof p s))
+                    (assert (not (seq.prefixof
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 0 p)
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 1 s))))
+                )",
+                R"(
+                    (declare-const p (Seq Int))(declare-const s (Seq Int))
+                    (assert (= p (seq.unit 0)))(assert (= s p))
+                    (assert (seq.contains s p))
+                    (assert (not (seq.contains
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 0 s)
+                        (seq.mapi (lambda ((i Int)(x Int)) (= i 0)) 1 p))))
+                )",
+                R"(
+                    (declare-const p (Seq Int))(declare-const s (Seq Int))
+                    (assert (= p (seq.unit 0)))(assert (= s p))
+                    (assert (seq.prefixof p s))
+                    (assert (not (seq.prefixof
+                        (seq.map (lambda ((x Int)) true) p)
+                        (seq.map (lambda ((x Int)) false) s))))
+                )",
+                R"(
+                    (declare-const p (Seq Int))(declare-const s (Seq Int))
+                    (assert (= p (seq.unit 0)))(assert (= s (seq.unit 1)))
+                    (assert (not (seq.prefixof p s)))
+                    (assert (seq.prefixof
+                        (seq.map (lambda ((x Int)) false) p)
+                        (seq.map (lambda ((x Int)) false) s)))
+                )"
+            };
+            for (char const* input : counterexamples)
+                check_nseq_candidate_model(input, true, nullptr, 1000000, "ALL", proofs);
+        }
+    }
+
     static void tst_nseq_array_map_models() {
         check_nseq_candidate_model(R"(
             (declare-const f (Array Int Int Bool))
@@ -2622,6 +2740,7 @@ void tst_seq_eq_facet() {
     tst_nseq_large_membership_models();
     tst_nseq_large_witness_models();
     tst_nseq_ho_lengths();
+    tst_nseq_map_predicates();
     tst_nseq_array_map_models();
     tst_nseq_incremental_array_map_models();
     tst_nseq_epsilon_intersection_models();

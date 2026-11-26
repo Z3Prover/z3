@@ -545,6 +545,8 @@ namespace smt {
         }
 
         if (m_seq.str.is_prefix(e, e1, e2)) {
+            if (!is_true)
+                add_ho_predicate_axiom(e);
             // True prefix constraints become e2 = e1 ++ f; false ones are
             // handled by the standard prefix axiom.
             if (is_true) {
@@ -556,8 +558,8 @@ namespace smt {
                 rhs.push_back(f); // fresh existential
                 proof_ref pr = equation_proof(lhs, rhs, "seq-prefix-witness");
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
-                if (ctx.has_quantifiers()) {
-                    // E-matching must see the existential decomposition, not just the private facet.
+                if (ctx.has_quantifiers() || is_ho_input(e2)) {
+                    // E-matching and HO rewriting need the decomposition outside the private facet.
                     expr_ref concat(m_seq.str.mk_concat(e1, f), m);
                     propagate_eq(lit, e2, concat);
                 }
@@ -568,6 +570,8 @@ namespace smt {
         }
 
         if (m_seq.str.is_suffix(e, e1, e2)) {
+            if (!is_true)
+                add_ho_predicate_axiom(e);
             // True suffix constraints become e2 = f ++ e1; false ones are
             // handled by the standard suffix axiom.
             if (is_true) {
@@ -580,7 +584,7 @@ namespace smt {
                 rhs.append(tokenize(dep, e1));
                 proof_ref pr = equation_proof(lhs, rhs, "seq-suffix-witness");
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
-                if (ctx.has_quantifiers()) {
+                if (ctx.has_quantifiers() || is_ho_input(e2)) {
                     expr_ref concat(m_seq.str.mk_concat(f, e1), m);
                     propagate_eq(lit, e2, concat);
                 }
@@ -591,6 +595,8 @@ namespace smt {
         }
 
         if (m_seq.str.is_contains(e, e1, e2)) {
+            if (!is_true)
+                add_ho_predicate_axiom(e);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             if (is_true) {
@@ -629,7 +635,7 @@ namespace smt {
                 rhs.push_back(y);
                 proof_ref pr = equation_proof(lhs, rhs, "seq-contains-witness");
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep, pr);
-                if (ctx.has_quantifiers()) {
+                if (ctx.has_quantifiers() || is_ho_input(e1)) {
                     // Quantified concatenations use the right-associated form.
                     expr_ref suffix(m_seq.str.mk_concat(e2, y), m);
                     expr_ref concat(m_seq.str.mk_concat(x, suffix), m);
@@ -811,6 +817,49 @@ namespace smt {
             m_ax.add_str_from_code_axiom(n);
         else if (m_seq.str.is_to_code(n))
             m_ax.add_str_to_code_axiom(n);
+    }
+
+    void theory_nseq::add_ho_predicate_axiom(expr* term) {
+        expr* left = to_app(term)->get_arg(0), *right = to_app(term)->get_arg(1);
+        expr* f, *g, *s, *t, *i = nullptr, *j = nullptr;
+        bool indexed = m_seq.str.is_mapi(left, f, i, s) && m_seq.str.is_mapi(right, g, j, t);
+        if (!indexed && !(m_seq.str.is_map(left, f, s) && m_seq.str.is_map(right, g, t)))
+            return;
+        if (f != g)
+            return;
+        expr_ref_vector clause(m);
+        expr_ref guard(m);
+        if (m_seq.str.is_prefix(term)) {
+            guard = m_seq.str.mk_prefix(s, t);
+            if (indexed)
+                clause.push_back(m.mk_not(m.mk_eq(i, j)));
+        }
+        else if (m_seq.str.is_suffix(term)) {
+            guard = m_seq.str.mk_suffix(s, t);
+            if (indexed) {
+                expr_ref length_s(m_seq.str.mk_length(s), m);
+                expr_ref length_t(m_seq.str.mk_length(t), m);
+                expr_ref offset(m_autil.mk_sub(length_t, length_s), m);
+                offset = m_autil.mk_add(j, offset);
+                clause.push_back(m.mk_not(m.mk_eq(i, offset)));
+            }
+        }
+        else if (indexed) {
+            expr_ref offset(m_autil.mk_sub(j, i), m);
+            expr_ref length(m_seq.str.mk_length(t), m);
+            expr_ref end(m_autil.mk_add(offset, length), m);
+            expr_ref source_length(m_seq.str.mk_length(s), m);
+            expr_ref zero(m_autil.mk_int(0), m);
+            clause.push_back(m.mk_not(m_autil.mk_ge(offset, zero)));
+            clause.push_back(m.mk_not(m_autil.mk_le(end, source_length)));
+            expr_ref slice(m_seq.str.mk_substr(s, offset, length), m);
+            guard = m.mk_eq(t, slice);
+        }
+        else
+            guard = m_seq.str.mk_contains(s, t);
+        clause.push_back(m.mk_not(guard));
+        clause.push_back(term);
+        m_ax.add_axiom_clause(clause);
     }
 
     bool theory_nseq::add_index_suffix_axiom(expr* e) {
@@ -1281,6 +1330,8 @@ namespace smt {
                 continue;
             expr* input = nullptr, *shape = nullptr;
             VERIFY(hf.is_ho_term(term, input));
+            if (!find_ho_elaboration(input, shape) && propagate_ho_witness(input))
+                return FC_CONTINUE;
             expr_ref length(m_seq.str.mk_length(input), m);
             rational lo, hi;
             if (!hf.is_unfolded(term) && !find_ho_elaboration(input, shape) &&
@@ -1621,6 +1672,54 @@ namespace smt {
                         << mk_bounded_pp(lhs, m, 3) << " = "
                         << mk_bounded_pp(rhs, m, 3) << "\n";);
         return true;
+    }
+
+    bool theory_nseq::is_ho_input(expr* term) const {
+        if (!ctx.e_internalized(term))
+            return false;
+        enode* root = ctx.get_enode(term)->get_root();
+        auto& hf = m_ambient->ho_facet(*m_root);
+        for (enode* parent : root->get_parents()) {
+            expr* input = nullptr;
+            if (ctx.is_relevant(parent) && hf.is_ho_term(parent->get_expr(), input) &&
+                ctx.get_enode(input)->get_root() == root)
+                return true;
+        }
+        return false;
+    }
+
+    bool theory_nseq::propagate_ho_witness(expr* term) {
+        if (!ctx.e_internalized(term))
+            return false;
+        enode* root = ctx.get_enode(term)->get_root();
+        expr_ref_vector predicates(m);
+        for (enode* parent : root->get_parents()) {
+            expr* p = parent->get_expr(), *needle = nullptr, *source = nullptr;
+            if ((m_seq.str.is_prefix(p, needle, source) || m_seq.str.is_suffix(p, needle, source) ||
+                 m_seq.str.is_contains(p, source, needle)) &&
+                ctx.get_enode(source)->get_root() == root && ctx.is_relevant(parent) &&
+                ctx.b_internalized(p) && ctx.get_assignment(ctx.get_literal(p)) == l_true)
+                predicates.push_back(p);
+        }
+        for (expr* p : predicates) {
+            if (m_seq.str.is_contains(p)) {
+                expr* source = to_app(p)->get_arg(0), *needle = to_app(p)->get_arg(1);
+                expr_ref left(m_ambient->mk_fresh_var("contains-left", source->get_sort(), {p}), m);
+                expr_ref right(m_ambient->mk_fresh_var("contains-right", source->get_sort(), {p}), m);
+                expr_ref suffix(m_seq.str.mk_concat(needle, right), m);
+                expr_ref concat(m_seq.str.mk_concat(left, suffix), m);
+                if (propagate_eq(ctx.get_literal(p), source, concat))
+                    return true;
+                continue;
+            }
+            expr* needle = to_app(p)->get_arg(0), *source = to_app(p)->get_arg(1);
+            bool prefix = m_seq.str.is_prefix(p);
+            expr_ref tail(m_ambient->mk_fresh_var(prefix ? "prefix" : "suffix", source->get_sort(), {p}), m);
+            expr_ref concat(prefix ? m_seq.str.mk_concat(needle, tail) : m_seq.str.mk_concat(tail, needle), m);
+            if (propagate_eq(ctx.get_literal(p), source, concat))
+                return true;
+        }
+        return false;
     }
 
     bool theory_nseq::find_ho_elaboration(expr* term, expr*& elaboration) const {
