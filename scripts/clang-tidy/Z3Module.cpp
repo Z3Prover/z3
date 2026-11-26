@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Microsoft Corporation
 // SPDX-License-Identifier: MIT
 #include "AstArgumentOrderCheck.h"
+#include "AstTupleOrderCheck.h"
 #include "CharSignednessCheck.h"
 #include "RandomOrderCheck.h"
 #include "clang-tidy/ClangTidyModule.h"
@@ -11,6 +12,7 @@ class Z3Module : public ClangTidyModule {
 public:
     void addCheckFactories(ClangTidyCheckFactories& factories) override {
         factories.registerCheck<AstArgumentOrderCheck>("z3-ast-argument-order");
+        factories.registerCheck<AstTupleOrderCheck>("z3-ast-tuple-order");
         factories.registerCheck<CharSignednessCheck>("z3-char-signedness");
         factories.registerCheck<RandomOrderCheck>("z3-random-order");
     }
