@@ -1,6 +1,7 @@
 z3_add_component(sat
   SOURCES
     dimacs.cpp
+    sat_activity.cpp
     sat_aig_finder.cpp
     sat_anf_simplifier.cpp
     sat_asymm_branch.cpp

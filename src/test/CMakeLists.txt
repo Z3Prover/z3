@@ -149,6 +149,7 @@ add_executable(test-z3
   region.cpp
   regex_range_collapse.cpp
   sat_local_search.cpp
+  sat_activity.cpp
   sat_config.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp

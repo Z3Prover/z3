@@ -122,7 +122,10 @@ namespace sat {
     void drat::dump_activity() {
         (*m_out) << "c activity ";
         for (unsigned v = 0; v < s.num_vars(); ++v) 
-            (*m_out) << s.m_activity[v] << " ";
+            if (s.double_activity())
+                (*m_out) << s.m_double_activity[v] << " ";
+            else
+                (*m_out) << s.m_activity[v] << " ";
         (*m_out) << "\n";
     }
 

@@ -39,6 +39,7 @@ Abstract:
   SYMBOL_(inprocess_out,                    "inprocess.out",                    "",             "file to dump result of the first inprocessing step and exit") \
   SYMBOL_(branching_heuristic,              "branching.heuristic",              "vsids",        "branching heuristic vsids, chb") \
   BOOL_  (branching_anti_exploration,       "branching.anti_exploration",       false,          "apply anti-exploration heuristic for branch selection") \
+  BOOL_  (activity_truncate,                "activity.truncate",                true,           "keep variable activities as unsigned integers, whose rescaling (a right shift) zeroes small activities; when false, activities are doubles and rescaling preserves their order") \
   DOUBLE_(random_freq,                      "random_freq",                      0.01,           "frequency of random case splits") \
   UINT_  (random_seed,                      "random_seed",                      0,              "random seed") \
   UINT_  (burst_search,                     "burst_search",                     100,            "number of conflicts before first global simplification") \
