@@ -31,10 +31,14 @@ Tests:
 --*/
 
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_skolem.h"
 #include "model/model.h"
@@ -795,7 +799,186 @@ static void tst_replace_contains() {
     ENSURE(multi_contains != multi_expected);
 }
 
+static void tst_fold_summaries() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util arith(m);
+    bv_util bv(m);
+    th_rewriter rw(m);
+    sort* integers = arith.mk_int();
+    sort_ref sequence_sort(su.str.mk_seq(integers), m);
+    sort_ref boolean_sequence(su.str.mk_seq(m.mk_bool_sort()), m);
+    expr_ref s(m.mk_const("s", sequence_sort), m);
+    expr_ref offset(m.mk_const("offset", integers), m);
+    expr_ref x(m.mk_var(0, integers), m);
+    expr_ref index(m.mk_var(2, integers), m);
+    for (bool indexed : {false, true}) {
+        unsigned arity = indexed ? 3 : 2;
+        expr_ref capture(m.mk_var(arity, integers), m);
+        for (unsigned kind = 0; kind < 3; ++kind) {
+            sort_ref accumulator_sort(kind == 0 ? integers : kind == 1 ? bv.mk_sort(8) : boolean_sequence.get(), m);
+            expr_ref acc(m.mk_var(1, accumulator_sort), m);
+            expr_ref initial(m.mk_const("initial", accumulator_sort), m);
+            expr_ref body(m), concrete_initial(m);
+            if (kind == 0) {
+                body = arith.mk_add(acc, capture);
+                if (indexed)
+                    body = arith.mk_add(body, index);
+                concrete_initial = arith.mk_int(-2);
+            }
+            else if (kind == 1) {
+                body = bv.mk_bv_and(acc, bv.mk_numeral(rational(85), 8));
+                concrete_initial = bv.mk_numeral(rational(57), 8);
+            }
+            else {
+                expr_ref threshold(capture);
+                if (indexed)
+                    threshold = arith.mk_add(threshold, index);
+                expr_ref predicate(arith.mk_gt(x, threshold), m);
+                expr_ref unit(su.str.mk_unit(predicate), m);
+                body = su.str.mk_concat(acc, unit);
+                concrete_initial = su.str.mk_unit(m.mk_true());
+            }
+            sort* sorts[] = {integers, accumulator_sort, integers};
+            symbol names[] = {symbol("i"), symbol("a"), symbol("x")};
+            unsigned skip = indexed ? 0 : 1;
+            expr_ref function(m.mk_lambda(arity, sorts + skip, names + skip, body), m);
+            expr_ref fold(indexed ? su.str.mk_foldli(function, offset, initial, s) : su.str.mk_foldl(function, initial, s), m);
+            expr_ref summary(fold);
+            rw(summary);
+            ENSURE(summary != fold);
+            for (unsigned length : {0u, 1u, 3u}) {
+                expr_ref_vector units(m);
+                for (unsigned j = 0; j < length; ++j)
+                    units.push_back(su.str.mk_unit(arith.mk_int(j)));
+                expr_ref shape(su.str.mk_concat(units, sequence_sort), m);
+                for (int start : {-3, 0, 4}) {
+                    expr_ref numeral(arith.mk_int(start), m);
+                    expr_ref expected(indexed ? su.str.mk_foldli(function, numeral, concrete_initial, shape) : su.str.mk_foldl(function, concrete_initial, shape), m);
+                    rw(expected);
+                    expr_ref actual(summary);
+                    expr_safe_replace replace(m);
+                    replace.insert(s, shape);
+                    replace.insert(initial, concrete_initial);
+                    replace.insert(offset, numeral);
+                    replace(actual);
+                    expr_ref captured(arith.mk_int(2), m);
+                    actual = var_subst(m)(actual, captured);
+                    expected = var_subst(m)(expected, captured);
+                    rw(actual);
+                    rw(expected);
+                    if (actual != expected)
+                        std::cout << "fold summary: " << indexed << " " << kind << " " << length << " " << start
+                                  << "\nactual: " << mk_pp(actual, m) << "\nexpected: " << mk_pp(expected, m) << std::endl;
+                    ENSURE(actual == expected);
+                }
+            }
+        }
+    }
+    for (bool indexed : {false, true}) {
+        expr_ref acc(m.mk_var(1, integers), m);
+        expr_ref initial(m.mk_const("integer_seed", integers), m);
+        expr_ref_vector unsupported(m);
+        unsupported.push_back(x);
+        unsupported.push_back(arith.mk_uminus(acc));
+        if (indexed)
+            unsupported.push_back(index);
+        sort* sorts[] = {integers, integers, integers};
+        symbol names[] = {symbol("i"), symbol("a"), symbol("x")};
+        unsigned skip = indexed ? 0 : 1;
+        for (expr* body : unsupported) {
+            expr_ref function(m.mk_lambda(indexed ? 3 : 2, sorts + skip, names + skip, body), m);
+            expr_ref fold(indexed ? su.str.mk_foldli(function, offset, initial, s) : su.str.mk_foldl(function, initial, s), m);
+            rw(fold);
+            ENSURE(indexed ? su.str.is_foldli(fold) : su.str.is_foldl(fold));
+        }
+    }
+    for (bool indexed : {false, true}) {
+        sort* string_sort = su.str.mk_string_sort();
+        expr_ref initial(m.mk_const("text", string_sort), m);
+        expr_ref acc(m.mk_var(1, string_sort), m);
+        expr_ref element(m.mk_var(0, su.mk_char_sort()), m);
+        expr_ref unit(su.str.mk_unit(element), m);
+        expr_ref text(m.mk_const("source", string_sort), m);
+        sort* sorts[] = {integers, string_sort, su.mk_char_sort()};
+        symbol names[] = {symbol("i"), symbol("a"), symbol("x")};
+        unsigned skip = indexed ? 0 : 1;
+        for (bool prefix : {false, true}) {
+            expr_ref body(prefix ? su.str.mk_concat(acc, acc) : su.str.mk_concat(unit, acc), m);
+            expr_ref function(m.mk_lambda(indexed ? 3 : 2, sorts + skip, names + skip, body), m);
+            expr_ref fold(indexed ? su.str.mk_foldli(function, offset, initial, text) : su.str.mk_foldl(function, initial, text), m);
+            expr_ref property(prefix ? su.str.mk_prefix(initial, fold) : su.str.mk_suffix(initial, fold), m);
+            rw(property);
+            ENSURE(m.is_true(property));
+            expr_ref other(m.mk_const("other", string_sort), m);
+            property = prefix ? su.str.mk_prefix(other, fold) : su.str.mk_suffix(other, fold);
+            rw(property);
+            ENSURE(!m.is_true(property));
+        }
+    }
+    expr_ref ch(m.mk_const("ch", su.mk_char_sort()), m);
+    expr_ref code(su.mk_char2int(ch), m);
+    expr_ref roundtrip(su.str.mk_from_code(code), m);
+    expr_ref unit(su.str.mk_unit(ch), m);
+    rw(roundtrip);
+    ENSURE(roundtrip == unit);
+}
+
+static void tst_map_nth() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util arith(m);
+    array_util arrays(m);
+    th_rewriter rw(m);
+    sort* integers = arith.mk_int();
+    sort_ref sequence_sort(su.str.mk_seq(integers), m);
+    expr_ref s(m.mk_const("s", sequence_sort), m);
+    expr_ref k(m.mk_const("k", integers), m);
+    expr_ref start(m.mk_const("start", integers), m);
+    expr_ref_vector positions(m);
+    positions.push_back(k);
+    positions.push_back(arith.mk_int(2));
+    for (bool indexed : {false, true}) {
+        ptr_buffer<sort> domain;
+        if (indexed)
+            domain.push_back(integers);
+        domain.push_back(integers);
+        sort_ref function_sort(arrays.mk_array_sort(domain.size(), domain.data(), m.mk_bool_sort()), m);
+        expr_ref f(m.mk_const("f", function_sort), m);
+        for (expr* position : positions) {
+            expr_ref mapped(indexed ? su.str.mk_mapi(f, start, s) : su.str.mk_map(f, s), m);
+            expr_ref actual(su.str.mk_nth_i(mapped, position), m);
+            expr_ref index(arith.mk_add(start, position), m);
+            expr_ref_vector args(m);
+            args.push_back(f);
+            if (indexed)
+                args.push_back(index);
+            args.push_back(su.str.mk_nth_i(s, position));
+            expr_ref expected(arrays.mk_select(args.size(), args.data()), m);
+            rw(actual);
+            rw(expected);
+            ENSURE(actual == expected);
+
+            expr_ref outside(su.str.mk_nth(mapped, arith.mk_int(-1)), m);
+            rw(outside);
+            ENSURE(su.str.is_nth_u(outside));
+
+            expr_ref count(m.mk_const("count", integers), m);
+            expr_ref slice(su.str.mk_substr(mapped, position, count), m);
+            expr_ref input_slice(su.str.mk_substr(s, position, count), m);
+            expected = indexed ? su.str.mk_mapi(f, index, input_slice) : su.str.mk_map(f, input_slice);
+            rw(slice);
+            rw(expected);
+            ENSURE(slice == expected);
+        }
+    }
+}
+
 void tst_seq_rewriter() {
+    tst_fold_summaries();
+    tst_map_nth();
     tst_replace_contains();
     tst_extract_equal_offset_length();
     tst_delete_first_character();

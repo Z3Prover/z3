@@ -124,6 +124,8 @@ class seq_rewriter {
     expr_ref mk_seq_butlast(expr* s);
 
     bool try_get_unit_values(expr* s, expr_ref_vector& result);
+    br_status mk_seq_fold_summary(expr* f, expr* i, expr* b, expr* s, expr_ref& result);
+    bool is_fold_prefix_suffix(expr* seed, expr* term, bool prefix);
     //replace b in a by c into result
     void replace_all_subvectors(expr_ref_vector const& as, expr_ref_vector const& bs, expr* c, expr_ref_vector& result);
 

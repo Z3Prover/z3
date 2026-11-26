@@ -202,6 +202,9 @@ namespace smt {
         bool check_ubv_strings();
         bool add_ho_eq(expr* lhs, expr* rhs, expr* premise);
         bool find_ho_elaboration(expr* term, expr*& elaboration) const;
+        bool is_ho_input(expr* term) const;
+        bool propagate_ho_witness(expr* term);
+        void add_ho_predicate_axiom(expr* term);
         void ensure_length_var(expr* e);
         void ensure_length_var_single(expr* e);
         void enforce_length_coherence(expr* lhs, expr* rhs);
