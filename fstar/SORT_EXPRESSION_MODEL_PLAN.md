@@ -80,11 +80,12 @@ There are three separate restrictions to address:
 non-Boolean index and element sorts. Widening its recognizers without changing
 the supporting semantic contracts would not establish broader SMT coverage.
 
-### 1.3 Sequence theory is generic; the concrete interpreter is specialized
+### 1.3 Sequence theory is generic; the legacy value domain is specialized
 
 `Z3SeqTheory.fst` models lists over an arbitrary `eqtype`. By contrast,
-`Z3ValueTheory.VSeq` contains `seq int`, and `Z3SeqInterp.fst` builds sequence
-units only from `VInt`.
+`Z3ValueTheory.VSeq` contains `seq int`. This specialization remains in the
+unindexed model contracts even though the older concrete sequence interpreter
+has been retired.
 
 This is a specialization to integer sequences, not a general character model.
 The comment in `Z3SeqTheory.fst` describing string characters as 8-bit

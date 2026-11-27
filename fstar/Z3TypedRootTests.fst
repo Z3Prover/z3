@@ -23,7 +23,7 @@
 module Z3TypedRootTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
@@ -672,6 +672,7 @@ let plus_zero_is_identity (u:TR.uninterpreted) (i:model u) (scope:list sort) (rh
       TR.lemma_eval_select_lambda i scope rho [int_s] int_s (iadd x0 zero) [v];
       TR.lemma_eval_select_lambda i scope rho [int_s] int_s x0 [v];
       let rho' = V.extend sigma scope [int_s] [v] rho in
+      assert_norm (ev u i (int_s :: scope) rho' x0 == v);
       ev_inum u i (int_s :: scope) rho' 0;
       ev_iadd u i (int_s :: scope) rho' x0 zero;
       int_ext (ev u i (int_s :: scope) rho' (iadd x0 zero)) v
@@ -700,6 +701,7 @@ let forall_plus_zero (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env
     match vs with
     | [v] ->
       let rho' = V.extend sigma scope [int_s] [v] rho in
+      assert_norm (ev u i (int_s :: scope) rho' x0 == v);
       ev_inum u i (int_s :: scope) rho' 0;
       ev_iadd u i (int_s :: scope) rho' x0 zero;
       int_ext (ev u i (int_s :: scope) rho' (iadd x0 zero)) v;
@@ -1478,14 +1480,14 @@ let mk (name:string) (k:decl_kind) (dom:list sort) (rng:sort) (ps:list int) : fu
   { decl_name = name; domain = dom; range = rng; interp = Some k; int_params = ps }
 let bv8 : sort = (SortApp (BvSymbol 8) [])
 
-(* distinct, op_num_int numerals, const-array, array-ext, op_oeq, n-ary =,
+(* n-ary distinct, op_num_int numerals, const-array, array-ext, op_oeq, n-ary =,
    bvand and "/" at Int classify as Other: their meaning is a free model
    choice until a future family migration adds and proves a law. (Int
    div/mod, Z3IntegerDivision op_idiv = 33 and op_mod = 34, were in this list
    until run e78cd96c; the canonical declarations now have the class of
    `int_division_classes` below.) *)
 let free_operators ()
-  : Lemma (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s] bool_sort []) == TR.Other /\
+  : Lemma (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s; int_s] bool_sort []) == TR.Other /\
            TR.classify sigma (mk "num" op_num_int [] int_s [5]) == TR.Other /\
            TR.classify sigma (mk "const" op_const_array [real_s] arr_s []) == TR.Other /\
            TR.classify sigma (mk "array-ext" op_array_ext [arr_s; arr_s] int_s []) == TR.Other /\
@@ -1493,7 +1495,7 @@ let free_operators ()
            TR.classify sigma (mk "=" op_eq [int_s; int_s; int_s] bool_sort []) == TR.Other /\
            TR.classify sigma (mk "bvand" op_bvand [bv8; bv8] bv8 []) == TR.Other /\
            TR.classify sigma (mk "/" op_arith_div [int_s; int_s] int_s []) == TR.Other) =
-  assert_norm (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s] bool_sort []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "distinct" op_distinct [int_s; int_s; int_s] bool_sort []) == TR.Other);
   assert_norm (TR.classify sigma (mk "num" op_num_int [] int_s [5]) == TR.Other);
   assert_norm (TR.classify sigma (mk "const" op_const_array [real_s] arr_s []) == TR.Other);
   assert_norm (TR.classify sigma (mk "array-ext" op_array_ext [arr_s; arr_s] int_s []) == TR.Other);

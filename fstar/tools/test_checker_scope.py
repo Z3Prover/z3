@@ -1,8 +1,4 @@
-"""Selection-contract tests for the checker-only and full build scopes.
-
-The dependency closures below are fixtures standing in for F*'s `--dep full`
-output; these tests prove selection and wiring, not an end-to-end build.
-"""
+"""Build-scope selection/wiring fixtures and real F* carrier-isolation checks."""
 
 import json
 import os
@@ -29,6 +25,7 @@ def closure(*extra, without=KERNEL):
 
 
 PWSH = os.environ.get("PWSH") or shutil.which("pwsh")
+FSTAR = os.environ.get("FSTAR_EXE") or shutil.which("fstar.exe")
 FAKE_FSTAR = """#!/bin/sh
 printf '%s\\n' "$*" >> "$FAKE_FSTAR_LOG"
 case " $* " in
@@ -72,6 +69,149 @@ class DependencyOutputTests(unittest.TestCase):
     def test_output_without_file_lists_is_an_error(self):
         with self.assertRaisesRegex(RuntimeError, "ALL_FST_FILES"):
             checker_scope.dependency_files("Z3List.fst.checked: \\\n\tZ3List.fst\n", ROOT)
+
+
+@unittest.skipUnless(FSTAR, "needs F* (set FSTAR_EXE)")
+class CarrierDependencyTests(unittest.TestCase):
+    def test_modular_power_does_not_import_legacy_values(self):
+        for module in ("Z3IndependentModPow.fsti", "Z3IndependentModPow.fst",
+                       "Z3IndependentModOrder.fsti", "Z3IndependentModOrder.fst",
+                       "Z3IndependentModOrderTests.fst",
+                       "Z3IndependentModDivisor.fsti", "Z3IndependentModDivisor.fst",
+                       "Z3IndependentModDivisorTests.fst",
+                       "Z3IndependentPrimeDivisor.fsti", "Z3IndependentPrimeDivisor.fst",
+                       "Z3IndependentPrimeDivisorTests.fst",
+                       "Z3IndependentPrimeFactors.fsti", "Z3IndependentPrimeFactors.fst",
+                       "Z3IndependentPrimeFactorsTests.fst",
+                       "Z3IndependentCoprimePower.fsti", "Z3IndependentCoprimePower.fst",
+                       "Z3IndependentFactorPrime.fsti", "Z3IndependentFactorPrime.fst",
+                       "Z3IndependentPrimeEvidence.fsti", "Z3IndependentPrimeEvidence.fst"):
+            with self.subTest(module=module):
+                dependencies = checker_scope.dependency_closure(
+                    checker_scope.dependency_command(FSTAR, [module]))
+                self.assertFalse(dependencies & {"Z3ValueTheory.fst", "Z3UnifiedProof.fst"})
+
+    def test_independent_checker_has_no_legacy_value_dependency(self):
+        for module in ("Z3IndependentChecker.fsti", "Z3IndependentChecker.fst",
+                       "Z3IndependentCheckerTests.fst", "Z3ClauseProof.fst",
+                       "Z3SortedDistinct.fsti", "Z3SortedDistinct.fst",
+                       "Z3SortedDistinctTests.fst",
+                       "Z3SortedDistinctRoot.fsti", "Z3SortedDistinctRoot.fst",
+                       "Z3SortedDistinctRootTests.fst",
+                       "Z3IndependentDistinctReplay.fsti", "Z3IndependentDistinctReplay.fst",
+                       "Z3IndependentDistinctReplayTests.fst",
+                       "Z3IndependentSkolemReplay.fsti", "Z3IndependentSkolemReplay.fst",
+                       "Z3IndependentDependentReplay.fsti", "Z3IndependentDependentReplay.fst",
+                       "Z3IndependentBinderReplay.fsti", "Z3IndependentBinderReplay.fst",
+                       "Z3IndependentBinderElaboration.fsti", "Z3IndependentBinderElaboration.fst",
+                       "Z3IndependentDefinitionPair.fsti", "Z3IndependentDefinitionPair.fst",
+                       "Z3IndependentDefinitionModel.fsti", "Z3IndependentDefinitionModel.fst",
+                       "Z3IndependentDefinitionModelTests.fst",
+                       "Z3IndependentDefinitionInstance.fsti", "Z3IndependentDefinitionInstance.fst",
+                       "Z3IndependentDefinitionInstanceTests.fst",
+                       "Z3IndependentDefinitionEquivalence.fsti", "Z3IndependentDefinitionEquivalence.fst",
+                       "Z3IndependentDefinitionEquivalenceTests.fst",
+                       "Z3IndependentDefinitionContext.fsti", "Z3IndependentDefinitionContext.fst",
+                       "Z3IndependentDefinitionContextTests.fst",
+                       "Z3IndependentDefinitionContextEquivalence.fsti",
+                       "Z3IndependentDefinitionContextEquivalence.fst",
+                       "Z3IndependentDefinitionContextEquivalenceTests.fst",
+                       "Z3IndependentDefinitionNnf.fsti", "Z3IndependentDefinitionNnf.fst",
+                       "Z3IndependentDefinitionNnfTests.fst",
+                       "Z3IndependentDefinitionRoot.fsti", "Z3IndependentDefinitionRoot.fst",
+                       "Z3IndependentDefinitionSkolem.fsti", "Z3IndependentDefinitionSkolem.fst",
+                       "Z3IndependentDefinitionSkolemTests.fst",
+                       "Z3IndependentDefinitionDocument.fsti", "Z3IndependentDefinitionDocument.fst",
+                       "Z3IndependentDefinitionNnfDocument.fsti", "Z3IndependentDefinitionNnfDocument.fst",
+                       "Z3IndependentDefinitionNnfDocumentTests.fst",
+                       "Z3IndependentFiniteFieldReplay.fsti", "Z3IndependentFiniteFieldReplay.fst",
+                       "Z3IndependentFiniteFieldRoot.fsti", "Z3IndependentFiniteFieldRoot.fst", "Z3IndependentFiniteFieldRootTests.fst",
+                       "Z3IndependentFiniteFieldDocument.fsti", "Z3IndependentFiniteFieldDocument.fst",
+                       "Z3IndependentSkolemModel.fsti", "Z3IndependentSkolemModel.fst",
+                       "Z3IndependentDefinitionSkolemReplay.fsti",
+                       "Z3IndependentDefinitionSkolemReplay.fst",
+                       "Z3IndependentDefinitionSkolemDocument.fsti",
+                       "Z3IndependentDefinitionSkolemDocument.fst",
+                       "Z3IndependentSkolemRoot.fsti", "Z3IndependentSkolemRoot.fst",
+                       "Z3NativeProof.fst", "Z3IndependentNative.fsti",
+                       "Z3IndependentNative.fst"):
+            with self.subTest(module=module):
+                dependencies = checker_scope.dependency_closure(
+                    checker_scope.dependency_command(FSTAR, [module]))
+                self.assertNotIn("Z3ValueTheory.fst", dependencies)
+
+    def test_sorted_vacuity_does_not_depend_on_nnf_replay(self):
+        dependencies = checker_scope.dependency_closure(
+            checker_scope.dependency_command(FSTAR, ["Z3QuantifierVacuitySorted.fst"]))
+        self.assertNotIn("Z3NnfReplay.fst", dependencies)
+
+    def test_carrier_independent_foundations_do_not_import_legacy_values(self):
+        for module in ("Z3OperatorTags.fst", "Z3CanonicalOps.fst", "Z3ClausalSemantics.fst",
+                       "Z3ObservationalSemantics.fst", "Z3ClauseSyntax.fst",
+                       "Z3ExprScope.fst", "Z3GroundScope.fst", "Z3DocumentScope.fst", "Z3SortedInstantiation.fst", "Z3DefinitionSyntax.fst", "Z3DefinitionExpansionScope.fst", "Z3DefinitionExpansionScopeTests.fst", "Z3DefinitionRecognition.fst", "Z3DefinitionRecognitionScope.fst", "Z3DefinitionRecognitionScopeTests.fst", "Z3DefinitionScope.fst", "Z3DefinitionScopeTests.fst",
+                       "Z3ExprBinding.fst", "Z3Substitution.fst", "Z3CommutativitySyntax.fst", "Z3SortedCommutativity.fst", "Z3SortedCommutativityTests.fst", "Z3QuantifierNnfSyntax.fst", "Z3QuantifierPullSyntax.fst", "Z3QuantifierVacuitySyntax.fst", "Z3QuantifierVacuitySemantics.fst", "Z3QuantifierVacuityScope.fst", "Z3QuantifierVacuitySorted.fst",
+                       "Z3QuantifierInstantiationSyntax.fst", "Z3QuantifierInstantiationSyntaxTests.fst",
+                       "Z3SubstitutionTests.fst", "Z3DatatypeSyntax.fst", "Z3DatatypeValue.fst",
+                       "Z3DatatypeSignature.fst", "Z3SortedInteger.fst", "Z3SortedSemantics.fst",
+                       "Z3SortedQuantifier.fst", "Z3SortedQuantifierInstantiation.fst",
+                       "Z3SortedQuantifierInstantiationTests.fst", "Z3BooleanSyntax.fst",
+                       "Z3BooleanSyntaxTests.fst", "Z3DistinctAst.fst", "Z3DistinctAstTests.fst", "Z3SortedDatatype.fst",
+                       "Z3DatatypeValueTests.fst", "Z3DatatypeNativeModelTests.fst",
+                       "Z3SkolemSyntax.fst", "Z3SkolemSyntaxTests.fst",
+                       "Z3SortedSkolem.fst", "Z3SortedDependentSkolem.fst",
+                       "Z3SortedSkolemTests.fst", "Z3PolynomialSemantics.fst",
+                       "Z3ArithmeticSyntax.fst", "Z3SortedArithmetic.fst",
+                       "Z3IntegerDivisionSyntax.fst", "Z3IntegerRewriteSyntax.fst", "Z3ConditionalRewriteSyntax.fst", "Z3ArithmeticFactorSyntax.fst", "Z3LpReplaySyntax.fst", "Z3SortedIntDivision.fst", "Z3SortedReal.fst",
+                       "Z3SortedRealLinear.fst", "Z3SortedRealOrder.fst",
+                       "Z3SortedRealProduct.fst", "Z3SortedRealTests.fst", "Z3SortedRealReplayTests.fst",
+                       "Z3SortedRealProductTests.fst", "Z3TypedRoot.fst",
+                       "Z3BooleanRewriteSyntax.fst", "Z3SortedBooleanRewrite.fst",
+                       "Z3SortedBooleanRewriteTests.fst",
+                       "Z3ArraySyntax.fst", "Z3ArrayEqualitySyntax.fst", "Z3SortedArray.fst",
+                       "Z3SortedArrayTests.fst", "Z3SortedArrayEquality.fst",
+                       "Z3BvSyntax.fst", "Z3BvFreshSyntax.fst", "Z3BvFreshScope.fst", "Z3BvFreshScopeTests.fst", "Z3SortedBv.fst", "Z3SortedBvTests.fst",
+                       "Z3SortedFiniteField.fst", "Z3FiniteFieldCertificate.fst", "Z3LpGomorySyntax.fst", "Z3TheoryNormalizeSyntax.fst", "Z3UnifiedProofSyntax.fst", "Z3HypothesisSemantics.fst", "Z3HypothesisSemanticsTests.fst", "Z3RelationalReachability.fst", "Z3RelationalReachabilityTests.fst", "Z3CongruenceSyntax.fst", "Z3RelationalRuleSyntax.fst", "Z3ModusPonensSyntax.fst", "Z3ModusPonensSyntaxTests.fst", "Z3SortedRelational.fst", "Z3SortedRelationalTests.fst", "Z3SortedLeafFacts.fst", "Z3SortedLeafFactsTests.fst", "Z3SortedHypothesisSemantics.fst", "Z3SortedLemmaFacts.fst", "Z3SortedLemmaFactsTests.fst", "Z3SortedModusPonens.fst", "Z3SortedModusPonensTests.fst", "Z3UnifiedNode.fst", "Z3UnifiedNodeTests.fst", "Z3DocumentSyntax.fst", "Z3DocumentPreparation.fst", "Z3DocumentFactSemantics.fst", "Z3DocumentReplay.fst", "Z3DocumentReplaySemantics.fst", "Z3DocumentReplaySemanticsTests.fst", "Z3BinderScopeSyntax.fst", "Z3BinderScopeIndependent.fst", "Z3NnfReplay.fst", "Z3SortedProof.fst", "Z3SortedProofTests.fst", "Z3SortedRootDocument.fst",
+                       "Z3SortedBinding.fst", "Z3SortedBindingTests.fst",
+                       "Z3LambdaSyntax.fst", "Z3LambdaSyntaxTests.fst",
+                       "Z3SortedLambda.fst", "Z3SortedLambdaTests.fst", "Z3SortedLambdaEquality.fst",
+                       "Z3SortedLambdaEqualityTests.fst",
+                       "Z3SortedLambdaRootTests.fst",
+                       "Z3SortedQuantifierInstantiationRootTests.fst",
+                       "Z3ObservationalSyntax.fst", "Z3ObservationalProof.fst",
+                       "Z3ObservationalSemanticsTests.fst"):
+            with self.subTest(module=module):
+                dependencies = checker_scope.dependency_closure(
+                    checker_scope.dependency_command(FSTAR, [module]))
+                self.assertIn("Z3AstTheory.fst", dependencies)
+                if module in {"Z3OperatorTags.fst", "Z3CanonicalOps.fst",
+                              "Z3ClausalSemantics.fst", "Z3ClauseSyntax.fst",
+                              "Z3SortedInteger.fst", "Z3SortedSemantics.fst",
+                              "Z3SortedQuantifier.fst", "Z3BooleanSyntax.fst",
+                              "Z3BooleanSyntaxTests.fst", "Z3DistinctAst.fst",
+                              "Z3SortedDatatype.fst"}:
+                    self.assertIn("Z3OperatorTags.fst", dependencies)
+                forbidden = {"Z3ValueTheory.fst", "Z3ArrayTheory.fst",
+                             "Z3SeqTheory.fst", "Z3BvTheory.fst",
+                             "Z3ResolutionProofTheory.fst", "Z3DatatypeLemma.fst",
+                             "Z3Definitions.fst", "Z3BooleanRewrite.fst",
+                             "Z3BinderSubstitution.fst", "Z3QuantifierPull.fst"}
+                if module in {"Z3TypedRoot.fst", "Z3SortedRootDocument.fst", "Z3SortedRealReplayTests.fst", "Z3SortedArray.fst", "Z3SortedArrayTests.fst",
+                              "Z3SortedArrayEquality.fst", "Z3SortedFiniteField.fst",
+                              "Z3SortedLambdaRootTests.fst", "Z3SortedQuantifierInstantiationRootTests.fst"}:
+                    forbidden.remove("Z3ArrayTheory.fst")
+                if module in {"Z3TypedRoot.fst", "Z3SortedRootDocument.fst", "Z3SortedRealReplayTests.fst", "Z3BvSyntax.fst", "Z3SortedBv.fst",
+                              "Z3SortedBvTests.fst", "Z3SortedLambdaRootTests.fst",
+                              "Z3SortedQuantifierInstantiationRootTests.fst"}:
+                    forbidden.remove("Z3BvTheory.fst")
+                self.assertFalse(dependencies & forbidden, dependencies)
+
+    def test_sorted_checker_does_not_import_legacy_document_checker(self):
+        dependencies = checker_scope.dependency_closure(
+            checker_scope.dependency_command(FSTAR, ["Z3SortedProof.fst"]))
+        self.assertIn("Z3DocumentPreparation.fst", dependencies)
+        self.assertFalse(dependencies & {"Z3ProofDocument.fst", "Z3UnifiedProof.fst",
+                                         "Z3TheoryNormalize.fst", "Z3ValueTheory.fst"},
+                         dependencies)
 
 
 class SelectionTests(unittest.TestCase):
@@ -122,7 +262,7 @@ class SelectionTests(unittest.TestCase):
     def test_full_extraction_entries_are_every_registered_implementation(self):
         entries = checker_scope.extraction_entries(MANIFEST, closure(), True)
         self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
-        self.assertEqual(len(entries), 90)
+        self.assertEqual(len(entries), 163)
         self.assertTrue(set(KERNEL) <= set(entries))
 
 

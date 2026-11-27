@@ -5,28 +5,14 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 module D = Z3Definitions
-module S = Z3BinderSubstitution
+module S = Z3Substitution
 module N = Z3QuantifierNnf
 module P = Z3QuantifierPull
 module R = Z3QuantifierReduce
 module B = Z3BooleanRewrite
 module L = FStar.List.Tot
 
-let const_array (f:func_decl) (v:expr) : bool =
-  match f.range with
-  | ArraySort bs element ->
-    bs <> [] && element = get_sort v &&
-    f = { decl_name = "const"; domain = [element]; range = ArraySort bs element;
-          interp = Some op_const_array; int_params = [] }
-  | _ -> false
-
-let select_decl (f:func_decl) (array:expr) (args:list expr) : bool =
-  match get_sort array with
-  | ArraySort bs element ->
-    sorts_match args bs &&
-    f = { decl_name = "select"; domain = get_sort array :: bs; range = element;
-          interp = Some op_select; int_params = [] }
-  | _ -> false
+include Z3LambdaSyntax
 
 (* Constructor/application semantics, not assumptions about rewrite proofs. *)
 let lambda_model (i:interpretation value) : prop =
@@ -45,18 +31,6 @@ let lambda_model (i:interpretation value) : prop =
     const_array f v /\ f.range == ArraySort bs (get_sort v) ==>
     eval i (App f [v]) rho ==
     i.interp_quant Lambda_k bs (fun _ -> eval i v rho))
-
-let lambda_view (e:expr) : option (list sort & expr) =
-  match e with
-  | Quantifier Lambda_k bs s body ->
-    if s = quant_sort Lambda_k bs (get_sort body) then Some (bs, body) else None
-  | App f [v] ->
-    if const_array f v then
-      (match f.range with
-       | ArraySort bs _ -> Some (bs, D.lift (L.length bs) 0 v)
-       | _ -> None)
-    else None
-  | _ -> None
 
 let lemma_const (i:interpretation value) (rho:env value) (f:func_decl) (v:expr) (bs:list sort)
   : Lemma (requires lambda_model i /\ const_array f v /\ f.range == ArraySort bs (get_sort v))
@@ -82,18 +56,6 @@ let lemma_lambda_view (i:interpretation value) (rho:env value) (e:expr) (bs:list
               i.interp_quant Lambda_k bs (fun _ -> eval i v rho))
     | _ -> ()
 
-let extensional (e:expr) : option expr =
-  match e with
-  | App f [a; b] ->
-    if f = eq_decl (get_sort a) && get_sort a = get_sort b then
-      (match lambda_view a, lambda_view b with
-       | Some (bs, left), Some (bs', right) ->
-         if bs = bs' && get_sort left = get_sort right
-         then Some (Quantifier Forall_k bs bool_sort (mk_eq_expr left right)) else None
-       | _, _ -> None)
-    else None
-  | _ -> None
-
 let lemma_extensional (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires quant_extensional i /\ lambda_model i /\ N.quantifier_model i /\
                     B.boolean_rewrite_model i /\ extensional e == Some result)
@@ -114,16 +76,6 @@ let lemma_extensional (i:interpretation value) (rho:env value) (e result:expr)
          | _, _ -> ()
        | _, _ -> ())
     | _ -> ()
-
-let beta (e:expr) : option expr =
-  match e with
-  | App f (array :: args) ->
-    if select_decl f array args then
-      (match lambda_view array with
-       | Some (bs, body) -> S.substitute (L.rev args) body
-       | _ -> None)
-    else None
-  | _ -> None
 
 let lemma_beta (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires quant_extensional i /\ lambda_model i /\ beta e == Some result)

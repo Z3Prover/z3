@@ -11,13 +11,13 @@
 module Z3SortedRootTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module I = Z3SortedInteger
@@ -74,6 +74,22 @@ let sorted_lambda_equality (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
   RT.identity_not_successor u i [] rho;
   RT.beta u i [] rho
 
+let observation_read : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.outer_read); RT.outer_read
+
+let observation_store : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.inner_store); RT.inner_store
+
+let sorted_nested_observations (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u RT.scope2)
+  : Lemma (T.observations_agree_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+             RT.scope2 rho observation_read observation_store) =
+  assert_norm (get_sort observation_read == get_sort observation_store);
+  RT.nested_outer u i rho;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_read;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_store;
+  T.lemma_values_observations_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+    RT.scope2 rho observation_read observation_store
+
 (* --- Quantifiers and Int arithmetic --------------------------------------- *)
 
 let sorted_quantifiers (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
@@ -120,6 +136,10 @@ let sorted_empty_sum (u:TR.uninterpreted) (i:RT.model u)
 let classifier_mutants ()
   : Lemma (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
            TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other /\
+           T.classify (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+             T.Distinct TR.int_s /\
+           TR.classify RT.sigma (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+             TR.Distinct TR.int_s /\
            I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other /\
            TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other /\
            I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
@@ -127,11 +147,24 @@ let classifier_mutants ()
            I.classify TR.native_plus_int == I.Calculate A.Add) =
   assert_norm (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other);
   assert_norm (TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
+  assert_norm (T.classify (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+               T.Distinct TR.int_s);
+  assert_norm (TR.classify RT.sigma (RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []) ==
+               TR.Distinct TR.int_s);
   assert_norm (I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other);
   assert_norm (TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other);
   assert_norm (I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other);
   assert_norm (TR.classify RT.sigma (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
   assert_norm (I.classify TR.native_plus_int == I.Calculate A.Add)
+
+let distinct_int_decl = RT.mk "distinct" op_distinct [TR.int_s; TR.int_s] bool_sort []
+let distinct_int_expr = App distinct_int_decl [RT.zero; RT.one]
+
+let sorted_binary_distinct (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
+  : Lemma (struth u i [] rho distinct_int_expr ==
+           RT.bool_v (RT.ev u i [] rho distinct_int_expr)) =
+  assert_norm (D.scoped [] distinct_int_expr /\ get_sort distinct_int_expr == bool_sort);
+  agree u i [] rho distinct_int_expr
 
 (* --- Negative controls: the agreement needs the root contract ---------- *)
 

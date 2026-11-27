@@ -56,23 +56,23 @@ module Z3SortedRootDocument
    Z3SortedQuantifier, Z3TypedRoot, Z3NnfReplay, ...}; nothing depends on it. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module T = Z3SortedSemantics
 module SR = Z3SortedRoot
 module Q = Z3SortedQuantifier
 module SP = Z3SortedProof
-module P = Z3ProofDocument
-module U = Z3UnifiedProof
+module P = Z3DocumentSyntax
+module U = Z3UnifiedProofSyntax
 module E = Z3SortedSkolem
-module SK = Z3Skolemization
+module SK = Z3SkolemSyntax
 module NR = Z3NnfReplay
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module DS = Z3SortedDependentSkolem
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot
@@ -245,6 +245,23 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
   SP.lemma_check_document sch (TR.booleans u) (SR.root_scalars u) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 
+(* The array replay route adds its checked array kernel explicitly; the root
+   model contract above remains unchanged. *)
+let lemma_root_check_document_array (u:TR.uninterpreted) (sch:S.checked_schema)
+                              (i:TR.interp u sch)
+                              (arrays:SP.array_kernel sch (TR.booleans u) (SR.root_scalars u) i)
+                              (doc:P.document)
+  : Lemma (requires TR.root_model u sch i /\ SP.check_document_array sch doc == Some 0)
+          (ensures not (root_truths u sch i doc.P.assertions)) =
+  lemma_forall_model u sch i;
+  lemma_forall_elimination_model u sch i;
+  lemma_exists_model u sch i;
+  if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
+  if SP.needs_real_semantics sch doc.P.entries then SP.lemma_needs_real_primitive sch doc.P.entries;
+  DR.lemma_root_division_laws u sch i;
+  SP.lemma_check_document_array sch (TR.booleans u) (SR.root_scalars u) i arrays doc;
+  lemma_truths_agreement u sch i doc.P.assertions
+
 (* ---------------------------------------------------------------------- *)
 (* 5. L2: the root-specific document gate (pure, OFF the default route)     *)
 (* ---------------------------------------------------------------------- *)
@@ -257,8 +274,8 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    only checks D.scoped/in_context of e.formula and classifies it). Of the
    rule it distinguishes exactly ten shapes (check_node_cached:
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
-   with its argument list, ArithmeticFarkas WITH its coefficient list,
-   which SP.arithmetic_farkas and SP.real_farkas replay, RewriteRule, which
+   with its argument list, ArithmeticFarkas and ArithmeticBound WITH their
+   coefficient lists, which SP.arithmetic_farkas and SP.real_farkas replay, RewriteRule, which
    SP.real_rewrite, SP.ite_rewrite and SP.product_rewrite read for premise-free closed equations,
    ElimUnused and DestructiveEquality, which SP.unused_elimination and
    SP.der_rewrite read for premise-free closed equations, and
@@ -276,7 +293,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    closed Real order clauses (SP.real_order) read only the entry formula (any
    rule but the leaves and the lemma rule), whose terms are covered below. The read
    view KEEPS the Farkas coefficients, the RewriteRule, ElimUnused and DestructiveEquality labels,
-   the th-lemma label used by the Real and Int product kernels,
+   the ApplyDefinition and th-lemma labels used by replay kernels,
    the binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -297,7 +314,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
 let rule_shape (r:U.rule) : U.rule =
   if r = U.Unverified "th-lemma" then r else match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticBound _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.DefinitionIntroduction | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> r
   | _ -> U.Unverified "payload-erased"
 
@@ -314,7 +331,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   if node.U.kind = U.Unverified "th-lemma" then () else match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
+  | U.ArithmeticFarkas _ | U.ArithmeticBound _ | U.ArithmeticLattice _ | U.ApplyDefinition | U.DefAxiom | U.DefinitionIntroduction | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in
@@ -366,7 +383,10 @@ let lemma_document_read_view (schema:S.schema) (doc:P.document)
    entry formulas of a binder certificate are covered separately, at the
    scopes the guard assigns them, by certificate_covered). *)
 let rule_terms (r:U.rule) : list expr =
-  match r with U.QuantifierInstantiation args -> args | _ -> []
+  match r with
+  | U.QuantifierInstantiation args -> args
+  | U.ArithmeticLattice c -> [c.split]
+  | _ -> []
 
 (* Every entry formula and every binder sort list of a certificate. *)
 let rec binder_entries_covered (sigma:V.signature) (bs:list U.binder_entry) : Tot bool (decreases bs) =
@@ -940,7 +960,7 @@ let lemma_oeq_sides (sigma:V.signature) (formula a b:expr)
           (ensures TR.supported_sort sigma bool_sort /\ TR.supported_expression sigma a /\
                    TR.supported_expression sigma b) =
   match formula with
-  | App f [x; y] -> assert (Z3ObservationalEquality.is_oeq formula == Some (x, y))
+  | App f [x; y] -> assert (Z3ObservationalSyntax.is_oeq formula == Some (x, y))
   | _ -> ()
 
 let lemma_boolean_equation_covered (sigma:V.signature) (a b:expr)

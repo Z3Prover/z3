@@ -8,7 +8,7 @@ open Z3AstTheory
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
-module SK = Z3Skolemization
+module SK = Z3SkolemSyntax
 module E = Z3SortedSkolem
 module DS = Z3SortedDependentSkolem
 module DV = Z3SortedIntDivision

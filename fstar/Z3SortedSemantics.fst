@@ -1,14 +1,16 @@
 module Z3SortedSemantics
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
-module D = Z3Definitions
+module D = Z3ExprScope
+module Distinct = Z3DistinctAst
 module L = FStar.List.Tot
 module I = Z3SortedInteger
+module OS = Z3ObservationalSemantics
 
 (* Typed-root G2 slice: scalar equality is a GHOST decision (equality of
    reals, of array functions and of uninterpreted carrier elements has no Tot
@@ -89,6 +91,15 @@ let lemma_boolean (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carri
   | V.Scalar _ _ -> ()
   | V.Constructor f _ -> lemma_registered_sort (S.signature s) f
 
+let lemma_truth_boolean (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (b:bool)
+  : Lemma (truth_value s bc (boolean s bc b) == b) =
+  assert (bc.decode_bool (bc.encode_bool b) == b)
+
+let lemma_boolean_iff (p q:bool)
+  : Lemma (requires p <==> q) (ensures p == q) =
+  if p then assert q else assert (not q)
+
 let rec boolean_sorts (ss:list sort) : Tot bool (decreases ss) =
   match ss with [] -> true | s :: rest -> s = bool_sort && boolean_sorts rest
 
@@ -115,6 +126,7 @@ type operation =
   | Implication
   | Nary : B.nary_op -> operation
   | Equality : sort -> operation
+  | Distinct : sort -> operation
   | Choice : sort -> operation
   | Other
 
@@ -125,6 +137,7 @@ let operation_typed (f:func_decl) (op:operation) : bool =
   | Implication -> f.domain = [bool_sort; bool_sort] && f.range = bool_sort
   | Nary _ -> boolean_sorts f.domain && f.range = bool_sort
   | Equality s -> f = R.eq_decl s
+  | Distinct s -> Distinct.distinct_declaration f && f.domain = [s; s]
   | Choice s -> f = ite_decl s
   | Other -> true
 
@@ -144,6 +157,9 @@ let classify (f:func_decl) : op:operation{operation_typed f op} =
            f.decl_name = "xor" && f.interp = Some op_xor) then
     Nary (if f.interp = Some op_and then B.And
           else if f.interp = Some op_or then B.Or else B.Xor)
+  else if Distinct.distinct_declaration f &&
+          (match f.domain with [_; _] -> true | _ -> false) then
+    (match f.domain with [s; _] -> Distinct s | _ -> Other)
   else match f.domain with
   | [s; _] -> if f = R.eq_decl s then Equality s else Other
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
@@ -169,6 +185,10 @@ let application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
   | Equality _ ->
     (match xs with
      | [x; y] -> boolean s bc (equal_tree equality.reflection x y)
+     | _ -> FStar.Pervasives.false_elim ())
+  | Distinct _ ->
+    (match xs with
+     | [x; y] -> boolean s bc (not (equal_tree equality.reflection x y))
      | _ -> FStar.Pervasives.false_elim ())
   | Choice _ ->
     (match xs with
@@ -228,7 +248,7 @@ let evaluate_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
 
 let lemma_registered_constructor (s:S.checked_schema) (f:func_decl)
   : Lemma (requires L.mem f (S.signature s))
-          (ensures f.interp == Some Z3DatatypeLemma.op_constructor) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_constructor) =
   S.lemma_case_of s.cases f;
   let c = Some?.v (S.case_of s.cases f) in
   S.lemma_case_member (S.signature s) s.sorts s.cases c
@@ -269,6 +289,50 @@ let lemma_equality_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   lemma_evaluate_core_at s bc equality other scope rho (R.eq_decl (get_sort a)) [a; b];
   lemma_equal_tree equality.reflection (evaluate_at s bc equality other scope rho a)
                             (evaluate_at s bc equality other scope rho b)
+
+let lemma_distinct_binary_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (equality:scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (f:func_decl) (a b:expr)
+  : Lemma (requires D.scoped scope (App f [a; b]) /\ Distinct.distinct_app f [a; b])
+          (ensures truth_at s bc equality other scope rho
+                     (App f [a; b]) ==
+                   not (truth_at s bc equality other scope rho (R.mk_eq_expr a b))) =
+  assert (Distinct.distinct_app f [a; b]);
+  Distinct.lemma_sorts_match_length [a; b] f.domain;
+  assert (match f.domain with [_; _] -> true | _ -> false);
+  assert (Distinct.distinct_declaration f);
+  assert (sorts_match [a; b] f.domain);
+  (match f.domain with
+   | [sa; sb] ->
+     assert (sort_eq (get_sort a) sa);
+     V.lemma_sort_eq (get_sort a) sa;
+     assert (get_sort a == sa);
+     assert (sort_eq (get_sort b) sb);
+     V.lemma_sort_eq (get_sort b) sb;
+     assert (get_sort b == sb);
+     assert (sa == sb);
+     V.lemma_sort_eq (get_sort a) (get_sort b);
+     assert (classify f == Distinct (get_sort a))
+   | _ -> FStar.Pervasives.false_elim ());
+  let distinct_expr = App f [a; b] in
+  let va = evaluate_at s bc equality other scope rho a in
+  let vb = evaluate_at s bc equality other scope rho b in
+  let distinct_truth = not (equal_tree equality.reflection va vb) in
+  lemma_evaluate_core_at s bc equality other scope rho f [a; b];
+  assert (evaluate_at s bc equality other scope rho distinct_expr ==
+          boolean s bc distinct_truth);
+  lemma_truth_boolean s bc distinct_truth;
+  assert (truth_at s bc equality other scope rho distinct_expr == distinct_truth);
+  lemma_equality_at s bc equality other scope rho a b;
+  let equality_truth = truth_at s bc equality other scope rho (R.mk_eq_expr a b) in
+  let values_equal = va == vb in
+  lemma_boolean_iff equality_truth values_equal;
+  lemma_equal_tree equality.reflection va vb;
+  lemma_boolean_iff (equal_tree equality.reflection va vb) values_equal;
+  assert (equality_truth == equal_tree equality.reflection va vb);
+  assert (truth_at s bc equality other scope rho distinct_expr ==
+          not equality_truth)
 
 let lemma_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (equality:scalar_model base) (other:V.interpretation base (S.signature s))
@@ -476,3 +540,45 @@ let lemma_same_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
           (ensures same_value s bc eq other a b <==>
                    evaluate s bc eq other a == evaluate s bc eq other b) =
   lemma_equal_tree eq.reflection (evaluate s bc eq other a) (evaluate s bc eq other b)
+
+let observation_denotation_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+  : OS.denotation (V.tree base) (D.scoped scope) =
+  fun e -> evaluate_at s bc eq other scope rho e
+
+let observations_agree_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                          (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                          (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b}) : prop =
+  OS.observations_agree (boolean s bc true) (observation_denotation_at s bc eq other scope rho) a b
+
+let lemma_boolean_observation_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (e:expr{D.scoped scope e})
+  : Lemma (requires get_sort e == bool_sort)
+          (ensures OS.boolean_value (boolean s bc true) (boolean s bc false)
+                     (evaluate_at s bc eq other scope rho e)) =
+  lemma_boolean s bc (evaluate_at s bc eq other scope rho e)
+
+let lemma_observations_values_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b})
+  : Lemma (requires observations_agree_at s bc eq other scope rho a b)
+          (ensures evaluate_at s bc eq other scope rho a == evaluate_at s bc eq other scope rho b) =
+  (if get_sort a = bool_sort then (
+    lemma_boolean_observation_at s bc eq other scope rho a;
+    lemma_boolean_observation_at s bc eq other scope rho b));
+  OS.lemma_values (boolean s bc true) (boolean s bc false)
+    (observation_denotation_at s bc eq other scope rho) a b
+
+let lemma_values_observations_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (a:expr{D.scoped scope a}) (b:expr{D.scoped scope b})
+  : Lemma (requires get_sort a == get_sort b /\
+                    evaluate_at s bc eq other scope rho a == evaluate_at s bc eq other scope rho b)
+          (ensures observations_agree_at s bc eq other scope rho a b) =
+  OS.lemma_from_values (boolean s bc true) (observation_denotation_at s bc eq other scope rho) a b

@@ -1,7 +1,7 @@
 module Z3ArithmeticFactorTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 module A = Z3LinearArithmeticAst
 module B = Z3BooleanRewrite

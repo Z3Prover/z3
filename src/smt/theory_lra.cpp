@@ -2754,8 +2754,8 @@ public:
                 reset_evidence();
                 m_explanation.clear();
                 m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
-                set_proof_params(m_bound, true);
             }
+            set_proof_params(m_bound, true, lit);
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             TRACE(arith,
                   ctx().display_literals_verbose(tout, m_core);
@@ -2772,7 +2772,7 @@ public:
                     VERIFY(ctx().get_assignment(lit) == l_true);
                 });
             ++m_stats.m_bound_propagations1;
-            assign(lit, m_core, m_eqs, m_params);      
+            assign(lit, m_core, m_eqs, m_params, m_lp_proof);
         }
         
         if (should_refine_bounds() && first) 
@@ -2814,9 +2814,9 @@ public:
         reset_evidence();
         m_explanation.clear();
         m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
-        set_proof_params(m_bound, true);
+        set_proof_params(m_bound, true, bound);
         ctx().mark_as_relevant(bound);
-        assign(bound, m_core, m_eqs, m_params);              
+        assign(bound, m_core, m_eqs, m_params, m_lp_proof);
     }
 
     bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
@@ -2849,7 +2849,8 @@ public:
 
     literal_vector m_core2;
 
-    void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& ps) {
+    void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs,
+                vector<parameter> const& ps, proof* pr = nullptr) {
         if (params().m_arith_validate)
             VERIFY(validate_assign(lit));
         if (params().m_arith_dump_lemmas)
@@ -2872,7 +2873,7 @@ public:
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
                         get_id(), ctx(), core.size(), core.data(), 
-                        eqs.size(), eqs.data(), lit, ps.size(), ps.data())));            
+                        eqs.size(), eqs.data(), lit, ps.size(), ps.data(), pr)));
         }
     }
 
@@ -3937,7 +3938,7 @@ public:
         m_lp_proof = nullptr;
     }
 
-    proof_ref mk_lp_proof(lp::evidence_manager::proof_expression const& evidence) {
+    proof_ref mk_lp_proof(lp::evidence_manager::proof_expression const& evidence, expr* expected_fact) {
         expr_ref_vector variables(m);
         variables.resize(evidence.variables.size());
         auto const& deps = lp().dep_manager();
@@ -3976,7 +3977,8 @@ public:
         if (!lp::bind_evidence_inputs(m, evidence, variables, premises, inputs))
             return proof_ref(m);
         proof_ref result = lp::mk_evidence_proof(m, evidence, variables, inputs);
-        if (result && !m.is_false(m.get_fact(result)))
+        if (result && (m.is_false(expected_fact) ? !m.is_false(m.get_fact(result))
+                                                  : m.get_fact(result) != expected_fact))
             result = nullptr;
         return result;
     }
@@ -3989,19 +3991,22 @@ public:
     // set_evidence has filled m_core and m_eqs from exactly this explanation
     // (set_evidence skips the same constraint indices). Without coefficients
     // a proof consumer cannot replay the step.
-    void set_proof_params(symbol const& hint, bool with_consequent) {
+    void set_proof_params(symbol const& hint, bool with_consequent, literal consequent = null_literal) {
         m_params.reset();
+        m_lp_proof = nullptr;
         if (!proofs_enabled())
             return;
+        lp::evidence_manager::proof_expression proof;
         if (hint == m_farkas) {
-            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
-            lp::evidence_manager::proof_expression proof;
             lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
             if (proof.check()) {
-                m_lp_proof = mk_lp_proof(proof);
+                m_lp_proof = mk_lp_proof(proof, m.mk_false());
                 if (m_lp_proof)
                     return;
             }
+        }
+        if (hint == m_farkas) {
+            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
             if (!m_explanation.evidence() ||
                 !lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
                 !proof.check()) {
@@ -4029,13 +4034,26 @@ public:
         if (with_consequent)
             m_params.push_back(parameter(rational(1)));
         SASSERT(m_params.size() == 1 + m_core.size() + m_eqs.size() + (with_consequent ? 1 : 0));
-        if (hint == m_farkas && !check_farkas_conflict()) {
+        // A propagation may use integer or nonlinear LP evidence that cannot
+        // be flattened into a direct Farkas combination. Export its replayable
+        // derivation only when the cheap coefficient check fails.
+        if (hint == m_bound && consequent != null_literal && !check_farkas_certificate(consequent)) {
+            lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            if (proof.check()) {
+                expr_ref expected_fact(m);
+                ctx().literal2expr(consequent, expected_fact);
+                m_lp_proof = mk_lp_proof(proof, expected_fact);
+                if (m_lp_proof)
+                    m_params.reset();
+            }
+        }
+        if (hint == m_farkas && !check_farkas_certificate(null_literal)) {
             m_params.reset();
             m_params.push_back(parameter(symbol("unsupported")));
         }
     }
 
-    bool check_farkas_conflict() {
+    bool check_farkas_certificate(literal consequent) {
         proof_checker checker(m);
         expr_ref sum(m), fact(m);
         bool strict = false;
@@ -4060,6 +4078,19 @@ public:
             if (!checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
                 return false;
         }
+        if (consequent != null_literal) {
+            if (index >= m_params.size())
+                return false;
+            rational coefficient = scale * m_params[index++].get_rational();
+            if (coefficient.is_neg())
+                return false;
+            ctx().literal2expr(~consequent, fact);
+            if (!is_app(fact) ||
+                !checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
+                return false;
+        }
+        if (index != m_params.size())
+            return false;
         if (!sum)
             return false;
         expr_ref zero(a.mk_numeral(rational(0), sum->get_sort()), m);

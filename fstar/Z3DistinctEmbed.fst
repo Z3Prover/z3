@@ -80,12 +80,11 @@ let lemma_expanded (i:interpretation value) (rho:env value) (args:list expr)
   | [] | [_] -> ()
   | [a; b] ->
     lemma_disequalities_from i rho a [b]
-  | _ -> lemma_disequalities i rho args
+  | _ ->
+    lemma_connective_holds Conjunction i rho (A.disequalities args);
+    lemma_disequalities i rho args
 
-let apply_lemma_distinct (e:expr) : option expr =
-  match A.distinct_parts e with
-  | Some args -> Some (A.expanded args)
-  | None -> None
+let apply_lemma_distinct = A.apply_lemma_distinct
 
 let lemma_apply_lemma_distinct_sound (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires embedding_model i /\ Some? (apply_lemma_distinct e))
@@ -99,8 +98,7 @@ let lemma_apply_lemma_distinct_sound (i:interpretation value) (rho:env value) (e
     | _, _ -> ()
   | _ -> ()
 
-let expansion_rewrite (a b:expr) : bool =
-  apply_lemma_distinct a = Some b || apply_lemma_distinct b = Some a
+let expansion_rewrite = A.expansion_rewrite
 
 let lemma_expansion_rewrite_sound (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires embedding_model i /\ expansion_rewrite a b)
@@ -108,10 +106,7 @@ let lemma_expansion_rewrite_sound (i:interpretation value) (rho:env value) (a b:
   if apply_lemma_distinct a = Some b then lemma_apply_lemma_distinct_sound i rho a
   else lemma_apply_lemma_distinct_sound i rho b
 
-let negation (e:expr) : option expr =
-  match e with
-  | App f [a] -> if f = not_decl && get_sort a = bool_sort then Some a else None
-  | _ -> None
+let negation = A.negation
 
 let lemma_negation (i:interpretation value) (rho:env value) (e a:expr)
   : Lemma (requires embedding_model i /\ negation e == Some a)
@@ -122,20 +117,9 @@ let lemma_negation (i:interpretation value) (rho:env value) (e a:expr)
     match eval i a rho with VBool _ -> () | _ -> ()
   | _ -> ()
 
-let distinct_clause (a b:expr) : bool =
-  (match negation a with
-   | Some d -> apply_lemma_distinct d = Some b
-   | None -> false) ||
-  (match apply_lemma_distinct a with
-   | Some p -> negation b = Some p || negation p = Some b
-   | None -> false)
+let distinct_clause = A.distinct_clause
 
-let distinct_axiom (e:expr) : bool =
-  match e with
-  | App f [a; b] ->
-    connective_app Disjunction f [a; b] &&
-    (distinct_clause a b || distinct_clause b a)
-  | _ -> false
+let distinct_axiom = A.distinct_axiom
 
 let lemma_distinct_clause (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires embedding_model i /\ distinct_clause a b)

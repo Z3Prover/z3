@@ -62,19 +62,13 @@ set(z3ml_common_flags  "-package" "zarith"
                        "-I" "${z3ml_bin}")
 
 
-# z3native_stubs.c depends on nothing
-execute_process(
-  COMMAND ${OCAMLFIND} ocamlc "-where"
-  OUTPUT_VARIABLE ocaml_stub_lib_path
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-
+# Let ocamlc select matching runtime headers at build time.
 add_custom_command(
   OUTPUT ${z3ml_bin}/z3native_stubs.o
   COMMAND "${OCAMLFIND}" "ocamlc" ${z3ml_common_flags}
           "-o" "${z3ml_bin}/z3native_stubs.o"
           "-I" "${z3ml_src}"
           "-I" "${PROJECT_SOURCE_DIR}/src/api"
-          "-I" "${ocaml_stub_lib_path}"
           "-c" "${z3ml_bin}/z3native_stubs.c"
   DEPENDS ${z3ml_bin}/z3native_stubs.c
   COMMENT "Building z3native_stubs.o"

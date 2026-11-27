@@ -32,7 +32,7 @@ let large_axiom_scan () : bool =
   let branch (guard:A.expr) : A.expr =
     A.App {
       A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort];
-      A.range = A.bool_sort; A.interp = Some Z3ValueTheory.op_or; A.int_params = [];
+      A.range = A.bool_sort; A.interp = Some Z3OperatorTags.op_or; A.int_params = [];
     } [guard; R.mk_eq_expr (A.Var 2 A.bool_sort) R.false_expr] in
   let first = branch (A.Var 0 A.bool_sort) in
   let last = branch (A.Var 1 A.bool_sort) in
@@ -158,9 +158,9 @@ let nnf_wide (n pad:nat) : Z3NnfReplay.verdict =
   let nps = nnf_copies n np [] in
   let bools = nnf_copies n A.bool_sort [] in
   let disjunction = A.App { A.decl_name = "or"; A.domain = bools; A.range = A.bool_sort;
-                            A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } ps in
+                            A.interp = Some Z3OperatorTags.op_or; A.int_params = [] } ps in
   let conjunction = A.App { A.decl_name = "and"; A.domain = bools; A.range = A.bool_sort;
-                            A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } nps in
+                            A.interp = Some Z3OperatorTags.op_and; A.int_params = [] } nps in
   nnf_verdict (binder_entry "refl" (nnf_oeq np np) [] ::
                binder_entry "nnf-neg" (nnf_oeq (R.mk_not_expr disjunction) conjunction) (nnf_copies n 0 []) ::
                padding pad [])
@@ -219,8 +219,8 @@ let qi_connective (name:string) (op:A.decl_kind) (args:list A.expr) : A.expr =
   A.App { A.decl_name = name; A.domain = qi_bools args []; A.range = A.bool_sort; A.interp = Some op;
           A.int_params = [] } args
 
-let qi_or (args:list A.expr) : A.expr = qi_connective "or" Z3ValueTheory.op_or args
-let qi_and (args:list A.expr) : A.expr = qi_connective "and" Z3ValueTheory.op_and args
+let qi_or (args:list A.expr) : A.expr = qi_connective "or" Z3OperatorTags.op_or args
+let qi_and (args:list A.expr) : A.expr = qi_connective "and" Z3OperatorTags.op_and args
 
 let qi_atom (name:string) (k:int) : A.expr =
   A.App { A.decl_name = name; A.domain = []; A.range = A.bool_sort; A.interp = None; A.int_params = [k] } []
@@ -381,9 +381,9 @@ let nnf_premise_boundary () : bool =
       1 twice nnf_p in
   let two : list A.sort = [A.bool_sort; A.bool_sort] in
   let or2 = A.App { A.decl_name = "or"; A.domain = two; A.range = A.bool_sort;
-                    A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [nnf_p; nnf_p] in
+                    A.interp = Some Z3OperatorTags.op_or; A.int_params = [] } [nnf_p; nnf_p] in
   let and2 = A.App { A.decl_name = "and"; A.domain = two; A.range = A.bool_sort;
-                     A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } [np; np] in
+                     A.interp = Some Z3OperatorTags.op_and; A.int_params = [] } [np; np] in
   let document (ids:list int) : C.marshaled =
     let good = fixture U.Asserted in
     let certificate = { U.binder_entries = [binder_entry "refl" (nnf_oeq nnf_p nnf_p) [];
@@ -458,7 +458,7 @@ let real_constant (name:string) (params:list int) : A.expr =
   A.App { A.decl_name = name; A.domain = []; A.range = real_s; A.interp = None; A.int_params = params } []
 
 let real_numeral (n:int) (d:pos) : A.expr =
-  A.App { A.decl_name = "num"; A.domain = []; A.range = real_s; A.interp = Some Z3ValueTheory.op_num_rational;
+  A.App { A.decl_name = "num"; A.domain = []; A.range = real_s; A.interp = Some Z3OperatorTags.op_num_rational;
           A.int_params = [n; d] } []
 
 let real_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
@@ -500,15 +500,15 @@ let integer_unit_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let x = A.App { A.decl_name = "x"; domain = []; range = sort; interp = None; int_params = [] } [] in
   let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
-                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+                         interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } [] in
   let comparison name tag a b = A.App
     { A.decl_name = name; domain = [sort; sort]; range = A.bool_sort; interp = Some tag; int_params = [] } [a; b] in
   let check missing bound =
     let facts = if missing then [R.true_expr]
-      else [R.true_expr; comparison "<" Z3ValueTheory.op_arith_lt x (numeral 0)] in
+      else [R.true_expr; comparison "<" Z3OperatorTags.op_arith_lt x (numeral 0)] in
     Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
       { U.kind = U.Unverified "arith/lp-integer-tighten";
-        U.conclusion = U.Holds (comparison "<=" Z3ValueTheory.op_arith_le x (numeral bound));
+        U.conclusion = U.Holds (comparison "<=" Z3OperatorTags.op_arith_le x (numeral bound));
         U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
   (match check false (-1) with
    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [R.true_expr]
@@ -526,7 +526,7 @@ let integer_product_clause_controls () : bool =
   let a = Z3SortedProof.int_ge x zero in
   let b = Z3SortedProof.int_ge y zero in
   let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
-                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+                       interp = Some Z3OperatorTags.op_arith_mul; int_params = [] } [x; y] in
   let clause bound = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction
       [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound])
       [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound] in
@@ -556,7 +556,7 @@ let integer_zero_product_controls () : bool =
   let lower = Z3SortedProof.int_ge x zero in
   let upper = Z3SortedProof.int_le x zero in
   let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
-                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+                       interp = Some Z3OperatorTags.op_arith_mul; int_params = [] } [x; y] in
   let check facts =
     Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
       { U.kind = U.Unverified "arith/lp-monomial-interval";
@@ -575,7 +575,7 @@ let integer_constant_product_controls () : bool =
   let x = constant "constant_x" in
   let y = constant "constant_y" in
   let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
-                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+                       interp = Some Z3OperatorTags.op_arith_mul; int_params = [] } [a; b] in
   let check n coefficient missing =
     let k = Z3SortedProof.int_constant n in
     let lower = Z3SortedProof.int_ge x k in
@@ -598,7 +598,7 @@ let integer_product_equality_controls () : bool =
   let x = constant "equality_x" in
   let y = constant "equality_y" in
   let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
-                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+                       interp = Some Z3OperatorTags.op_arith_mul; int_params = [] } [a; b] in
   let check n coefficient reversed missing observational =
     let k = Z3SortedProof.int_constant n in
     let lower = Z3SortedProof.int_ge x k in
@@ -625,7 +625,7 @@ let integer_product_equality_clause_controls () : bool =
   let two = Z3SortedProof.int_constant 2 in
   let three = Z3SortedProof.int_constant 3 in
   let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
-                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+                       interp = Some Z3OperatorTags.op_arith_mul; int_params = [] } [a; b] in
   let equality = R.mk_eq_expr (mul x y) (mul two y) in
   let lower = R.mk_not_expr (Z3SortedProof.int_ge x two) in
   let check kind lits facts =
@@ -683,15 +683,15 @@ let integer_product_controls () : bool =
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
                             interp = None; int_params = [] } [] in
   let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
-                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+                         interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } [] in
   let x = constant "x" in
   let y = constant "y" in
   let z = constant "z" in
   let binary name tag result a b = A.App
     { A.decl_name = name; domain = [sort; sort]; range = result; interp = Some tag; int_params = [] } [a; b] in
-  let ge a b = binary ">=" Z3ValueTheory.op_arith_ge A.bool_sort a b in
-  let le a b = binary "<=" Z3ValueTheory.op_arith_le A.bool_sort a b in
-  let mul a b = binary "*" Z3ValueTheory.op_arith_mul sort a b in
+  let ge a b = binary ">=" Z3OperatorTags.op_arith_ge A.bool_sort a b in
+  let le a b = binary "<=" Z3OperatorTags.op_arith_le A.bool_sort a b in
+  let mul a b = binary "*" Z3OperatorTags.op_arith_mul sort a b in
   let zero = numeral 0 in
   let replay kind facts =
     Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
@@ -701,8 +701,8 @@ let integer_product_controls () : bool =
     let minimum = if strict then numeral 1 else zero in
     let b = if wrong_sign then le y zero else ge y minimum in
     let facts = [ge x minimum; b;
-                 (if strict then le z zero else binary "<" Z3ValueTheory.op_arith_lt A.bool_sort z zero);
-                 le (binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
+                 (if strict then le z zero else binary "<" Z3OperatorTags.op_arith_lt A.bool_sort z zero);
+                 le (binary "+" Z3OperatorTags.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
     replay kind facts in
   let signed kind strict opposite wrong_sign =
     let positive = if strict then numeral 1 else zero in
@@ -710,8 +710,8 @@ let integer_product_controls () : bool =
     let b = if opposite <> wrong_sign then ge y positive else le y negative in
     let c = if strict then (if opposite then ge z zero else le z zero)
       else binary (if opposite then ">" else "<")
-      (if opposite then Z3ValueTheory.op_arith_gt else Z3ValueTheory.op_arith_lt) A.bool_sort z zero in
-    let difference = binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z) in
+      (if opposite then Z3OperatorTags.op_arith_gt else Z3OperatorTags.op_arith_lt) A.bool_sort z zero in
+    let difference = binary "+" Z3OperatorTags.op_arith_add sort (mul x y) (mul (numeral (-1)) z) in
     replay kind [le x negative; b; c; if opposite then ge difference zero else le difference zero] in
   (match check (U.Unverified "th-lemma") false false with
    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
@@ -854,10 +854,10 @@ let real_farkas_controls () : bool =
   let twin = real_constant "x" [7] in
   let zero = real_numeral 0 1 in
   let one = real_numeral 1 1 in
-  let gt = real_compare ">" (Some Z3ValueTheory.op_arith_gt) in
+  let gt = real_compare ">" (Some Z3OperatorTags.op_arith_gt) in
   let fake_gt = real_compare ">" None in
-  let lt = real_compare "<" (Some Z3ValueTheory.op_arith_lt) in
-  let le = real_compare "<=" (Some Z3ValueTheory.op_arith_le) in
+  let lt = real_compare "<" (Some Z3OperatorTags.op_arith_lt) in
+  let le = real_compare "<=" (Some Z3OperatorTags.op_arith_le) in
   let check a b ids cs = C.check true (real_farkas_document a b ids cs) in
   check (gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 0 &&
   check (lt x y) (le y x) [0; 1] [(1, 2); (2, 4)] = Some 0 &&
@@ -941,14 +941,14 @@ let direct_ite_controls () : bool =
 let qp_int : A.sort = A.SortApp A.IntSymbol []
 
 let qp_mul (a b:A.expr) : A.expr =
-  A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3ValueTheory.op_mul;
+  A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3OperatorTags.op_mul;
           A.int_params = [] } [a; b]
 
 let rec qp_ints (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
   match xs with [] -> acc | _ :: rest -> qp_ints rest (qp_int :: acc)
 
 let qp_times (args:list A.expr) : A.expr =
-  A.App { A.decl_name = "*"; A.domain = qp_ints args []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_arith_mul;
+  A.App { A.decl_name = "*"; A.domain = qp_ints args []; A.range = qp_int; A.interp = Some Z3OperatorTags.op_arith_mul;
           A.int_params = [] } args
 
 let qp_atom (name:string) (k:int) : A.expr =
@@ -958,11 +958,11 @@ let rec qp_atoms (n:nat) (acc:list A.expr) : Tot (list A.expr) (decreases n) =
   if n = 0 then acc else qp_atoms (n - 1) (qp_atom "v" n :: acc)
 
 let qp_zero : A.expr =
-  A.App { A.decl_name = "num"; A.domain = []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_num_rational;
+  A.App { A.decl_name = "num"; A.domain = []; A.range = qp_int; A.interp = Some Z3OperatorTags.op_num_rational;
           A.int_params = [0; 1] } []
 
 let qp_nonpositive (a:A.expr) : A.expr =
-  A.App { A.decl_name = "<="; A.domain = [qp_int; qp_int]; A.range = A.bool_sort; A.interp = Some Z3ValueTheory.op_arith_le;
+  A.App { A.decl_name = "<="; A.domain = [qp_int; qp_int]; A.range = A.bool_sort; A.interp = Some Z3OperatorTags.op_arith_le;
           A.int_params = [] } [a; qp_zero]
 
 let qp_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [qp_int; qp_int] A.bool_sort body
@@ -1008,7 +1008,7 @@ let qi_product_scale () : bool =
   let vs65 = qp_atoms 65 [] in
   let wide = qp_times (qp_atoms 100000 []) in
   let long = A.App { A.decl_name = "*"; A.domain = qp_sorts 100000 []; A.range = qp_int;
-                     A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b] in
+                     A.interp = Some Z3OperatorTags.op_mul; A.int_params = [] } [a; b] in
   let (d1, e1) = qp_swap (qp_applied 4000 a) (qp_applied 4000 b) in
   let (d2, e2) = qp_swap (qp_applied 4000 a) (qp_applied 4000 a) in
   let (d3, e3) = qp_swap (qp_applied 200000 a) (qp_applied 200000 b) in
@@ -1040,7 +1040,7 @@ let direct_product_controls () : bool =
   let z = qp_atom "z" 0 in
   let twin = qp_atom "x" 7 in
   let look_alike = A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int;
-                           A.interp = Some Z3ValueTheory.op_mul; A.int_params = [0] } [y; x] in
+                           A.interp = Some Z3OperatorTags.op_mul; A.int_params = [0] } [y; x] in
   let check l r = C.check true (ite_rewrite_document core l r) in
   check (qp_mul x y) (qp_mul y x) = Some 0 &&
   check (qp_mul (qp_mul x y) z) (qp_times [x; y; z]) = Some 0 &&
@@ -1054,7 +1054,7 @@ let qp_named_int : A.sort = A.BaseSort "Int"
 
 let qp_named_mul (a b:A.expr) : A.expr =
   A.App { A.decl_name = "*"; A.domain = [qp_named_int; qp_named_int]; A.range = qp_named_int;
-          A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b]
+          A.interp = Some Z3OperatorTags.op_mul; A.int_params = [] } [a; b]
 
 let qp_named_atom (name:string) : A.expr =
   A.App { A.decl_name = name; A.domain = []; A.range = qp_named_int; A.interp = None; A.int_params = [] } []
@@ -1087,7 +1087,7 @@ let rec qe_terms (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
 
 let qe_or (a b:A.expr) : A.expr =
   A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
-          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b]
+          A.interp = Some Z3OperatorTags.op_or; A.int_params = [] } [a; b]
 
 let qe_leaf (q e:A.expr) (pad:nat) : Z3NnfReplay.verdict =
   let i0 = A.Var 0 qp_int in
@@ -1150,11 +1150,11 @@ let qd_neq (a b:A.expr) : A.expr = R.mk_not_expr (R.mk_eq_expr a b)
 
 let qd_or3 (a b c:A.expr) : A.expr =
   A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
-          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b; c]
+          A.interp = Some Z3OperatorTags.op_or; A.int_params = [] } [a; b; c]
 
 let qd_and (a b:A.expr) : A.expr =
   A.App { A.decl_name = "and"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
-          A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } [a; b]
+          A.interp = Some Z3OperatorTags.op_and; A.int_params = [] } [a; b]
 
 let qd_leaf (q e:A.expr) : Z3NnfReplay.verdict =
   let i0 = A.Var 0 qp_int in
@@ -1236,20 +1236,20 @@ let rec ro_bools (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreas
 
 let ro_or (args:list A.expr) : A.expr =
   A.App { A.decl_name = "or"; A.domain = ro_bools args []; A.range = A.bool_sort;
-          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } args
+          A.interp = Some Z3OperatorTags.op_or; A.int_params = [] } args
 
 let ro_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
   A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = real_s; A.interp = Some op; A.int_params = [] } [a; b]
 
-let ro_plus (a b:A.expr) : A.expr = ro_binary "+" Z3ValueTheory.op_arith_add a b
-let ro_times (a b:A.expr) : A.expr = ro_binary "*" Z3ValueTheory.op_arith_mul a b
+let ro_plus (a b:A.expr) : A.expr = ro_binary "+" Z3OperatorTags.op_arith_add a b
+let ro_times (a b:A.expr) : A.expr = ro_binary "*" Z3OperatorTags.op_arith_mul a b
 let ro_num (n:int) : A.expr = real_numeral n 1
 let ro_diff (a b:A.expr) : A.expr = ro_plus a (ro_times (ro_num (-1)) b)
 let ro_eq (a b:A.expr) : A.expr = R.mk_eq_expr a b
 let ro_not (a:A.expr) : A.expr = R.mk_not_expr a
-let ro_le (a b:A.expr) : A.expr = real_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
-let ro_ge (a b:A.expr) : A.expr = real_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
-let ro_lt (a b:A.expr) : A.expr = real_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+let ro_le (a b:A.expr) : A.expr = real_compare "<=" (Some Z3OperatorTags.op_arith_le) a b
+let ro_ge (a b:A.expr) : A.expr = real_compare ">=" (Some Z3OperatorTags.op_arith_ge) a b
+let ro_lt (a b:A.expr) : A.expr = real_compare "<" (Some Z3OperatorTags.op_arith_lt) a b
 
 let ro_f : A.func_decl =
   { A.decl_name = "f"; A.domain = [real_s]; A.range = real_s; A.interp = None; A.int_params = [] }
@@ -1338,22 +1338,22 @@ let dv_const (name:string) (params:list int) : A.expr =
   A.App { A.decl_name = name; A.domain = []; A.range = dv_int; A.interp = None; A.int_params = params } []
 
 let dv_num (n:int) : A.expr =
-  A.App { A.decl_name = "num"; A.domain = []; A.range = dv_int; A.interp = Some Z3ValueTheory.op_num_rational;
+  A.App { A.decl_name = "num"; A.domain = []; A.range = dv_int; A.interp = Some Z3OperatorTags.op_num_rational;
           A.int_params = [n; 1] } []
 
 let dv_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
   A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = dv_int; A.interp = Some op; A.int_params = [] } [a; b]
 
-let dv_plus (a b:A.expr) : A.expr = dv_binary "+" Z3ValueTheory.op_arith_add a b
-let dv_times (a b:A.expr) : A.expr = dv_binary "*" Z3ValueTheory.op_arith_mul a b
+let dv_plus (a b:A.expr) : A.expr = dv_binary "+" Z3OperatorTags.op_arith_add a b
+let dv_times (a b:A.expr) : A.expr = dv_binary "*" Z3OperatorTags.op_arith_mul a b
 let dv_diff (a b:A.expr) : A.expr = dv_plus a (dv_times (dv_num (-1)) b)
 
 let dv_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
   A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = op; A.int_params = [] } [a; b]
 
-let dv_le (a b:A.expr) : A.expr = dv_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
-let dv_ge (a b:A.expr) : A.expr = dv_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
-let dv_lt (a b:A.expr) : A.expr = dv_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+let dv_le (a b:A.expr) : A.expr = dv_compare "<=" (Some Z3OperatorTags.op_arith_le) a b
+let dv_ge (a b:A.expr) : A.expr = dv_compare ">=" (Some Z3OperatorTags.op_arith_ge) a b
+let dv_lt (a b:A.expr) : A.expr = dv_compare "<" (Some Z3OperatorTags.op_arith_lt) a b
 
 let dv_rem (a b:A.expr) : A.expr = dv_binary "mod" Z3IntegerDivision.op_mod a b
 let dv_quot (a b:A.expr) : A.expr = dv_binary "div" Z3IntegerDivision.op_idiv a b

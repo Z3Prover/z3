@@ -18,10 +18,10 @@ module Z3SortedRootDocumentTests
    Z3SortedProofTests are reused (same schemas and documents). *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module SP = Z3SortedProof

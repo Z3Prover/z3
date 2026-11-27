@@ -3,8 +3,8 @@ module Z3LinearArithmeticAst
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
-open Z3ResolutionProofTheory
+open Z3OperatorTags
+open Z3ClauseSyntax
 open FStar.List.Tot
 module P = Z3LinearArithmeticTheory
 
@@ -130,6 +130,46 @@ let rec literal (fuel:nat) (positive:bool) (e:expr)
     (match comparison e with
      | Some (r, a, b) -> Some (positive, r, a, b)
      | None -> None)
+
+let rec multiple_non_numerals (found:bool) (terms:list expr) : Tot bool (decreases terms) =
+  match terms with
+  | [] -> false
+  | e :: rest ->
+    if Some? (numeral e) then multiple_non_numerals found rest
+    else if found then true else multiple_non_numerals true rest
+
+let rec linear_terms (fuel:nat) (terms:list expr) : Tot bool (decreases fuel) =
+  if fuel = 0 then false else
+  match terms with
+  | [] -> true
+  | e :: rest ->
+    match e with
+    | App f args ->
+      (match operation_of f args with
+       | Some Add | Some Sub | Some ToReal ->
+         linear_terms (fuel - 1) (args @ rest)
+       | Some Mul ->
+         not (multiple_non_numerals false args) &&
+         linear_terms (fuel - 1) (args @ rest)
+       | Some Div ->
+         (match args with
+          | [_; denominator] ->
+            if Some? (numeral denominator)
+            then linear_terms (fuel - 1) (args @ rest)
+            else linear_terms (fuel - 1) rest
+          | _ -> linear_terms (fuel - 1) rest)
+       | _ -> linear_terms (fuel - 1) rest)
+    | _ -> linear_terms (fuel - 1) rest
+
+let rec linear_facts (fuel:nat) (facts:list expr) : Tot bool (decreases fuel) =
+  if fuel = 0 then false else
+  match facts with
+  | [] -> true
+  | fact :: rest ->
+    (match literal 16 true fact with
+     | Some (_, _, left, right) ->
+       linear_terms 4096 [left; right] && linear_facts (fuel - 1) rest
+     | None -> linear_facts (fuel - 1) rest)
 
 let oriented (positive:bool) (r:relation) (p q:poly) : poly & bool =
   let reversed = (positive && (r = Ge || r = Gt)) ||

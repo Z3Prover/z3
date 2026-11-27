@@ -34,7 +34,8 @@ module Z3TypedRoot
    not SMT-LIB sorts and are likewise rejected by the support checks.
 
    Interpreted operators (canonical metadata only, see `classify`): true, false,
-   not, =>, n-ary and/or/xor, = at every sort, ite at every sort, Int and Real
+   not, =>, n-ary and/or/xor, = and binary distinct at every sort, ite at every
+   sort, Int and Real
    numerals (op_num_rational), + * - over Int or Real (n-ary, including the
    native binary Int op_plus/op_mul records; nullary + and * are the empty
    sum 0 and empty product 1: at Int exactly as Z3SortedInteger.classify
@@ -47,7 +48,7 @@ module Z3TypedRoot
    datatype-free array sort (any arity, nested), lambda at every
    datatype-free array sort, forall/exists over every sort. Everything else
    is a free choice in `symbols` (uninterpreted symbols, Int abs, Int div
-   and mod by ZERO, distinct, const-array, array-ext, BV/FF/Seq/FP
+   and mod by ZERO, n-ary distinct, const-array, array-ext, BV/FF/Seq/FP
    operators, real division by zero, ill-matched datatype selectors, and
    select/store/lambda at array sorts mentioning a datatype). Int div/mod
    were free at every divisor until the run e78cd96c model-contract change:
@@ -70,20 +71,20 @@ module Z3TypedRoot
    BaseSort identities never acquire interpreted meaning from their names. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
 module FE = FStar.FunctionalExtensionality
 module ID = FStar.IndefiniteDescription
-module IDV = Z3IntegerDivision
+module IDV = Z3OperatorTags
 
 (* ---------------------------------------------------------------------- *)
 (* Carriers                                                                 *)
@@ -267,7 +268,7 @@ type targuments (u:uninterpreted) (sch:S.checked_schema) (ts:list sort) =
 
 (* Every remaining choice of a model, with NO constraint: uninterpreted
    symbols, every operator outside the interpreted set below (including
-   integer div/mod, distinct, BV/FF/Seq/FP operators), real division by
+   integer div/mod, n-ary distinct, BV/FF/Seq/FP operators), real division by
    zero, ill-matched datatype selectors, and select/store/lambda (and every
    other non-connective operator) at an array sort mentioning a datatype.
    `=` and `ite` at such a placeholder sort are NOT free: they are
@@ -308,6 +309,7 @@ type theory_op =
   | Implication
   | Nary : B.nary_op -> theory_op
   | Equality : sort -> theory_op
+  | Distinct : sort -> theory_op
   | Choice : sort -> theory_op
   | Numeral : sort -> int -> pos -> theory_op
   | Arith : sort -> A.operation -> theory_op
@@ -327,6 +329,8 @@ let op_typed (sigma:V.signature) (f:func_decl) (op:theory_op) : bool =
   | Implication -> f.domain = [bool_sort; bool_sort] && f.range = bool_sort
   | Nary _ -> boolean_sorts f.domain && f.range = bool_sort
   | Equality s -> f.domain = [s; s] && f.range = bool_sort
+  | Distinct s ->
+    Z3DistinctAst.distinct_declaration f && f.domain = [s; s] && f.range = bool_sort
   | Choice s -> f.domain = [bool_sort; s; s] && f.range = s
   | Numeral s _ d ->
     f.domain = [] && f.range = s && (s = int_s || s = real_s) && not (V.datatype_sort sigma s) &&
@@ -368,6 +372,9 @@ let connective (f:func_decl) : theory_op =
            f.decl_name = "xor" && f.interp = Some op_xor) then
     Nary (if f.interp = Some op_and then B.And
           else if f.interp = Some op_or then B.Or else B.Xor)
+  else if Z3DistinctAst.distinct_declaration f &&
+          (match f.domain with [_; _] -> true | _ -> false) then
+    (match f.domain with [s; _] -> Distinct s | _ -> Other)
   else match f.domain with
   | [s; _] -> if f = R.eq_decl s then Equality s else Other
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
@@ -542,6 +549,10 @@ let interpreted (u:uninterpreted) (sch:S.checked_schema)
   | Nary op -> Some (boolean sch (combine op (truths sch f.domain xs)))
   | Equality _ ->
     (match xs with [x; y] -> Some (boolean sch (decide (x == y))) | _ -> FStar.Pervasives.false_elim ())
+  | Distinct _ ->
+    (match xs with
+     | [x; y] -> Some (boolean sch (not (decide (x == y))))
+     | _ -> FStar.Pervasives.false_elim ())
   | Choice _ ->
     (match xs with [c; x; y] -> Some (if truth sch c then x else y) | _ -> FStar.Pervasives.false_elim ())
   | Numeral s n d ->
@@ -737,8 +748,8 @@ let supported_document (sch:S.schema) (es:list expr) : bool =
 (* ---------------------------------------------------------------------- *)
 
 let datatype_kind (f:func_decl) : bool =
-  f.interp = Some Z3DatatypeLemma.op_constructor || f.interp = Some Z3DatatypeLemma.op_recognizer ||
-  f.interp = Some Z3DatatypeLemma.op_accessor
+  f.interp = Some Z3DatatypeSyntax.op_constructor || f.interp = Some Z3DatatypeSyntax.op_recognizer ||
+  f.interp = Some Z3DatatypeSyntax.op_accessor
 
 type interp (u:uninterpreted) (sch:S.checked_schema) = V.interpretation (carrier u) (S.signature sch)
 
@@ -911,21 +922,21 @@ let lemma_constructor_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u
    tag, so a recognizer or an accessor is never a registered constructor,
    and an accessor is never a recognizer. *)
 let lemma_constructor_interp (sch:S.checked_schema) (f:func_decl)
-  : Lemma (requires L.mem f (S.signature sch)) (ensures f.interp == Some Z3DatatypeLemma.op_constructor) =
+  : Lemma (requires L.mem f (S.signature sch)) (ensures f.interp == Some Z3DatatypeSyntax.op_constructor) =
   S.lemma_case_of sch.cases f;
   let c = Some?.v (S.case_of sch.cases f) in
   S.lemma_case_member (S.signature sch) sch.sorts sch.cases c
 
 let rec lemma_recognizer_interp (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_recognizer f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_recognizer) (decreases cs) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_recognizer) (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest -> if Some? (S.find_recognizer f rest) then lemma_recognizer_interp f rest
 
 let rec lemma_accessor_interp (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_accessor f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_accessor) (decreases cs) =
+          (ensures f.interp == Some Z3DatatypeSyntax.op_accessor) (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest -> if Some? (S.find_accessor f rest) then lemma_accessor_interp f rest
@@ -1052,7 +1063,7 @@ let lemma_difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
 (* and the expected mathematical value (F* bool/int/FStar.Real operators,  *)
 (* typed argument lists, constructor trees) as its conclusion. Kernels     *)
 (* cite these laws; they never need to unfold `interpreted`/`standard`.    *)
-(* Operators outside this list (distinct, op_num_int numerals, Int abs,    *)
+(* Operators outside this list (n-ary distinct, op_num_int numerals, Int abs, *)
 (* Int div/mod by ZERO, to_int/is_int, const-array, array-ext, op_oeq,     *)
 (* n-ary =, n-ary =>, BV/FF/Seq/FP/String/Regex, real x/0, unmatched       *)
 (* selectors,                                                              *)
@@ -1163,6 +1174,14 @@ let law_equality (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:
                  (x y:tvalue u sch s)
   : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Equality s)
           (ensures truth sch (i.application f [x; y]) == true <==> x == y) =
+  lemma_operator i f [x; y]
+
+let law_distinct (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (s:sort)
+                 (x y:tvalue u sch s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Distinct s)
+          (ensures truth sch (i.application f [x; y]) == true <==> not (x == y)) =
+  assert (classify (S.signature sch) f == Distinct s);
+  assert (f.domain == [s; s]);
   lemma_operator i f [x; y]
 
 let law_ite (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (s:sort)

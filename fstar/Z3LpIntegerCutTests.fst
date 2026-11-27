@@ -1,11 +1,11 @@
 module Z3LpIntegerCutTests
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 module A = Z3LinearArithmeticAst
 module C = Z3LpIntegerCut
-module G = Z3LpGomory
+module G = Z3LpGomorySyntax
 
 (* Closed instances of the integer rounding certificate, decided by normalization.
    Facts: 256 * a >= 1 and 256 * a <= 255. They hold over the reals (a = 1/2)

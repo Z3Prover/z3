@@ -57,7 +57,7 @@ module Z3NnfSkolemTests
    ill-sorted inputs, whose expected result is the rejection. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
@@ -70,7 +70,7 @@ module U = Z3UnifiedProof
 module R = Z3ResolutionProofTheory
 module O = Z3ObservationalEquality
 module E = Z3SortedSkolem
-module SK = Z3Skolemization
+module SK = Z3SkolemSyntax
 module PT = Z3SortedProofTests
 module NR = Z3NnfReplay
 module RD = Z3SortedRootDocument

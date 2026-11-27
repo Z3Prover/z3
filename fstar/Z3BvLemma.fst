@@ -461,12 +461,8 @@ let lemma_conditional_comparison (i:interpretation value) (rho:env value)
     assert (project width (eval i target rho) == k);
     assert ((eval i t rho == eval i target rho) <==> n = k);
     assert ((eval i u rho == eval i target rho) <==> m = k);
-    match source with
-    | App f [c; t; u] ->
-      assert (eval i source rho ==
-        (if Z3BooleanRewrite.bool_value (eval i c rho) then eval i t rho else eval i u rho));
-      (match eval i c rho with VBool _ -> () | _ -> ())
-    | _ -> ()
+    AR.lemma_ite_parts i rho source c t u;
+    match eval i c rho with VBool _ -> () | _ -> ()
 
 let lemma_basic_rewrite (i:interpretation value) (rho:env value)
                   (project:pos -> value -> int) (e result:expr)

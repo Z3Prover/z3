@@ -346,6 +346,57 @@ evidence into proof parameters. Arithmetic normalization/rounding rewrite
 support is the complementary checker work with the largest immediate
 full-proof coverage impact.
 
+## Current PR-source follow-up
+
+The producer-gap table above is pinned to source commit
+`11306ced808398e9b03686f096c63771dee8ba82`; it is not a statement that the
+current PR source has no rounding or cut evidence. In the current checkout,
+`lar_solver::update_column_type_and_bound` adds an `integer_tighten` derivation
+when integer rounding changes an LP-propagated bound
+(`src/math/lp/lar_solver.cpp:2544-2550`). `evidence.cpp` validates that the
+premise and conclusion use the same integer polynomial and that the bound is
+the exact floor/ceiling result (`src/math/lp/evidence.cpp:513-532`).
+`lp_proof.cpp` serializes the derivation with its `lp-context` and verifies
+the premise formulas (`src/ast/proofs/lp_proof.cpp:18-22,485-560`). The
+independent checker maps this hint to `Unverified
+"arith/lp-integer-tighten"` but accepts it only through the direct
+`LP.check_tightening` replay (`fstar/Z3UnifiedProof.fst:275-276`,
+`fstar/Z3LpReplaySyntax.fst:19-29`).
+
+Gomory and integer-lattice derivations are also represented in the current
+producer evidence: `gomory.cpp` records a Gomory row, and `dioph_eq.cpp`
+records an integer-lattice step. The native translator reconstructs
+`ArithmeticGomory` and `ArithmeticLattice` candidates from the encoded context,
+then the checker validates them against the actual formulas
+(`fstar/Z3NativeProof.fst:565-590`, `fstar/Z3UnifiedProof.fst:265-267`).
+`fstar/tools/test_native_bridge.ml:286-305,382-466` contains native
+integer-tightening and authentic-Gomory controls, including mutation checks.
+
+The `adjust_bound_for_int` helper itself still performs rounding without
+attaching a recipe. The propagation caller above wraps that change, while
+initial bound-normalization callers use a separate input-binding path
+(`lp_proof.cpp:322-352,485-511`). Whether every such path is linked to an
+adequate proof for a particular input must be established on that exact proof;
+the helper alone is not evidence of a producer defect. The two recent QF_LIA
+ring recaptures have zero official `arith/farkas` PENDING, but their native
+producer evidence is not pinned to the same proof documents. No producer
+change is justified until a matched pure-QF_LIA proof exposes missing or
+malformed evidence.
+
+A fixed-proof Legacy control used the exact same two recaptured documents
+(`000797dfef565ba1...` and `0ff8d8b000f3c6e4...`) for both
+`Z3ProofDocument` and the sort-indexed checker. At checker pin `b5e8cb065f06`
+(source commit `ce57c4095b54`), Legacy ACCEPTed both in all five paired runs;
+the sort-indexed path remained PARTIAL 4 and 48, with `intro-def` 4 and
+`intro-def` 30 / `rewrite` 18, respectively. Median times were 0.028s vs
+0.047s for the smaller proof and 4.569s vs 0.775s for the larger proof, making
+the sort-indexed path 5.9x slower on the latter. These recaptures are not
+verified cohort documents, and this older checker pin is not the current
+PR-source checker. The result identifies `intro-def`/`rewrite` parity and
+performance gaps; it is not evidence of a QF_LIA Farkas producer defect or
+cohort burn-down. The paired replay pins and raw results are in
+`qflia-legacy-matched-replay-20261121T014813Z.json`.
+
 ## Validation and reproducibility
 
 The bottom-up F* verification, extraction, and Zarith-linked native build

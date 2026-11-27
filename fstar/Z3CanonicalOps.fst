@@ -6,7 +6,7 @@
    dispatch on them.
 
    A declaration is the canonical `not`, `and`, `or`, `=>`, `=`, `true` or
-   `false` only when its name, its kind tag (`Z3ValueTheory.op_*`), its
+   `false` only when its name, its kind tag (`Z3OperatorTags.op_*`), its
    domain, its range and its parameters all have the shape Z3's
    `basic_decl_plugin` gives that connective. The native bridge
    (`Z3NativeProof.marshal_declaration`) produces exactly these shapes:
@@ -28,7 +28,7 @@
 module Z3CanonicalOps
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 
 let rec boolean_sorts (dom:list sort) : Tot bool (decreases dom) =
   match dom with

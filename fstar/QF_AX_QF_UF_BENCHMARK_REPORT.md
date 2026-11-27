@@ -1,7 +1,9 @@
 # QF_AX / QF_UF benchmark experiment: Z3 performance and rewrite-matcher coverage
 
 **Historical experiment:** the exporter-dependent benchmark runner and
-generated F* proof snapshots have been removed. The measurements below
+generated F* proof snapshots have been removed. The concrete interpreters,
+pattern-matched example checker, and rewrite-synthesis wrappers have also
+been retired. The measurements below
 are retained; their old exporter commands are no longer supported. See
 [the native checker report](OCAML_CHECKER_REPORT.md) for the current path.
 
@@ -19,9 +21,9 @@ as unverified ("trusted") leftover obligations.
 **Raw benchmark corpora, per-file results, and generated `.fst` files are not
 committed to this repository** (they live under `C:\smtlib-benchmarks` on the
 machine the experiment was run on, per instructions to keep downloaded
-third-party corpora out of the repo). This document and the harness scripts
-(`tools/run_benchmarks.py`, `tools/analyze_benchmarks.py`) are committed so the
-experiment is reproducible.
+third-party corpora out of the repo). This report preserves the historical
+results; the retired exporter/matcher pipeline and its reproduction harness
+are no longer shipped.
 
 ## Methodology
 

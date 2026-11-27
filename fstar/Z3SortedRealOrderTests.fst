@@ -54,12 +54,12 @@ module Z3SortedRealOrderTests
    Deep and large inputs run natively (test_native_bridge.ml, Z3CherryTests.fst). *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module TR = Z3TypedRoot
 module SR = Z3SortedRoot
@@ -78,7 +78,7 @@ module RR = Z3SortedRealRoot
 module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
 module LA = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module RPT = Z3SortedRealReplayTests
 
 (* ---------------------------------------------------------------------- *)

@@ -444,21 +444,21 @@ inline void expression_text(Text& out, Z3AstTheory_expr value, unsigned depth) {
     }
 }
 
-inline void judgment_into(Text& out, Z3UnifiedProof_judgment const& value) {
+inline void judgment_into(Text& out, Z3UnifiedProofSyntax_judgment const& value) {
     switch (value.tag) {
-    case Z3UNIFIEDPROOF_HOLDS:
+    case Z3UNIFIEDPROOFSYNTAX_HOLDS:
         out.add("holds(");
         expression_text(out, value.val.Holds, max_depth);
         out.add(")");
         return;
-    case Z3UNIFIEDPROOF_EQUAL:
+    case Z3UNIFIEDPROOFSYNTAX_EQUAL:
         out.add("equal(");
         expression_text(out, value.val.Equal.left, max_depth);
         out.add(", ");
         expression_text(out, value.val.Equal.right, max_depth);
         out.add(")");
         return;
-    case Z3UNIFIEDPROOF_OBSERVATIONAL:
+    case Z3UNIFIEDPROOFSYNTAX_OBSERVATIONAL:
         out.add("observational(");
         expression_text(out, value.val.Observational.left, max_depth);
         out.add(", ");
@@ -485,7 +485,7 @@ inline Rendered render(Write write) {
     return {std::move(out.text), out.cut};
 }
 
-inline Rendered judgment_text(Z3UnifiedProof_judgment const& value) {
+inline Rendered judgment_text(Z3UnifiedProofSyntax_judgment const& value) {
     return render([&](Text& out) { judgment_into(out, value); });
 }
 }

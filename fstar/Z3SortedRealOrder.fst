@@ -10,14 +10,14 @@ module Z3SortedRealOrder
    Z3NnfReplay) do not carry them. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
-module D = Z3Definitions
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
@@ -73,8 +73,15 @@ let lemma_real_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   match e with
   | App g [k; _] ->
     assert (e == App g [k; y]);
-    RL.lemma_real_binary_at s bc model other reals scope rho g k y A.Mul;
-    lemma_real_numeral_value s bc model other reals scope rho (-1) k
+    calc (==) {
+      RL.real_at s bc model other reals scope rho e;
+      == { RL.lemma_real_binary_at s bc model other reals scope rho g k y A.Mul }
+      RL.real_at s bc model other reals scope rho k *. RL.real_at s bc model other reals scope rho y;
+      == { lemma_real_numeral_value s bc model other reals scope rho (-1) k }
+      (0.0R -. 1.0R) *. RL.real_at s bc model other reals scope rho y;
+      == { }
+      0.0R -. RL.real_at s bc model other reals scope rho y;
+    }
   | _ -> ()
 
 (* x - y as a canonical binary Real addition of x and (-1) * y, in either

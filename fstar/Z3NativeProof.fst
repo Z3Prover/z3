@@ -3,19 +3,20 @@ open FStar.All
 open FStar.List.Tot
 
 open Z3AstTheory
-open Z3ValueTheory
-open Z3UnifiedProof
+open Z3OperatorTags
+open Z3UnifiedProofSyntax
 open Z3ProofIndex
 module N = Z3Native
-module P = Z3ProofDocument
+module P = Z3DocumentSyntax
 module L = FStar.List.Tot
 module C = Z3LpCertificate
-module BV = Z3BvLemma
-module FF = Z3FiniteFieldLemma
-module FP = Z3FiniteFieldPac
-module DT = Z3DatatypeLemma
+module IL = Z3IndependentIntegerLatticeSyntax
+module BV = Z3BvSyntax
+module FF = Z3FiniteFieldTags
+module FP = Z3FiniteFieldCertificate
+module DT = Z3DatatypeSyntax
 module CP = Z3ClauseProof
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 
 [@@FStar.Attributes.cherry_boxed]
 noeq
@@ -141,7 +142,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Add -> Some (if binary_int then op_plus else op_arith_add)
   | N.Mul -> Some (if binary_int then op_mul else op_arith_mul)
   | N.Sub -> Some op_arith_sub | N.Div -> Some op_arith_div
-  | N.IDiv -> Some Z3IntegerDivision.op_idiv | N.Mod -> Some Z3IntegerDivision.op_mod
+  | N.IDiv -> Some Z3IntegerDivisionSyntax.op_idiv | N.Mod -> Some Z3IntegerDivisionSyntax.op_mod
   | N.Le -> Some op_arith_le | N.Lt -> Some op_arith_lt
   | N.Ge -> Some op_arith_ge | N.Gt -> Some op_arith_gt
   | N.ToReal -> Some op_to_real | N.Rational -> Some op_num_rational
@@ -309,18 +310,18 @@ let native_rule (view:N.proof_view) (formula:expr) : ML rule =
   match view.assumed, view.farkas with
   | Some origin, _ -> Unverified ("assumed:" ^ origin)
   | None, Some coefficients ->
-    if view.proof_name <> "th-lemma" then N.fail "Farkas parameters on a non-theory node"
-    else
-      let coefficients = require_some "Malformed native Farkas certificate"
-                                      (opt_map_tail coefficient coefficients) in
-      ArithmeticFarkas coefficients
+    let coefficients = require_some "Malformed native arithmetic certificate"
+                                    (opt_map_tail coefficient coefficients) in
+    if view.proof_name = "arith/bound" then ArithmeticBound coefficients
+    else if view.proof_name = "th-lemma" then ArithmeticFarkas coefficients
+    else N.fail "Farkas parameters on a non-theory node"
   | None, None ->
     match P.rule_of_name view.proof_name with
     | None -> Unverified view.proof_name
     | Some Commutativity ->
       (match classify_fact formula with
        | Some (Equal a b) ->
-         if Z3Commutativity.commutativity_step a b then Commutativity else Unverified view.proof_name
+         if Z3CommutativitySyntax.commutativity_step a b then Commutativity else Unverified view.proof_name
        | _ -> Unverified view.proof_name)
     | Some rule -> rule
 
@@ -561,13 +562,26 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
       else if view.proof_name = "quant-inst" then
         QuantifierInstantiation (cached_expressions st view.instantiations),
         cached_premises st view.premises, st
+      else if view.proof_name = "arith/lp-integer-lattice" then
+        let candidate =
+          match view.lp_data, view.premises with
+          | Some ("lp-integer-lattice", [N.ParameterRational index denominator]), context :: _ ->
+            if denominator = 1 && index >= 0 then
+              index_get st.lp_certificates (N.ast_id context) >>= (fun certificate ->
+              IL.candidate certificate index)
+            else None
+          | _, _ -> None in
+        let kind = match candidate with
+          | Some c -> ArithmeticLattice c
+          | None -> Unverified view.proof_name in
+        kind, cached_premises st view.premises, st
       else if view.proof_name = "arith/lp-gomory" then
         let candidate =
           match view.lp_data, view.premises with
           | Some ("lp-gomory", [N.ParameterRational index denominator]), context :: _ ->
             if denominator = 1 && index >= 0 then
               index_get st.lp_certificates (N.ast_id context) >>= (fun certificate ->
-              Z3LpGomory.candidate certificate index)
+              Z3LpGomorySyntax.candidate certificate index)
             else None
           | _, _ -> None in
         let kind = match candidate with

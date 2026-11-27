@@ -1370,7 +1370,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
     SASSERT(lit->get_num_args() == 2);
     sort* s = lit->get_arg(0)->get_sort();
     bool is_int = a.is_int(s);
-    if (!is_int && a.is_int_expr(lit->get_arg(0))) {
+    if (!is_int && a.is_int_expr(lit->get_arg(0)) && a.is_int_expr(lit->get_arg(1))) {
         is_int = true;
         s = a.mk_int();
     }

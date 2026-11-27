@@ -62,17 +62,7 @@ module C = Z3CanonicalOps
 (* Certificates                                                        *)
 (* ----------------------------------------------------------------- *)
 
-type pac_node =
-  | PacInput : index:int -> pac_node
-  | PacAdd : left:int -> right:int -> pac_node
-  | PacMul : source:int -> coefficient:expr -> factor:list int -> pac_node
-
-type certificate = {
-  pac_premises: list expr;
-  pac_nodes: list pac_node;
-  pac_root: int;
-  pac_support: list int;
-}
+include Z3FiniteFieldCertificate
 
 (* The producer's own bounds on the table, and bounds on the replay. *)
 let max_premises : nat = 4096

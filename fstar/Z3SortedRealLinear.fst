@@ -3,21 +3,21 @@ module Z3SortedRealLinear
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
 module P = Z3LinearArithmeticTheory
-module E = Z3LinearArithmeticEmbed
+module E = Z3PolynomialSemantics
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
 module AR = Z3SortedArithmetic
-module R = Z3ResolutionProofTheory
-module D = Z3Definitions
+module R = Z3ClauseSyntax
+module D = Z3ExprScope
 module L = FStar.List.Tot
 module RL = Z3SortedReal
-module RW = Z3ArithmeticRewrite
+module RW = Z3ArithmeticSyntax
 module B = Z3BoundedBoolEquiv
 
 (* ---------------------------------------------------------------------- *)

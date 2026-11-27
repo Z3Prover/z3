@@ -1,12 +1,12 @@
 module Z3ClauseProof
 
 open Z3AstTheory
-open Z3ValueTheory
-open Z3ResolutionProofTheory
-open Z3UnifiedProof
+open Z3OperatorTags
+open Z3ClauseSyntax
+open Z3UnifiedProofSyntax
 open Z3ProofIndex
 open FStar.List.Tot
-module P = Z3ProofDocument
+module P = Z3DocumentSyntax
 module L = FStar.List.Tot
 
 (* This elaborator produces ordinary hypotheses, unit resolutions, and

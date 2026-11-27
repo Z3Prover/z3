@@ -6,10 +6,14 @@ module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module DT = Z3SortedDatatype
 module K = Z3SortedProof
-module U = Z3UnifiedProof
-module P = Z3ProofDocument
-module R = Z3ResolutionProofTheory
-module BR = Z3BooleanRewrite
+module U = Z3UnifiedProofSyntax
+module P = Z3DocumentSyntax
+module R = Z3ClauseSyntax
+module BR = Z3BooleanRewriteSyntax
+module DR = Z3DefinitionRecognition
+module NR = Z3NnfReplay
+module ZA = Z3SortedArray
+module CD = Z3IndependentConditionalDefinition
 module Tac = FStar.Tactics.V2
 module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
@@ -75,12 +79,292 @@ let shifted_integers : T.scalar_model primitive = {
 
 let integer_literal (n:int) = App {
   decl_name = "integer"; domain = []; range = integer;
-  interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+  interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
 
 let integer_addition = App {
   decl_name = "+"; domain = [integer; integer]; range = integer;
-  interp = Some Z3ValueTheory.op_arith_add; int_params = [] }
+  interp = Some Z3OperatorTags.op_arith_add; int_params = [] }
   [integer_literal 2; integer_literal 3]
+
+let integer_add : func_decl = {
+  decl_name = "+"; domain = [integer; integer]; range = integer;
+  interp = Some Z3OperatorTags.op_arith_add; int_params = []
+}
+
+let integer_x : expr = App {
+  decl_name = "x"; domain = []; range = integer; interp = None; int_params = []
+} []
+
+let integer_compare (name:string) (op:decl_kind) (a b:expr) : expr =
+  App { decl_name = name; domain = [integer; integer]; range = bool_sort;
+        interp = Some op; int_params = [] } [a; b]
+
+let integer_bound_conflict : U.proof_node = {
+  U.kind = U.ArithmeticBound [(1, 1); (1, 1)];
+  conclusion = U.Holds R.false_expr;
+  premises = [
+    { U.conclusion = U.Holds (integer_compare ">" Z3OperatorTags.op_arith_gt
+                                integer_x (integer_literal 0)); hypotheses = [] };
+    { U.conclusion = U.Holds (integer_compare "<=" Z3OperatorTags.op_arith_le
+                                integer_x (integer_literal 0)); hypotheses = [] }
+  ];
+}
+
+let integer_bound_conflict_bad : U.proof_node = {
+  integer_bound_conflict with U.kind = U.ArithmeticBound [(1, 1); (0, 1)];
+}
+
+let integer_farkas_conflict : U.proof_node = {
+  integer_bound_conflict with U.kind = U.ArithmeticFarkas [(1, 1); (1, 1)];
+}
+
+let arithmetic_bound_certificate_replay ()
+  : Lemma (
+    K.arithmetic_farkas integer_bound_conflict /\
+    K.arithmetic_farkas integer_farkas_conflict /\
+    not (K.arithmetic_farkas integer_bound_conflict_bad)) =
+  assert_norm (K.arithmetic_farkas integer_bound_conflict);
+  assert_norm (K.arithmetic_farkas integer_farkas_conflict);
+  assert_norm (not (K.arithmetic_farkas integer_bound_conflict_bad))
+
+let integer_x_plus_one = App integer_add [integer_x; integer_literal 1]
+let integer_one_plus_x = App integer_add [integer_literal 1; integer_x]
+
+let real_const (name:string) : expr = App {
+  decl_name = name; domain = []; range = LA.real_s; interp = None; int_params = []
+} []
+
+let bool_const (name:string) : expr = App {
+  decl_name = name; domain = []; range = bool_sort; interp = None; int_params = []
+} []
+
+let bool_or (args:list expr) : expr =
+  App (BR.connective_decl BR.Disjunction args) args
+
+let bool_and (args:list expr) : expr =
+  App (BR.connective_decl BR.Conjunction args) args
+
+let boolean_search_p = bool_const "boolean-search-p"
+let boolean_search_common = bool_and [
+  bool_const "boolean-search-a"; bool_const "boolean-search-b";
+  bool_const "boolean-search-c"; bool_const "boolean-search-d";
+  bool_const "boolean-search-e"; bool_const "boolean-search-f";
+  bool_const "boolean-search-g"; bool_const "boolean-search-h";
+  bool_const "boolean-search-i"; bool_const "boolean-search-j";
+  bool_const "boolean-search-k"; bool_const "boolean-search-l";
+  bool_const "boolean-search-m"]
+let boolean_search_lhs =
+  bool_or [
+    bool_and [boolean_search_p; boolean_search_common];
+    bool_and [R.mk_not_expr boolean_search_p; boolean_search_common]]
+let boolean_search_wrap (e:expr) : expr =
+  bool_and [
+    bool_const "boolean-search-outer-a";
+    bool_and [
+      bool_const "boolean-search-outer-b";
+      bool_and [bool_const "boolean-search-outer-c"; e]]]
+let boolean_search_wrapped_lhs = boolean_search_wrap boolean_search_lhs
+let boolean_search_wrapped_rhs = boolean_search_wrap boolean_search_common
+let boolean_search_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal boolean_search_wrapped_lhs boolean_search_wrapped_rhs;
+  premises = [];
+}
+
+let real_ite (c t e:expr) : expr = App (T.ite_decl LA.real_s) [c; t; e]
+
+let sorted_boolean_search_rewrite_checked ()
+  : Lemma (BR.boolean_search boolean_search_wrapped_lhs boolean_search_wrapped_rhs /\
+           not (NR.rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs) /\
+           not (NR.conditional_rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs) /\
+           K.sorted_rewrite boolean_search_node /\
+           (match K.check_node_cached schema [] boolean_search_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false)) =
+  assert_norm (BR.boolean_search boolean_search_wrapped_lhs boolean_search_wrapped_rhs);
+  assert_norm (not (NR.rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs));
+  assert_norm (not (NR.conditional_rewrite_ok boolean_search_wrapped_lhs boolean_search_wrapped_rhs));
+  assert_norm (K.sorted_rewrite boolean_search_node);
+  assert_norm (match K.check_node_cached schema [] boolean_search_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false);
+  K.lemma_sorted_rewrite schema booleans equality model boolean_search_node
+
+let boolean_search_definition_formula =
+  R.mk_not_expr
+    (App (R.and_decl [boolean_search_p; R.mk_not_expr boolean_search_p])
+      [boolean_search_p; R.mk_not_expr boolean_search_p])
+let boolean_search_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds boolean_search_definition_formula;
+  premises = [];
+}
+
+let clause_definition_atom = bool_const "clause-definition-p"
+let clause_definition_formula =
+  bool_or [clause_definition_atom; R.mk_not_expr clause_definition_atom]
+let clause_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds clause_definition_formula;
+  premises = [];
+}
+
+let sorted_boolean_search_definition_axiom_checked ()
+  : Lemma (BR.boolean_search boolean_search_definition_formula R.true_expr /\
+           K.definition_axiom_search boolean_search_definition_node /\
+           DR.propositional_tautology clause_definition_formula /\
+           K.definition_axiom_search clause_definition_node) =
+  assert_norm (BR.boolean_search boolean_search_definition_formula R.true_expr);
+  assert_norm (K.definition_axiom_search boolean_search_definition_node);
+  assert_norm (DR.propositional_tautology clause_definition_formula);
+  assert_norm (K.definition_axiom_search clause_definition_node)
+
+let non_tautological_definition_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds boolean_search_p;
+  premises = [];
+}
+
+let sorted_non_tautological_definition_remains_pending ()
+  : Lemma (not (BR.boolean_search boolean_search_p R.true_expr) /\
+           not (K.definition_axiom_search non_tautological_definition_node)) =
+  assert_norm (not (BR.boolean_search boolean_search_p R.true_expr));
+  assert_norm (not (K.definition_axiom_search non_tautological_definition_node))
+
+let ite_complement_merge_p = bool_const "ite-complement-p"
+let ite_complement_merge_q = bool_const "ite-complement-q"
+let ite_complement_merge_x = real_const "ite-complement-x"
+let ite_complement_merge_y = real_const "ite-complement-y"
+let ite_complement_merge_lhs =
+  real_ite (R.mk_not_expr ite_complement_merge_p)
+    (real_ite ite_complement_merge_q ite_complement_merge_x ite_complement_merge_y)
+    ite_complement_merge_y
+let ite_complement_merge_rhs =
+  real_ite (bool_or [ite_complement_merge_p; R.mk_not_expr ite_complement_merge_q])
+    ite_complement_merge_y ite_complement_merge_x
+
+let ite_complement_merge_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal ite_complement_merge_lhs ite_complement_merge_rhs;
+  premises = [];
+}
+
+let ite_complement_merge_checked ()
+  : Lemma (match K.check_node_cached schema [] ite_complement_merge_node with
+           | Some (_, pending) -> pending == 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] ite_complement_merge_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
+
+let ite_complement_merge_wrong_condition : U.proof_node = {
+  ite_complement_merge_node with
+  U.conclusion = U.Equal ite_complement_merge_lhs
+    (real_ite (bool_or [ite_complement_merge_p; ite_complement_merge_q])
+      ite_complement_merge_y ite_complement_merge_x);
+}
+
+let ite_complement_merge_rejects_wrong_condition ()
+  : Lemma (match K.check_node_cached schema [] ite_complement_merge_wrong_condition with
+           | Some (_, pending) -> pending > 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] ite_complement_merge_wrong_condition with
+               | Some (_, pending) -> pending > 0
+               | None -> false)
+
+let ite_definition_intro_condition = bool_const "ite-definition-condition"
+let ite_definition_intro_then = real_const "ite-definition-then"
+let ite_definition_intro_else = real_const "ite-definition-else"
+let ite_definition_intro_choice =
+  real_ite ite_definition_intro_condition ite_definition_intro_then ite_definition_intro_else
+let ite_definition_intro_positive =
+  bool_or [R.mk_not_expr ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_choice ite_definition_intro_then]
+let ite_definition_intro_negative =
+  bool_or [ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_choice ite_definition_intro_else]
+let ite_definition_intro_axiom = bool_and [
+  ite_definition_intro_positive; ite_definition_intro_negative]
+let ite_definition_intro_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds ite_definition_intro_axiom;
+  premises = [];
+}
+
+let ite_definition_branch_node : U.proof_node = {
+  U.kind = U.DefinitionIntroduction;
+  conclusion = U.Holds ite_definition_intro_positive;
+  premises = [];
+}
+
+let ite_definition_branch_checked ()
+  : Lemma (K.choice_clause ite_definition_intro_positive /\
+           K.definition_axiom_search ite_definition_branch_node) =
+  assert_norm (K.choice_clause ite_definition_intro_positive);
+  assert_norm (K.definition_axiom_search ite_definition_branch_node)
+
+let ite_definition_intro_checked ()
+  : Lemma (requires CD.ite_definition_axiom ite_definition_intro_axiom)
+          (ensures (match K.check_node_cached schema [] ite_definition_intro_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false)) =
+  assert_norm (match K.check_node_cached schema [] ite_definition_intro_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
+
+let ite_definition_intro_name = real_const "ite-definition-name"
+let conditional_apply_definition_axiom = bool_and [
+  bool_or [R.mk_not_expr ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_name ite_definition_intro_then];
+  bool_or [ite_definition_intro_condition;
+           R.mk_eq_expr ite_definition_intro_name ite_definition_intro_else]]
+
+let conditional_apply_definition_node : U.proof_node = {
+  U.kind = U.ApplyDefinition;
+  conclusion = U.Equal ite_definition_intro_choice ite_definition_intro_name;
+  premises = [{ U.conclusion = U.Holds conditional_apply_definition_axiom; hypotheses = [] }];
+}
+
+let conditional_apply_definition_wrong_branch : U.proof_node = {
+  conditional_apply_definition_node with
+  U.conclusion = U.Equal ite_definition_intro_choice ite_definition_intro_else;
+}
+
+let sorted_conditional_apply_definition_checked ()
+  : Lemma (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+             ite_definition_intro_name /\
+           (match K.check_node_cached schema [] conditional_apply_definition_node with
+            | Some (_, pending) -> pending == 0
+            | None -> false) /\
+           not (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                  ite_definition_intro_else) /\
+           (match K.check_node_cached schema [] conditional_apply_definition_wrong_branch with
+            | Some (_, pending) -> pending > 0
+            | None -> false)) =
+  assert_norm (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                 ite_definition_intro_name);
+  assert_norm (match K.check_node_cached schema [] conditional_apply_definition_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false);
+  assert_norm (not (CD.check conditional_apply_definition_axiom ite_definition_intro_choice
+                      ite_definition_intro_else));
+  assert_norm (match K.check_node_cached schema [] conditional_apply_definition_wrong_branch with
+               | Some (_, pending) -> pending > 0
+               | None -> false)
+
+let sorted_integer_rewrite_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal integer_x_plus_one integer_one_plus_x;
+  premises = [];
+}
+
+let sorted_integer_rewrite_checked ()
+  : Lemma (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+           | Some (_, pending) -> pending == 0
+           | None -> false) =
+  assert_norm (match K.check_node_cached schema [] sorted_integer_rewrite_node with
+               | Some (_, pending) -> pending == 0
+               | None -> false)
 
 let integer_semantics_is_not_the_carrier_representation ()
   : Lemma (T.evaluate schema booleans shifted_integers
@@ -216,7 +500,7 @@ let no_pair = R.mk_not_expr (App is_pair [x])
 
 let choice = {
   decl_name = "if"; domain = [bool_sort; box; box]; range = box;
-  interp = Some Z3ValueTheory.op_ite; int_params = [];
+  interp = Some Z3OperatorTags.op_ite; int_params = [];
 }
 
 let rec wide_clause (n:nat) : Tot (list expr) (decreases n) =
@@ -308,6 +592,7 @@ let original_inputs_and_exhaustiveness ()
                    K.check_document schema { exhaustive_document with entries = [
                      { P.rule = U.Unverified "th-lemma"; formula = R.false_expr; premise_ids = [] }];
                      root = 0 } == Some 1) =
+  assert_norm (not (K.check_integer_cut []));
   assert_norm (K.check_document schema exhaustive_document == Some 0);
   assert_norm (K.check_document schema { exhaustive_document with assertions = [no_empty] } == None);
   assert_norm (K.check_document schema { exhaustive_document with entries = [
@@ -388,6 +673,56 @@ let core_document : P.document = {
     { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
   root = 2;
 }
+
+let array_sort = ArraySort [integer] integer
+let array_value (name:string) (s:sort) : expr =
+  App { decl_name = name; domain = []; range = s; interp = None; int_params = [] } []
+let array_base = array_value "array" array_sort
+let array_index = array_value "array-index" integer
+let array_element = array_value "array-element" integer
+let array_read_over_write =
+  R.mk_eq_expr
+    (App (ZA.select_decl integer integer)
+      [App (ZA.store_decl integer integer) [array_base; array_index; array_element]; array_index])
+    array_element
+let array_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [R.mk_not_expr array_read_over_write];
+  entries = [
+    { P.rule = U.Asserted; formula = R.mk_not_expr array_read_over_write; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = array_read_over_write; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let datatype_array_read_over_write =
+  let array_sort = ArraySort [box] integer in
+  let array = array_value "datatype-array" array_sort in
+  let index = x in
+  let element = integer_literal 0 in
+  R.mk_eq_expr
+    (App (ZA.select_decl box integer)
+      [App (ZA.store_decl box integer) [array; index; element]; index])
+    element
+let datatype_array_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [R.mk_not_expr datatype_array_read_over_write];
+  entries = [
+    { P.rule = U.Asserted; formula = R.mk_not_expr datatype_array_read_over_write; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = datatype_array_read_over_write; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let guarded_array_lemma_dispatch ()
+  : Lemma (ensures K.check_document core_schema array_document == Some 1 /\
+                   K.check_document_array core_schema array_document == Some 0 /\
+                   not (K.array_lemma_supported schema datatype_array_read_over_write) /\
+                   K.check_document_array schema datatype_array_document == Some 1) =
+  assert_norm (K.check_document core_schema array_document == Some 1);
+  assert_norm (K.check_document_array core_schema array_document == Some 0);
+  assert_norm (not (K.array_lemma_supported schema datatype_array_read_over_write));
+  assert_norm (K.check_document_array schema datatype_array_document == Some 1)
 
 let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
                                              (eq:T.scalar_model base)
@@ -498,11 +833,11 @@ let x_twin = App { x_decl with int_params = [1] } []
 
 let int_operator (name:string) (tag:decl_kind) (range:sort) : func_decl =
   { decl_name = name; domain = [integer; integer]; range = range; interp = Some tag; int_params = [] }
-let iadd = int_operator "+" Z3ValueTheory.op_plus integer
-let imul = int_operator "*" Z3ValueTheory.op_mul integer
-let ile = int_operator "<=" Z3ValueTheory.op_arith_le bool_sort
-let ige = int_operator ">=" Z3ValueTheory.op_arith_ge bool_sort
-let ilt = int_operator "<" Z3ValueTheory.op_arith_lt bool_sort
+let iadd = int_operator "+" Z3OperatorTags.op_plus integer
+let imul = int_operator "*" Z3OperatorTags.op_mul integer
+let ile = int_operator "<=" Z3OperatorTags.op_arith_le bool_sort
+let ige = int_operator ">=" Z3OperatorTags.op_arith_ge bool_sort
+let ilt = int_operator "<" Z3OperatorTags.op_arith_lt bool_sort
 
 let izero = integer_literal 0
 let ione = integer_literal 1
@@ -565,7 +900,7 @@ let wrong_operand_mutant = disjunction [not_eq xi yi; geq (minus xi zi) izero]
 let twin_mutant = disjunction [not_eq xi yi; leq (minus x_twin yi) izero]
 let counterfeit_le_mutant = disjunction [not_eq xi yi; App ({ ile with interp = None }) [xi; yi]]
 let counterfeit_add_mutant =
-  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
+  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
 let same_bounds_mutant = disjunction [R.mk_eq_expr xi yi; R.mk_not_expr (geq (minus xi yi) izero);
                                       R.mk_not_expr (leq (minus yi xi) izero)]
 
@@ -606,7 +941,7 @@ let twin_one (f:func_decl) : option int = if f = { x_decl with int_params = [1] 
 let z_one (f:func_decl) : option int = if f.decl_name = "z" then Some 1 else None
 let x_one (f:func_decl) : option int = if f = x_decl then Some 1 else None
 let counterfeit_one (f:func_decl) : option int =
-  if f = { iadd with interp = Some Z3ValueTheory.op_mul } then Some 1 else None
+  if f = { iadd with interp = Some Z3OperatorTags.op_mul } then Some 1 else None
 
 let int_order_counter_models ()
   : Lemma (T.truth core_schema booleans equality (valued nothing) strict_mutant == false /\
@@ -781,7 +1116,7 @@ let commuted_counterfeit_mul_mutant =
   disjunction [not_eq xi yi; leq (App iadd [App ({ imul with interp = None }) [integer_literal (-1); yi]; xi]) izero]
 let commuted_counterfeit_add_mutant =
   disjunction [not_eq xi yi;
-               leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
+               leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
 let commuted_minus_two_mutant =
   disjunction [not_eq xi yi; geq (App iadd [App imul [integer_literal (-2); yi]; xi]) izero]
 let commuted_constant_mutant = disjunction [not_eq xi yi; geq (commuted xi yi) ione]
@@ -967,6 +1302,17 @@ let lin_chain = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus yi
 let lin_chain_target = R.mk_eq_expr xi zi
 let lin_conflict = [R.mk_not_expr (leq xi izero); R.mk_not_expr (geq xi ione)]
 
+let split_sum = App iadd [xi; yi]
+let split_twice_sum = App imul [integer_literal 2; split_sum]
+let split_integer_conflict = [geq split_twice_sum ione; leq split_twice_sum ione]
+let split_integer_satisfiable = [geq split_twice_sum ione; leq split_twice_sum (integer_literal 2)]
+
+let integer_split_certificate_candidates ()
+  : Lemma (Some? (K.integer_split_certificate split_integer_conflict) /\
+           None? (K.integer_split_certificate split_integer_satisfiable)) =
+  assert_norm (Some? (K.integer_split_certificate split_integer_conflict));
+  assert_norm (None? (K.integer_split_certificate split_integer_satisfiable))
+
 let checked_linear_consequences ()
   : Lemma (K.linear_consequence lin_canon lin_canon_target /\
            K.linear_consequence lin_constants lin_constants_target /\
@@ -996,8 +1342,8 @@ let linear_consequences_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (
            (T.truths core_schema bc eq other lin_tight ==> T.truth core_schema bc eq other lin_tight_target) /\
            (T.truths core_schema bc eq other lin_chain ==> T.truth core_schema bc eq other lin_chain_target)) =
   checked_linear_consequences ();
-  assert_norm (Z3Definitions.scoped [] lin_canon_target /\ Z3Definitions.scoped [] lin_constants_target /\
-               Z3Definitions.scoped [] lin_tight_target /\ Z3Definitions.scoped [] lin_chain_target);
+  assert_norm (Z3ExprScope.scoped [] lin_canon_target /\ Z3ExprScope.scoped [] lin_constants_target /\
+               Z3ExprScope.scoped [] lin_tight_target /\ Z3ExprScope.scoped [] lin_chain_target);
   if T.truths core_schema bc eq other lin_canon then
     K.lemma_linear_consequence core_schema bc eq other lin_canon lin_canon_target;
   if T.truths core_schema bc eq other lin_constants then
@@ -1013,7 +1359,7 @@ let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier ba
   : Lemma (not (T.truths core_schema bc eq other lin_conflict)) =
   checked_linear_consequences ();
   if T.truths core_schema bc eq other lin_conflict then (
-    assert_norm (Z3Definitions.scoped [] R.false_expr);
+    assert_norm (Z3ExprScope.scoped [] R.false_expr);
     K.lemma_linear_consequence core_schema bc eq other lin_conflict R.false_expr;
     assert (T.truth core_schema bc eq other R.false_expr);
     assert_norm (T.cut 1 R.false_expr == Z3BoundedBoolEquiv.Bool false);
@@ -1029,7 +1375,7 @@ let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
 let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
 let real = (SortApp RealSymbol [])
 let to_real (e:expr) : expr =
-  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
+  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3OperatorTags.op_to_real;
         int_params = [] } [e]
 let real_compare (name:string) (tag:decl_kind) (a b:expr) : expr =
   App { decl_name = name; domain = [real; real]; range = bool_sort; interp = Some tag; int_params = [] } [a; b]
@@ -1042,8 +1388,8 @@ let lin_dropped = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus 
 let lin_wrong_target = R.mk_eq_expr (integer_literal 62) (minus lin_c64 lin_c1)
 let lin_mixed =
   [leq (minus xi yi) izero; geq (minus xi yi) izero;
-   real_compare "<=" Z3ValueTheory.op_arith_le (to_real yi) (to_real zi);
-   real_compare ">=" Z3ValueTheory.op_arith_ge (to_real yi) (to_real zi)]
+   real_compare "<=" Z3OperatorTags.op_arith_le (to_real yi) (to_real zi);
+   real_compare ">=" Z3OperatorTags.op_arith_ge (to_real yi) (to_real zi)]
 let lin_weak_tight = [geq xi (integer_literal (-2)); R.mk_not_expr (geq xi izero)]
 let lin_weak_conflict = [geq xi izero; R.mk_not_expr (geq xi ione)]
 let lin_twin = [leq (minus x_twin yi) izero; geq (minus x_twin yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
@@ -1150,5 +1496,101 @@ let linear_counter_models ()
           T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_between == true /\
           T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_between_target == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
+let conditional_guard : expr = App {
+  decl_name = "conditional-guard"; domain = []; range = bool_sort; interp = None; int_params = []
+} []
+let conditional_num (n:int) : expr =
+  App { decl_name = "integer"; domain = []; range = integer;
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
+let conditional_ite (c t e:expr) : expr = App (T.ite_decl integer) [c; t; e]
+let conditional_lhs : expr =
+  conditional_ite conditional_guard
+    (App integer_add [integer_x; conditional_num 1])
+    (App integer_add [integer_x; conditional_num 2])
+let conditional_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 2)]
+let conditional_bad_rhs : expr =
+  App integer_add [integer_x; conditional_ite conditional_guard (conditional_num 1) (conditional_num 3)]
+
+let conditional_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_rhs;
+  premises = [];
+}
+let conditional_bad_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_lhs conditional_bad_rhs;
+  premises = [];
+}
+
+let conditional_rewrite_actual_route ()
+  : Lemma (K.sorted_rewrite conditional_node /\
+           (match K.check_node core_schema [] conditional_node with
+            | Some (_, 0) -> true | _ -> false) /\
+           T.truth core_schema booleans equality core_model (R.mk_eq_expr conditional_lhs conditional_rhs)) =
+  assert_norm (K.sorted_rewrite conditional_node);
+  assert_norm (match K.check_node core_schema [] conditional_node with
+               | Some (_, 0) -> true | _ -> false);
+  K.lemma_sorted_rewrite core_schema booleans equality core_model conditional_node
+
+let conditional_rewrite_rejects_bad_branch ()
+  : Lemma (not (K.sorted_rewrite conditional_bad_node) /\
+           (match K.check_node core_schema [] conditional_bad_node with
+            | Some (_, 1) -> true | _ -> false)) =
+  assert_norm (not (K.sorted_rewrite conditional_bad_node));
+  assert_norm (match K.check_node core_schema [] conditional_bad_node with
+               | Some (_, 1) -> true | _ -> false)
+
+let conditional_real_x = real_const "conditional-real-x"
+let conditional_real_num (n:int) : expr =
+  App { decl_name = "num"; domain = []; range = LA.real_s;
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
+let conditional_real_add : func_decl = {
+  decl_name = "+"; domain = [LA.real_s; LA.real_s]; range = LA.real_s;
+  interp = Some Z3OperatorTags.op_arith_add; int_params = []
+}
+let conditional_real_guard =
+  R.mk_eq_expr conditional_real_x (conditional_real_num 8)
+let conditional_real_sum =
+  App conditional_real_add [conditional_real_num 1; conditional_real_x]
+let conditional_real_lhs =
+  R.mk_eq_expr
+    (real_ite conditional_real_guard (conditional_real_num 1) conditional_real_sum)
+    (conditional_real_num 2)
+let conditional_real_rhs =
+  bool_and [R.mk_not_expr conditional_real_guard;
+            R.mk_eq_expr conditional_real_sum (conditional_real_num 2)]
+let conditional_real_node : U.proof_node = {
+  U.kind = U.RewriteRule;
+  conclusion = U.Equal conditional_real_lhs conditional_real_rhs;
+  premises = [];
+}
+let conditional_real_bad_node : U.proof_node = {
+  conditional_real_node with
+  U.conclusion = U.Equal conditional_real_lhs
+    (bool_and [R.mk_not_expr conditional_real_guard;
+               R.mk_eq_expr conditional_real_sum (conditional_real_num 3)]);
+}
+
+let conditional_real_rewrite_actual_route ()
+  : Lemma (NR.real_conditional_rewrite_ok true conditional_real_lhs conditional_real_rhs /\
+           K.real_rewrite core_schema conditional_real_node /\
+           (match K.check_node core_schema [] conditional_real_node with
+            | Some (_, 0) -> true | _ -> false)) =
+  assert_norm (NR.real_conditional_rewrite_ok true conditional_real_lhs conditional_real_rhs);
+  assert_norm (K.real_rewrite core_schema conditional_real_node);
+  assert_norm (match K.check_node core_schema [] conditional_real_node with
+               | Some (_, 0) -> true | _ -> false)
+
+let conditional_real_rewrite_rejects_bad_branch ()
+  : Lemma (not (NR.real_conditional_rewrite_ok true
+                  conditional_real_lhs
+                  (bool_and [R.mk_not_expr conditional_real_guard;
+                             R.mk_eq_expr conditional_real_sum (conditional_real_num 3)]))) =
+  assert_norm (not (NR.real_conditional_rewrite_ok true
+                      conditional_real_lhs
+                      (bool_and [R.mk_not_expr conditional_real_guard;
+                                 R.mk_eq_expr conditional_real_sum (conditional_real_num 3)])))
 
 #pop-options
