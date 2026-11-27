@@ -148,6 +148,16 @@ theorem LF_correct (f : TTerm α σ) (a : σ) (v : List σ) :
   rw [EBA.models_top] at h
   simpa [LF] using h
 
+-- End-to-end correctness of `derive::derivative_cofactors`: the cofactors
+-- of `r`'s symbolic derivative decide membership of `a :: v` in `L r`
+-- directly, without ever naming the concrete derivative in between.
+-- Chains `LF_correct`, `sder_correct`, and (from `Derivatives.lean`)
+-- `derivative_correct`.
+theorem derivative_cofactors_correct (r : RE α) (a : σ) (v : List σ) :
+    (∃ p ∈ LF (sder (σ := σ) r), EBA.models p.1 a = true ∧ L p.2 v) ↔ L r (a :: v) := by
+  rw [LF_correct, sder_correct]
+  exact derivative_correct r a v
+
 /-
 The two merge/split rewrite rules describing `light_ant_derivative_cofactors`'
 behavior in `seq_derive.h`, as direct corollaries of `LFaux_correct` (both
@@ -201,4 +211,64 @@ theorem LF_split_sound (c : α) (p s : RE α) (rest : List (α × RE α)) (a : �
     · subst hq; exact ⟨(c, RE.union p s), Or.inl rfl, hm, Or.inr hl⟩
     · exact ⟨q, Or.inr hq, hm, hl⟩
 
+-- Swapping a branch's target regex for one denoting the same language
+-- never changes the ∃-characterization. Used below to reduce the
+-- concat-of-union split to the bare-union case already handled by
+-- `LF_split_sound`.
+theorem LF_target_congr (c : α) (p q : RE α) (rest : List (α × RE α))
+    (h : ∀ v, L p v ↔ L q v) (a : σ) (v : List σ) :
+    (∃ r ∈ (c, p) :: rest, EBA.models r.1 a = true ∧ L r.2 v) ↔
+    (∃ r ∈ (c, q) :: rest, EBA.models r.1 a = true ∧ L r.2 v) := by
+  simp only [List.mem_cons]
+  constructor
+  · rintro ⟨r, (hr | hr), hm, hl⟩
+    · subst hr; exact ⟨(c, q), Or.inl rfl, hm, (h v).mp hl⟩
+    · exact ⟨r, Or.inr hr, hm, hl⟩
+  · rintro ⟨r, (hr | hr), hm, hl⟩
+    · subst hr; exact ⟨(c, p), Or.inl rfl, hm, (h v).mpr hl⟩
+    · exact ⟨r, Or.inr hr, hm, hl⟩
+
+-- Concatenation distributes over union: `(p|s)·tail = p·tail | s·tail`.
+-- A basic regex identity, needed to extend `LF_split_sound` to the
+-- "union under concat" shape `light_ant_derivative_cofactors` also splits.
+theorem L_concat_union_distrib (p s tail : RE α) (v : List σ) :
+    L (.concat (.union p s) tail : RE α) v ↔
+    L (.union (.concat p tail) (.concat s tail) : RE α) v := by
+  simp only [L]
+  constructor
+  · rintro ⟨w1, w2, heq, (h1 | h1), h2⟩
+    · exact Or.inl ⟨w1, w2, heq, h1, h2⟩
+    · exact Or.inr ⟨w1, w2, heq, h1, h2⟩
+  · rintro (⟨w1, w2, heq, h1, h2⟩ | ⟨w1, w2, heq, h1, h2⟩)
+    · exact ⟨w1, w2, heq, Or.inl h1, h2⟩
+    · exact ⟨w1, w2, heq, Or.inr h1, h2⟩
+
+-- Split under concat: a branch `(c, (p|s)·tail)` can be seen as the two
+-- branches `(c, p·tail)` and `(c, s·tail)` — the extra case
+-- `light_ant_derivative_cofactors` handles (its inner `heads` worklist)
+-- beyond the bare-union split of `LF_split_sound`, for a target of the
+-- form `(s1|...|sn)·tail` reached after a concat-head derivative step.
+theorem LF_split_concat_sound (c : α) (p s tail : RE α) (rest : List (α × RE α))
+    (a : σ) (v : List σ) :
+    (∃ q ∈ (c, RE.concat (RE.union p s) tail) :: rest, EBA.models q.1 a = true ∧ L q.2 v) ↔
+    (∃ q ∈ (c, RE.concat p tail) :: (c, RE.concat s tail) :: rest,
+        EBA.models q.1 a = true ∧ L q.2 v) :=
+  (LF_target_congr c _ _ rest (L_concat_union_distrib p s tail) a v).trans
+    (LF_split_sound c (RE.concat p tail) (RE.concat s tail) rest a v)
+
+-- Dropping a branch whose target is the empty language never changes the
+-- ∃-characterization — justifies `get_cofactors_rec`'s `is_empty`-guarded
+-- `push_back` (an unreachable leaf is simply never added to the result).
+theorem LF_filter_empty_sound (c : α) (rest : List (α × RE α)) (a : σ) (v : List σ) :
+    (∃ q ∈ (c, RE.bot) :: rest, EBA.models q.1 a = true ∧ L q.2 v) ↔
+    (∃ q ∈ rest, EBA.models q.1 a = true ∧ L q.2 v) := by
+  simp only [List.mem_cons]
+  constructor
+  · rintro ⟨q, (hq | hq), hm, hl⟩
+    · subst hq; exact absurd hl (by simp [L])
+    · exact ⟨q, hq, hm, hl⟩
+  · rintro ⟨q, hq, hm, hl⟩
+    exact ⟨q, Or.inr hq, hm, hl⟩
+
 end Z3SeqProofs
+
