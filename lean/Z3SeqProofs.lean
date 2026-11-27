@@ -4,4 +4,11 @@ import Z3SeqProofs.Derivatives
 import Z3SeqProofs.RangePredicate
 import Z3SeqProofs.LinearForm
 import Z3SeqProofs.View
+import Z3SeqProofs.SmartUnion
+import Z3SeqProofs.SmartIntersection
+import Z3SeqProofs.SmartComplement
+import Z3SeqProofs.SmartXor
+import Z3SeqProofs.SmartConcat
+import Z3SeqProofs.SmartStar
+import Z3SeqProofs.SmartDerived
 import Z3SeqProofs.Example
