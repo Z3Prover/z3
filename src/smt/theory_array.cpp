@@ -369,7 +369,7 @@ namespace smt {
         SASSERT(m_find.get_num_vars() == get_num_vars());
     }
     
-    final_check_status theory_array::final_check_eh(unsigned) {
+    final_check_status theory_array::final_check_eh(unsigned level) {
         m_final_check_idx++;
         final_check_status r = FC_DONE;
         if (m_params.m_array_lazy_ieq) {
@@ -377,7 +377,7 @@ namespace smt {
             // motivation is too give other theories and quantifier
             // instantiation to do something useful during final
             // check.
-            if (m_final_check_idx % m_params.m_array_lazy_ieq_delay != 0) {
+            if (level <= 1 && m_final_check_idx % m_params.m_array_lazy_ieq_delay != 0) {
                 assert_delayed_axioms();
                 r = FC_CONTINUE;
             }
