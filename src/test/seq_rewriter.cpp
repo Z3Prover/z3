@@ -795,7 +795,85 @@ static void tst_replace_contains() {
     ENSURE(multi_contains != multi_expected);
 }
 
+static void tst_regex_replacement_reductions() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_fresh_const("source", u.str.mk_string_sort()), m);
+    seq_rewriter sequence_rw(m);
+    expr_ref y(m.mk_fresh_const("replacement", x->get_sort()), m);
+    sort *rs = u.re.mk_re(x->get_sort());
+    expr_ref none(u.re.mk_empty(rs), m), epsilon(u.re.mk_epsilon(x->get_sort()), m);
+    expr_ref full(u.re.mk_full_seq(rs), m), character(u.re.mk_full_char(rs), m);
+    expr_ref plus(u.re.mk_plus(character), m);
+    expr_ref ab(u.str.mk_string("ab"), m), literal(u.re.mk_to_re(ab), m);
+    expr_ref nullable(u.re.mk_union(epsilon, literal), m);
+    auto replace = [&](bool all, expr *source, expr *pattern, expr *replacement) {
+        return expr_ref(
+            m.mk_app(u.get_family_id(), all ? OP_SEQ_REPLACE_RE_ALL : OP_SEQ_REPLACE_RE, source, pattern, replacement),
+            m);
+    };
+    auto check = [&](bool all, expr *source, expr *pattern, expr *replacement, expr *expected) {
+        expr_ref actual = replace(all, source, pattern, replacement);
+        expr_ref reduced(expected, m);
+        rw(actual);
+        rw(reduced);
+        ENSURE(actual == reduced || sequence_rw.compare_ground_seqs(actual, reduced) == l_true);
+    };
+    expr_ref empty(u.str.mk_string(""), m), xy(u.str.mk_concat(y, x), m);
+    arith_util a(m);
+    expr_ref one(a.mk_int(1), m), length(u.str.mk_length(x), m);
+    expr_ref tail(u.str.mk_substr(x, one, length), m);
+    expr_ref replaced(u.str.mk_concat(y, tail), m);
+    expr_ref guarded(m.mk_ite(u.str.mk_is_empty(x), x, replaced), m);
+    for (expr *pattern : {none.get(), epsilon.get(), full.get(), character.get(), plus.get()}) {
+        check(true, empty, pattern, y, empty);
+        check(false, x, pattern, y,
+              pattern == none                         ? x.get()
+              : pattern == epsilon || pattern == full ? xy.get()
+                                                      : guarded.get());
+    }
+    check(true, x, none, y, x);
+    check(true, x, epsilon, y, x);
+    check(false, x, nullable, y, xy);
+    expr_ref ordinary(u.str.mk_replace(x, ab, y), m);
+    check(false, x, literal, y, ordinary);
+    expr_ref all_literal(m.mk_app(u.get_family_id(), OP_SEQ_REPLACE_ALL, x, ab, y), m);
+    check(true, x, literal, y, all_literal);
+    expr_ref literal_prefix(u.re.mk_concat(literal, full), m);
+    check(false, x, literal_prefix, y, ordinary);
+    check(true, x, literal_prefix, y, all_literal);
+    expr_ref power(u.str.mk_power(y, length), m);
+    for (expr *pattern : {full.get(), character.get(), plus.get()})
+        check(true, x, pattern, y, power);
+    expr_ref aba(u.str.mk_string("aba"), m), z(u.str.mk_string("Z"), m);
+    expr_ref zba(u.str.mk_string("Zba"), m), zzz(u.str.mk_string("ZZZ"), m);
+    for (expr *pattern : {character.get(), plus.get()}) {
+        check(false, aba, pattern, z, zba);
+        check(true, aba, pattern, z, zzz);
+        check(false, empty, pattern, z, empty);
+    }
+    expr_ref abab(u.str.mk_string("abab"), m), zab(u.str.mk_string("Zab"), m), zz(u.str.mk_string("ZZ"), m);
+    check(false, abab, literal, z, zab);
+    check(true, abab, literal, z, zz);
+    check(false, abab, literal_prefix, z, zab);
+    check(true, abab, literal_prefix, z, zz);
+    expr_ref optional_literal(u.re.mk_star(literal), m);
+    expr_ref empty_prefix(u.re.mk_concat(epsilon, optional_literal), m);
+    expr_ref preserved = replace(true, x, optional_literal, y);
+    check(true, x, empty_prefix, y, preserved);
+    expr_ref unknown(m.mk_fresh_const("pattern", rs), m);
+    for (bool all : {false, true}) {
+        expr_ref unchanged = replace(all, x, unknown, y);
+        check(all, x, unknown, y, unchanged);
+    }
+    expr_ref unchanged = replace(true, x, nullable, y);
+    check(true, x, nullable, y, unchanged);
+}
+
 void tst_seq_rewriter() {
+    tst_regex_replacement_reductions();
     tst_replace_contains();
     tst_extract_equal_offset_length();
     tst_delete_first_character();

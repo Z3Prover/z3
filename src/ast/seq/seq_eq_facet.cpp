@@ -673,6 +673,22 @@ namespace seq {
                         SASSERT(pos == 5);
                     }
 
+                    // The arithmetic model guides exploration, never justifies a substitution.
+                    // Keep every Nielsen alternative available if the preferred case fails.
+                    if (is_uninterp_const(v1) && is_uninterp_const(v2)) {
+                        expr_ref len1(u.str.mk_length(v1), m), len2(u.str.mk_length(v2), m);
+                        rational k1, k2;
+                        if (sf.value(len1, k1) && sf.value(len2, k2) && k1.is_unsigned() && k2.is_unsigned()) {
+                            unsigned pick = k1.is_zero() ? 0 : k2.is_zero() ? 1 : k1 == k2 ? 2 : k1 > k2 ? 3 : 4;
+                            unsigned pos = 0;
+                            while (order[pos] != pick)
+                                ++pos;
+                            for (; pos > 0; --pos)
+                                order[pos] = order[pos - 1];
+                            order[0] = pick;
+                        }
+                    }
+
                     iterator* it = alloc(iterator, n, m, u);
                     for (unsigned i = 1; i < 5; ++i) {
                         branch& b = br[order[i]];

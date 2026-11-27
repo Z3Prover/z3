@@ -2625,10 +2625,56 @@ void seq_rewriter::replace_all_subvectors(expr_ref_vector const& a, expr_ref_vec
 }
 
 br_status seq_rewriter::mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result) {
+    expr *pattern = nullptr;
+    expr *prefix = nullptr, *suffix = nullptr;
+    zstring literal;
+    // A nullable tail cannot lengthen the shortest match of a nonempty literal prefix.
+    if (re().is_concat(b, prefix, suffix) && re().is_to_re(prefix, pattern) && str().is_string(pattern, literal) &&
+        !literal.empty() && re().get_info(suffix).nullable == l_true)
+        b = prefix;
+    if (re().is_to_re(b, pattern)) {
+        expr *args[] = {a, pattern, c};
+        result = m().mk_app(m_util.get_family_id(), OP_SEQ_REPLACE_ALL, 3, args);
+        return BR_REWRITE1;
+    }
+    if (re().is_empty(b) || re().is_epsilon(b) || str().is_empty(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    // All shortest non-empty matches are single characters.
+    if (re().is_full_seq(b) || re().is_full_char(b) || re().is_dot_plus(b)) {
+        result = str().mk_power(c, str().mk_length(a));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result) {
+    expr *pattern = nullptr;
+    expr *prefix = nullptr, *suffix = nullptr;
+    zstring literal;
+    if (re().is_concat(b, prefix, suffix) && re().is_to_re(prefix, pattern) && str().is_string(pattern, literal) &&
+        !literal.empty() && re().get_info(suffix).nullable == l_true)
+        b = prefix;
+    if (re().is_to_re(b, pattern)) {
+        result = str().mk_replace(a, pattern, c);
+        return BR_REWRITE1;
+    }
+    if (re().is_empty(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().get_info(b).nullable == l_true) {
+        result = str().mk_concat(c, a);
+        return BR_REWRITE1;
+    }
+    if (re().is_full_char(b) || re().is_dot_plus(b)) {
+        expr_ref length(str().mk_length(a), m());
+        expr_ref tail(str().mk_substr(a, one(), length), m());
+        expr_ref replacement(str().mk_concat(c, tail), m());
+        result = m().mk_ite(str().mk_is_empty(a), a, replacement);
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 
@@ -3796,7 +3842,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     STRACE(seq_verbose, tout << "mk_str_in_regexp: " << mk_pp(a, m())
                                << ", " << mk_pp(b, m()) << std::endl;);
 
-    if (!m().is_value(a) && re().is_ground(b)) {
+    zstring concrete;
+    if (re().is_ground(b) && (!m().is_value(a) || (str().is_string(a, concrete) && concrete.length() > 256))) {
         seq::regex_witness witness(*this);
         lbool accepted = witness.accepts(a, b);
         if (accepted != l_undef) {
