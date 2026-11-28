@@ -331,6 +331,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::antecedents_t::reset() { 
         m_init = false; 
+        m_non_linear = false;
         m_eq_coeffs.reset();
         m_lit_coeffs.reset();
         m_eqs.reset(); 
@@ -358,6 +359,12 @@ namespace smt {
     parameter * theory_arith<Ext>::antecedents_t::params(char const* name) {
         if (empty()) return nullptr;
         init();
+        // A bound derived by non-linear reasoning is justified by its
+        // antecedents, but not linearly: label the step as non-linear so that
+        // proof consumers (proof checker, Spacer's Farkas-based interpolation)
+        // do not read the coefficients as a Farkas certificate.
+        if (m_non_linear)
+            name = "arith_nl";
         m_params[0] = parameter(symbol(name));
         return m_params.data();
     }
@@ -738,6 +745,8 @@ namespace smt {
     void theory_arith<Ext>::derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
 
         TRACE(arith, tout << m_lits << " " << m_eqs.size() << "\n";);
+        if (m_non_linear)
+            a.set_non_linear();
         if (proofs_enabled) {
             for (literal l : m_lits)    
                 a.push_lit(l, coeff, proofs_enabled);
@@ -772,6 +781,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::justified_derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
+        if (this->m_non_linear)
+            a.set_non_linear();
         for (unsigned i = 0; i < this->m_lits.size(); ++i) {
             a.push_lit(this->m_lits[i], coeff*m_lit_coeffs[i], proofs_enabled);
         }
@@ -812,6 +823,8 @@ namespace smt {
     void theory_arith<Ext>::accumulate_justification(bound & b, derived_bound& new_bound, numeral const& coeff, literal_idx_set & lits, eq_set & eqs) {
         antecedents ante(*this);
         b.push_justification(ante, coeff, proofs_enabled());
+        if (ante.is_non_linear())
+            new_bound.set_non_linear();
         unsigned num_lits = ante.lits().size();
         for (unsigned i = 0; i < num_lits; ++i) {
             literal l = ante.lits()[i];

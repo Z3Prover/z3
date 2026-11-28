@@ -328,5 +328,41 @@ void tst_api_datalog() {
         Z3_params_dec_ref(ctx, params);
     }
 
+    // Regression test for a reachable error reported safe with non-linear
+    // arithmetic. Err is reachable: (c, a) goes (255, 8) -> (31, 4) -> (7, 2)
+    // -> (3, 1) -> (3, 0). The legacy arithmetic solver fixes a to 8 and
+    // linearizes a*q to 8*q. Conflicts that used this bound were labeled as
+    // Farkas lemmas, so interpolating unsat cores learned a lemma that excludes
+    // the reachable state (3, 1).
+    {
+        char const* chc = R"(
+(declare-rel inv (Int Int))
+(declare-rel err ())
+(rule (inv 255 8))
+(rule (forall ((i Int) (c Int) (l Int) (a Int)) (=> (and (inv c a) (= a 0)) err)))
+(rule (forall ((i Int) (c Int) (l Int) (a Int) (i1 Int) (l1 Int) (q Int) (h Int))
+  (=> (and (inv c a)
+           (or (= c 255) (and (<= 0 c) (<= c 31)) (and (<= 63 c) (<= c 255)))
+           (=> (not (= a 0))
+               (and (< (- c (* a q)) a)
+                    (=> (> a 0) (>= (- c (* a q)) 0))
+                    (=> (< a 0) (<= (- c (* a q)) 0))
+                    (<= q c)))
+           (< (- a (* 2 h)) 2)
+           (>= (- a (* 2 h)) 0))
+      (inv q h))))
+(query err)
+)";
+        for (unsigned seed = 0; seed < 4; ++seed) {
+            Z3_params params = Z3_mk_params(ctx);
+            Z3_params_inc_ref(ctx, params);
+            Z3_params_set_symbol(ctx, params, Z3_mk_string_symbol(ctx, "engine"),
+                                Z3_mk_string_symbol(ctx, "spacer"));
+            Z3_params_set_uint(ctx, params, Z3_mk_string_symbol(ctx, "spacer.random_seed"), seed);
+            ENSURE(run_fixedpoint(ctx, chc, params) == Z3_L_TRUE);
+            Z3_params_dec_ref(ctx, params);
+        }
+    }
+
     Z3_del_context(ctx);
 }

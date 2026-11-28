@@ -236,6 +236,9 @@ namespace smt {
             vector<numeral>   m_eq_coeffs;
             vector<parameter> m_params;
             bool m_init = false;
+            // true if some antecedent is a bound derived by non-linear reasoning.
+            // The coefficients are then not a Farkas certificate.
+            bool m_non_linear = false;
 
             bool empty() const { 
                 return m_eq_coeffs.empty() && m_lit_coeffs.empty(); 
@@ -251,6 +254,8 @@ namespace smt {
             void push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled);
             void append(unsigned sz, literal const* ls) { m_lits.append(sz, ls); }
             void append(unsigned sz, enode_pair const* ps) { m_eqs.append(sz, ps); }
+            void set_non_linear() { m_non_linear = true; }
+            bool is_non_linear() const { return m_non_linear; }
             unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
             numeral const* lit_coeffs() const { return m_lit_coeffs.data(); }
             numeral const* eq_coeffs() const { return m_eq_coeffs.data(); }
@@ -270,6 +275,8 @@ namespace smt {
             void push_eq(enode_pair const& p, numeral const& r, bool e) { a.push_eq(p, r, e); }
             void append(unsigned sz, literal const* ls) { a.append(sz, ls); }
             void append(unsigned sz, enode_pair const* ps) { a.append(sz, ps); }
+            void set_non_linear() { a.set_non_linear(); }
+            bool is_non_linear() const { return a.is_non_linear(); }
             unsigned num_params() const { return a.num_params(); }
             numeral const* lit_coeffs() const { return a.lit_coeffs(); }
             numeral const* eq_coeffs() const { return a.eq_coeffs(); }
@@ -350,9 +357,14 @@ namespace smt {
         protected:
             literal_vector m_lits;
             eq_vector      m_eqs;
+            // true if the bound is derived by non-linear reasoning (theory_arith_nl),
+            // directly or through another such bound. Its justification is then
+            // not a linear combination of the antecedents.
+            bool           m_non_linear = false;
             friend class theory_arith;
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
+            void set_non_linear() { m_non_linear = true; }
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
             bool has_justification() const override { return true; }

@@ -656,14 +656,18 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 if (!match_fact(proofs.get(i), fml2)) {
                     return false;
                 }
+                // The clause may contain repeated literals (e.g. theory lemmas
+                // whose antecedents share a literal): remove all occurrences,
+                // as ast_manager::mk_unit_resolution does.
                 bool found = false;
-                for (unsigned j = 0; !found && j < terms1.size(); ++j) {
+                for (unsigned j = 0; j < terms1.size(); ) {
                     if (m.is_complement(terms1.get(j), fml2)) {
                         found = true;
-                        if (j + 1 < terms1.size()) {
-                            terms1[j] = terms1.get(terms1.size()-1);
-                        }
-                        terms1.resize(terms1.size()-1);
+                        terms1[j] = terms1.get(terms1.size()-1);
+                        terms1.pop_back();
+                    }
+                    else {
+                        ++j;
                     }
                 }
                 if (!found) {
@@ -684,6 +688,18 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     UNREACHABLE();
                     return false;
                 }
+            }
+            // the remaining literals are merged in the conclusion
+            {
+                ast_mark seen;
+                unsigned k = 0;
+                for (expr* t : terms1) {
+                    if (!seen.is_marked(t)) {
+                        seen.mark(t, true);
+                        terms1[k++] = t;
+                    }
+                }
+                terms1.shrink(k);
             }
             switch(terms1.size()) {
             case 0:
