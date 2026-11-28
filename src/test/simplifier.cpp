@@ -18,6 +18,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/maximize_ac_sharing.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/bit2int.h"
@@ -1360,6 +1362,39 @@ static void test_max_bv_sharing() {
     Z3_del_context(ctx);
 }
 
+static void test_max_bv_sharing_families() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    bv_util bv(m);
+    maximize_bv_sharing_rw rw(m);
+    expr_ref result(m);
+    proof_ref pr(m);
+
+    expr_ref_vector bools(m), ints(m), bits(m);
+    for (char const* name : {"x", "y", "z", "w"}) {
+        bools.push_back(m.mk_const(symbol(name), m.mk_bool_sort()));
+        ints.push_back(m.mk_const(symbol(name), a.mk_int()));
+        bits.push_back(m.mk_const(symbol(name), bv.mk_sort(8)));
+    }
+
+    expr_ref disjunction(m.mk_or(bools), m);
+    expr_ref sum(a.mk_add(ints), m);
+    rw(disjunction, result, pr);
+    ENSURE(result == disjunction);
+    rw(sum, result, pr);
+    ENSURE(result == sum);
+
+    for (decl_kind kind : {OP_BADD, OP_BMUL, OP_BOR, OP_BAND}) {
+        expr_ref input(m.mk_app(bv.get_family_id(), kind, bits.size(), bits.data()), m);
+        rw(input, result, pr);
+        ENSURE(result != input);
+        ENSURE(is_app(result) && to_app(result)->get_num_args() == 2);
+        ENSURE(to_app(result)->get_decl()->get_family_id() == bv.get_family_id());
+        ENSURE(to_app(result)->get_decl_kind() == kind);
+    }
+}
+
 void tst_simplifier() {
 
     test_proof_mode_simplifier_pipeline();
@@ -1390,4 +1425,5 @@ void tst_simplifier() {
     test_demodulator_simplifier_proofs();
     test_demodulator_quantified_proofs();
     test_max_bv_sharing();
+    test_max_bv_sharing_families();
 }
