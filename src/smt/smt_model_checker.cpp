@@ -37,7 +37,7 @@ Revision History:
 #include "model/model_pp.h"
 #include <tuple>
 
-namespace {
+namespace smt {
     /**
        \brief Guard division, modulus and remainder terms that have a symbolic divisor
        by the interpretation the model gives them at a zero divisor:
@@ -84,7 +84,7 @@ namespace {
     };
 }
 
-template class rewriter_tpl<partial_arith_guard_cfg>;
+template class rewriter_tpl<smt::partial_arith_guard_cfg>;
 
 namespace smt {
 

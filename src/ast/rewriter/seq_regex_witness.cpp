@@ -145,7 +145,7 @@ namespace seq {
             return l_true;
         if (length.is_zero())
             return nullable(r);
-        expr* a = nullptr, *b = nullptr;
+        expr* a = nullptr;
         if (re().is_to_re(r, a))
             return m_rw.compare_ground_seqs(word, a);
         if (re().is_complement(r, a))

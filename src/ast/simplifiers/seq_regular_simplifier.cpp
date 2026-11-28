@@ -273,6 +273,55 @@ class regular_compiler {
         br.mk_not(e, result);
         return keep(result);
     }
+    using character_replacements = std::vector<std::pair<unsigned, zstring>>;
+    expr* replacement_chain(expr* e, character_replacements& replacements, std::set<unsigned>& alphabet) {
+        expr *source, *pattern, *replacement;
+        while (u.str.is_replace_all(e, source, pattern, replacement)) {
+            tick();
+            zstring p, r;
+            if (!u.str.is_string(pattern, p) || p.length() != 1 || !u.str.is_string(replacement, r))
+                break;
+            replacements.emplace_back(p[0], r);
+            alphabet.insert(p[0]);
+            e = source;
+        }
+        return e;
+    }
+    zstring character_image(unsigned c, character_replacements const& replacements) {
+        zstring image(c);
+        for (auto it = replacements.rbegin(); it != replacements.rend(); ++it) {
+            svector<unsigned> result;
+            for (unsigned ch : image) {
+                tick();
+                if (ch == it->first) {
+                    for (unsigned r : it->second) {
+                        tick();
+                        result.push_back(r);
+                    }
+                }
+                else result.push_back(ch);
+            }
+            image = zstring(result.size(), result.data());
+        }
+        return image;
+    }
+    expr* replacement_equality(expr* x, expr* y) {
+        character_replacements left, right;
+        std::set<unsigned> alphabet;
+        expr* source = replacement_chain(x, left, alphabet);
+        if (replacement_chain(y, right, alphabet) != source || alphabet.empty()) return nullptr;
+        expr* different = empty;
+        for (unsigned c : alphabet) {
+            zstring l = character_image(c, left), r = character_image(c, right);
+            // Equal per-character lengths align every block boundary, including erased blocks.
+            if (l.length() != r.length()) return nullptr;
+            if (l != r) different = join(different, lit(zstring(c)));
+        }
+        ++preimages;
+        expr* allowed = meet(character, complement(different));
+        expr* language = star(allowed);
+        return keep(u.re.mk_in_re(source, language));
+    }
     expr* normalize_node(app* t, expr_ref_vector const& args) {
         tick();
         if (m.is_and(t) || m.is_or(t)) return boolean(m.is_and(t), args);
@@ -281,6 +330,7 @@ class regular_compiler {
         expr *x, *y, *c, *yes, *no;
         if (m.is_eq(e, x, y)) {
             if (x == y) return keep(m.mk_true());
+            if (expr* result = replacement_equality(x, y)) return result;
             for (unsigned i = 0; i < 2; ++i) {
                 if (m.is_ite(x, c, yes, no) && numeral(yes, rational(1)) && numeral(no, rational(0))) {
                     if (numeral(y, rational(1))) return c;
@@ -1807,8 +1857,10 @@ public:
     }
     expr_ref compile_definitions(expr* e, unsigned& count) {
         ptr_vector<expr> todo;
+        ptr_vector<expr> equations;
         obj_hashtable<expr> seen;
         expr_ref_vector retained(m);
+        bool replacements = false;
         todo.push_back(e);
         while (!todo.empty()) {
             tick();
@@ -1822,10 +1874,18 @@ public:
             }
             expr *x, *y;
             if (!m.is_eq(current, x, y)) continue;
+            equations.push_back(current);
+            replacements |= u.str.is_replace_all(x) || u.str.is_replace_all(y);
+        }
+        for (expr* current : equations) {
+            tick();
+            expr *x, *y;
+            VERIFY(m.is_eq(current, x, y));
             for (unsigned i = 0; i < 2; ++i) {
-                if (is_uninterp_const(x) && u.is_string(x->get_sort()) &&
-                    is_app(y) && to_app(y)->get_num_args() != 0) {
-                    definitions.emplace(x, y);
+                if (x != y && is_uninterp_const(x) && u.is_string(x->get_sort()) &&
+                    is_app(y) && (to_app(y)->get_num_args() != 0 ||
+                                  (replacements && (u.str.is_string(y) || is_uninterp_const(y)))) &&
+                    definitions.emplace(x, y).second) {
                     definition_formulas.insert(current);
                     retained.push_back(current);
                     break;

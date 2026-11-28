@@ -19,6 +19,7 @@ inductive RE (α : Type) where
   | concat : RE α → RE α → RE α
   | star   : RE α → RE α
   | compl  : RE α → RE α
+  deriving DecidableEq
 
 variable {α σ : Type} [EBA α σ]
 

@@ -1723,7 +1723,7 @@ namespace seq {
                         distinct.insert(atom);
                     }
                 }
-                for (auto* e : subterms::ground(regex))
+                for ([[maybe_unused]] auto* e : subterms::ground(regex))
                     ++size;
             }
             fed.push_back({term, regex, sm.m_dep, variables, distinct.size(), size, static_cast<unsigned>(fed.size())});
@@ -2025,7 +2025,7 @@ namespace seq {
             len_abs prior;
             if (lens.find(var, prior)) {
                 combined = prior.meet(cur);
-                eq_tree::dep_tracker prior_dep;
+                eq_tree::dep_tracker prior_dep = nullptr;
                 deps.find(var, prior_dep);
                 dep = mf.dm().mk_join(prior_dep, sm.m_dep);
                 counts.find(var, cnt);
