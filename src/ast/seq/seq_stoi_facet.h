@@ -89,14 +89,29 @@ namespace seq {
         // the upper bound `len(s)=k && stoi(s)>=0 => stoi(s)<=10^k-1`,
         // which positional unfolding alone does not provide for symbolic
         // digits. Returns true if no new axioms were added.
-        // Early checks cover arguments with at most one character and fixed values
-        // with at most two; other conversions wait for word refutation or a provisional SAT leaf.
+        // For a pair of unbounded conversions, reconcile one short argument early;
+        // the remaining conversions retain their post-search digit-branching schedule.
         template <typename dep_tracker_t>
         bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac, bool early_only = false) {
             if (m_terms.empty())
                 return true;
 
             bool progress = false;
+            expr *early_term = nullptr;
+            if (early_only) {
+                unsigned unbounded = 0;
+                for (auto const &entry : m_terms) {
+                    expr *arg = nullptr;
+                    VERIFY(u.str.is_stoi(entry.first, arg));
+                    if (u.str.max_length(arg) > 2) {
+                        if (!early_term)
+                            early_term = entry.first;
+                        ++unbounded;
+                    }
+                }
+                if (unbounded != 2)
+                    early_term = nullptr;
+            }
 
             for (unsigned idx = 0; idx < m_terms.size(); ++idx) {
                 // Axiom callbacks may register more terms and reallocate m_terms.
@@ -104,11 +119,12 @@ namespace seq {
                 expr* s = nullptr;
                 VERIFY(u.str.is_stoi(stoi_e, s));
                 unsigned bound = u.str.max_length(s);
-                if (early_only && bound > 1) {
+                if (early_only && bound > 2 && stoi_e != early_term)
+                    continue;
+                if (early_only && bound == 2) {
                     rational lo, hi;
                     dep_tracker_t dep = nullptr;
-                    if (bound > 2 || !ac.lower_bound(stoi_e, lo, dep) ||
-                        !ac.upper_bound(stoi_e, hi, dep) || lo != hi)
+                    if (!ac.lower_bound(stoi_e, lo, dep) || !ac.upper_bound(stoi_e, hi, dep) || lo != hi)
                         continue;
                 }
 
@@ -125,6 +141,8 @@ namespace seq {
                     continue;
 
                 unsigned k = val.get_unsigned();
+                if (early_only && k > 2)
+                    continue;
                 if (k == 0)
                     continue;  // empty string: handled by the basic stoi_axiom_re axiom
 

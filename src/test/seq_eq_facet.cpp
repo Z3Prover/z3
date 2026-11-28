@@ -278,6 +278,96 @@ namespace {
         ENSURE(facet.terms().empty());
     }
 
+    static void tst_stoi_short_model_schedule() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack trail;
+        struct ambient : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+            seq_util &sequences;
+            unsigned length = 1;
+            ambient(ast_manager &m, seq_util &u, trail_stack &trail)
+                : null_ambient_context(m, u, trail), sequences(u) {}
+            bool current_value(expr *e, rational &value) override {
+                expr *s = nullptr;
+                if (sequences.str.is_length(e, s)) {
+                    value = rational(length);
+                    return true;
+                }
+                if (sequences.str.is_stoi(e, s)) {
+                    value = rational(sequences.str.is_empty(s) ? -1 : 0);
+                    return true;
+                }
+                return false;
+            }
+        } ac(m, u, trail);
+        seq::stoi_facet facet(trail, m, u, a);
+        expr_ref x(m.mk_fresh_const("first", u.str.mk_string_sort()), m);
+        expr_ref y(m.mk_fresh_const("second", u.str.mk_string_sort()), m);
+        expr_ref empty(u.str.mk_empty(x->get_sort()), m);
+        expr_ref word(u.str.mk_concat(x, y), m);
+        expr_ref first(u.str.mk_stoi(x), m), second(u.str.mk_stoi(word), m);
+        expr_ref empty_value(u.str.mk_stoi(empty), m);
+        ptr_vector<expr> instantiated;
+        facet.set_instantiate([&](expr *e, unsigned k) {
+            ENSURE(k == ac.length);
+            instantiated.push_back(e);
+        });
+        trail.push_scope();
+        facet.add_term(empty_value);
+        facet.add_term(first);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        facet.add_term(second);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        ENSURE(instantiated.size() == 1 && instantiated.back() == first);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ac.length = 2;
+        trail.push_scope();
+        expr_ref third(u.str.mk_stoi(y), m);
+        facet.add_term(third);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        trail.pop_scope(1);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        ENSURE(instantiated.size() == 2 && instantiated.back() == first);
+        ac.length = 3;
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ENSURE(!facet.check_stoi_coherence(ac));
+        ENSURE(instantiated.size() == 4 && instantiated.back() == second);
+        trail.pop_scope(1);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+    }
+
+    static void tst_stoi_concatenation_bounds() {
+        for (bool prepend : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util u(m);
+            arith_util a(m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            solver_ref s = mk_smt_solver(m, p, symbol("QF_SLIA"));
+            auto check = [&](lbool expected) {
+                scoped_rlimit limit(m.limit(), 500000);
+                ENSURE(s->check_sat(0, nullptr) == expected);
+            };
+            expr_ref x(m.mk_fresh_const("numeric", u.str.mk_string_sort()), m);
+            expr_ref y(m.mk_fresh_const("extension", x->get_sort()), m);
+            expr_ref word(u.str.mk_concat(prepend ? y : x, prepend ? x : y), m);
+            expr_ref value(u.str.mk_stoi(x), m), whole(u.str.mk_stoi(word), m);
+            expr_ref decreases(a.mk_gt(value, whole), m);
+            s->assert_expr(decreases);
+            check(l_true);
+            expr_ref zero(u.str.mk_string("0"), m), nine(u.str.mk_string("9"), m);
+            expr_ref digit(u.re.mk_range(zero, nine), m), digits(u.re.mk_star(digit), m);
+            expr_ref numeric_extension(u.re.mk_in_re(y, digits), m);
+            s->push();
+            s->assert_expr(numeric_extension);
+            check(l_false);
+            s->pop(1);
+        }
+    }
+
     static void tst_ambient_fresh_vars() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -2619,6 +2709,8 @@ void tst_seq_proof() {
 
 void tst_seq_eq_facet() {
     tst_stoi_reentrant_axioms();
+    tst_stoi_short_model_schedule();
+    tst_stoi_concatenation_bounds();
     tst_ambient_fresh_vars();
     tst_element_equality_substitution();
     tst_word_eq_finite_priority();

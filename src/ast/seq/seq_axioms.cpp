@@ -863,6 +863,29 @@ namespace seq {
 
             add_clause(~ge0, in_re);    // stoi(s) >= 0 => s in [0-9]+
             add_clause(~in_re, ge0);    // s in [0-9]+ => stoi(s) >= 0
+
+            if (seq.str.is_concat(s) && to_app(s)->get_num_args() == 2) {
+                expr *prefix = to_app(s)->get_arg(0);
+                expr *suffix = to_app(s)->get_arg(1);
+                expr_ref digits(seq.re.mk_star(re_digit), m);
+                expr_ref prefix_digits(seq.re.mk_in_re(prefix, digits), m);
+                expr_ref suffix_digits(seq.re.mk_in_re(suffix, digits), m);
+                expr_ref prefix_value(seq.str.mk_stoi(prefix), m);
+                expr_ref suffix_value(seq.str.mk_stoi(suffix), m);
+                expr_ref prefix_nonnegative(mk_ge(prefix_value, 0));
+                expr_ref suffix_nonnegative(mk_ge(suffix_value, 0));
+                expr_ref invalid_prefix(~prefix_nonnegative), invalid_suffix(~suffix_nonnegative);
+                expr_ref nondigit_prefix(~prefix_digits), nondigit_suffix(~suffix_digits);
+                expr_ref after_prefix(mk_ge_e(e, prefix_value));
+                expr_ref after_suffix(mk_ge_e(e, suffix_value));
+                add_clause(~ge0, prefix_digits);
+                add_clause(~ge0, suffix_digits);
+                add_clause(invalid_prefix, nondigit_suffix, ge0);
+                add_clause(invalid_suffix, nondigit_prefix, ge0);
+                // Appending or prepending digits cannot lower even an invalid conversion.
+                add_clause(nondigit_suffix, after_prefix);
+                add_clause(nondigit_prefix, after_suffix);
+            }
         }
     }
 
