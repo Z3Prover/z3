@@ -1142,7 +1142,54 @@ static void tst_regex_replacement_reductions() {
     check(true, x, nullable, y, unchanged);
 }
 
+static void tst_regex_prefix_suffix_intersection() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref full(u.re.mk_full_seq(u.re.mk_re(u.str.mk_string_sort())), m);
+    for (auto const &words : {std::pair{"ab", "cd"}, std::pair{"Version\\/", "SW-"}}) {
+        expr_ref p(u.str.mk_string(words.first), m), s(u.str.mk_string(words.second), m);
+        expr_ref rp(u.re.mk_to_re(p), m), rs(u.re.mk_to_re(s), m);
+        expr_ref prefix(u.re.mk_concat(rp, full), m), suffix(u.re.mk_concat(full, rs), m);
+        expr_ref tail(u.re.mk_concat(full, rs), m);
+        expr_ref expected(u.re.mk_concat(rp, tail), m);
+        rw(expected);
+        for (bool reverse : {false, true}) {
+            expr_ref actual(u.re.mk_inter(reverse ? suffix : prefix, reverse ? prefix : suffix), m);
+            rw(actual);
+            ENSURE(actual == expected);
+        }
+        expr_ref split_prefix(full, m);
+        zstring text(words.first);
+        for (unsigned i = text.length(); i-- > 0;) {
+            expr_ref letter(u.str.mk_string(zstring(text[i])), m);
+            expr_ref literal(u.re.mk_to_re(letter), m);
+            split_prefix = u.re.mk_concat(literal, split_prefix);
+        }
+        expr_ref actual(u.re.mk_inter(split_prefix, suffix), m);
+        rw(actual);
+        ENSURE(actual == expected);
+    }
+    for (auto const &words : {std::pair{"ab", "bc"}, std::pair{"abc", "b"}, std::pair{"a", "a"}}) {
+        expr_ref p(u.str.mk_string(words.first), m), s(u.str.mk_string(words.second), m);
+        expr_ref rp(u.re.mk_to_re(p), m), rs(u.re.mk_to_re(s), m);
+        expr_ref prefix(u.re.mk_concat(rp, full), m), suffix(u.re.mk_concat(full, rs), m);
+        expr_ref actual(u.re.mk_inter(prefix, suffix), m);
+        rw(actual);
+        ENSURE(u.re.is_intersection(actual));
+    }
+    expr_ref seven(u.str.mk_string("7"), m), thirty_seven(u.str.mk_string("37"), m);
+    expr_ref r7(u.re.mk_to_re(seven), m), r37(u.re.mk_to_re(thirty_seven), m);
+    expr_ref repeated(u.re.mk_star(r37), m);
+    expr_ref tail(u.re.mk_concat(r37, repeated), m);
+    expr_ref original(u.re.mk_concat(r7, tail), m), retained(original, m);
+    rw(retained);
+    ENSURE(retained == original);
+}
+
 void tst_seq_rewriter() {
+    tst_regex_prefix_suffix_intersection();
     tst_single_character_replacement_reductions();
     tst_single_character_selectors();
     tst_regex_replacement_reductions();

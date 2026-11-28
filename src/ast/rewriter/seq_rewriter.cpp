@@ -3973,7 +3973,7 @@ bool seq_rewriter::non_overlap(zstring const& s1, zstring const& s2) const {
         return non_overlap(s2, s1);
     auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
         for (unsigned i = start1; i < end1; ++i) {
-            if (s1[i] != s2[start2 + i])
+            if (s1[i] != s2[start2 + i - start1])
                 return false;
         }
         return true;
@@ -4007,9 +4007,9 @@ bool seq_rewriter::non_overlap(expr_ref_vector const& p1, expr_ref_vector const&
             return false;
     auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
         for (unsigned i = start1; i < end1; ++i) {
-            if (m().are_distinct(p1[i], p2[start2 + i]))
+            if (m().are_distinct(p1[i], p2[start2 + i - start1]))
                 return false;
-            if (!m().are_equal(p1[i], p2[start2 + i]))
+            if (!m().are_equal(p1[i], p2[start2 + i - start1]))
                 return true;
         }
         return true;
@@ -4414,6 +4414,15 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = mk_to_re(mk_seq_concat(a_str, b_str));
         return BR_DONE;
     }
+    expr *head = nullptr, *tail = nullptr;
+    zstring text_a, text_b;
+    if (re().is_concat(b, head, tail) && re().is_full_seq(tail) && lift_str_from_to_re(a, a_str) &&
+        str().is_string(a_str, text_a) && lift_str_from_to_re(head, b_str) && str().is_string(b_str, text_b)) {
+        expr_ref joined(str().mk_string(text_a + text_b), m());
+        expr_ref literal(re().mk_to_re(joined), m());
+        result = re().mk_concat(literal, tail);
+        return BR_REWRITE_FULL;
+    }
     expr *a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
@@ -4703,6 +4712,21 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     if (try_collapse_re_inter(a, b, result))
         return BR_DONE;
+    auto join_prefix_suffix = [&](expr *prefix, expr *suffix) {
+        expr *p = nullptr, *s = nullptr, *full_p = nullptr, *full_s = nullptr;
+        expr *word_p = nullptr, *word_s = nullptr;
+        zstring text_p, text_s;
+        if (!re().is_concat(prefix, p, full_p) || !re().is_full_seq(full_p) || !re().is_concat(suffix, full_s, s) ||
+            !re().is_full_seq(full_s) || !re().is_to_re(p, word_p) || !str().is_string(word_p, text_p) ||
+            !re().is_to_re(s, word_s) || !str().is_string(word_s, text_s) || !non_overlap(text_p, text_s))
+            return false;
+        // Non-overlapping anchors must occupy disjoint parts of every word.
+        expr_ref tail(re().mk_concat(full_p, s), m());
+        result = re().mk_concat(p, tail);
+        return true;
+    };
+    if (join_prefix_suffix(a, b) || join_prefix_suffix(b, a))
+        return BR_REWRITE_FULL;
     result = mk_regex_inter_normalize(a, b);
     return m().is_ite(result) ? BR_REWRITE_FULL : BR_DONE;
 }
