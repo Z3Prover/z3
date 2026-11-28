@@ -402,6 +402,79 @@ static void custom_test_error_handler(Z3_context c, Z3_error_code e) {
     g_error_handler_calls++;
 }
 
+static void test_static_features_arith_eq() {
+    // Equalities whose numeral is not the second argument were not counted, so a
+    // difference-logic setup was selected for problems outside of it.
+    {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(set-logic QF_UFIDL)\n"
+            "(declare-sort U 0)\n"
+            "(declare-const u U)\n"
+            "(declare-const v U)\n"
+            "(declare-const x Int)\n"
+            "(declare-const y Int)\n"
+            "(assert (= u v))\n"
+            "(assert (and (<= x 10) (<= x 11) (<= x 12) (<= x 13) (<= x 14) (<= x 15) (<= x 16) (<= x 17) (<= x 18)\n"
+            "             (<= x 19) (<= x 20) (<= x 21) (<= x 22) (<= x 23) (<= x 24) (<= x 25) (<= x 26) (<= x 27)))\n"
+            "(assert (or (= x (- y 4294967296)) (= x (- y 8589934592))))\n"
+            "(assert (< x y))\n"
+            "(check-sat)\n");
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(response == "sat\n");
+        Z3_del_context(ctx);
+    }
+    {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(set-option :model_validate true)\n"
+            "(set-logic ALL)\n"
+            "(declare-sort U 0)(declare-const u U)(declare-const v U)(declare-const x Int)(declare-const y Int)\n"
+            "(assert (and (= u v) (<= x 10) (<= x 11) (<= x 12) (<= x 13) (<= x 14) (<= x 15) (<= x 16) (<= x 17) (<= x 18) (<= x 19) (<= x 20) (<= x 21) (<= x 22) (<= x 23) (<= x 24) (<= x 25) (<= x 26) (<= x 27) (<= x 28) (or (= x (- y 9223372036854775811)) (= y x))))\n"
+            "(check-sat)\n");
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(response == "sat\n");
+        Z3_del_context(ctx);
+    }
+    {
+        Z3_global_param_set("rewriter.flat", "false");
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(set-logic QF_NIA)\n"
+            "(declare-const M Int)\n"
+            "(assert (< M 0))\n"
+            "(assert (= 1 (* M (* 3 M))))\n"
+            "(check-sat)\n");
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(response == "unsat\n");
+        Z3_del_context(ctx);
+        Z3_global_param_set("rewriter.flat", "true");
+    }
+    {
+        Z3_global_param_set("rewriter.flat", "false");
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(set-option :model_validate true)\n"
+            "(set-logic QF_NIA)\n"
+            "(declare-const M Int)\n"
+            "(assert (< M 0))\n"
+            "(assert (= 12 (* M (* 3 M))))\n"
+            "(check-sat)\n");
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(response == "sat\n");
+        Z3_del_context(ctx);
+        Z3_global_param_set("rewriter.flat", "true");
+    }
+}
+
 static void test_error_handler() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -891,6 +964,7 @@ void tst_api() {
     test_mk_app_polymorphic_arity();
     test_mk_quantifier_const_loose_bound_variables();
     test_bvneg();
+    test_static_features_arith_eq();
     test_mk_distinct();
     test_optimize_translate();
     test_optimize_arith_params();

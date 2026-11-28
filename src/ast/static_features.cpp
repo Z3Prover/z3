@@ -136,6 +136,13 @@ bool static_features::is_diff_atom(expr const * e) const {
     expr * rhs = to_app(e)->get_arg(1);
     if (!is_arith_expr(lhs) && !is_arith_expr(rhs) && !m.is_ite(lhs) && !m.is_ite(rhs)) 
         return true;    
+    rational r1, r2;
+    // x = y + k, k = x, x = k + y: both sides are difference terms
+    if (m.is_eq(e) && !m.is_ite(lhs) && !m.is_ite(rhs) && is_diff_term(lhs, r1) && is_diff_term(rhs, r2))
+        return true;
+    // (= k t) is (= t k)
+    if (m.is_eq(e) && is_numeral(lhs) && !is_numeral(rhs))
+        std::swap(lhs, rhs);
     if (!is_numeral(rhs)) 
         return false;    
     // lhs can be 'x' or '(+ x (* -1 y))' or '(+ (* -1 x) y)'
@@ -249,11 +256,22 @@ void static_features::update_core(expr * e) {
     if (is_numeral(e, r)) {
         if (!r.is_int())
             m_has_rational = true;
+        // every numeral counts for the size of the constants: the small-integer
+        // difference-logic solvers (arith_k_sum_is_small) must not see constants
+        // that are hidden inside terms such as (= x (- y K)).
+        acc_num(r);
     }
     if (_is_eq) {
         m_num_eqs++;
-        if (is_numeral(to_app(e)->get_arg(1))) {
-            acc_num(to_app(e)->get_arg(1));
+        // count every arithmetic equality: since the rewriter no longer moves terms to one
+        // side of =, (= c t) and (= t1 t2) are left as they are; is_diff_atom decides
+        // whether they are difference atoms.
+        expr* lhs = to_app(e)->get_arg(0), *rhs = to_app(e)->get_arg(1);
+        if (m_autil.is_int_real(lhs)) {
+            if (is_numeral(rhs))
+                acc_num(rhs);
+            else if (is_numeral(lhs))
+                acc_num(lhs);
             m_num_arith_eqs++;
             TRACE(diff_atom, tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
             if (is_diff_atom(e))
