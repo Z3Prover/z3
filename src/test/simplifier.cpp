@@ -1845,6 +1845,115 @@ static void test_seq_conversion_ranges() {
     }
 }
 
+static void test_seq_regular_replacement_equality() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref s(m.mk_const("replacement-source", u.str.mk_string_sort()), m);
+    expr_ref t(m.mk_const("replacement-other", s->get_sort()), m);
+    expr_ref_vector pin(m);
+    auto replace = [&](expr* source, char const* pattern, char const* replacement) {
+        expr_ref p(u.str.mk_string(pattern), m), r(u.str.mk_string(replacement), m);
+        expr* args[] = {source, p, r};
+        pin.push_back(m.mk_app(u.get_family_id(), OP_SEQ_REPLACE_ALL, 3, args));
+        return pin.back();
+    };
+    auto check = [&](expr* left, expr* right, bool supported) {
+        expr_ref formula(m.mk_eq(left, right), m);
+        for (bool positive : {false, true}) {
+            expr_ref input(positive ? formula.get() : m.mk_not(formula), m);
+            base_dependent_expr_state state(m);
+            state.add(dependent_expr(m, input, nullptr, nullptr));
+            seq_regular_simplifier simp(m, params_ref(), state);
+            simp.reduce();
+            expr_ref output(state[0].fml(), m);
+            ENSURE((output != input) == supported);
+            for (char const* text : {"", "a", "b", "ab", "ba", "aab", "abc", "cba", "cc", "\xc3\xa9"}) {
+                expr_ref value(u.str.mk_string(text), m);
+                expr_safe_replace sub(m);
+                sub.insert(s, value);
+                sub.insert(t, value);
+                expr_ref expected(m), actual(m);
+                sub(input, expected);
+                sub(output, actual);
+                rw(expected);
+                rw(actual);
+                ENSURE(m.is_true(expected) || m.is_false(expected));
+                ENSURE(actual == expected);
+            }
+        }
+    };
+    expr* left = replace(s, "a", "01");
+    expr* right = replace(s, "a", "10");
+    check(left, right, true);
+    left = replace(left, "b", "111");
+    right = replace(right, "b", "111");
+    check(left, right, true);
+    left = replace(s, "a", "b");
+    left = replace(left, "b", "00");
+    right = replace(s, "b", "00");
+    right = replace(right, "a", "00");
+    check(left, right, true);
+    left = replace(left, "c", "");
+    right = replace(right, "c", "");
+    check(left, right, true);
+    left = replace(s, "a", "");
+    right = replace(s, "b", "");
+    right = replace(right, "a", "b");
+    check(left, right, false);
+    left = replace(s, "ab", "00");
+    right = replace(s, "ab", "11");
+    check(left, right, false);
+    left = replace(s, "a", "01");
+    right = replace(t, "a", "10");
+    check(left, right, false);
+    {
+        expr_ref alias(m.mk_const("replacement-alias", s->get_sort()), m);
+        expr_ref output(m.mk_const("replacement-output", s->get_sort()), m);
+        expr_ref block(m.mk_const("replacement-block", s->get_sort()), m);
+        expr_ref literal(u.str.mk_string("01"), m);
+        expr* args[] = {alias, u.str.mk_string("a"), block};
+        expr_ref transformed(m.mk_app(u.get_family_id(), OP_SEQ_REPLACE_ALL, 3, args), m);
+        expr_ref_vector inputs(m);
+        inputs.push_back(m.mk_eq(alias, s));
+        inputs.push_back(m.mk_eq(block, literal));
+        inputs.push_back(m.mk_eq(output, transformed));
+        right = replace(s, "a", "10");
+        inputs.push_back(m.mk_eq(output, right));
+        expr_ref original(mk_and(inputs), m);
+        base_dependent_expr_state state(m);
+        for (expr* input : inputs) state.add(dependent_expr(m, input, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != inputs[0]);
+        expr_ref_vector conjuncts(m);
+        flatten_and(state[0].fml(), conjuncts);
+        ENSURE(any_of(conjuncts, [&](expr* e) {
+            expr *source, *language;
+            return u.str.is_in_re(e, source, language) && source == s;
+        }));
+        for (char const* text : {"", "a", "b", "ab", "ba"}) {
+            expr_ref value(u.str.mk_string(text), m);
+            for (char const* result : {"", "01", "10", "b"}) {
+                expr_ref output_value(u.str.mk_string(result), m);
+                expr_safe_replace sub(m);
+                sub.insert(s, value);
+                sub.insert(alias, value);
+                sub.insert(block, literal);
+                sub.insert(output, output_value);
+                expr_ref expected(m), actual(m);
+                sub(original, expected);
+                sub(state[0].fml(), actual);
+                rw(expected);
+                rw(actual);
+                ENSURE(m.is_true(expected) || m.is_false(expected));
+                ENSURE(actual == expected);
+            }
+        }
+    }
+}
+
 static void test_seq_regular_definitions() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -2505,6 +2614,7 @@ void tst_simplifier() {
     test_seq_decimal_comparisons();
     test_seq_bounded_conversions();
     test_seq_conversion_ranges();
+    test_seq_regular_replacement_equality();
     test_seq_regular_definitions();
     test_seq_regular();
     test_use_aware_replace_contains();
