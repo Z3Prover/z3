@@ -2,10 +2,9 @@
 Effective Boolean Algebra (EBA): predicates over characters with Boolean-
 algebra operations consistent with their semantic membership test.
 
-Mirrors the abstraction used in the EREQ/Lean formalization (MSO/EBA.lean,
-`C:\git\EREQ\Lean`) and the resplit paper's split algebra
-(`C:\git\z3papers\resplit\paper\paper.tex`), specialized to what c3mv's
-regex engine actually needs (Brzozowski derivatives, linear form, views).
+Mirrors the abstraction used in the EREQ/Lean formalization (MSO/EBA.lean),
+specialized to what c3mv's regex engine actually needs (Brzozowski
+derivatives, linear form, views).
 
 This library is derived locally rather than vendoring EREQ's own Lean
 source, for two reasons: it can grow incrementally together with the rest

@@ -1,5 +1,8 @@
 import Z3SeqProofs.RangePredicate
 import Z3SeqProofs.Derivatives
+import Z3SeqProofs.View
+import Z3SeqProofs.SymbolicAutomaton
+import Z3SeqProofs.SmartConcat
 
 /-
 A concrete, end-to-end worked example over a toy 4-symbol alphabet
@@ -51,5 +54,81 @@ theorem exampleRE_accepts_by_hand : L exampleRE exampleWord := by
   have accL : L (derivative (2 : Alphabet 3) (derivative (0 : Alphabet 3) (derivative (1 : Alphabet 3) (derivative (0 : Alphabet 3) exampleRE)))) [] :=
     (null_correct _).mp final
   exact step1.mp (step2.mp (step3.mp (step4.mp accL)))
+
+/-
+The sections below exercise the machinery added after this file was
+first written (smart constructors, the symbolic-derivative/linear-form
+layer, the symbolic automaton, and views) concretely on `exampleRE`,
+confirming it all actually computes and type-checks on a non-toy
+instance, not just abstractly.
+-/
+
+-- ===== Smart constructors, concretely =====
+
+-- `(0|1)*·(0|1)* = (0|1)*`: `smartConcat`'s star-star idempotence law,
+-- demonstrated on the concrete `(0|1)*` factor of `exampleRE` — it
+-- collapses to a single `star`, not a raw (unsimplified) `concat`.
+example :
+    smartConcat (RE.star (.pred predZeroOne) : RE Pred3) (RE.star (.pred predZeroOne)) =
+      (RE.star (.pred predZeroOne) : RE Pred3) := by
+  decide
+
+-- Correctness carries over regardless of whether the smart constructor
+-- fired: both sides denote the same language as the raw concat, by
+-- `smartConcat_correct`.
+example (w : List (Alphabet 3)) :
+    L (smartConcat (RE.star (.pred predZeroOne) : RE Pred3) (RE.star (.pred predZeroOne))) w ↔
+      L (.concat (.star (.pred predZeroOne)) (.star (.pred predZeroOne)) : RE Pred3) w :=
+  smartConcat_correct _ _ w
+
+-- ===== Symbolic derivative / linear form, concretely =====
+
+-- `LF (sder exampleRE)` is a concrete, computable list of
+-- `(predicate, leaf)` branches.
+#eval (LF (sder (σ := Alphabet 3) exampleRE)).length
+
+-- The end-to-end `derivative_cofactors_correct` pipeline, instantiated on
+-- `exampleRE`: the cofactors of its symbolic derivative decide
+-- membership of `exampleWord` directly, agreeing with the
+-- already-established `exampleRE_accepts`.
+example :
+    ∃ p ∈ LF (sder (σ := Alphabet 3) exampleRE), EBA.models p.1 (0 : Alphabet 3) = true ∧
+      L p.2 [1, 0, 2] :=
+  (derivative_cofactors_correct exampleRE 0 [1, 0, 2]).mpr exampleRE_accepts
+
+-- ===== Symbolic automaton, concretely =====
+
+-- `AutAccepts` (driven by `sder`/`LF`) and `acceptsBy` (driven by the raw
+-- derivative) are two independently-verified routes that agree on this
+-- concrete instance.
+theorem exampleRE_AutAccepts : AutAccepts exampleRE exampleWord := by
+  rw [AutAccepts_eq_acceptsBy]
+  decide
+
+-- ===== Views, concretely =====
+
+-- The state reached after reading just the first character `0` is a
+-- genuine (non-empty) view: `exampleRE`'s loop hasn't gone dead.
+example : ViewPred exampleRE (iterDerivative ([0] : List (Alphabet 3)) exampleRE)
+    ([0] : List (Alphabet 3)) :=
+  ⟨rfl, by decide⟩
+
+-- Theorem [View] splits `exampleWord = [0]·[1,0,2]` into "`[0]` drives
+-- `exampleRE` to some reachable state `s`" plus "`[1,0,2]` matches from
+-- `s` onward" — concretely confirming the split c3mv's
+-- `seq_view_witness.cpp`/`mem_monadic_split` performs is sound here.
+example :
+    L exampleRE exampleWord ↔
+      ∃ s, ViewPred exampleRE s ([0] : List (Alphabet 3)) ∧ L s [1, 0, 2] :=
+  view_theorem exampleRE [0] [1, 0, 2]
+
+-- That same view is also, equivalently, a reachable state of the
+-- symbolic automaton `M_exampleRE`: the automaton-level `AutReaches` and
+-- the derivative-level `ViewPred` agree on this concrete instance, via
+-- `AutReaches_iff_ViewPred`.
+example :
+    AutReaches exampleRE [0] (iterDerivative ([0] : List (Alphabet 3)) exampleRE) ∧
+      iterDerivative ([0] : List (Alphabet 3)) exampleRE ≠ RE.bot :=
+  (AutReaches_iff_ViewPred exampleRE _ [0]).mpr ⟨rfl, by decide⟩
 
 end Z3SeqProofs

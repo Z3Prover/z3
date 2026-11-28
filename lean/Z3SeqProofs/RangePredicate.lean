@@ -14,6 +14,7 @@ abbrev Alphabet (maxChar : Nat) := Fin (maxChar + 1)
 
 structure RangePred (maxChar : Nat) where
   ranges : List (Nat × Nat)
+  deriving DecidableEq
 
 -- Nat-indexed membership test (no `Fin` construction needed), used
 -- internally so `complV` can iterate `c : Nat` directly without a
