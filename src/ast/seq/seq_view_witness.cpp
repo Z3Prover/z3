@@ -202,12 +202,13 @@ namespace seq {
                 if (re().is_loop(v.m_state, body, lo, hi) && lo == hi && re().is_full_char(body))
                     requested_length = rational(lo);
             }
-            for (auto const& v : views) {
-                // Overlapping concatenation derivatives can grow even for moderately long words.
-                unsigned threshold = re().is_concat(v.m_state) ? 256 : compact_threshold;
-                expr* literal = nullptr;
-                if (requested_length <= rational(threshold) &&
-                    re().min_length(v.m_state) <= threshold &&
+            for (auto const &v : views) {
+                // A single ground concatenation can validate compact words without building a product.
+                unsigned threshold = n == 1 && re().is_concat(v.m_state) && re().is_ground(v.m_state) ? 0
+                                     : re().is_concat(v.m_state) ? 256
+                                                                 : compact_threshold;
+                expr *literal = nullptr;
+                if (requested_length <= rational(threshold) && re().min_length(v.m_state) <= threshold &&
                     !(re().is_to_re(v.m_state, literal) && !m.is_value(literal)))
                     continue;
                 // Ordinary product costs also rank monadic refinements.

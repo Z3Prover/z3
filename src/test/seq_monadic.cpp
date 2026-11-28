@@ -179,7 +179,35 @@ class seq_monadic_test {
                          witness.get_failure_reason() == seq::view_failure_reason::budget;
         m_trail.pop_scope(1);
 
-        bool ok = cached && core_ok && materialized && reason_ok;
+        bool compact_ok = true;
+        for (bool wildcard : {false, true}) {
+            seq::view_witness short_words(m_trail, m_rw, live, m_mode);
+            short_words.set_enable_witness(true);
+            short_words.set_checkpoint([&]() {
+                return short_words.cofactor_calls() > 4 ? seq::view_failure_reason::budget
+                                                        : seq::view_failure_reason::none;
+            });
+            expr_ref body = wildcard ? dot() : aa;
+            unsigned count = wildcard ? 32 : 16;
+            expr_ref repetitions(loop(body, count, count), m);
+            expr_ref short_regex(cat(a, repetitions), m);
+            m_trail.push_scope();
+            short_words.add(x, seq::view::membership(short_regex, m), nullptr);
+            compact_ok &= short_words.check() == l_true;
+            expr_ref short_value = short_words.materialize_witness(x), first(m);
+            expr_ref expected_prefix = sword("a");
+            rational length;
+            compact_ok &= short_value && m_rw.get_ground_seq_length(short_value, length) && length == 33 &&
+                          m_rw.slice_ground_seq(short_value, rational(0), rational(1), first) &&
+                          m_rw.compare_ground_seqs(first, expected_prefix) == l_true;
+            if (!wildcard) {
+                expr_ref expected = sword(std::string(33, 'a').c_str());
+                compact_ok &= short_value && m_rw.compare_ground_seqs(short_value, expected) == l_true;
+            }
+            m_trail.pop_scope(1);
+        }
+
+        bool ok = cached && core_ok && materialized && reason_ok && compact_ok;
         if (!ok)
             ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ")
