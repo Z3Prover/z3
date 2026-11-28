@@ -42,7 +42,6 @@ namespace opt {
         bool             m_optsmt_nlsat = true;
         bool             m_dual_bounds = true;
         unsigned         m_nlsat_supremum_rlimit = 100000;
-        bool             m_lex_after_unbounded = true;
         bool             m_unbounded_curve = true;
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
@@ -60,6 +59,8 @@ namespace opt {
         // Objective unbounded_index has the supremum +oo. Objective obj_index
         // then takes the limit of its suprema as the unbounded objective grows.
         lbool lex_after_unbounded(unsigned unbounded_index, unsigned obj_index, bool is_maximize);
+
+        lbool reaches_infinity(unsigned idx, model_ref& witness);
 
         bool is_unbounded(unsigned obj_index, bool is_maximize);
 
@@ -106,8 +107,6 @@ namespace opt {
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
         nlsat_outcome nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
         bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget, sref_vector<model> const& recent_models);
-
-        lbool reaches_infinity(unsigned idx, model_ref& witness);
 
         bool model_objective_value(unsigned idx, model_ref& mdl, rational& value);
 

@@ -240,6 +240,11 @@ namespace opt {
             m_msolver->reset_upper();
             m_upper = m_msolver->get_upper();
         }
+        else {
+            m_upper.reset();
+            for (auto const& s : m_soft)
+                m_upper += s.weight;
+        }
     }
 
     void maxsmt::verify_assignment() {

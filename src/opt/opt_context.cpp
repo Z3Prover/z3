@@ -642,7 +642,67 @@ namespace opt {
         return r;
     }    
 
-    // Objective unbounded_index has no finite optimum. Each later arithmetic
+    // With finitely many soft costs, the limiting optimum is the least cost
+    // cap under which the preceding objective is still unbounded.
+    lbool context::execute_soft_after_unbounded(objective const& unbounded, objective const& o, bool commit) {
+        if (o.m_terms.empty())
+            return l_true;
+        rational num, den(1);
+        for (auto const& w : o.m_weights) {
+            num = gcd(num, numerator(w));
+            den = lcm(den, denominator(w));
+        }
+        rational unit = num / den;
+        bool is_int = m_arith.is_int(unbounded.m_term);
+        expr_ref zero(m_arith.mk_numeral(rational(0), is_int), m);
+        expr_ref_vector costs(m);
+        rational lo, hi;
+        for (unsigned i = 0; i < o.m_terms.size(); ++i) {
+            rational w = o.m_weights[i] / unit;
+            costs.push_back(m.mk_ite(o.m_terms[i], zero, m_arith.mk_numeral(w, is_int)));
+            hi += w;
+        }
+        expr_ref cost(m_arith.mk_add(costs), m);
+        maxsmt& ms = *m_maxsmts.find(o.m_id);
+        solver& s = get_solver();
+        unsigned rounds = opt_params(m_params).optsmt_bisect_rounds();
+        for (unsigned i = 0; lo < hi && i < rounds; ++i) {
+            rational mid = floor((lo + hi) / rational(2));
+            solver::scoped_push scope(s);
+            s.assert_expr(m_arith.mk_le(cost, m_arith.mk_numeral(mid, is_int)));
+            model_ref witness;
+            switch (m_optsmt.reaches_infinity(unbounded.m_index, witness)) {
+            case l_true:
+                hi = mid;
+                ms.update_upper(hi * unit);
+                break;
+            case l_false:
+                lo = mid + 1;
+                ms.update_lower(lo * unit);
+                break;
+            case l_undef:
+                return l_undef;
+            }
+        }
+        if (lo != hi)
+            return l_true;
+
+        // A model of a cheaper finite prefix need not realize the limiting cost.
+        expr_ref exact(m.mk_eq(cost, m_arith.mk_numeral(lo, is_int)), m);
+        {
+            solver::scoped_push scope(s);
+            s.assert_expr(exact);
+            if (s.check_sat(0, nullptr) != l_true)
+                return l_undef;
+            s.get_model(m_model);
+            s.get_labels(m_labels);
+        }
+        if (commit)
+            s.assert_expr(exact);
+        return l_true;
+    }
+
+    // Objective unbounded_index has no finite optimum. Each later
     // objective takes the limit of its optima as that objective grows without
     // bound. A determined limit is committed before the next objective; an
     // objective left with an interval ends the search, and the later
@@ -650,10 +710,23 @@ namespace opt {
     lbool context::execute_lex_after_unbounded(unsigned unbounded_index) {
         unsigned sz = m_objectives.size();
         unsigned u = m_objectives[unbounded_index].m_index;
+        // A feasible model from before optimizing u gives no upper bound
+        // on the limiting penalty, including for objectives we may never visit.
         for (unsigned j = unbounded_index + 1; j < sz; ++j) {
             objective const& o = m_objectives[j];
             if (o.m_type == O_MAXSMT)
-                return l_true;
+                m_maxsmts.find(o.m_id)->reset_upper();
+        }
+        if (!opt_params(m_params).optsmt_lex_after_unbounded())
+            return l_true;
+        for (unsigned j = unbounded_index + 1; j < sz; ++j) {
+            objective const& o = m_objectives[j];
+            if (o.m_type == O_MAXSMT) {
+                lbool r = execute_soft_after_unbounded(m_objectives[unbounded_index], o, j + 1 < sz);
+                if (r != l_true || get_lower_value(j) != get_upper_value(j))
+                    return r;
+                continue;
+            }
             lbool r = m_optsmt.lex_after_unbounded(u, o.m_index, o.m_type == O_MAXIMIZE);
             model_ref mdl;
             svector<symbol> labels;
