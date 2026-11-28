@@ -163,25 +163,6 @@ br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
-    auto kind = f->get_decl_kind();
-    if ((kind == OP_SEQ_MAP || kind == OP_SEQ_MAPI || kind == OP_SEQ_FOLDL || kind == OP_SEQ_FOLDLI) && is_lambda(args[0])) {
-        quantifier* q = to_quantifier(args[0]);
-        svector<symbol> names;
-        bool canonical = true;
-        for (unsigned j = 0; j < q->get_num_decls(); ++j) {
-            names.push_back(symbol(j));
-            canonical &= q->get_decl_name(j) == names.back();
-        }
-        // Lambda binder names participate in AST identity even though they do not affect semantics.
-        if (!canonical) {
-            expr_ref_vector normalized(m());
-            normalized.push_back(m().mk_lambda(q->get_num_decls(), q->get_decl_sorts(), names.data(), q->get_expr()));
-            for (unsigned j = 1; j < num_args; ++j)
-                normalized.push_back(args[j]);
-            result = m().mk_app(f, num_args, normalized.data());
-            return BR_REWRITE3;
-        }
-    }
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
         
@@ -2543,7 +2524,29 @@ expr_ref seq_rewriter::compose_seq_functions(expr* f, expr* g) {
     return expr_ref(m().mk_lambda(arity, sorts.data(), names.data(), body), m());
 }
 
+bool seq_rewriter::normalize_seq_function(expr* f, expr_ref& result) {
+    if (!is_lambda(f))
+        return false;
+    quantifier* q = to_quantifier(f);
+    svector<symbol> names;
+    bool canonical = true;
+    for (unsigned j = 0; j < q->get_num_decls(); ++j) {
+        names.push_back(symbol(j));
+        canonical &= q->get_decl_name(j) == names.back();
+    }
+    // Lambda binder names participate in AST identity even though they do not affect semantics.
+    if (canonical)
+        return false;
+    result = m().mk_lambda(q->get_num_decls(), q->get_decl_sorts(), names.data(), q->get_expr());
+    return true;
+}
+
 br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
+    expr_ref normalized(m());
+    if (normalize_seq_function(f, normalized)) {
+        result = str().mk_map(normalized, seqA);
+        return BR_REWRITE3;
+    }
     if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 1 &&
         is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 0) {
         result = seqA;
@@ -2576,6 +2579,11 @@ br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& result) {
+    expr_ref normalized(m());
+    if (normalize_seq_function(f, normalized)) {
+        result = str().mk_mapi(normalized, i, seqA);
+        return BR_REWRITE3;
+    }
     if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 2 &&
         is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 0) {
         result = seqA;
@@ -2626,6 +2634,11 @@ br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& resu
 }
 
 br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& result) {
+    expr_ref normalized(m());
+    if (normalize_seq_function(f, normalized)) {
+        result = str().mk_foldl(normalized, b, seqA);
+        return BR_REWRITE3;
+    }
     if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 2 &&
         is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 1) {
         result = b;
@@ -2656,6 +2669,11 @@ br_status seq_rewriter::mk_seq_foldl(expr* f, expr* b, expr* seqA, expr_ref& res
 }
 
 br_status seq_rewriter::mk_seq_foldli(expr* f, expr* i, expr* b, expr* seqA, expr_ref& result) {
+    expr_ref normalized(m());
+    if (normalize_seq_function(f, normalized)) {
+        result = str().mk_foldli(normalized, i, b, seqA);
+        return BR_REWRITE3;
+    }
     if (is_lambda(f) && to_quantifier(f)->get_num_decls() == 3 &&
         is_var(to_quantifier(f)->get_expr()) && to_var(to_quantifier(f)->get_expr())->get_idx() == 1) {
         result = b;
