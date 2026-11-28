@@ -688,6 +688,27 @@ namespace seq {
             auto const& sm = f.memberships()[i];
             if (!sm.active() || !sm.is_plain())
                 continue;
+            expr_ref word(m);
+            rational ground_length;
+            if (!sm.m_str.empty() &&
+                (sm.m_str.size() > 256 || any_of(sm.m_str, [&](expr *token) { return !u.str.is_unit(token); })))
+                word = u.str.mk_concat(sm.m_str, sm.m_str.get(0)->get_sort());
+            // Coalesce unit runs before the bounded ground-length traversal.
+            if (word && sm.m_str.size() > 256)
+                m_th_rw(word);
+            if (word && m_rw.get_ground_seq_length(word, ground_length)) {
+                regex_witness checker(m_rw);
+                lbool accepted = checker.accepts(word, sm.m_view.m_state);
+                if (accepted == l_false) {
+                    n.set_conflict(stx::br_plugin_base, sm.m_dep);
+                    return stx::simplify_result::conflict;
+                }
+                if (accepted == l_true) {
+                    f.remove(i, symbol("seq-mem-ground-accept"));
+                    changed = true;
+                    continue;
+                }
+            }
             arith_util& a = sf.get_arith_util();
             unsigned lo = u.re.min_length(sm.m_view.m_state);
             unsigned hi = u.re.max_length(sm.m_view.m_state);
@@ -760,28 +781,6 @@ namespace seq {
                 continue;
             if (sm.is_view())
                 continue;
-            expr_ref word(m);
-            rational ground_length;
-            if (!sm.m_str.empty() &&
-                (sm.m_str.size() > 256 ||
-                 any_of(sm.m_str, [&](expr* token) { return !u.str.is_unit(token); })))
-                word = u.str.mk_concat(sm.m_str, sm.m_str.get(0)->get_sort());
-            if (word && m_rw.get_ground_seq_length(word, ground_length)) {
-                // Avoid repeatedly slicing a long concatenation of individual units.
-                if (sm.m_str.size() > 256)
-                    m_th_rw(word);
-                regex_witness checker(m_rw);
-                lbool accepted = checker.accepts(word, sm.m_view.m_state);
-                if (accepted == l_false) {
-                    n.set_conflict(stx::br_plugin_base, sm.m_dep);
-                    return stx::simplify_result::conflict;
-                }
-                if (accepted == l_true) {
-                    f.remove(i, symbol("seq-mem-ground-accept"));
-                    changed = true;
-                    continue;
-                }
-            }
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
             expr* elem = nullptr;

@@ -278,6 +278,127 @@ namespace {
         ENSURE(facet.terms().empty());
     }
 
+    static void tst_stoi_short_model_schedule() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack trail;
+        struct ambient : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+            seq_util &sequences;
+            unsigned length = 1;
+            int number = 0;
+            expr_ref_vector clause;
+            ambient(ast_manager &m, seq_util &u, trail_stack &trail)
+                : null_ambient_context(m, u, trail), sequences(u), clause(m) {}
+            void add_axiom(expr_ref_vector const &axiom) override {
+                clause.reset();
+                clause.append(axiom);
+            }
+            bool current_value(expr *e, rational &value) override {
+                expr *s = nullptr;
+                if (sequences.str.is_length(e, s)) {
+                    value = rational(length);
+                    return true;
+                }
+                if (sequences.str.is_stoi(e, s)) {
+                    value = rational(sequences.str.is_empty(s) ? -1 : number);
+                    return true;
+                }
+                return false;
+            }
+        } ac(m, u, trail);
+        seq::stoi_facet facet(trail, m, u, a);
+        expr_ref x(m.mk_fresh_const("first", u.str.mk_string_sort()), m);
+        expr_ref y(m.mk_fresh_const("second", u.str.mk_string_sort()), m);
+        expr_ref empty(u.str.mk_empty(x->get_sort()), m);
+        expr_ref word(u.str.mk_concat(x, y), m);
+        expr_ref first(u.str.mk_stoi(x), m), second(u.str.mk_stoi(word), m);
+        expr_ref empty_value(u.str.mk_stoi(empty), m);
+        ptr_vector<expr> instantiated;
+        facet.set_instantiate([&](expr *e, unsigned k) {
+            ENSURE(k == ac.length);
+            instantiated.push_back(e);
+        });
+        trail.push_scope();
+        facet.add_term(empty_value);
+        facet.add_term(first);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        expr_ref refinement(m.mk_or(ac.clause.size(), ac.clause.data()), m);
+        for (char const *sample : {"0", "1", "00", "a"}) {
+            expr_ref text(u.str.mk_string(sample), m);
+            expr_substitution substitution(m);
+            substitution.insert(x, text);
+            th_rewriter rw(m);
+            rw.set_substitution(&substitution);
+            expr_ref instance(refinement, m);
+            rw(instance);
+            ENSURE(m.is_true(instance));
+        }
+        for (int number : {-1, 10, 420}) {
+            ac.number = number;
+            ENSURE(facet.check_stoi_coherence(ac, true));
+        }
+        ac.number = 0;
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        trail_stack clone_trail;
+        std::unique_ptr<stx::facet_i> cloned(facet.clone(clone_trail));
+        ENSURE(static_cast<seq::stoi_facet *>(cloned.get())->check_stoi_coherence(ac, true));
+        facet.add_term(second);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        ENSURE(instantiated.size() == 1 && instantiated.back() == first);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ac.length = 2;
+        trail.push_scope();
+        expr_ref third(u.str.mk_stoi(y), m);
+        facet.add_term(third);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        trail.pop_scope(1);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        ENSURE(instantiated.size() == 2 && instantiated.back() == first);
+        ac.length = 3;
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ENSURE(!facet.check_stoi_coherence(ac));
+        ENSURE(instantiated.size() == 4 && instantiated.back() == second);
+        trail.pop_scope(1);
+        ENSURE(facet.check_stoi_coherence(ac, true));
+        ac.length = 1;
+        trail.push_scope();
+        facet.add_term(first);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        trail.pop_scope(1);
+    }
+
+    static void tst_stoi_concatenation_bounds() {
+        for (bool prepend : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util u(m);
+            arith_util a(m);
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            solver_ref s = mk_smt_solver(m, p, symbol("QF_SLIA"));
+            auto check = [&](lbool expected) {
+                scoped_rlimit limit(m.limit(), 500000);
+                ENSURE(s->check_sat(0, nullptr) == expected);
+            };
+            expr_ref x(m.mk_fresh_const("numeric", u.str.mk_string_sort()), m);
+            expr_ref y(m.mk_fresh_const("extension", x->get_sort()), m);
+            expr_ref word(u.str.mk_concat(prepend ? y : x, prepend ? x : y), m);
+            expr_ref value(u.str.mk_stoi(x), m), whole(u.str.mk_stoi(word), m);
+            expr_ref decreases(a.mk_gt(value, whole), m);
+            s->assert_expr(decreases);
+            check(l_true);
+            expr_ref zero(u.str.mk_string("0"), m), nine(u.str.mk_string("9"), m);
+            expr_ref digit(u.re.mk_range(zero, nine), m), digits(u.re.mk_star(digit), m);
+            expr_ref numeric_extension(u.re.mk_in_re(y, digits), m);
+            s->push();
+            s->assert_expr(numeric_extension);
+            check(l_false);
+            s->pop(1);
+        }
+    }
+
     static void tst_ambient_fresh_vars() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -872,6 +993,60 @@ namespace {
         ENSURE(dm.contains(dep, 7) && !dm.contains(dep, 9));
         ENSURE(!ef.get_subst(p, repl));
         tr.pop_scope(1);
+    }
+
+    static void tst_word_eq_model_order_backtracking() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack trail;
+        seq::eq_tree tree(trail, m.limit());
+        auto *root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, trail);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+        auto &ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto &sf = root->facet_as<seq::solver_facet>(arith_id);
+        sort *s = u.str.mk_string_sort();
+        expr_ref x(m.mk_fresh_const("x", s), m), y(m.mk_fresh_const("y", s), m);
+        expr_ref p(m.mk_fresh_const("p", s), m), q(m.mk_fresh_const("q", s), m);
+        expr_ref lhs(u.str.mk_concat(x, p), m), rhs(u.str.mk_concat(y, q), m);
+        ef.add_equation(lhs, rhs, tree.dep_mgr().mk_leaf(7));
+        expr_ref lx(u.str.mk_length(x), m), ly(u.str.mk_length(y), m);
+        expr_ref two(a.mk_int(2), m);
+        sf.add_constraint(a.mk_ge(lx, two));
+        sf.add_constraint(a.mk_ge(ly, two));
+        rational vx, vy;
+        ENSURE(sf.value(lx, vx) && vx == rational(2));
+        ENSURE(sf.value(ly, vy) && vy == vx);
+        expr_ref same_length(m.mk_eq(lx, ly), m);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        seq::word_eq_split split(m, u);
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        trail.push_scope();
+        auto it = split.split(*root, 0, edge, more, committed);
+        ENSURE(it && committed && std::string(edge.rule_name()) == "v1:=v2");
+        expr_ref_vector repl(m);
+        ENSURE(ef.get_subst(x, repl) && repl.size() == 1 && repl.get(0) == y);
+        trail.pop_scope(1);
+        for (char const *name : {"v1:=eps", "v2:=eps", "v1:=v2.v1'", "v2:=v1.v2'"}) {
+            trail.push_scope();
+            ENSURE(it->next(edge) && std::string(edge.rule_name()) == name);
+            trail.pop_scope(1);
+        }
+        trail.push_scope();
+        ENSURE(!it->next(edge));
+        trail.pop_scope(1);
+        ENSURE(!ef.get_subst(x, repl) && !ef.get_subst(y, repl));
+        ENSURE(sf.implies(same_length, &dep) != l_true);
     }
 
     static void tst_trivial_sat() {
@@ -2565,6 +2740,8 @@ void tst_seq_proof() {
 
 void tst_seq_eq_facet() {
     tst_stoi_reentrant_axioms();
+    tst_stoi_short_model_schedule();
+    tst_stoi_concatenation_bounds();
     tst_ambient_fresh_vars();
     tst_element_equality_substitution();
     tst_word_eq_finite_priority();
@@ -2585,6 +2762,7 @@ void tst_seq_eq_facet() {
     tst_word_eq_proved_length_alignment(false, true);
     tst_word_eq_proved_length_alignment(false, false, true);
     tst_word_eq_proved_length_alignment(false, false, false, true);
+    tst_word_eq_model_order_backtracking();
     tst_trivial_sat();
     tst_symbol_clash_unsat();
     tst_commute_sat();

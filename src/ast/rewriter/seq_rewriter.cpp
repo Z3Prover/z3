@@ -1407,6 +1407,14 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
             result = str().mk_substr(tail, position, c);
             return BR_REWRITE3;
         }
+        if (str().is_unit(a) || (constantBase && s.length() == 1)) {
+            expr_ref at_start(m().mk_eq(b, zero()), m());
+            expr_ref positive(m_autil.mk_gt(c, zero()), m());
+            expr_ref valid(m().mk_and(at_start, positive), m());
+            expr_ref empty(str().mk_empty(a_sort), m());
+            result = m().mk_ite(valid, a, empty);
+            return BR_REWRITE_FULL;
+        }
         return BR_FAILED;
     }
 
@@ -1534,6 +1542,11 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     }
     expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
     zstring needle_text, replacement_text, observed;
+    if (str().is_replace(a, source, needle, replacement) && source == replacement &&
+        (str().is_unit(b) || (str().is_string(b, observed) && observed.length() == 1))) {
+        result = str().mk_contains(source, b);
+        return BR_REWRITE1;
+    }
     if (str().is_replace(a, source, needle, replacement) &&
         str().is_string(needle, needle_text) &&
         str().is_string(replacement, replacement_text) &&
@@ -1695,6 +1708,14 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     expr* offset, *a1, *len;
     expr_ref_vector lens(m());
     sort* sort_a = a->get_sort();
+    expr *source = nullptr, *needle = nullptr, *start = nullptr;
+    if (str().is_index(b, source, needle, start) && source == a &&
+        (str().is_unit(needle) || (str().is_string(needle, c) && c.length() == 1))) {
+        expr_ref found(m_autil.mk_ge(b, zero()), m());
+        expr_ref empty(str().mk_empty(sort_a), m());
+        result = m().mk_ite(found, needle, empty);
+        return BR_REWRITE_FULL;
+    }
     if (str().is_extract(a, a1, offset, len) && 
         m_autil.is_numeral(offset, offset_r) && offset_r.is_zero() && 
         m_autil.is_numeral(len, len_r) && m_autil.is_numeral(b, r) && 
@@ -2029,6 +2050,20 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         return BR_REWRITE2;
     }
 
+    if (str().is_unit(a) || (isc1 && s1.length() == 1)) {
+        expr_ref lower(m_autil.mk_ge(c, zero()), m());
+        expr_ref upper(m_autil.mk_le(c, one()), m());
+        expr_ref empty_pattern(str().mk_is_empty(b), m());
+        expr_ref valid(m().mk_and(lower, upper, empty_pattern), m());
+        expr_ref at_start(m().mk_eq(c, zero()), m());
+        expr_ref same(m().mk_eq(a, b), m());
+        expr_ref matches(m().mk_and(at_start, same), m());
+        expr_ref found(zero(), m()), missing(minus_one(), m());
+        expr_ref hit(m().mk_ite(matches, found, missing), m());
+        result = m().mk_ite(valid, c, hit);
+        return BR_REWRITE_FULL;
+    }
+
     if (a == b) {
         if (m_autil.is_numeral(c, r)) {
             result = r.is_zero() ? zero() : minus_one();            
@@ -2207,6 +2242,31 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+    if (str().is_empty(a) || str().is_unit(a) || (str().is_string(a, s1) && s1.length() == 1)) {
+        expr *condition = nullptr, *yes = nullptr, *no = nullptr;
+        if (m().is_ite(b, condition, yes, no)) {
+            expr_ref then_result(str().mk_replace(a, yes, c), m());
+            expr_ref else_result(str().mk_replace(a, no, c), m());
+            result = m().mk_ite(condition, then_result, else_result);
+            return BR_REWRITE_FULL;
+        }
+        expr_ref matches(m().mk_eq(a, b), m());
+        expr_ref nonempty(m().mk_ite(matches, c, a), m());
+        expr_ref empty_pattern(str().mk_is_empty(b), m());
+        expr_ref prepended(str().mk_concat(c, a), m());
+        result = m().mk_ite(empty_pattern, prepended, nonempty);
+        return BR_REWRITE_FULL;
+    }
+
+    expr *input = nullptr, *inner_pattern = nullptr, *inner_replacement = nullptr;
+    if (str().is_empty(c) && str().is_replace(a, input, inner_pattern, inner_replacement) &&
+        str().is_empty(inner_replacement) && str().is_string(b, s2) && s2.length() == 1 &&
+        str().is_string(inner_pattern, s3) && s3.length() == 1 && s2[0] < s3[0]) {
+        expr_ref inner(str().mk_replace(input, b, c), m());
+        result = str().mk_replace(inner, inner_pattern, inner_replacement);
+        return BR_REWRITE_FULL;
+    }
+
     expr *source, *index;
     if (str().is_empty(c) && str().is_at(b, source, index) &&
         source == a && m_autil.is_zero(index)) {
@@ -2218,6 +2278,15 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
 
     m_lhs.reset();
     str().get_concat(a, m_lhs);
+
+    std::function<bool(expr *)> same_first = [&](expr *e) { return e == m_lhs.get(0); };
+    if (m_lhs.size() > 1 && (str().is_unit(b) || (str().is_string(b, s2) && s2.length() == 1)) &&
+        m_lhs.forall(same_first)) {
+        expr_ref replaced(str().mk_replace(m_lhs.get(0), b, c), m());
+        expr_ref tail(str().mk_concat(m_lhs.size() - 1, m_lhs.data() + 1, sort_a), m());
+        result = str().mk_concat(replaced, tail);
+        return BR_REWRITE_FULL;
+    }
 
     // a = "", |b| > 0 -> replace("",b,c) = ""
     if (m_lhs.empty()) {
@@ -2749,10 +2818,103 @@ void seq_rewriter::replace_all_subvectors(expr_ref_vector const& a, expr_ref_vec
 }
 
 br_status seq_rewriter::mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result) {
+    expr *pattern = nullptr;
+    expr *prefix = nullptr, *suffix = nullptr;
+    zstring literal;
+    // A nullable tail cannot lengthen the shortest match of a nonempty literal prefix.
+    if (re().is_concat(b, prefix, suffix) && re().is_to_re(prefix, pattern) && str().is_string(pattern, literal) &&
+        !literal.empty() && re().get_info(suffix).nullable == l_true)
+        b = prefix;
+    if (re().is_to_re(b, pattern)) {
+        expr *args[] = {a, pattern, c};
+        result = m().mk_app(m_util.get_family_id(), OP_SEQ_REPLACE_ALL, 3, args);
+        return BR_REWRITE1;
+    }
+    if (re().is_empty(b) || re().is_epsilon(b) || str().is_empty(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    // All shortest non-empty matches are single characters.
+    if (re().is_full_seq(b) || re().is_full_char(b) || re().is_dot_plus(b)) {
+        result = str().mk_power(c, str().mk_length(a));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result) {
+    expr *pattern = nullptr;
+    expr *prefix = nullptr, *suffix = nullptr;
+    zstring literal;
+    if (re().is_concat(b, prefix, suffix) && re().is_to_re(prefix, pattern) && str().is_string(pattern, literal) &&
+        !literal.empty() && re().get_info(suffix).nullable == l_true)
+        b = prefix;
+    if (re().is_to_re(b, pattern)) {
+        result = str().mk_replace(a, pattern, c);
+        return BR_REWRITE1;
+    }
+    if (re().is_empty(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().get_info(b).nullable == l_true) {
+        result = str().mk_concat(c, a);
+        return BR_REWRITE1;
+    }
+    if (re().is_full_char(b) || re().is_dot_plus(b)) {
+        expr_ref length(str().mk_length(a), m());
+        expr_ref tail(str().mk_substr(a, one(), length), m());
+        expr_ref replacement(str().mk_concat(c, tail), m());
+        result = m().mk_ite(str().mk_is_empty(a), a, replacement);
+        return BR_REWRITE_FULL;
+    }
+    if (re().is_concat(b)) {
+        expr_ref_vector pieces(m());
+        ptr_vector<expr> pending;
+        pending.push_back(b);
+        unsigned budget = 64;
+        while (!pending.empty() && budget > 0) {
+            --budget;
+            expr *current = pending.back();
+            pending.pop_back();
+            if (re().is_concat(current)) {
+                app *t = to_app(current);
+                if (t->get_num_args() > 64)
+                    return BR_FAILED;
+                for (unsigned i = t->get_num_args(); i-- > 0;)
+                    pending.push_back(t->get_arg(i));
+            }
+            else
+                pieces.push_back(current);
+        }
+        if (pending.empty() && pieces.size() >= 3 && re().is_full_char(pieces.get(0)) &&
+            (re().is_full_char(pieces.back()) || re().is_dot_plus(pieces.back()))) {
+            expr *body = pieces.get(1);
+            re().is_plus(body, body);
+            bool nullable_tail = true;
+            for (unsigned i = 2; i + 1 < pieces.size(); ++i)
+                nullable_tail &= re().get_info(pieces.get(i)).nullable == l_true;
+            if (nullable_tail && re().is_to_re(body, pattern) && str().is_string(pattern, literal) &&
+                !literal.empty()) {
+                // A nullable interior cannot lengthen the shortest match before a universal character.
+                expr_ref first(one(), m()), zero_value(zero(), m());
+                expr_ref index(str().mk_index(a, pattern, first), m());
+                expr_ref offset(m_autil.mk_int(rational(literal.length()) + rational(1)), m());
+                expr_ref end(m_autil.mk_add(index, offset), m());
+                expr_ref begin(m_autil.mk_sub(index, first), m());
+                expr_ref length(str().mk_length(a), m());
+                expr_ref found(m_autil.mk_ge(index, first), m());
+                expr_ref within(m_autil.mk_le(end, length), m());
+                expr_ref valid(m().mk_and(found, within), m());
+                expr_ref head(str().mk_substr(a, zero_value, begin), m());
+                expr_ref tail(str().mk_substr(a, end, length), m());
+                expr *args[] = {head, c, tail};
+                expr_ref replaced(str().mk_concat(3, args, a->get_sort()), m());
+                result = m().mk_ite(valid, replaced, a);
+                return BR_REWRITE_FULL;
+            }
+        }
+    }
     return BR_FAILED;
 }
 
@@ -2887,6 +3049,28 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE3;
     }
 
+    if (str().is_replace(b, a1, a2, a3) && a1 == a3 &&
+        (str().is_unit(a) || (str().is_string(a, s1) && s1.length() == 1))) {
+        result = str().mk_prefix(a, a1);
+        return BR_REWRITE1;
+    }
+
+    zstring needle, replacement;
+    if (str().is_replace(b, a1, a2, a3) && str().is_string(a, s1) && s1.length() == 1 && str().is_string(a2, needle) &&
+        needle.length() == 1 && str().is_string(a3, replacement) && replacement.length() == 1 &&
+        needle != replacement) {
+        if (s1 == needle)
+            result = m().mk_false();
+        else if (s1 == replacement) {
+            expr_ref unchanged(str().mk_prefix(a, a1), m());
+            expr_ref changed(str().mk_prefix(a2, a1), m());
+            result = m().mk_or(unchanged, changed);
+        }
+        else
+            result = str().mk_prefix(a, a1);
+        return BR_REWRITE_FULL;
+    }
+
     auto [bounded_b, len_b] = max_length(b);
     if (bounded_b) {
         auto [bounded_a, len_a] = min_length(a);
@@ -2958,7 +3142,13 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE3;
     }
 
-    expr* a1 = nullptr, *a2 = nullptr, *a3 = nullptr;    
+    expr *a1 = nullptr, *a2 = nullptr, *a3 = nullptr;
+    zstring observed;
+    if (str().is_replace(b, a1, a2, a3) && a1 == a3 &&
+        (str().is_unit(a) || (str().is_string(a, observed) && observed.length() == 1))) {
+        result = str().mk_suffix(a, a1);
+        return BR_REWRITE1;
+    }
     if (str().is_replace(a, a1, a2, a3) && a1 == a3 && a2 == b) {
         // TBD: generalize to when a1 is a prefix of a3?
         result = str().mk_suffix(a1, b);
@@ -3783,7 +3973,7 @@ bool seq_rewriter::non_overlap(zstring const& s1, zstring const& s2) const {
         return non_overlap(s2, s1);
     auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
         for (unsigned i = start1; i < end1; ++i) {
-            if (s1[i] != s2[start2 + i])
+            if (s1[i] != s2[start2 + i - start1])
                 return false;
         }
         return true;
@@ -3817,9 +4007,9 @@ bool seq_rewriter::non_overlap(expr_ref_vector const& p1, expr_ref_vector const&
             return false;
     auto can_overlap = [&](unsigned start1, unsigned end1, unsigned start2) {
         for (unsigned i = start1; i < end1; ++i) {
-            if (m().are_distinct(p1[i], p2[start2 + i]))
+            if (m().are_distinct(p1[i], p2[start2 + i - start1]))
                 return false;
-            if (!m().are_equal(p1[i], p2[start2 + i]))
+            if (!m().are_equal(p1[i], p2[start2 + i - start1]))
                 return true;
         }
         return true;
@@ -3920,7 +4110,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     STRACE(seq_verbose, tout << "mk_str_in_regexp: " << mk_pp(a, m())
                                << ", " << mk_pp(b, m()) << std::endl;);
 
-    if (!m().is_value(a) && re().is_ground(b)) {
+    zstring concrete;
+    if (re().is_ground(b) && (!m().is_value(a) || (str().is_string(a, concrete) && concrete.length() > 256))) {
         seq::regex_witness witness(*this);
         lbool accepted = witness.accepts(a, b);
         if (accepted != l_undef) {
@@ -4223,6 +4414,15 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = mk_to_re(mk_seq_concat(a_str, b_str));
         return BR_DONE;
     }
+    expr *head = nullptr, *tail = nullptr;
+    zstring text_a, text_b;
+    if (re().is_concat(b, head, tail) && re().is_full_seq(tail) && lift_str_from_to_re(a, a_str) &&
+        str().is_string(a_str, text_a) && lift_str_from_to_re(head, b_str) && str().is_string(b_str, text_b)) {
+        expr_ref joined(str().mk_string(text_a + text_b), m());
+        expr_ref literal(re().mk_to_re(joined), m());
+        result = re().mk_concat(literal, tail);
+        return BR_REWRITE_FULL;
+    }
     expr *a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
@@ -4512,6 +4712,21 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     if (try_collapse_re_inter(a, b, result))
         return BR_DONE;
+    auto join_prefix_suffix = [&](expr *prefix, expr *suffix) {
+        expr *p = nullptr, *s = nullptr, *full_p = nullptr, *full_s = nullptr;
+        expr *word_p = nullptr, *word_s = nullptr;
+        zstring text_p, text_s;
+        if (!re().is_concat(prefix, p, full_p) || !re().is_full_seq(full_p) || !re().is_concat(suffix, full_s, s) ||
+            !re().is_full_seq(full_s) || !re().is_to_re(p, word_p) || !str().is_string(word_p, text_p) ||
+            !re().is_to_re(s, word_s) || !str().is_string(word_s, text_s) || !non_overlap(text_p, text_s))
+            return false;
+        // Non-overlapping anchors must occupy disjoint parts of every word.
+        expr_ref tail(re().mk_concat(full_p, s), m());
+        result = re().mk_concat(p, tail);
+        return true;
+    };
+    if (join_prefix_suffix(a, b) || join_prefix_suffix(b, a))
+        return BR_REWRITE_FULL;
     result = mk_regex_inter_normalize(a, b);
     return m().is_ite(result) ? BR_REWRITE_FULL : BR_DONE;
 }

@@ -34,6 +34,7 @@ Tests:
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_skolem.h"
@@ -898,7 +899,300 @@ static void tst_replace_contains() {
     ENSURE(multi_contains != multi_expected);
 }
 
+static void tst_single_character_replacement_reductions() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_fresh_const("source", u.str.mk_string_sort()), m);
+    expr_ref y(m.mk_fresh_const("pattern", x->get_sort()), m);
+    expr_ref z(m.mk_fresh_const("replacement", x->get_sort()), m);
+    expr_ref a(u.str.mk_string("A"), m), empty(u.str.mk_string(""), m);
+    auto check = [&](expr *input, expr *expected) {
+        expr_ref actual(input, m), reduced(expected, m);
+        rw(actual);
+        rw(reduced);
+        ENSURE(actual == reduced);
+    };
+    expr_ref same(m.mk_eq(a, y), m);
+    expr_ref nonempty(m.mk_ite(same, z, a), m);
+    expr_ref absent(u.str.mk_is_empty(y), m);
+    expr_ref prepended(u.str.mk_concat(z, a), m);
+    expr_ref expected(m.mk_ite(absent, prepended, nonempty), m);
+    expr_ref replaced(u.str.mk_replace(a, y, z), m);
+    check(replaced, expected);
+    rw(replaced);
+    for (char const *pattern : {"", "A", "B", "AA", "AB"}) {
+        for (char const *replacement : {"", "A", "B", "AA", "AB"}) {
+            expr_safe_replace subst(m);
+            expr_ref needle(u.str.mk_string(pattern), m), value(u.str.mk_string(replacement), m);
+            subst.insert(y, needle);
+            subst.insert(z, value);
+            expr_ref actual(replaced, m);
+            subst(actual);
+            rw(actual);
+            zstring text;
+            ENSURE(u.str.is_string(actual, text) &&
+                   text == zstring("A").replace(zstring(pattern), zstring(replacement)));
+        }
+    }
+    expr_ref empty_replaced(u.str.mk_replace(empty, y, z), m);
+    expr_ref empty_expected(m.mk_ite(absent, z, empty), m);
+    check(empty_replaced, empty_expected);
+
+    expr_ref self(u.str.mk_replace(x, y, x), m);
+    expr_ref contains(u.str.mk_contains(self, a), m), contains_x(u.str.mk_contains(x, a), m);
+    expr_ref prefix(u.str.mk_prefix(a, self), m), prefix_x(u.str.mk_prefix(a, x), m);
+    expr_ref suffix(u.str.mk_suffix(a, self), m), suffix_x(u.str.mk_suffix(a, x), m);
+    check(contains, contains_x);
+    check(prefix, prefix_x);
+    check(suffix, suffix_x);
+    expr_ref doubled(u.str.mk_concat(x, x), m);
+    expr_ref repeated(u.str.mk_replace(doubled, a, z), m);
+    expr_ref first(u.str.mk_replace(x, a, z), m);
+    expr_ref repeated_expected(u.str.mk_concat(first, x), m);
+    check(repeated, repeated_expected);
+    expr_ref b(u.str.mk_string("B"), m);
+    expr_ref nested(u.str.mk_replace(a, y, z), m);
+    expr_ref nested_pattern(u.str.mk_replace(b, nested, z), m);
+    check(nested_pattern, b);
+    expr_ref delete_a(u.str.mk_replace(x, a, empty), m), delete_b(u.str.mk_replace(x, b, empty), m);
+    expr_ref ab_deleted(u.str.mk_replace(delete_a, b, empty), m);
+    expr_ref ba_deleted(u.str.mk_replace(delete_b, a, empty), m);
+    check(ab_deleted, ba_deleted);
+    expr_ref changed(u.str.mk_replace(x, a, b), m);
+    expr_ref old_prefix(u.str.mk_prefix(a, changed), m);
+    check(old_prefix, m.mk_false());
+    expr_ref new_prefix(u.str.mk_prefix(b, changed), m);
+    expr_ref prefix_a(u.str.mk_prefix(a, x), m), prefix_b(u.str.mk_prefix(b, x), m);
+    expr_ref either(m.mk_or(prefix_a, prefix_b), m);
+    check(new_prefix, either);
+    expr_ref other(u.str.mk_string("C"), m);
+    expr_ref other_prefix(u.str.mk_prefix(other, changed), m), other_expected(u.str.mk_prefix(other, x), m);
+    check(other_prefix, other_expected);
+
+    // Longer observations and needles can cross the replacement boundary.
+    expr_ref aa(u.str.mk_string("AA"), m), ab(u.str.mk_string("AB"), m);
+    for (expr *term : {u.str.mk_contains(self, aa), u.str.mk_prefix(ab, self), u.str.mk_suffix(ab, self),
+                       u.str.mk_replace(doubled, aa, z)}) {
+        expr_ref unchanged(term, m), actual(term, m);
+        rw(actual);
+        ENSURE(actual == unchanged);
+    }
+}
+
+static void tst_single_character_selectors() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_fresh_const("source", u.str.mk_string_sort()), m);
+    expr_ref y(m.mk_fresh_const("pattern", x->get_sort()), m);
+    expr_ref offset(m.mk_fresh_const("offset", a.mk_int()), m), length(m.mk_fresh_const("length", a.mk_int()), m);
+    expr_ref letter(u.str.mk_string("A"), m), empty(u.str.mk_string(""), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref at_start(m.mk_eq(offset, zero), m), positive(a.mk_gt(length, zero), m);
+    expr_ref valid(m.mk_and(at_start, positive), m);
+    expr_ref expected(m.mk_ite(valid, letter, empty), m);
+    expr_ref actual(u.str.mk_substr(letter, offset, length), m);
+    rw(actual);
+    rw(expected);
+    ENSURE(actual == expected);
+    expr_ref index(u.str.mk_index(x, letter, offset), m);
+    expr_ref selected(u.str.mk_at(x, index), m);
+    expr_ref found(a.mk_ge(index, zero), m);
+    expected = m.mk_ite(found, letter, empty);
+    rw(selected);
+    rw(expected);
+    ENSURE(selected == expected);
+    expr_ref short_index(u.str.mk_index(letter, y, offset), m);
+    rw(short_index);
+    for (char const *pattern : {"", "A", "B", "AA"}) {
+        for (int i : {-1, 0, 1, 2}) {
+            expr_safe_replace subst(m);
+            expr_ref word(u.str.mk_string(pattern), m), start(a.mk_int(i), m);
+            subst.insert(y, word);
+            subst.insert(offset, start);
+            actual = short_index;
+            subst(actual);
+            rw(actual);
+            rational value;
+            int answer = i < 0 ? -1 : zstring("A").indexofu(zstring(pattern), static_cast<unsigned>(i));
+            ENSURE(a.is_numeral(actual, value) && value == rational(answer));
+        }
+    }
+}
+
+static void tst_regex_replacement_reductions() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_fresh_const("source", u.str.mk_string_sort()), m);
+    seq_rewriter sequence_rw(m);
+    expr_ref y(m.mk_fresh_const("replacement", x->get_sort()), m);
+    sort *rs = u.re.mk_re(x->get_sort());
+    expr_ref none(u.re.mk_empty(rs), m), epsilon(u.re.mk_epsilon(x->get_sort()), m);
+    expr_ref full(u.re.mk_full_seq(rs), m), character(u.re.mk_full_char(rs), m);
+    expr_ref plus(u.re.mk_plus(character), m);
+    expr_ref ab(u.str.mk_string("ab"), m), literal(u.re.mk_to_re(ab), m);
+    expr_ref nullable(u.re.mk_union(epsilon, literal), m);
+    auto replace = [&](bool all, expr *source, expr *pattern, expr *replacement) {
+        return expr_ref(
+            m.mk_app(u.get_family_id(), all ? OP_SEQ_REPLACE_RE_ALL : OP_SEQ_REPLACE_RE, source, pattern, replacement),
+            m);
+    };
+    auto check = [&](bool all, expr *source, expr *pattern, expr *replacement, expr *expected) {
+        expr_ref actual = replace(all, source, pattern, replacement);
+        expr_ref reduced(expected, m);
+        rw(actual);
+        rw(reduced);
+        ENSURE(actual == reduced || sequence_rw.compare_ground_seqs(actual, reduced) == l_true);
+    };
+    expr_ref empty(u.str.mk_string(""), m), xy(u.str.mk_concat(y, x), m);
+    arith_util a(m);
+    expr_ref one(a.mk_int(1), m), length(u.str.mk_length(x), m);
+    expr_ref tail(u.str.mk_substr(x, one, length), m);
+    expr_ref replaced(u.str.mk_concat(y, tail), m);
+    expr_ref guarded(m.mk_ite(u.str.mk_is_empty(x), x, replaced), m);
+    for (expr *pattern : {none.get(), epsilon.get(), full.get(), character.get(), plus.get()}) {
+        check(true, empty, pattern, y, empty);
+        check(false, x, pattern, y,
+              pattern == none                         ? x.get()
+              : pattern == epsilon || pattern == full ? xy.get()
+                                                      : guarded.get());
+    }
+    check(true, x, none, y, x);
+    check(true, x, epsilon, y, x);
+    check(false, x, nullable, y, xy);
+    expr_ref ordinary(u.str.mk_replace(x, ab, y), m);
+    check(false, x, literal, y, ordinary);
+    expr_ref all_literal(m.mk_app(u.get_family_id(), OP_SEQ_REPLACE_ALL, x, ab, y), m);
+    check(true, x, literal, y, all_literal);
+    expr_ref literal_prefix(u.re.mk_concat(literal, full), m);
+    check(false, x, literal_prefix, y, ordinary);
+    check(true, x, literal_prefix, y, all_literal);
+    expr_ref power(u.str.mk_power(y, length), m);
+    for (expr *pattern : {full.get(), character.get(), plus.get()})
+        check(true, x, pattern, y, power);
+    expr_ref aba(u.str.mk_string("aba"), m), z(u.str.mk_string("Z"), m);
+    expr_ref zba(u.str.mk_string("Zba"), m), zzz(u.str.mk_string("ZZZ"), m);
+    for (expr *pattern : {character.get(), plus.get()}) {
+        check(false, aba, pattern, z, zba);
+        check(true, aba, pattern, z, zzz);
+        check(false, empty, pattern, z, empty);
+    }
+    expr_ref abab(u.str.mk_string("abab"), m), zab(u.str.mk_string("Zab"), m), zz(u.str.mk_string("ZZ"), m);
+    check(false, abab, literal, z, zab);
+    check(true, abab, literal, z, zz);
+    check(false, abab, literal_prefix, z, zab);
+    check(true, abab, literal_prefix, z, zz);
+    expr_ref optional_literal(u.re.mk_star(literal), m);
+    expr_ref empty_prefix(u.re.mk_concat(epsilon, optional_literal), m);
+    expr_ref preserved = replace(true, x, optional_literal, y);
+    check(true, x, empty_prefix, y, preserved);
+    expr_ref unknown(m.mk_fresh_const("pattern", rs), m);
+    expr_ref d(u.str.mk_string("d"), m), d_re(u.re.mk_to_re(d), m);
+    expr_ref d_plus(u.re.mk_plus(d_re), m);
+    expr_ref middle(u.re.mk_concat(d_plus, character), m);
+    expr_ref flanked(u.re.mk_concat(character, middle), m);
+    expr_ref addd(u.str.mk_string("addd!"), m), zd(u.str.mk_string("Zd!"), m);
+    check(false, addd, flanked, z, zd);
+    expr_ref ddd(u.str.mk_string("ddd!"), m), z_bang(u.str.mk_string("Z!"), m);
+    expr_ref symbolic = replace(false, x, flanked, z);
+    rw(symbolic);
+    ENSURE(!is_app_of(symbolic, u.get_family_id(), OP_SEQ_REPLACE_RE));
+    expr_safe_replace subst(m);
+    subst.insert(x, ddd);
+    subst(symbolic);
+    rw(symbolic);
+    ENSURE(symbolic == z_bang);
+    expr_ref two(u.str.mk_string("dd"), m);
+    check(false, two, flanked, z, two);
+    check(false, empty, flanked, z, empty);
+    expr_ref separated(u.str.mk_string("!addd!"), m), separated_result(u.str.mk_string("!Zd!"), m);
+    check(false, separated, flanked, z, separated_result);
+    expr_ref dd_re(u.re.mk_to_re(two), m), dd_plus(u.re.mk_plus(dd_re), m);
+    middle = u.re.mk_concat(dd_plus, character);
+    expr_ref longer_flanked(u.re.mk_concat(character, middle), m);
+    expr_ref adddd(u.str.mk_string("adddd!"), m);
+    check(false, adddd, longer_flanked, z, zd);
+    expr_ref nullable_interior(u.re.mk_concat(d_re, full), m);
+    middle = u.re.mk_concat(nullable_interior, character);
+    expr_ref nullable_flanked(u.re.mk_concat(character, middle), m);
+    check(false, addd, nullable_flanked, z, zd);
+    expr_ref canonical(flanked, m);
+    rw(canonical);
+    expr_ref flanked_all = replace(true, x, canonical, y);
+    expr_ref retained(flanked_all, m);
+    rw(retained);
+    ENSURE(retained == flanked_all);
+    expr_ref leading_plus(u.re.mk_concat(plus, middle), m);
+    rw(leading_plus);
+    expr_ref unsupported = replace(false, x, leading_plus, y);
+    retained = unsupported;
+    rw(retained);
+    ENSURE(retained == unsupported);
+    for (bool all : {false, true}) {
+        expr_ref unchanged = replace(all, x, unknown, y);
+        check(all, x, unknown, y, unchanged);
+    }
+    expr_ref unchanged = replace(true, x, nullable, y);
+    check(true, x, nullable, y, unchanged);
+}
+
+static void tst_regex_prefix_suffix_intersection() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    th_rewriter rw(m);
+    expr_ref full(u.re.mk_full_seq(u.re.mk_re(u.str.mk_string_sort())), m);
+    for (auto const &words : {std::pair{"ab", "cd"}, std::pair{"Version\\/", "SW-"}}) {
+        expr_ref p(u.str.mk_string(words.first), m), s(u.str.mk_string(words.second), m);
+        expr_ref rp(u.re.mk_to_re(p), m), rs(u.re.mk_to_re(s), m);
+        expr_ref prefix(u.re.mk_concat(rp, full), m), suffix(u.re.mk_concat(full, rs), m);
+        expr_ref tail(u.re.mk_concat(full, rs), m);
+        expr_ref expected(u.re.mk_concat(rp, tail), m);
+        rw(expected);
+        for (bool reverse : {false, true}) {
+            expr_ref actual(u.re.mk_inter(reverse ? suffix : prefix, reverse ? prefix : suffix), m);
+            rw(actual);
+            ENSURE(actual == expected);
+        }
+        expr_ref split_prefix(full, m);
+        zstring text(words.first);
+        for (unsigned i = text.length(); i-- > 0;) {
+            expr_ref letter(u.str.mk_string(zstring(text[i])), m);
+            expr_ref literal(u.re.mk_to_re(letter), m);
+            split_prefix = u.re.mk_concat(literal, split_prefix);
+        }
+        expr_ref actual(u.re.mk_inter(split_prefix, suffix), m);
+        rw(actual);
+        ENSURE(actual == expected);
+    }
+    for (auto const &words : {std::pair{"ab", "bc"}, std::pair{"abc", "b"}, std::pair{"a", "a"}}) {
+        expr_ref p(u.str.mk_string(words.first), m), s(u.str.mk_string(words.second), m);
+        expr_ref rp(u.re.mk_to_re(p), m), rs(u.re.mk_to_re(s), m);
+        expr_ref prefix(u.re.mk_concat(rp, full), m), suffix(u.re.mk_concat(full, rs), m);
+        expr_ref actual(u.re.mk_inter(prefix, suffix), m);
+        rw(actual);
+        ENSURE(u.re.is_intersection(actual));
+    }
+    expr_ref seven(u.str.mk_string("7"), m), thirty_seven(u.str.mk_string("37"), m);
+    expr_ref r7(u.re.mk_to_re(seven), m), r37(u.re.mk_to_re(thirty_seven), m);
+    expr_ref repeated(u.re.mk_star(r37), m);
+    expr_ref tail(u.re.mk_concat(r37, repeated), m);
+    expr_ref original(u.re.mk_concat(r7, tail), m), retained(original, m);
+    rw(retained);
+    ENSURE(retained == original);
+}
+
 void tst_seq_rewriter() {
+    tst_regex_prefix_suffix_intersection();
+    tst_single_character_replacement_reductions();
+    tst_single_character_selectors();
+    tst_regex_replacement_reductions();
     tst_ho_structural_rewrites();
     tst_replace_contains();
     tst_extract_equal_offset_length();

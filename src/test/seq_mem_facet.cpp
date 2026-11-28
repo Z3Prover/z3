@@ -1108,7 +1108,7 @@ namespace {
         ENSURE(checker.accepts(word, exact_length) == l_true);
     }
 
-    static void tst_long_flat_ground_membership(bool accepted) {
+    static void tst_long_flat_ground_membership(bool accepted, unsigned repeats = 512) {
         fixture f;
         expr_ref lo(f.u.str.mk_string("0"), f.m);
         expr_ref hi(f.u.str.mk_string("9"), f.m);
@@ -1116,11 +1116,11 @@ namespace {
         expr_ref prefix(f.u.re.mk_plus(digit), f.m);
         expr_ref zero(f.u.str.mk_string("0"), f.m);
         expr_ref block(f.u.re.mk_to_re(zero), f.m);
-        block = f.u.re.mk_loop_proper(block, 512, 512);
+        block = f.u.re.mk_loop_proper(block, repeats, repeats);
         expr_ref suffix(f.u.re.mk_to_re(f.u.str.mk_string("x")), f.m);
         expr_ref regex(f.u.re.mk_concat(prefix, block), f.m);
         regex = f.u.re.mk_concat(regex, suffix);
-        std::string text = accepted ? std::string(513, '0') + "x" : "x" + std::string(513, '0');
+        std::string text = accepted ? std::string(repeats + 1, '0') + "x" : "x" + std::string(repeats + 1, '0');
         expr_ref word(f.u.str.mk_string(text.c_str()), f.m);
         expr_ref_vector tokens(f.m);
         f.u.str.get_concat_units(word, tokens);
@@ -1580,6 +1580,8 @@ void tst_seq_mem_facet() {
     tst_medium_repetition_witness();
     tst_long_flat_ground_membership(false);
     tst_long_flat_ground_membership(true);
+    tst_long_flat_ground_membership(false, 11000);
+    tst_long_flat_ground_membership(true, 11000);
     tst_witness_checkpoint_accounting();
     tst_witness_budget_not_sat();
     tst_witness_waits_for_word_constraints(false);

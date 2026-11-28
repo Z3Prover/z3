@@ -14,6 +14,8 @@ rewrite rules and the axioms used by the sequence solver.
 #include "model/model.h"
 #include "model/model_evaluator.h"
 #include "smt/smt_context.h"
+#include "util/rlimit.h"
+#include <string>
 
 static void tst_power_rewriter() {
     ast_manager m;
@@ -447,7 +449,38 @@ static void tst_power_trichotomy() {
     ENSURE(check(m, fmls) == l_false);
 }
 
+static void tst_long_literal_regex_validation() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    expr_ref x(m.mk_fresh_const("long-literal", u.str.mk_string_sort()), m);
+    expr_ref a(u.str.mk_string("a"), m), b(u.str.mk_string("b"), m);
+    expr_ref ar(u.re.mk_to_re(a), m), br(u.re.mk_to_re(b), m);
+    br = u.re.mk_star(br);
+    expr_ref body(u.re.mk_concat(ar, br), m);
+    expr_ref regex(u.re.mk_loop_proper(body, 8192, 8192), m);
+    for (bool accepted : {false, true}) {
+        std::string text(8192, accepted ? 'a' : 'b');
+        expr_ref word(u.str.mk_string(text.c_str()), m);
+        model_ref md = alloc(model, m);
+        md->register_decl(to_app(x)->get_decl(), word);
+        model_evaluator evaluate(*md);
+        expr_ref membership(u.re.mk_in_re(x, regex), m);
+        {
+            scoped_rlimit limit(m.limit(), 50000);
+            ENSURE(evaluate(membership) == m.mk_bool_val(accepted));
+        }
+        expr_ref complement(u.re.mk_complement(regex), m);
+        membership = u.re.mk_in_re(x, complement);
+        {
+            scoped_rlimit limit(m.limit(), 50000);
+            ENSURE(evaluate(membership) == m.mk_bool_val(!accepted));
+        }
+    }
+}
+
 void tst_seq_power() {
+    tst_long_literal_regex_validation();
     tst_power_rewriter();
     tst_power_solver();
     tst_compact_power_values();
