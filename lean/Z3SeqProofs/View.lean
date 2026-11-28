@@ -1,7 +1,7 @@
 import Z3SeqProofs.Derivatives
 
 /-
-Views: mirrors the resplit paper's Sec. "View Based Splits" (`View{r}{s}`,
+Views: formalizes the View-based-splits construction (`View{r}{s}`,
 Theorem [View]). This is the formal basis for c3mv's
 `seq_view_witness.cpp`/`mem_monadic_split`: splitting `x·u ⊨ r` into "`u`
 drives `r` to some reachable state `s`" plus "the rest matches from `s`
@@ -28,7 +28,7 @@ theorem iterDerivative_correct (r : RE α) (w v : List σ) :
       simp only [iterDerivative, List.cons_append]
       rw [ih, derivative_correct]
 
--- `u ⊨ View{r}{s}  :=  der[u](r) = s  ∧  s ≢ ∅`  (paper's `Lang(View r s)`).
+-- `u ⊨ View{r}{s}  :=  der[u](r) = s  ∧  s ≢ ∅`  (i.e. `Lang(View r s)`).
 def ViewPred (r s : RE α) (u : List σ) : Prop := iterDerivative u r = s ∧ s ≠ RE.bot
 
 -- Theorem [View]: `uv ⊨ r  ⟺  ∃ s, u ⊨ View{r}{s} ∧ v ⊨ s`.

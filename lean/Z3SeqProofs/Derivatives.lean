@@ -158,10 +158,10 @@ correctness lemmas to be chained by hand per instance. `acceptsBy` is a
 plain executable function; `acceptsBy_correct` proves it sound and
 complete ONCE, by induction on the word, so a future certificate only
 needs `decide`/`rfl` to compute `acceptsBy` plus one application of this
-theorem. This is exactly the role `Ere.decideEquiv` +
-`decideEquiv_eq_true_iff_matches` plays for bisimulation-based regex
-equivalence in the lpar26 formalization (`C:\git\ere\lpar26`) — same
-pattern, simpler procedure.
+theorem. This mirrors the standard pattern for verified
+bisimulation-equivalence decision procedures (a `decide`-friendly
+executable check plus a single soundness-and-completeness theorem) —
+same pattern, simpler procedure.
 -/
 def acceptsBy (r : RE α) : List σ → Bool
   | []      => null r

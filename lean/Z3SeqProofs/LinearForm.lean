@@ -3,9 +3,9 @@ import Z3SeqProofs.Derivatives
 /-
 Symbolic derivatives as transition-terms (t-terms) and their linear form.
 
-Mirrors `C:\git\z3papers\resplit\paper\paper.tex`, Sec. 2.3 "Symbolic
-Derivatives" (`TRegex`/`eval`/eq:sder) and the Linear Form `LF`. This is
-the layer matching c3mv's `seq_derive.h` ITE-tree representation and
+Formalizes `TRegex`/`eval`/the symbolic-derivative theorem (eq:sder) and
+the Linear Form `LF`. This is the layer matching c3mv's `seq_derive.h`
+ITE-tree representation and
 `get_cofactors`/`derivative_cofactors`/`light_ant_derivative_cofactors`.
 -/
 namespace Z3SeqProofs
@@ -54,8 +54,8 @@ theorem liftB_correct (f : RE α → RE α → RE α) (t1 t2 : TTerm α σ) (a :
 
 -- Symbolic derivative: builds the t-term whose `eval` at any concrete `a`
 -- equals `derivative a r` — mirrors `seq_derive.h`'s `derive_rec`/
--- `derive_core` and matches eq:sder in the paper (cited there as
--- [SVB21, Thm 4.3]).
+-- `derive_core` and matches the symbolic-derivative theorem of
+-- [SVB21, Thm 4.3].
 def sder : RE α → TTerm α σ
   | .eps        => .leaf .bot
   | .bot        => .leaf .bot
@@ -96,8 +96,8 @@ theorem sder_correct (r : RE α) (a : σ) : (sder (σ := σ) r).eval a = derivat
       rw [liftU_correct, ih, derivative]
 
 -- Linear form: the list of all branches `(β, ℓ)` reached by a t-term, with
--- `β` the accumulated path condition — mirrors the paper's `LF_β(leaf ℓ)` /
--- `LF_β(ite α t e)` definition (Sec. 2.3), minus the (optimization-only)
+-- `β` the accumulated path condition — the standard `LF_β(leaf ℓ)` /
+-- `LF_β(ite α t e)` linear-form definition, minus the (optimization-only)
 -- unsatisfiable-branch pruning.
 def LFaux (β : α) : TTerm α σ → List (α × RE α)
   | .leaf r     => [(β, r)]
