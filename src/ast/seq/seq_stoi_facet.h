@@ -51,6 +51,7 @@ namespace seq {
         // (dequeue_axiom's own m_axiom_set already dedups), and its
         // depth only ever grows (see set_depth).
         vector<std::pair<expr*, unsigned>> m_terms;
+        expr_ref_vector m_short_model_axioms;
 
         // Instantiates the inductive positional-unfolding axiom for
         // (term, depth) - set by theory_nseq to
@@ -58,7 +59,8 @@ namespace seq {
         std::function<void(expr*, unsigned)> m_instantiate;
 
     public:
-        stoi_facet(trail_stack& trail, ast_manager& m, seq_util& u, arith_util& a) : facet_i(trail), m(m), u(u), a(a) {}
+        stoi_facet(trail_stack &trail, ast_manager &m, seq_util &u, arith_util &a)
+            : facet_i(trail), m(m), u(u), a(a), m_short_model_axioms(m) {}
 
         ast_manager& get_manager() const { return m; }
 
@@ -98,6 +100,7 @@ namespace seq {
 
             bool progress = false;
             expr *early_term = nullptr;
+            expr *single_term = nullptr;
             if (early_only) {
                 unsigned unbounded = 0;
                 for (auto const &entry : m_terms) {
@@ -109,8 +112,38 @@ namespace seq {
                         ++unbounded;
                     }
                 }
+                if (unbounded == 1)
+                    single_term = early_term;
                 if (unbounded != 2)
                     early_term = nullptr;
+            }
+
+            if (single_term) {
+                // A one-character numeric model has exactly one spelling; retain both guards.
+                expr_ref term(single_term, m);
+                expr *arg = nullptr;
+                VERIFY(u.str.is_stoi(term, arg));
+                expr_ref length(u.str.mk_length(arg), m);
+                rational number, size;
+                if (ac.current_value(term, number) && number.is_unsigned() && number <= rational(9) &&
+                    ac.current_value(length, size) && size.is_one()) {
+                    unsigned digit = '0' + number.get_unsigned();
+                    expr_ref word(u.str.mk_string(zstring(1, &digit)), m);
+                    expr_ref length_value(a.mk_int(size), m), value(a.mk_int(number), m);
+                    expr_ref length_eq(m.mk_eq(length, length_value), m), value_eq(m.mk_eq(term, value), m);
+                    expr_ref word_eq(m.mk_eq(arg, word), m);
+                    expr_ref_vector clause(m);
+                    clause.push_back(m.mk_not(length_eq));
+                    clause.push_back(m.mk_not(value_eq));
+                    clause.push_back(word_eq);
+                    expr_ref axiom(m.mk_or(clause.size(), clause.data()), m);
+                    if (!m_short_model_axioms.contains(axiom)) {
+                        m_short_model_axioms.push_back(axiom);
+                        m_trail.push(push_back_vector(m_short_model_axioms));
+                        ac.add_axiom(clause);
+                        progress = true;
+                    }
+                }
             }
 
             for (unsigned idx = 0; idx < m_terms.size(); ++idx) {
@@ -184,6 +217,7 @@ namespace seq {
         facet_i* clone(trail_stack& trail) const override {
             stoi_facet* f = alloc(stoi_facet, trail, m, u, a);
             f->m_terms = m_terms;
+            f->m_short_model_axioms.append(m_short_model_axioms);
             f->m_instantiate = m_instantiate;
             return f;
         }

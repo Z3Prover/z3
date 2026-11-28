@@ -287,8 +287,14 @@ namespace {
         struct ambient : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
             seq_util &sequences;
             unsigned length = 1;
+            int number = 0;
+            expr_ref_vector clause;
             ambient(ast_manager &m, seq_util &u, trail_stack &trail)
-                : null_ambient_context(m, u, trail), sequences(u) {}
+                : null_ambient_context(m, u, trail), sequences(u), clause(m) {}
+            void add_axiom(expr_ref_vector const &axiom) override {
+                clause.reset();
+                clause.append(axiom);
+            }
             bool current_value(expr *e, rational &value) override {
                 expr *s = nullptr;
                 if (sequences.str.is_length(e, s)) {
@@ -296,7 +302,7 @@ namespace {
                     return true;
                 }
                 if (sequences.str.is_stoi(e, s)) {
-                    value = rational(sequences.str.is_empty(s) ? -1 : 0);
+                    value = rational(sequences.str.is_empty(s) ? -1 : number);
                     return true;
                 }
                 return false;
@@ -317,7 +323,27 @@ namespace {
         trail.push_scope();
         facet.add_term(empty_value);
         facet.add_term(first);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        expr_ref refinement(m.mk_or(ac.clause.size(), ac.clause.data()), m);
+        for (char const *sample : {"0", "1", "00", "a"}) {
+            expr_ref text(u.str.mk_string(sample), m);
+            expr_substitution substitution(m);
+            substitution.insert(x, text);
+            th_rewriter rw(m);
+            rw.set_substitution(&substitution);
+            expr_ref instance(refinement, m);
+            rw(instance);
+            ENSURE(m.is_true(instance));
+        }
+        for (int number : {-1, 10, 420}) {
+            ac.number = number;
+            ENSURE(facet.check_stoi_coherence(ac, true));
+        }
+        ac.number = 0;
         ENSURE(facet.check_stoi_coherence(ac, true));
+        trail_stack clone_trail;
+        std::unique_ptr<stx::facet_i> cloned(facet.clone(clone_trail));
+        ENSURE(static_cast<seq::stoi_facet *>(cloned.get())->check_stoi_coherence(ac, true));
         facet.add_term(second);
         ENSURE(!facet.check_stoi_coherence(ac, true));
         ENSURE(instantiated.size() == 1 && instantiated.back() == first);
@@ -336,6 +362,11 @@ namespace {
         ENSURE(instantiated.size() == 4 && instantiated.back() == second);
         trail.pop_scope(1);
         ENSURE(facet.check_stoi_coherence(ac, true));
+        ac.length = 1;
+        trail.push_scope();
+        facet.add_term(first);
+        ENSURE(!facet.check_stoi_coherence(ac, true));
+        trail.pop_scope(1);
     }
 
     static void tst_stoi_concatenation_bounds() {
