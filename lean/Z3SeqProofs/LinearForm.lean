@@ -148,6 +148,43 @@ theorem LF_correct (f : TTerm α σ) (a : σ) (v : List σ) :
   rw [EBA.models_top] at h
   simpa [LF] using h
 
+-- Generalizes `LFaux_correct` from the specific leaf-predicate `L · v`
+-- to an arbitrary `Q : RE α → Prop`: the proof is purely about the
+-- `(β, guard)` bookkeeping and never actually inspects `L`/`v`, so it
+-- goes through unchanged for any `Q`. `LFaux_correct` is the special
+-- case `Q := fun r => L r v`.
+theorem LFaux_correct_general (f : TTerm α σ) (β : α) (a : σ) (Q : RE α → Prop) :
+    (∃ p ∈ LFaux β f, EBA.models p.1 a = true ∧ Q p.2) ↔
+    (EBA.models β a = true ∧ Q (f.eval a)) := by
+  induction f generalizing β with
+  | leaf r => simp [LFaux, TTerm.eval]
+  | ite c t e iht ihe =>
+      simp only [LFaux, TTerm.eval]
+      rw [exists_mem_append, iht, ihe, EBA.models_inf, EBA.models_inf, EBA.models_compl]
+      by_cases hca : EBA.models c a = true
+      · simp only [hca, Bool.and_true, Bool.not_true, Bool.and_false, ite_true]
+        constructor
+        · rintro (⟨hb, hl⟩ | ⟨hb, _⟩)
+          · exact ⟨hb, hl⟩
+          · exact absurd hb (by simp)
+        · rintro ⟨hb, hl⟩
+          exact Or.inl ⟨hb, hl⟩
+      · simp only [hca, Bool.and_false, Bool.not_false, Bool.and_true, ite_false, Bool.false_eq_true]
+        constructor
+        · rintro (⟨hb, _⟩ | ⟨hb, hl⟩)
+          · exact absurd hb (by simp)
+          · exact ⟨hb, hl⟩
+        · rintro ⟨hb, hl⟩
+          exact Or.inr ⟨hb, hl⟩
+
+-- Top-level generalized eq:LF (`β = ⊤` specialization of
+-- `LFaux_correct_general`).
+theorem LF_correct_general (f : TTerm α σ) (a : σ) (Q : RE α → Prop) :
+    (∃ p ∈ LF f, EBA.models p.1 a = true ∧ Q p.2) ↔ Q (f.eval a) := by
+  have h := LFaux_correct_general f EBA.top a Q
+  rw [EBA.models_top] at h
+  simpa [LF] using h
+
 -- End-to-end correctness of `derive::derivative_cofactors`: the cofactors
 -- of `r`'s symbolic derivative decide membership of `a :: v` in `L r`
 -- directly, without ever naming the concrete derivative in between.

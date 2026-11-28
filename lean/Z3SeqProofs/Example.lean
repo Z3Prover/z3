@@ -122,4 +122,13 @@ example :
       ∃ s, ViewPred exampleRE s ([0] : List (Alphabet 3)) ∧ L s [1, 0, 2] :=
   view_theorem exampleRE [0] [1, 0, 2]
 
+-- That same view is also, equivalently, a reachable state of the
+-- symbolic automaton `M_exampleRE`: the automaton-level `AutReaches` and
+-- the derivative-level `ViewPred` agree on this concrete instance, via
+-- `AutReaches_iff_ViewPred`.
+example :
+    AutReaches exampleRE [0] (iterDerivative ([0] : List (Alphabet 3)) exampleRE) ∧
+      iterDerivative ([0] : List (Alphabet 3)) exampleRE ≠ RE.bot :=
+  (AutReaches_iff_ViewPred exampleRE _ [0]).mpr ⟨rfl, by decide⟩
+
 end Z3SeqProofs

@@ -1,4 +1,5 @@
 import Z3SeqProofs.LinearForm
+import Z3SeqProofs.View
 
 /-
 Symbolic automata: formalizes the construction connecting the
@@ -62,5 +63,48 @@ theorem AutAccepts_correct (r : RE α) (w : List σ) :
 theorem AutAccepts_eq_acceptsBy (r : RE α) (w : List σ) :
     AutAccepts r w ↔ acceptsBy r w = true := by
   rw [AutAccepts_correct, acceptsBy_correct]
+
+/-
+`AutAccepts` only ever reports the *final* state's nullability, never
+which state `M_r` actually lands in. `AutReaches` tracks the reached
+state explicitly, so it can be related directly to `View.lean`'s
+`iterDerivative` — the two are independent formalizations of "the state
+`r` is driven to after reading `u`" (one via the automaton's `ρ`, one via
+the plain iterated concrete derivative), and `AutReaches_iff_iterDerivative`
+shows they agree on every reached state, not just on acceptance.
+-/
+
+-- `AutReaches r u s`: there is a path through `ρ` from `r` to `s`
+-- labeled by `u`.
+def AutReaches : RE α → List σ → RE α → Prop
+  | r, [],     s => r = s
+  | r, a :: w, s => ∃ p ∈ LF (sder (σ := σ) r), EBA.models p.1 a = true ∧ AutReaches p.2 w s
+
+-- The state `M_r`'s transitions reach after reading `u` is exactly the
+-- iterated concrete derivative `iterDerivative u r`: the automaton-level
+-- notion of "reached state" (`ρ`-paths, `AutReaches`) and the
+-- derivative-level notion (`View.lean`'s `iterDerivative`, underlying
+-- `ViewPred`) are the same construction seen two ways.
+theorem AutReaches_iff_iterDerivative (r : RE α) (u : List σ) (s : RE α) :
+    AutReaches r u s ↔ iterDerivative u r = s := by
+  induction u generalizing r with
+  | nil => rfl
+  | cons a w ih =>
+      show (∃ p ∈ LF (sder (σ := σ) r), EBA.models p.1 a = true ∧ AutReaches p.2 w s) ↔
+        iterDerivative (a :: w) r = s
+      have hLF := LF_correct_general (sder (σ := σ) r) a (fun t => iterDerivative w t = s)
+      rw [sder_correct] at hLF
+      rw [show iterDerivative (a :: w) r = iterDerivative w (derivative a r) from rfl, ← hLF]
+      constructor
+      · rintro ⟨p, hp, hm, hreach⟩; exact ⟨p, hp, hm, (ih p.2).mp hreach⟩
+      · rintro ⟨p, hp, hm, hiter⟩; exact ⟨p, hp, hm, (ih p.2).mpr hiter⟩
+
+-- Consequently, every `View` (`ViewPred`) is exactly a reachable,
+-- non-dead state of `M_r`: the automaton-level and derivative-level
+-- accounts of "views" coincide.
+theorem AutReaches_iff_ViewPred (r s : RE α) (u : List σ) :
+    (AutReaches r u s ∧ s ≠ RE.bot) ↔ ViewPred r s u := by
+  rw [AutReaches_iff_iterDerivative]
+  rfl
 
 end Z3SeqProofs
